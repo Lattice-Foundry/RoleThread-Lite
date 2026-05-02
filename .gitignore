@@ -1,0 +1,11 @@
+trainer/
+backup/
+training_data/
+notes.txt
+venv/
+__pycache__/
+*.pyc
+.streamlit/
+preferences.json
+training_data/
+*.jsonl
