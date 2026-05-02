@@ -8,14 +8,22 @@ DEFAULT_SYSTEM_PROMPT = (
     "be descriptive, and always follow the user's lead."
 )
 
+TAGS: dict[str, list[str]] = {
+    "Behavior": ["pacing", "boundaries", "no_user_control", "followup_question", "emotional_awareness"],
+    "Scene": ["greeting", "medical", "comfort", "tension", "assessment", "aftercare"],
+    "Style": ["dialogue", "narration", "descriptive", "subtle", "grounded"],
+    "Source / Status": ["manual", "ai_generated", "reviewed", "needs_edit"],
+}
 
-def make_entry(user_msg: str, assistant_msg: str, system_prompt: str) -> dict:
+
+def make_entry(user_msg: str, assistant_msg: str, system_prompt: str, tags: list[str] | None = None) -> dict:
     return {
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_msg},
             {"role": "assistant", "content": assistant_msg},
-        ]
+        ],
+        "tags": tags if tags is not None else [],
     }
 
 
@@ -37,6 +45,11 @@ def validate_entry(entry: dict) -> list[str]:
             errors.append(f"Message {i}: expected role '{role}', got '{msg.get('role')}'")
         if not msg.get("content", "").strip():
             errors.append(f"Message {i} ({role}) has empty content")
+    if "tags" in entry:
+        if not isinstance(entry["tags"], list):
+            errors.append("'tags' must be a list")
+        elif not all(isinstance(t, str) for t in entry["tags"]):
+            errors.append("Each tag must be a string")
     return errors
 
 

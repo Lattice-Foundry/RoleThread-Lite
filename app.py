@@ -7,6 +7,7 @@ import streamlit as st
 
 from dataset import (
     DEFAULT_SYSTEM_PROMPT,
+    TAGS,
     append_to_dataset,
     load_dataset,
     make_entry,
@@ -163,6 +164,8 @@ with tab_create:
     if st.session_state.pop("clear_entry_fields", False):
         st.session_state["user_msg"] = ""
         st.session_state["assistant_msg"] = ""
+        for _cat in TAGS:
+            st.session_state[f"tags_{_cat}"] = []
 
     col_left, col_right = st.columns(2)
     with col_left:
@@ -170,9 +173,23 @@ with tab_create:
     with col_right:
         assistant_msg = st.text_area("Assistant response", height=200, placeholder="What the assistant replies…", key="assistant_msg")
 
+    st.divider()
+    st.subheader("Tags")
+    selected_tags: list[str] = []
+    tag_cols = st.columns(len(TAGS))
+    for col, (category, options) in zip(tag_cols, TAGS.items()):
+        with col:
+            chosen = st.multiselect(f"{category} tags", options=options, key=f"tags_{category}")
+            selected_tags.extend(chosen)
+
     entry_preview = None
     if user_msg.strip() and assistant_msg.strip():
-        entry_preview = make_entry(user_msg.strip(), assistant_msg.strip(), st.session_state.system_prompt)
+        entry_preview = make_entry(
+            user_msg.strip(),
+            assistant_msg.strip(),
+            st.session_state.system_prompt,
+            tags=selected_tags,
+        )
         errors = validate_entry(entry_preview)
 
         with st.expander("Preview JSON", expanded=False):
@@ -371,7 +388,9 @@ with tab_manage:
 
         for i, entry in enumerate(entries[start:end], start=start):
             errs = validate_entry(entry)
-            label = f"Entry {i + 1}"
+            entry_tags = entry.get("tags") or []
+            tag_str = f" [{', '.join(entry_tags)}]" if entry_tags else " [untagged]"
+            label = f"Entry {i + 1}{tag_str}"
             if errs:
                 label += " ⚠️"
             with st.expander(label):
