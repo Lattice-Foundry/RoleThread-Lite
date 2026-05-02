@@ -225,7 +225,7 @@ with tab_create:
 
 # ── Tab 2: Manage Dataset ──────────────────────────────────────────────────────
 with tab_manage:
-    if st.session_state.stale_last_path:
+    if st.session_state.stale_last_path and not st.session_state.loaded_path:
         st.warning(
             f"Last dataset `{st.session_state.stale_last_path}` no longer exists. "
             "Please load or create a dataset."
