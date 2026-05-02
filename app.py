@@ -393,13 +393,23 @@ with tab_manage:
                 st.error(f"Failed to save: {exc}")
 
         dl_name = Path(st.session_state.loaded_path).name or "dataset.jsonl"
-        content = "\n".join(json.dumps(e, ensure_ascii=False) for e in entries)
-        st.download_button(
-            "Download as JSONL",
-            data=content.encode("utf-8"),
-            file_name=dl_name,
-            mime="application/jsonlines",
-        )
+        dl_col, clean_col = st.columns([2, 3])
+        with clean_col:
+            st.write("")
+            clean_download = st.checkbox("Clean — Tag data removed", value=False)
+        with dl_col:
+            if clean_download:
+                dl_entries = [{"messages": e["messages"]} for e in entries]
+            else:
+                dl_entries = entries
+            content = "\n".join(json.dumps(e, ensure_ascii=False) for e in dl_entries)
+            st.download_button(
+                "Download as JSONL",
+                data=content.encode("utf-8"),
+                file_name=dl_name,
+                mime="application/jsonlines",
+                use_container_width=True,
+            )
 
         st.divider()
         st.subheader(f"Entries ({len(entries)})")
@@ -446,6 +456,11 @@ with tab_manage:
         else:
             _available = _all_flat + [_UNTAGGED]
 
+        # Apply pending correction BEFORE the widget instantiates (Streamlit
+        # forbids writing a widget's key after it has rendered in the same run).
+        if "filter_tags_pending" in st.session_state:
+            st.session_state["filter_tags"] = st.session_state.pop("filter_tags_pending")
+
         # Drop any stale selections no longer in the available option list
         _clamped = [t for t in st.session_state.get("filter_tags", []) if t in _available]
         if _clamped != st.session_state.get("filter_tags", []):
@@ -460,6 +475,19 @@ with tab_manage:
                 key="filter_tags",
                 on_change=_reset_page,
             )
+
+        # If every available real tag is selected alongside __untagged__, the
+        # user almost certainly hit "Select all". Write the correction to a
+        # pending key and rerun so it is applied before the widget renders.
+        _available_real = [t for t in _available if t != _UNTAGGED]
+        _selected_real = [t for t in filter_tags if t != _UNTAGGED]
+        if (
+            _UNTAGGED in filter_tags
+            and _available_real
+            and set(_selected_real) == set(_available_real)
+        ):
+            st.session_state["filter_tags_pending"] = _selected_real
+            st.rerun()
         with mode_col:
             match_mode = st.radio(
                 "Match mode",
