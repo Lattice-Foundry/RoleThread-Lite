@@ -33,6 +33,9 @@ if "prefs" not in st.session_state:
     st.session_state.stale_last_path = ""
     st.session_state.entry_page = 0
     st.session_state.entries_per_page = 25
+    st.session_state.filter_tags = []
+    st.session_state.filter_only_used = True
+    st.session_state.filter_match_mode = "Any selected tags"
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
@@ -136,6 +139,50 @@ def path_input(label: str, state_key: str, browse_fn, browse_kwargs: dict, defau
         if st.button("Browse", key=f"browse_{state_key}"):
             browse_fn(pending_key, **browse_kwargs)
     return value
+
+
+# ── Tag filtering helper ───────────────────────────────────────────────────────
+_UNTAGGED = "__untagged__"
+
+def filter_entries_by_tags(
+    entries: list[dict],
+    selected_tags: list[str],
+    match_mode: str,
+) -> list[dict]:
+    if not selected_tags:
+        return entries
+
+    normal_tags = [t for t in selected_tags if t != _UNTAGGED]
+    include_untagged = _UNTAGGED in selected_tags
+    normal_set = set(normal_tags)
+
+    result = []
+    for entry in entries:
+        entry_tags = entry.get("tags") or []
+        is_untagged = len(entry_tags) == 0
+
+        if is_untagged:
+            if include_untagged and not normal_tags:
+                result.append(entry)
+            elif include_untagged and match_mode == "Exact match":
+                result.append(entry)
+            continue
+
+        # Tagged entry — normal_tags must be non-empty to match
+        if not normal_tags:
+            continue
+        entry_set = set(entry_tags)
+        if match_mode == "All selected tags":
+            if normal_set.issubset(entry_set):
+                result.append(entry)
+        elif match_mode == "Exact match":
+            if entry_set == normal_set:
+                result.append(entry)
+        else:  # Any selected tags
+            if normal_set.intersection(entry_set):
+                result.append(entry)
+
+    return result
 
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
@@ -363,7 +410,72 @@ with tab_manage:
         else:
             st.success("All entries are valid.")
 
-        # Pagination controls
+        # ── Filter controls ────────────────────────────────────────────────────
+        _label_map: dict[str, str] = {_UNTAGGED: "Untagged"}
+        for _cat, _cat_tags in TAGS.items():
+            for _tag in _cat_tags:
+                _label_map[_tag] = f"{_cat} / {_tag}"
+
+        _used_tags: set[str] = set()
+        _has_untagged = False
+        for _e in entries:
+            _et = _e.get("tags") or []
+            if _et:
+                _used_tags.update(_et)
+            else:
+                _has_untagged = True
+
+        def _reset_page() -> None:
+            st.session_state.entry_page = 0
+
+        def _reset_page_and_selection() -> None:
+            st.session_state.entry_page = 0
+            st.session_state.filter_tags = []
+
+        only_used = st.checkbox(
+            "Only show used tags",
+            key="filter_only_used",
+            on_change=_reset_page_and_selection,
+        )
+
+        _all_flat = [t for _c in TAGS.values() for t in _c]
+        if only_used:
+            _available = [t for t in _all_flat if t in _used_tags]
+            if _has_untagged:
+                _available.append(_UNTAGGED)
+        else:
+            _available = _all_flat + [_UNTAGGED]
+
+        # Drop any stale selections no longer in the available option list
+        _clamped = [t for t in st.session_state.get("filter_tags", []) if t in _available]
+        if _clamped != st.session_state.get("filter_tags", []):
+            st.session_state["filter_tags"] = _clamped
+
+        filter_col, mode_col = st.columns([3, 1])
+        with filter_col:
+            filter_tags = st.multiselect(
+                "Filter entries by tag",
+                options=_available,
+                format_func=lambda x: _label_map.get(x, x),
+                key="filter_tags",
+                on_change=_reset_page,
+            )
+        with mode_col:
+            match_mode = st.radio(
+                "Match mode",
+                options=["Any selected tags", "All selected tags", "Exact match"],
+                key="filter_match_mode",
+                on_change=_reset_page,
+            )
+
+        # ── Apply filter ───────────────────────────────────────────────────────
+        filtered_entries = filter_entries_by_tags(
+            entries,
+            selected_tags=filter_tags,
+            match_mode=match_mode,
+        )
+
+        # ── Pagination ─────────────────────────────────────────────────────────
         per_page_options = [10, 25, 50, 100]
         default_idx = per_page_options.index(st.session_state.get("entries_per_page", 25))
         selected_per_page = st.selectbox(
@@ -377,46 +489,56 @@ with tab_manage:
             st.session_state.entry_page = 0
             st.rerun()
 
-        per_page = st.session_state.entries_per_page
-        total = len(entries)
-        last_page = max(0, (total - 1) // per_page)
-        page = min(st.session_state.get("entry_page", 0), last_page)
-        start = page * per_page
-        end = min(start + per_page, total)
+        total_filtered = len(filtered_entries)
+        total_all = len(entries)
 
-        st.caption(f"Showing {start + 1}–{end} of {total} entries")
+        if total_filtered == 0:
+            st.info("No entries match the current filters.")
+        else:
+            per_page = st.session_state.entries_per_page
+            last_page = max(0, (total_filtered - 1) // per_page)
+            page = min(st.session_state.get("entry_page", 0), last_page)
+            start = page * per_page
+            end = min(start + per_page, total_filtered)
 
-        for i, entry in enumerate(entries[start:end], start=start):
-            errs = validate_entry(entry)
-            entry_tags = entry.get("tags") or []
-            tag_str = f" [{', '.join(entry_tags)}]" if entry_tags else " [untagged]"
-            label = f"Entry {i + 1}{tag_str}"
-            if errs:
-                label += " ⚠️"
-            with st.expander(label):
+            if filter_tags:
+                st.caption(
+                    f"Showing {start + 1}–{end} of {total_filtered} filtered entries ({total_all} total)"
+                )
+            else:
+                st.caption(f"Showing {start + 1}–{end} of {total_all} entries")
+
+            for i, entry in enumerate(filtered_entries[start:end], start=start):
+                errs = validate_entry(entry)
+                entry_tags = entry.get("tags") or []
+                tag_str = f" [{', '.join(entry_tags)}]" if entry_tags else " [untagged]"
+                label = f"Entry {i + 1}{tag_str}"
                 if errs:
-                    for err in errs:
-                        st.error(err)
-                msgs = entry.get("messages", [])
-                for msg in msgs:
-                    role = msg.get("role", "?")
-                    content = msg.get("content", "")
-                    color = {"system": "#555", "user": "#1a73e8", "assistant": "#188038"}.get(role, "#000")
-                    st.markdown(
-                        f"<span style='color:{color};font-weight:bold;text-transform:uppercase'>{role}</span>",
-                        unsafe_allow_html=True,
-                    )
-                    st.text(content)
+                    label += " ⚠️"
+                with st.expander(label):
+                    if errs:
+                        for err in errs:
+                            st.error(err)
+                    msgs = entry.get("messages", [])
+                    for msg in msgs:
+                        role = msg.get("role", "?")
+                        content = msg.get("content", "")
+                        color = {"system": "#555", "user": "#1a73e8", "assistant": "#188038"}.get(role, "#000")
+                        st.markdown(
+                            f"<span style='color:{color};font-weight:bold;text-transform:uppercase'>{role}</span>",
+                            unsafe_allow_html=True,
+                        )
+                        st.text(content)
 
-        col_prev, col_next = st.columns(2)
-        with col_prev:
-            if st.button("Previous", disabled=(page == 0), use_container_width=True):
-                st.session_state.entry_page = page - 1
-                st.rerun()
-        with col_next:
-            if st.button("Next", disabled=(page >= last_page), use_container_width=True):
-                st.session_state.entry_page = page + 1
-                st.rerun()
+            col_prev, col_next = st.columns(2)
+            with col_prev:
+                if st.button("Previous", disabled=(page == 0), use_container_width=True):
+                    st.session_state.entry_page = page - 1
+                    st.rerun()
+            with col_next:
+                if st.button("Next", disabled=(page >= last_page), use_container_width=True):
+                    st.session_state.entry_page = page + 1
+                    st.rerun()
 
 
 # ── Tab 3: Merge Datasets ──────────────────────────────────────────────────────

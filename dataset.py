@@ -12,7 +12,7 @@ TAGS: dict[str, list[str]] = {
     "Behavior": ["pacing", "boundaries", "no_user_control", "followup_question", "emotional_awareness"],
     "Scene": ["greeting", "medical", "comfort", "tension", "assessment", "aftercare"],
     "Style": ["dialogue", "narration", "descriptive", "subtle", "grounded"],
-    "Source / Status": ["manual", "ai_generated", "reviewed", "needs_edit"],
+    "Source & Status": ["manual", "ai_generated", "reviewed", "needs_edit"],
 }
 
 
@@ -45,11 +45,12 @@ def validate_entry(entry: dict) -> list[str]:
             errors.append(f"Message {i}: expected role '{role}', got '{msg.get('role')}'")
         if not msg.get("content", "").strip():
             errors.append(f"Message {i} ({role}) has empty content")
-    if "tags" in entry:
-        if not isinstance(entry["tags"], list):
-            errors.append("'tags' must be a list")
-        elif not all(isinstance(t, str) for t in entry["tags"]):
-            errors.append("Each tag must be a string")
+    if "tags" not in entry:
+        errors.append("Missing 'tags' key")
+    elif not isinstance(entry["tags"], list):
+        errors.append("'tags' must be a list")
+    elif not all(isinstance(t, str) for t in entry["tags"]):
+        errors.append("Each tag must be a string")
     return errors
 
 
@@ -65,6 +66,8 @@ def load_dataset(path: str) -> tuple[list[dict], list[str]]:
                 continue
             try:
                 entry = json.loads(line)
+                if "tags" not in entry:
+                    entry["tags"] = []
                 entries.append(entry)
             except json.JSONDecodeError as e:
                 parse_errors.append(f"Line {line_num}: {e}")
