@@ -30,6 +30,8 @@ if "prefs" not in st.session_state:
     st.session_state.loaded_entries = []
     st.session_state.loaded_path = ""
     st.session_state.stale_last_path = ""
+    st.session_state.entry_page = 0
+    st.session_state.entries_per_page = 25
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
@@ -251,6 +253,7 @@ with tab_manage:
             st.session_state.loaded_entries = entries
             st.session_state.loaded_path = p
             st.session_state.stale_last_path = ""
+            st.session_state.entry_page = 0
             _update_prefs({
                 "last_loaded_dataset_path": p,
                 "last_open_directory": str(Path(p).parent),
@@ -285,6 +288,7 @@ with tab_manage:
                     st.session_state.loaded_entries = []
                     st.session_state.loaded_path = new_path
                     st.session_state.stale_last_path = ""
+                    st.session_state.entry_page = 0
                     # Push new path into both path fields via pending keys
                     st.session_state["manage_load_path_pending"] = new_path
                     st.session_state["create_save_path_pending"] = new_path
@@ -342,7 +346,30 @@ with tab_manage:
         else:
             st.success("All entries are valid.")
 
-        for i, entry in enumerate(entries):
+        # Pagination controls
+        per_page_options = [10, 25, 50, 100]
+        default_idx = per_page_options.index(st.session_state.get("entries_per_page", 25))
+        selected_per_page = st.selectbox(
+            "Entries per page",
+            options=per_page_options,
+            index=default_idx,
+            key="_entries_per_page_select",
+        )
+        if selected_per_page != st.session_state.get("entries_per_page"):
+            st.session_state.entries_per_page = selected_per_page
+            st.session_state.entry_page = 0
+            st.rerun()
+
+        per_page = st.session_state.entries_per_page
+        total = len(entries)
+        last_page = max(0, (total - 1) // per_page)
+        page = min(st.session_state.get("entry_page", 0), last_page)
+        start = page * per_page
+        end = min(start + per_page, total)
+
+        st.caption(f"Showing {start + 1}–{end} of {total} entries")
+
+        for i, entry in enumerate(entries[start:end], start=start):
             errs = validate_entry(entry)
             label = f"Entry {i + 1}"
             if errs:
@@ -361,6 +388,16 @@ with tab_manage:
                         unsafe_allow_html=True,
                     )
                     st.text(content)
+
+        col_prev, col_next = st.columns(2)
+        with col_prev:
+            if st.button("Previous", disabled=(page == 0), use_container_width=True):
+                st.session_state.entry_page = page - 1
+                st.rerun()
+        with col_next:
+            if st.button("Next", disabled=(page >= last_page), use_container_width=True):
+                st.session_state.entry_page = page + 1
+                st.rerun()
 
 
 # ── Tab 3: Merge Datasets ──────────────────────────────────────────────────────
