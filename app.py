@@ -385,7 +385,7 @@ with tab_create:
     _add_label = f"Add Exchange ({_remaining} Remaining)" if _remaining > 0 else "Add Exchange"
     _btn_add, _btn_remove = st.columns(2)
     with _btn_add:
-        if st.button(_add_label, use_container_width=True):
+        if st.button(_add_label, width='stretch'):
             for _cat in TAGS:
                 st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
             st.session_state.turns += [{"role": "user"}, {"role": "assistant"}]
@@ -394,7 +394,7 @@ with tab_create:
         if st.button(
             "Remove Last Exchange",
             disabled=len(st.session_state.turns) <= 2,
-            use_container_width=True,
+            width='stretch',
         ):
             for _cat in TAGS:
                 st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
@@ -472,7 +472,7 @@ with tab_create:
         st.info(f"You are {_overage} exchange(s) over your planned count. You can still save this exchange.")
 
     _complete_disabled = not _entry_valid or _current_exchanges < _planned_exchanges
-    if st.button("Complete Exchange", disabled=_complete_disabled, type="primary", use_container_width=True):
+    if st.button("Complete Exchange", disabled=_complete_disabled, type="primary", width='stretch'):
         if not save_path.strip():
             st.error("Please set a dataset file path at the top of this tab.")
         else:
@@ -519,7 +519,7 @@ with tab_manage:
     col_load, col_new = st.columns(2)
 
     with col_load:
-        if st.button("Load", use_container_width=True):
+        if st.button("Load", width='stretch'):
             p = load_path.strip()
             entries, errors = load_dataset(p)
             if errors:
@@ -537,7 +537,7 @@ with tab_manage:
             st.success(f"Loaded {len(entries)} entries from `{p}`.")
 
     with col_new:
-        if st.button("New Dataset", use_container_width=True):
+        if st.button("New Dataset", width='stretch'):
             prefs = st.session_state.prefs
             root = _tk_root()
             new_path = filedialog.asksaveasfilename(
@@ -620,7 +620,7 @@ with tab_manage:
                 data=content.encode("utf-8"),
                 file_name=dl_name,
                 mime="application/jsonlines",
-                use_container_width=True,
+                width='stretch',
             )
 
         st.divider()
@@ -781,11 +781,11 @@ with tab_manage:
 
             col_prev, col_next = st.columns(2)
             with col_prev:
-                if st.button("Previous", disabled=(page == 0), use_container_width=True):
+                if st.button("Previous", disabled=(page == 0), width='stretch'):
                     st.session_state.entry_page = page - 1
                     st.rerun()
             with col_next:
-                if st.button("Next", disabled=(page >= last_page), use_container_width=True):
+                if st.button("Next", disabled=(page >= last_page), width='stretch'):
                     st.session_state.entry_page = page + 1
                     st.rerun()
 
@@ -836,7 +836,7 @@ with tab_stats:
                 )
                 st.plotly_chart(
                     px.bar(_df_tags, x="Tag", y="Count", title="Tag Counts"),
-                    use_container_width=True,
+                    width='stretch',
                 )
 
             with _tb2:
@@ -849,12 +849,12 @@ with tab_stats:
                 )
                 st.plotly_chart(
                     px.bar(_df_cat, x="Category", y="Count", title="Tag Category Counts"),
-                    use_container_width=True,
+                    width='stretch',
                 )
 
             st.dataframe(
                 _df_tags.rename(columns={"Tag": "Tag", "Count": "Entries using tag"}),
-                use_container_width=True,
+                width='stretch',
                 hide_index=True,
             )
 
@@ -871,7 +871,7 @@ with tab_stats:
             )
             st.plotly_chart(
                 px.bar(_df_exc, x="Exchanges", y="Entries", title="Entries by Exchange Count"),
-                use_container_width=True,
+                width='stretch',
             )
 
         with _ed2:
@@ -892,7 +892,7 @@ with tab_stats:
                     y="Entries",
                     title="Format Distribution",
                 ),
-                use_container_width=True,
+                width='stretch',
             )
 
         # ── Validation ────────────────────────────────────────────────────────
@@ -911,7 +911,7 @@ with tab_stats:
                 }
                 for r in _s["invalid_rows"]
             ])
-            st.dataframe(_df_val, use_container_width=True, hide_index=True)
+            st.dataframe(_df_val, width='stretch', hide_index=True)
 
 
 # ── Tab 3 (renumbered): Merge Datasets ────────────────────────────────────────
