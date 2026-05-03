@@ -12,6 +12,7 @@ DEFAULTS: dict = {
     "last_system_prompt": "",
     "preview_user_name": "User",
     "preview_assistant_name": "Assistant",
+    "dataset_format": "ChatML",
 }
 
 

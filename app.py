@@ -63,6 +63,7 @@ if "prefs" not in st.session_state:
     st.session_state.planned_exchanges = 1
     st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
+    st.session_state.dataset_format = prefs.get("dataset_format", "ChatML")
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
@@ -212,6 +213,19 @@ def filter_entries_by_tags(
     return result
 
 
+# ── Exchange counter ──────────────────────────────────────────────────────────
+def _count_exchanges(entry: dict) -> int:
+    """Return the number of user/assistant pairs after the system message.
+    Safe against malformed entries — never raises."""
+    try:
+        msgs = entry.get("messages") or []
+        # Skip the leading system message; count pairs from the rest
+        non_system = [m for m in msgs if isinstance(m, dict) and m.get("role") != "system"]
+        return len(non_system) // 2
+    except Exception:
+        return 0
+
+
 # ── Narration / dialogue formatter ────────────────────────────────────────────
 def _format_preview_content(text: str) -> str:
     """Split content into dialogue (plain) and narration (orange italic).
@@ -237,6 +251,22 @@ tab_create, tab_manage, tab_merge, tab_settings = st.tabs(
 
 # ── Tab 4: Settings ────────────────────────────────────────────────────────────
 with tab_settings:
+    st.subheader("Dataset Format")
+
+    def _persist_dataset_format():
+        st.session_state.dataset_format = st.session_state["_dataset_format_select"]
+        _update_prefs({"dataset_format": st.session_state.dataset_format})
+
+    st.selectbox(
+        "Default dataset format",
+        options=["ChatML"],
+        index=["ChatML"].index(st.session_state.dataset_format)
+        if st.session_state.dataset_format in ["ChatML"] else 0,
+        key="_dataset_format_select",
+        on_change=_persist_dataset_format,
+    )
+
+    st.divider()
     st.subheader("Save Location")
 
     save_path = path_input(
@@ -727,8 +757,13 @@ with tab_manage:
             for i, entry in enumerate(filtered_entries[start:end], start=start):
                 errs = validate_entry(entry)
                 entry_tags = entry.get("tags") or []
-                tag_str = f" [{', '.join(entry_tags)}]" if entry_tags else " [untagged]"
-                label = f"Entry {i + 1}{tag_str}"
+                _tag_part = ", ".join(entry_tags) if entry_tags else "untagged"
+                _fmt_part = st.session_state.dataset_format
+                _exc_part = _count_exchanges(entry)
+                label = (
+                    f"Entry {i + 1} | FORMAT: {_fmt_part} | "
+                    f"TAGS: {_tag_part} | EXCHANGES: {_exc_part}"
+                )
                 if errs:
                     label += " ⚠️"
                 with st.expander(label):
