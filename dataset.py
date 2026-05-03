@@ -16,12 +16,15 @@ TAGS: dict[str, list[str]] = {
 }
 
 
-def make_entry(user_msg: str, assistant_msg: str, system_prompt: str, tags: list[str] | None = None) -> dict:
+def make_entry(turns: list[dict], system_prompt: str, tags: list[str] | None = None) -> dict:
+    """Build a dataset entry from a list of {role, content} turn dicts.
+
+    Empty turns are stripped so trailing blank pairs do not produce invalid messages.
+    """
+    clean = [t for t in turns if t.get("content", "").strip()]
     return {
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_msg},
-            {"role": "assistant", "content": assistant_msg},
+        "messages": [{"role": "system", "content": system_prompt}] + [
+            {"role": t["role"], "content": t["content"].strip()} for t in clean
         ],
         "tags": tags if tags is not None else [],
     }
@@ -33,18 +36,35 @@ def validate_entry(entry: dict) -> list[str]:
         errors.append("Missing 'messages' key")
         return errors
     msgs = entry["messages"]
-    if not isinstance(msgs, list) or len(msgs) != 3:
-        errors.append("'messages' must be a list of exactly 3 items")
+    if not isinstance(msgs, list):
+        errors.append("'messages' must be a list")
         return errors
-    expected_roles = ["system", "user", "assistant"]
-    for i, (msg, role) in enumerate(zip(msgs, expected_roles)):
+    if len(msgs) < 3:
+        errors.append("'messages' must have at least 3 items (system + one user/assistant exchange)")
+        return errors
+    if (len(msgs) - 1) % 2 != 0:
+        errors.append("Messages must contain complete user/assistant exchanges")
+        return errors
+    # System message
+    if not isinstance(msgs[0], dict):
+        errors.append("Message 0 is not a dict")
+        return errors
+    if msgs[0].get("role") != "system":
+        errors.append(f"Message 0: expected role 'system', got '{msgs[0].get('role')}'")
+    if not msgs[0].get("content", "").strip():
+        errors.append("Message 0 (system) has empty content")
+    # Alternating user / assistant after system
+    expected = "user"
+    for i, msg in enumerate(msgs[1:], 1):
         if not isinstance(msg, dict):
             errors.append(f"Message {i} is not a dict")
+            expected = "assistant" if expected == "user" else "user"
             continue
-        if msg.get("role") != role:
-            errors.append(f"Message {i}: expected role '{role}', got '{msg.get('role')}'")
+        if msg.get("role") != expected:
+            errors.append(f"Message {i}: expected role '{expected}', got '{msg.get('role')}'")
         if not msg.get("content", "").strip():
-            errors.append(f"Message {i} ({role}) has empty content")
+            errors.append(f"Message {i} ({expected}) has empty content")
+        expected = "assistant" if expected == "user" else "user"
     if "tags" not in entry:
         errors.append("Missing 'tags' key")
     elif not isinstance(entry["tags"], list):

@@ -20,6 +20,28 @@ from preferences import get_initial_dir, load_preferences, save_preferences
 st.set_page_config(page_title="Roleplay Dataset Manager", layout="wide")
 st.title("Roleplay Dataset Manager")
 
+st.markdown("""
+<style>
+/* Primary button — enabled state only (:not(:disabled) keeps disabled grey) */
+button[data-testid="baseButton-primary"]:not(:disabled),
+button[kind="primary"]:not(:disabled),
+.stButton > button[type="submit"]:not(:disabled),
+.stButton > button:not([kind="secondary"]):not([kind="tertiary"]):not(:disabled) {
+    background-color: #1a73e8 !important;
+    border-color: #1565c0 !important;
+    color: white !important;
+}
+button[data-testid="baseButton-primary"]:not(:disabled):hover,
+button[kind="primary"]:not(:disabled):hover,
+.stButton > button[type="submit"]:not(:disabled):hover,
+.stButton > button:not([kind="secondary"]):not([kind="tertiary"]):not(:disabled):hover {
+    background-color: #1565c0 !important;
+    border-color: #0d47a1 !important;
+    color: white !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 JSONL_TYPES = [("JSONL files", "*.jsonl"), ("All files", "*.*")]
 
 # ── One-time session initialisation ───────────────────────────────────────────
@@ -36,6 +58,7 @@ if "prefs" not in st.session_state:
     st.session_state.filter_tags = []
     st.session_state.filter_only_used = True
     st.session_state.filter_match_mode = "Any selected tags"
+    st.session_state.turns = [{"role": "user"}, {"role": "assistant"}]
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
@@ -191,6 +214,24 @@ tab_create, tab_manage, tab_merge = st.tabs(["✍️ Create Entry", "📂 Manage
 
 # ── Tab 1: Create Entry ────────────────────────────────────────────────────────
 with tab_create:
+    st.subheader("Save Location")
+
+    save_path = path_input(
+        "Dataset file path (.jsonl)",
+        state_key="create_save_path",
+        browse_fn=browse_save_file,
+        browse_kwargs={
+            "default_name": Path(st.session_state.loaded_path).name or "dataset.jsonl",
+            "pref_path_key": "last_loaded_dataset_path",
+        },
+        default=st.session_state.prefs.get("last_loaded_dataset_path") or st.session_state.loaded_path or "dataset.jsonl",
+    )
+
+    # Keep Load Dataset path in sync with Save Location
+    if save_path and save_path != st.session_state.get("manage_load_path"):
+        st.session_state["manage_load_path_pending"] = save_path
+
+    st.divider()
     st.subheader("System Prompt")
 
     def _persist_system_prompt():
@@ -207,21 +248,70 @@ with tab_create:
     st.divider()
     st.subheader("New Entry")
 
-    # Apply any pending clear before the widgets are instantiated
+    # Apply any pending clear before widgets are instantiated
     if st.session_state.pop("clear_entry_fields", False):
-        st.session_state["user_msg"] = ""
-        st.session_state["assistant_msg"] = ""
+        _old_turn_count = len(st.session_state.get("turns", []))
+        st.session_state.turns = [{"role": "user"}, {"role": "assistant"}]
+        # Explicitly blank the first pair so Streamlit actually resets the widgets
+        st.session_state["turn_0"] = ""
+        st.session_state["turn_1"] = ""
+        # Remove any extra turns beyond the reset pair
+        for _i in range(2, _old_turn_count):
+            st.session_state.pop(f"turn_{_i}", None)
         for _cat in TAGS:
             st.session_state[f"tags_{_cat}"] = []
 
-    col_left, col_right = st.columns(2)
-    with col_left:
-        user_msg = st.text_area("User message", height=200, placeholder="What the user says…", key="user_msg")
-    with col_right:
-        assistant_msg = st.text_area("Assistant response", height=200, placeholder="What the assistant replies…", key="assistant_msg")
+    # ── Multi-turn conversation builder ───────────────────────────────────────
+    # Restore any tag values that were saved before an Add/Remove rerun.
+    for _cat in TAGS:
+        _bk = f"_tags_backup_{_cat}"
+        if _bk in st.session_state:
+            st.session_state[f"tags_{_cat}"] = st.session_state.pop(_bk)
+
+    _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
+    _ROLE_PLACEHOLDER = {
+        "user": "What the user says…",
+        "assistant": "What the assistant replies…",
+    }
+
+    for _i, _turn in enumerate(st.session_state.turns):
+        _role = _turn["role"]
+        _color = _ROLE_COLOR.get(_role, "#000")
+        st.markdown(
+            f"<span style='color:{_color};font-weight:bold;text-transform:uppercase'>{_role}</span>",
+            unsafe_allow_html=True,
+        )
+        st.text_area(
+            label=f"turn_{_i}",
+            placeholder=_ROLE_PLACEHOLDER.get(_role, ""),
+            key=f"turn_{_i}",
+            height=150,
+            label_visibility="collapsed",
+        )
+
+    _btn_add, _btn_remove = st.columns(2)
+    with _btn_add:
+        if st.button("Add Exchange", use_container_width=True):
+            for _cat in TAGS:
+                st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
+            st.session_state.turns += [{"role": "user"}, {"role": "assistant"}]
+            st.rerun()
+    with _btn_remove:
+        if st.button(
+            "Remove Last Exchange",
+            disabled=len(st.session_state.turns) <= 2,
+            use_container_width=True,
+        ):
+            for _cat in TAGS:
+                st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
+            _n = len(st.session_state.turns)
+            st.session_state.turns = st.session_state.turns[:-2]
+            for _k in [f"turn_{_n - 2}", f"turn_{_n - 1}"]:
+                st.session_state.pop(_k, None)
+            st.rerun()
 
     st.divider()
-    st.subheader("Tags")
+    st.subheader("Tag & Complete Exchange")
     selected_tags: list[str] = []
     tag_cols = st.columns(len(TAGS))
     for col, (category, options) in zip(tag_cols, TAGS.items()):
@@ -229,12 +319,19 @@ with tab_create:
             chosen = st.multiselect(f"{category} tags", options=options, key=f"tags_{category}")
             selected_tags.extend(chosen)
 
+    # Build current turn content and trigger preview if anything has been written
+    _turns_now = [
+        {"role": t["role"], "content": st.session_state.get(f"turn_{i}", "")}
+        for i, t in enumerate(st.session_state.turns)
+    ]
+    _has_content = any(t["content"].strip() for t in _turns_now)
+
     entry_preview = None
-    if user_msg.strip() and assistant_msg.strip():
+    _entry_valid = False
+    if _has_content:
         entry_preview = make_entry(
-            user_msg.strip(),
-            assistant_msg.strip(),
-            st.session_state.system_prompt,
+            turns=_turns_now,
+            system_prompt=st.session_state.system_prompt,
             tags=selected_tags,
         )
         errors = validate_entry(entry_preview)
@@ -247,28 +344,11 @@ with tab_create:
                 st.error(err)
         else:
             st.success("Entry looks valid.")
+            _entry_valid = True
 
-    st.divider()
-    st.subheader("Save Entry")
-
-    save_path = path_input(
-        "Dataset file path (.jsonl)",
-        state_key="create_save_path",
-        browse_fn=browse_save_file,
-        browse_kwargs={
-            "default_name": Path(st.session_state.loaded_path).name or "dataset.jsonl",
-            "pref_path_key": "last_save_dataset_path",
-        },
-        default=st.session_state.prefs.get("last_save_dataset_path") or st.session_state.loaded_path or "dataset.jsonl",
-    )
-
-    if st.button("Append to Dataset", disabled=entry_preview is None, type="primary"):
-        errors = validate_entry(entry_preview)
-        if errors:
-            for err in errors:
-                st.error(err)
-        elif not save_path.strip():
-            st.error("Please enter or browse for a save path.")
+    if st.button("Complete Exchange", disabled=not _entry_valid, type="primary", use_container_width=True):
+        if not save_path.strip():
+            st.error("Please set a dataset file path at the top of this tab.")
         else:
             try:
                 p = save_path.strip()
@@ -277,9 +357,10 @@ with tab_create:
                 entries, _ = load_dataset(p)
                 st.session_state.loaded_entries = entries
                 _update_prefs({
-                    "last_save_dataset_path": p,
+                    "last_loaded_dataset_path": p,
                     "last_save_directory": str(Path(p).parent),
                 })
+                st.session_state["manage_load_path_pending"] = p
                 st.session_state["clear_entry_fields"] = True
                 st.success(f"Entry appended to `{Path(p).resolve()}`.")
                 st.rerun()
@@ -305,6 +386,10 @@ with tab_manage:
         default=st.session_state.prefs.get("last_loaded_dataset_path") or st.session_state.loaded_path or "dataset.jsonl",
     )
 
+    # Keep Save Location path in sync with Load Dataset
+    if load_path and load_path != st.session_state.get("create_save_path"):
+        st.session_state["create_save_path_pending"] = load_path
+
     col_load, col_new = st.columns(2)
 
     with col_load:
@@ -318,6 +403,7 @@ with tab_manage:
             st.session_state.loaded_path = p
             st.session_state.stale_last_path = ""
             st.session_state.entry_page = 0
+            st.session_state["create_save_path_pending"] = p
             _update_prefs({
                 "last_loaded_dataset_path": p,
                 "last_open_directory": str(Path(p).parent),
