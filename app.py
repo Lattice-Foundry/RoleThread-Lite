@@ -60,6 +60,8 @@ if "prefs" not in st.session_state:
     st.session_state.filter_only_used = True
     st.session_state.filter_match_mode = "Any selected tags"
     st.session_state.turns = [{"role": "user"}, {"role": "assistant"}]
+    st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
+    st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
@@ -209,205 +211,240 @@ def filter_entries_by_tags(
     return result
 
 
+# ── Narration / dialogue formatter ────────────────────────────────────────────
+def _format_preview_content(text: str) -> str:
+    """Split content into dialogue (plain) and narration (orange italic).
+    Text inside double-quotes is treated as dialogue and left unstyled.
+    Everything else is narration and rendered orange + italic."""
+    parts = re.split(r'(".*?")', text, flags=re.DOTALL)
+    out = ""
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith('"') and part.endswith('"') and len(part) >= 2:
+            out += part  # dialogue — plain/default color
+        else:
+            out += f"<span style='color:#e67e22;font-style:italic'>{part}</span>"
+    return out
+
+
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_create, tab_manage, tab_merge = st.tabs(["✍️ Create Entry", "📂 Manage Dataset", "🔀 Merge Datasets"])
+tab_create, tab_manage, tab_merge, tab_settings = st.tabs(
+    ["✍️ Create Entry", "📂 Manage Dataset", "🔀 Merge Datasets", "⚙️ Settings"]
+)
+
+
+# ── Tab 4: Settings ────────────────────────────────────────────────────────────
+with tab_settings:
+    st.subheader("Save Location")
+
+    save_path = path_input(
+        "Dataset file path (.jsonl)",
+        state_key="create_save_path",
+        browse_fn=browse_save_file,
+        browse_kwargs={
+            "default_name": Path(st.session_state.loaded_path).name or "dataset.jsonl",
+            "pref_path_key": "last_loaded_dataset_path",
+        },
+        default=st.session_state.prefs.get("last_loaded_dataset_path") or st.session_state.loaded_path or "dataset.jsonl",
+    )
+
+    # Keep Load Dataset path in sync with Save Location
+    if save_path and save_path != st.session_state.get("manage_load_path"):
+        st.session_state["manage_load_path_pending"] = save_path
+
+    st.divider()
+    st.subheader("Conversation Preview Settings")
+
+    def _persist_preview_user_name():
+        st.session_state.preview_user_name = st.session_state["_preview_user_name_input"]
+        _update_prefs({"preview_user_name": st.session_state.preview_user_name})
+
+    def _persist_preview_assistant_name():
+        st.session_state.preview_assistant_name = st.session_state["_preview_assistant_name_input"]
+        _update_prefs({"preview_assistant_name": st.session_state.preview_assistant_name})
+
+    st.text_input(
+        "User Name",
+        value=st.session_state.preview_user_name,
+        key="_preview_user_name_input",
+        on_change=_persist_preview_user_name,
+    )
+    st.text_input(
+        "Assistant Name",
+        value=st.session_state.preview_assistant_name,
+        key="_preview_assistant_name_input",
+        on_change=_persist_preview_assistant_name,
+    )
 
 
 # ── Tab 1: Create Entry ────────────────────────────────────────────────────────
 with tab_create:
-    _col_left, _col_right = st.columns([3, 2])
+    st.subheader("System Prompt")
 
-    with _col_left:
-        st.subheader("Save Location")
+    def _persist_system_prompt():
+        _update_prefs({"last_system_prompt": st.session_state.sys_prompt_input})
 
-        save_path = path_input(
-            "Dataset file path (.jsonl)",
-            state_key="create_save_path",
-            browse_fn=browse_save_file,
-            browse_kwargs={
-                "default_name": Path(st.session_state.loaded_path).name or "dataset.jsonl",
-                "pref_path_key": "last_loaded_dataset_path",
-            },
-            default=st.session_state.prefs.get("last_loaded_dataset_path") or st.session_state.loaded_path or "dataset.jsonl",
-        )
+    st.session_state.system_prompt = st.text_area(
+        "Default system prompt (applied to every entry)",
+        value=st.session_state.system_prompt,
+        height=100,
+        key="sys_prompt_input",
+        on_change=_persist_system_prompt,
+    )
 
-        # Keep Load Dataset path in sync with Save Location
-        if save_path and save_path != st.session_state.get("manage_load_path"):
-            st.session_state["manage_load_path_pending"] = save_path
+    st.divider()
+    st.subheader("New Entry")
 
-        st.divider()
-        st.subheader("System Prompt")
-
-        def _persist_system_prompt():
-            _update_prefs({"last_system_prompt": st.session_state.sys_prompt_input})
-
-        st.session_state.system_prompt = st.text_area(
-            "Default system prompt (applied to every entry)",
-            value=st.session_state.system_prompt,
-            height=100,
-            key="sys_prompt_input",
-            on_change=_persist_system_prompt,
-        )
-
-        st.divider()
-        st.subheader("New Entry")
-
-        # Apply any pending clear before widgets are instantiated
-        if st.session_state.pop("clear_entry_fields", False):
-            _old_turn_count = len(st.session_state.get("turns", []))
-            st.session_state.turns = [{"role": "user"}, {"role": "assistant"}]
-            # Explicitly blank the first pair so Streamlit actually resets the widgets
-            st.session_state["turn_0"] = ""
-            st.session_state["turn_1"] = ""
-            # Remove any extra turns beyond the reset pair
-            for _i in range(2, _old_turn_count):
-                st.session_state.pop(f"turn_{_i}", None)
-            for _cat in TAGS:
-                st.session_state[f"tags_{_cat}"] = []
-
-        # ── Multi-turn conversation builder ───────────────────────────────────
-        # Restore any tag values that were saved before an Add/Remove rerun.
+    # Apply any pending clear before widgets are instantiated
+    if st.session_state.pop("clear_entry_fields", False):
+        _old_turn_count = len(st.session_state.get("turns", []))
+        st.session_state.turns = [{"role": "user"}, {"role": "assistant"}]
+        # Explicitly blank the first pair so Streamlit actually resets the widgets
+        st.session_state["turn_0"] = ""
+        st.session_state["turn_1"] = ""
+        # Remove any extra turns beyond the reset pair
+        for _i in range(2, _old_turn_count):
+            st.session_state.pop(f"turn_{_i}", None)
         for _cat in TAGS:
-            _bk = f"_tags_backup_{_cat}"
-            if _bk in st.session_state:
-                st.session_state[f"tags_{_cat}"] = st.session_state.pop(_bk)
+            st.session_state[f"tags_{_cat}"] = []
 
-        _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
-        _ROLE_PLACEHOLDER = {
-            "user": "What the user says…",
-            "assistant": "What the assistant replies…",
-        }
+    # ── Multi-turn conversation builder ───────────────────────────────────────
+    # Restore any tag values that were saved before an Add/Remove rerun.
+    for _cat in TAGS:
+        _bk = f"_tags_backup_{_cat}"
+        if _bk in st.session_state:
+            st.session_state[f"tags_{_cat}"] = st.session_state.pop(_bk)
 
-        for _i, _turn in enumerate(st.session_state.turns):
+    _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
+    _ROLE_PLACEHOLDER = {
+        "user": "What the user says…",
+        "assistant": "What the assistant replies…",
+    }
+
+    # Render each user/assistant pair as a two-column row
+    for _pair in range(0, len(st.session_state.turns), 2):
+        _col_user, _col_asst = st.columns(2)
+        for _col, _idx in ((_col_user, _pair), (_col_asst, _pair + 1)):
+            if _idx >= len(st.session_state.turns):
+                break
+            _turn = st.session_state.turns[_idx]
             _role = _turn["role"]
             _color = _ROLE_COLOR.get(_role, "#000")
-            st.markdown(
-                f"<span style='color:{_color};font-weight:bold;text-transform:uppercase'>{_role}</span>",
-                unsafe_allow_html=True,
-            )
-            st.text_area(
-                label=f"turn_{_i}",
-                placeholder=_ROLE_PLACEHOLDER.get(_role, ""),
-                key=f"turn_{_i}",
-                height=150,
-                label_visibility="collapsed",
-            )
-
-        _btn_add, _btn_remove = st.columns(2)
-        with _btn_add:
-            if st.button("Add Exchange", use_container_width=True):
-                for _cat in TAGS:
-                    st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
-                st.session_state.turns += [{"role": "user"}, {"role": "assistant"}]
-                st.rerun()
-        with _btn_remove:
-            if st.button(
-                "Remove Last Exchange",
-                disabled=len(st.session_state.turns) <= 2,
-                use_container_width=True,
-            ):
-                for _cat in TAGS:
-                    st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
-                _n = len(st.session_state.turns)
-                st.session_state.turns = st.session_state.turns[:-2]
-                for _k in [f"turn_{_n - 2}", f"turn_{_n - 1}"]:
-                    st.session_state.pop(_k, None)
-                st.rerun()
-
-        st.divider()
-        st.subheader("Tag & Complete Exchange")
-        selected_tags: list[str] = []
-        tag_cols = st.columns(len(TAGS))
-        for col, (category, options) in zip(tag_cols, TAGS.items()):
-            with col:
-                chosen = st.multiselect(f"{category} tags", options=options, key=f"tags_{category}")
-                selected_tags.extend(chosen)
-
-        # Build current turn content and trigger preview if anything has been written
-        _turns_now = [
-            {"role": t["role"], "content": st.session_state.get(f"turn_{i}", "")}
-            for i, t in enumerate(st.session_state.turns)
-        ]
-        _has_content = any(t["content"].strip() for t in _turns_now)
-
-        entry_preview = None
-        _entry_valid = False
-        if _has_content:
-            entry_preview = make_entry(
-                turns=_turns_now,
-                system_prompt=st.session_state.system_prompt,
-                tags=selected_tags,
-            )
-            errors = validate_entry(entry_preview)
-
-            with st.expander("Preview JSON", expanded=False):
-                st.code(json.dumps(entry_preview, ensure_ascii=False, indent=2), language="json")
-
-            if errors:
-                for err in errors:
-                    st.error(err)
-            else:
-                st.success("Entry looks valid.")
-                _entry_valid = True
-
-        if st.button("Complete Exchange", disabled=not _entry_valid, type="primary", use_container_width=True):
-            if not save_path.strip():
-                st.error("Please set a dataset file path at the top of this tab.")
-            else:
-                try:
-                    p = save_path.strip()
-                    append_to_dataset(p, entry_preview)
-                    st.session_state.loaded_path = p
-                    entries, _ = load_dataset(p)
-                    st.session_state.loaded_entries = entries
-                    _update_prefs({
-                        "last_loaded_dataset_path": p,
-                        "last_save_directory": str(Path(p).parent),
-                    })
-                    st.session_state["manage_load_path_pending"] = p
-                    st.session_state["clear_entry_fields"] = True
-                    st.success(f"Entry appended to `{Path(p).resolve()}`.")
-                    st.rerun()
-                except Exception as exc:
-                    st.error(f"Failed to save: {exc}")
-
-    # ── Right column: live conversation preview ────────────────────────────────
-    # _turns_now is computed above inside _col_left and is in scope here.
-    with _col_right:
-        st.subheader("Conversation Preview")
-
-        # TODO: make speaker names configurable via preferences
-        _SPEAKER_LABEL = {"user": "Scott", "assistant": "Emma"}
-
-        def _format_preview_content(text: str) -> str:
-            """Split content into dialogue (plain) and narration (orange italic).
-            Text inside double-quotes is treated as dialogue and left unstyled.
-            Everything else is narration and rendered orange + italic."""
-            parts = re.split(r'(".*?")', text, flags=re.DOTALL)
-            out = ""
-            for part in parts:
-                if not part:
-                    continue
-                if part.startswith('"') and part.endswith('"') and len(part) >= 2:
-                    out += part  # dialogue — plain/default color
-                else:
-                    out += f"<span style='color:#e67e22;font-style:italic'>{part}</span>"
-            return out
-
-        _preview_turns = [t for t in _turns_now if t["content"].strip()]
-        if not _preview_turns:
-            st.caption("Your conversation will appear here as you write…")
-        else:
-            for _pt in _preview_turns:
-                _role = _pt["role"]
-                _color = _ROLE_COLOR.get(_role, "#000")
-                _name = _SPEAKER_LABEL.get(_role, _role.upper())
-                _body = _format_preview_content(_pt["content"])
+            with _col:
                 st.markdown(
-                    f"<span style='color:{_color};font-weight:bold'>{_name.upper()}:</span> {_body}",
+                    f"<span style='color:{_color};font-weight:bold;text-transform:uppercase'>{_role}</span>",
                     unsafe_allow_html=True,
                 )
-                st.write("")
+                st.text_area(
+                    label=f"turn_{_idx}",
+                    placeholder=_ROLE_PLACEHOLDER.get(_role, ""),
+                    key=f"turn_{_idx}",
+                    height=150,
+                    label_visibility="collapsed",
+                )
+
+    _btn_add, _btn_remove = st.columns(2)
+    with _btn_add:
+        if st.button("Add Exchange", use_container_width=True):
+            for _cat in TAGS:
+                st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
+            st.session_state.turns += [{"role": "user"}, {"role": "assistant"}]
+            st.rerun()
+    with _btn_remove:
+        if st.button(
+            "Remove Last Exchange",
+            disabled=len(st.session_state.turns) <= 2,
+            use_container_width=True,
+        ):
+            for _cat in TAGS:
+                st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
+            _n = len(st.session_state.turns)
+            st.session_state.turns = st.session_state.turns[:-2]
+            for _k in [f"turn_{_n - 2}", f"turn_{_n - 1}"]:
+                st.session_state.pop(_k, None)
+            st.rerun()
+
+    # ── Conversation preview (full width, below Add/Remove buttons) ────────────
+    st.subheader("Conversation Preview")
+
+    _SPEAKER_LABEL = {
+        "user": st.session_state.preview_user_name,
+        "assistant": st.session_state.preview_assistant_name,
+    }
+
+    # _turns_now is built here so the preview and the entry builder share the same data
+    _turns_now = [
+        {"role": t["role"], "content": st.session_state.get(f"turn_{i}", "")}
+        for i, t in enumerate(st.session_state.turns)
+    ]
+
+    _preview_turns = [t for t in _turns_now if t["content"].strip()]
+    if not _preview_turns:
+        st.caption("Your conversation will appear here as you write…")
+    else:
+        for _pt in _preview_turns:
+            _role = _pt["role"]
+            _color = _ROLE_COLOR.get(_role, "#000")
+            _name = _SPEAKER_LABEL.get(_role, _role.upper())
+            _body = _format_preview_content(_pt["content"])
+            st.markdown(
+                f"<span style='color:{_color};font-weight:bold'>{_name.upper()}:</span> {_body}",
+                unsafe_allow_html=True,
+            )
+            st.write("")
+
+    st.divider()
+    st.subheader("Tag & Complete Exchange")
+    selected_tags: list[str] = []
+    tag_cols = st.columns(len(TAGS))
+    for col, (category, options) in zip(tag_cols, TAGS.items()):
+        with col:
+            chosen = st.multiselect(f"{category} tags", options=options, key=f"tags_{category}")
+            selected_tags.extend(chosen)
+
+    _has_content = any(t["content"].strip() for t in _turns_now)
+
+    entry_preview = None
+    _entry_valid = False
+    if _has_content:
+        entry_preview = make_entry(
+            turns=_turns_now,
+            system_prompt=st.session_state.system_prompt,
+            tags=selected_tags,
+        )
+        errors = validate_entry(entry_preview)
+
+        with st.expander("Preview JSON", expanded=False):
+            st.code(json.dumps(entry_preview, ensure_ascii=False, indent=2), language="json")
+
+        if errors:
+            for err in errors:
+                st.error(err)
+        else:
+            st.success("Entry looks valid.")
+            _entry_valid = True
+
+    if st.button("Complete Exchange", disabled=not _entry_valid, type="primary", use_container_width=True):
+        if not save_path.strip():
+            st.error("Please set a dataset file path at the top of this tab.")
+        else:
+            try:
+                p = save_path.strip()
+                append_to_dataset(p, entry_preview)
+                st.session_state.loaded_path = p
+                entries, _ = load_dataset(p)
+                st.session_state.loaded_entries = entries
+                _update_prefs({
+                    "last_loaded_dataset_path": p,
+                    "last_save_directory": str(Path(p).parent),
+                })
+                st.session_state["manage_load_path_pending"] = p
+                st.session_state["clear_entry_fields"] = True
+                st.success(f"Entry appended to `{Path(p).resolve()}`.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Failed to save: {exc}")
 
 
 # ── Tab 2: Manage Dataset ──────────────────────────────────────────────────────
@@ -680,11 +717,15 @@ with tab_manage:
                         role = msg.get("role", "?")
                         content = msg.get("content", "")
                         color = {"system": "#555", "user": "#1a73e8", "assistant": "#188038"}.get(role, "#000")
+                        if role == "system":
+                            body = f"<span style='color:#f1c40f'>{content}</span>"
+                        else:
+                            body = _format_preview_content(content)
                         st.markdown(
-                            f"<span style='color:{color};font-weight:bold;text-transform:uppercase'>{role}</span>",
+                            f"<span style='color:{color};font-weight:bold;text-transform:uppercase'>{role}:</span> {body}",
                             unsafe_allow_html=True,
                         )
-                        st.text(content)
+                        st.write("")
 
             col_prev, col_next = st.columns(2)
             with col_prev:

@@ -10,6 +10,8 @@ DEFAULTS: dict = {
     "last_open_directory": "",
     "last_save_directory": "",
     "last_system_prompt": "",
+    "preview_user_name": "User",
+    "preview_assistant_name": "Assistant",
 }
 
 
