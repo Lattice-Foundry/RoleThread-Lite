@@ -60,6 +60,7 @@ if "prefs" not in st.session_state:
     st.session_state.filter_only_used = True
     st.session_state.filter_match_mode = "Any selected tags"
     st.session_state.turns = [{"role": "user"}, {"role": "assistant"}]
+    st.session_state.planned_exchanges = 1
     st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
 
@@ -322,6 +323,19 @@ with tab_create:
         "assistant": "What the assistant replies…",
     }
 
+    st.number_input(
+        "Planned exchanges",
+        min_value=1,
+        step=1,
+        key="planned_exchanges",
+    )
+
+    # ── Planning metrics (recomputed every run) ────────────────────────────────
+    _current_exchanges = len(st.session_state.turns) // 2
+    _planned_exchanges = st.session_state.planned_exchanges
+    _remaining = max(0, _planned_exchanges - _current_exchanges)
+    _overage = max(0, _current_exchanges - _planned_exchanges)
+
     # Render each user/assistant pair as a two-column row
     for _pair in range(0, len(st.session_state.turns), 2):
         _col_user, _col_asst = st.columns(2)
@@ -344,9 +358,10 @@ with tab_create:
                     label_visibility="collapsed",
                 )
 
+    _add_label = f"Add Exchange ({_remaining} Remaining)" if _remaining > 0 else "Add Exchange"
     _btn_add, _btn_remove = st.columns(2)
     with _btn_add:
-        if st.button("Add Exchange", use_container_width=True):
+        if st.button(_add_label, use_container_width=True):
             for _cat in TAGS:
                 st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
             st.session_state.turns += [{"role": "user"}, {"role": "assistant"}]
@@ -364,6 +379,8 @@ with tab_create:
             for _k in [f"turn_{_n - 2}", f"turn_{_n - 1}"]:
                 st.session_state.pop(_k, None)
             st.rerun()
+
+    st.caption(f"Current exchanges: {_current_exchanges} / Planned: {_planned_exchanges}")
 
     # ── Conversation preview (full width, below Add/Remove buttons) ────────────
     st.subheader("Conversation Preview")
@@ -425,7 +442,13 @@ with tab_create:
             st.success("Entry looks valid.")
             _entry_valid = True
 
-    if st.button("Complete Exchange", disabled=not _entry_valid, type="primary", use_container_width=True):
+    if _current_exchanges < _planned_exchanges:
+        st.warning("You have not reached your planned number of exchanges yet.")
+    elif _overage > 0:
+        st.info(f"You are {_overage} exchange(s) over your planned count. You can still save this exchange.")
+
+    _complete_disabled = not _entry_valid or _current_exchanges < _planned_exchanges
+    if st.button("Complete Exchange", disabled=_complete_disabled, type="primary", use_container_width=True):
         if not save_path.strip():
             st.error("Please set a dataset file path at the top of this tab.")
         else:
