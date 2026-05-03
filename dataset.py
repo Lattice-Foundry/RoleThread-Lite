@@ -109,6 +109,156 @@ def append_to_dataset(path: str, entry: dict) -> None:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+# ── Per-entry helpers ──────────────────────────────────────────────────────────
+
+def count_exchanges(entry: dict) -> int:
+    """Count complete user/assistant pairs after the system message.
+    Safe against malformed entries — never raises."""
+    try:
+        msgs = entry.get("messages") or []
+        non_system = [m for m in msgs if isinstance(m, dict) and m.get("role") != "system"]
+        return len(non_system) // 2
+    except Exception:
+        return 0
+
+
+def get_entry_messages(entry: dict) -> list[dict]:
+    """Safely return entry['messages'] if it is a list, else []."""
+    try:
+        msgs = entry.get("messages")
+        return msgs if isinstance(msgs, list) else []
+    except Exception:
+        return []
+
+
+def get_role_messages(entry: dict, role: str) -> list[str]:
+    """Return content strings for all messages with the given role."""
+    try:
+        return [
+            m.get("content", "")
+            for m in get_entry_messages(entry)
+            if isinstance(m, dict) and m.get("role") == role
+        ]
+    except Exception:
+        return []
+
+
+def entry_text_length(entry: dict) -> int:
+    """Total character count across all message contents in an entry."""
+    try:
+        return sum(
+            len(m.get("content", ""))
+            for m in get_entry_messages(entry)
+            if isinstance(m, dict)
+        )
+    except Exception:
+        return 0
+
+
+def build_dataset_stats(entries: list[dict]) -> dict:
+    """Compute aggregate statistics for a list of dataset entries.
+
+    Returns a plain dict — no Streamlit or pandas dependency here.
+    All values are safe to render directly; nothing mutates the input entries.
+    """
+    total = len(entries)
+
+    # ── Exchange counts ────────────────────────────────────────────────────────
+    exchange_counts = [count_exchanges(e) for e in entries]
+    total_exchanges = sum(exchange_counts)
+    avg_exchanges = total_exchanges / total if total else 0.0
+    single_turn = sum(1 for c in exchange_counts if c == 1)
+    multi_turn = sum(1 for c in exchange_counts if c > 1)
+
+    exchange_dist: dict[int, int] = {}
+    for c in exchange_counts:
+        exchange_dist[c] = exchange_dist.get(c, 0) + 1
+
+    # ── Validation ────────────────────────────────────────────────────────────
+    invalid_rows: list[dict] = []
+    for i, entry in enumerate(entries):
+        errs = validate_entry(entry)
+        if errs:
+            invalid_rows.append({
+                "entry": i + 1,
+                "error_count": len(errs),
+                "errors": errs,
+            })
+    invalid_count = len(invalid_rows)
+    valid_count = total - invalid_count
+
+    # ── Tags ──────────────────────────────────────────────────────────────────
+    tag_to_category: dict[str, str] = {
+        tag: cat for cat, tags in TAGS.items() for tag in tags
+    }
+
+    all_tags: list[str] = []
+    untagged_count = 0
+    for entry in entries:
+        tags = entry.get("tags") or []
+        if tags:
+            all_tags.extend(tags)
+        else:
+            untagged_count += 1
+
+    tag_counts: dict[str, int] = {}
+    for tag in all_tags:
+        tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+    tag_category_counts: dict[str, int] = {}
+    for tag in all_tags:
+        cat = tag_to_category.get(tag, "Unknown")
+        tag_category_counts[cat] = tag_category_counts.get(cat, 0) + 1
+
+    unique_tags = len(tag_counts)
+
+    # ── Message lengths ───────────────────────────────────────────────────────
+    user_lengths: list[int] = []
+    asst_lengths: list[int] = []
+    entry_lengths: list[int] = []
+
+    for entry in entries:
+        for content in get_role_messages(entry, "user"):
+            user_lengths.append(len(content))
+        for content in get_role_messages(entry, "assistant"):
+            asst_lengths.append(len(content))
+        entry_lengths.append(entry_text_length(entry))
+
+    avg_user_len = sum(user_lengths) / len(user_lengths) if user_lengths else 0.0
+    avg_asst_len = sum(asst_lengths) / len(asst_lengths) if asst_lengths else 0.0
+    avg_entry_len = sum(entry_lengths) / len(entry_lengths) if entry_lengths else 0.0
+    min_asst_len = min(asst_lengths) if asst_lengths else 0
+    max_asst_len = max(asst_lengths) if asst_lengths else 0
+
+    return {
+        # Summary
+        "total": total,
+        "total_exchanges": total_exchanges,
+        "avg_exchanges": avg_exchanges,
+        "single_turn": single_turn,
+        "multi_turn": multi_turn,
+        # Validation
+        "valid_count": valid_count,
+        "invalid_count": invalid_count,
+        "invalid_rows": invalid_rows,
+        # Tags
+        "untagged_count": untagged_count,
+        "unique_tags": unique_tags,
+        "tag_counts": tag_counts,
+        "tag_category_counts": tag_category_counts,
+        # Message lengths
+        "avg_user_len": avg_user_len,
+        "avg_asst_len": avg_asst_len,
+        "avg_entry_len": avg_entry_len,
+        "min_asst_len": min_asst_len,
+        "max_asst_len": max_asst_len,
+        # Raw series (chart-ready)
+        "exchange_counts": exchange_counts,
+        "exchange_dist": exchange_dist,
+        "entry_lengths": entry_lengths,
+    }
+
+
 def merge_datasets(paths: list[str], shuffle: bool = True) -> tuple[list[dict], dict]:
     seen, merged = set(), []
     stats = {"total_loaded": 0, "duplicates_removed": 0, "parse_errors": []}

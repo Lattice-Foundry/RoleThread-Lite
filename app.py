@@ -4,12 +4,19 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
 
+import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from dataset import (
     DEFAULT_SYSTEM_PROMPT,
     TAGS,
     append_to_dataset,
+    build_dataset_stats,
+    count_exchanges,
+    entry_text_length,
+    get_entry_messages,
+    get_role_messages,
     load_dataset,
     make_entry,
     merge_datasets,
@@ -213,19 +220,6 @@ def filter_entries_by_tags(
     return result
 
 
-# ── Exchange counter ──────────────────────────────────────────────────────────
-def _count_exchanges(entry: dict) -> int:
-    """Return the number of user/assistant pairs after the system message.
-    Safe against malformed entries — never raises."""
-    try:
-        msgs = entry.get("messages") or []
-        # Skip the leading system message; count pairs from the rest
-        non_system = [m for m in msgs if isinstance(m, dict) and m.get("role") != "system"]
-        return len(non_system) // 2
-    except Exception:
-        return 0
-
-
 # ── Narration / dialogue formatter ────────────────────────────────────────────
 def _format_preview_content(text: str) -> str:
     """Split content into dialogue (plain) and narration (orange italic).
@@ -244,8 +238,8 @@ def _format_preview_content(text: str) -> str:
 
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_create, tab_manage, tab_merge, tab_settings = st.tabs(
-    ["✍️ Create Entry", "📂 Manage Dataset", "🔀 Merge Datasets", "⚙️ Settings"]
+tab_create, tab_manage, tab_stats, tab_merge, tab_settings = st.tabs(
+    ["✍️ Create Entry", "📂 Manage Dataset", "📊 Statistics", "🔀 Merge Datasets", "⚙️ Settings"]
 )
 
 
@@ -759,7 +753,7 @@ with tab_manage:
                 entry_tags = entry.get("tags") or []
                 _tag_part = ", ".join(entry_tags) if entry_tags else "untagged"
                 _fmt_part = st.session_state.dataset_format
-                _exc_part = _count_exchanges(entry)
+                _exc_part = count_exchanges(entry)
                 label = (
                     f"Entry {i + 1} | FORMAT: {_fmt_part} | "
                     f"TAGS: {_tag_part} | EXCHANGES: {_exc_part}"
@@ -796,7 +790,131 @@ with tab_manage:
                     st.rerun()
 
 
-# ── Tab 3: Merge Datasets ──────────────────────────────────────────────────────
+# ── Tab 3: Statistics ─────────────────────────────────────────────────────────
+with tab_stats:
+    _stat_entries = st.session_state.loaded_entries
+
+    if not _stat_entries:
+        st.info("Load a dataset in Manage Dataset to see statistics.")
+    else:
+        _s = build_dataset_stats(_stat_entries)
+
+        # ── Summary cards ──────────────────────────────────────────────────────
+        _c1, _c2, _c3, _c4, _c5, _c6 = st.columns(6)
+        _c1.metric("Total Entries", _s["total"])
+        _c2.metric("Total Exchanges", _s["total_exchanges"])
+        _c3.metric("Avg Exchanges / Entry", f"{_s['avg_exchanges']:.1f}")
+        _c4.metric("Invalid Entries", _s["invalid_count"])
+        _c5.metric("Untagged Entries", _s["untagged_count"])
+        _c6.metric("Unique Tags", _s["unique_tags"])
+
+        # ── Message Lengths ────────────────────────────────────────────────────
+        st.divider()
+        st.subheader("Message Lengths")
+        _l1, _l2, _l3, _l4, _l5 = st.columns(5)
+        _l1.metric("Avg User Message", f"{_s['avg_user_len']:.0f} chars")
+        _l2.metric("Avg Assistant Message", f"{_s['avg_asst_len']:.0f} chars")
+        _l3.metric("Avg Entry Length", f"{_s['avg_entry_len']:.0f} chars")
+        _l4.metric("Shortest Assistant Response", f"{_s['min_asst_len']} chars")
+        _l5.metric("Longest Assistant Response", f"{_s['max_asst_len']} chars")
+
+        # ── Tag Balance ────────────────────────────────────────────────────────
+        st.divider()
+        st.subheader("Tag Balance")
+        if not _s["tag_counts"]:
+            st.info("No tags found in this dataset.")
+        else:
+            _tb1, _tb2 = st.columns(2)
+
+            with _tb1:
+                _df_tags = (
+                    pd.DataFrame(
+                        _s["tag_counts"].items(), columns=["Tag", "Count"]
+                    )
+                    .sort_values("Count", ascending=False)
+                    .reset_index(drop=True)
+                )
+                st.plotly_chart(
+                    px.bar(_df_tags, x="Tag", y="Count", title="Tag Counts"),
+                    use_container_width=True,
+                )
+
+            with _tb2:
+                _df_cat = (
+                    pd.DataFrame(
+                        _s["tag_category_counts"].items(), columns=["Category", "Count"]
+                    )
+                    .sort_values("Count", ascending=False)
+                    .reset_index(drop=True)
+                )
+                st.plotly_chart(
+                    px.bar(_df_cat, x="Category", y="Count", title="Tag Category Counts"),
+                    use_container_width=True,
+                )
+
+            st.dataframe(
+                _df_tags.rename(columns={"Tag": "Tag", "Count": "Entries using tag"}),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+        # ── Exchange Depth ─────────────────────────────────────────────────────
+        st.divider()
+        st.subheader("Exchange Depth")
+        _ed1, _ed2 = st.columns([3, 1])
+
+        with _ed1:
+            _df_exc = (
+                pd.DataFrame(
+                    sorted(_s["exchange_dist"].items()), columns=["Exchanges", "Entries"]
+                )
+            )
+            st.plotly_chart(
+                px.bar(_df_exc, x="Exchanges", y="Entries", title="Entries by Exchange Count"),
+                use_container_width=True,
+            )
+
+        with _ed2:
+            st.metric("Single-turn entries", _s["single_turn"])
+            st.metric("Multi-turn entries", _s["multi_turn"])
+
+        # ── Format Distribution ────────────────────────────────────────────────
+        st.divider()
+        st.subheader("Format Distribution")
+        _fmt = st.session_state.dataset_format
+        _f1, _f2 = st.columns(2)
+        _f1.metric(_fmt, _s["total"], help="All entries are treated as this format.")
+        with _f2:
+            st.plotly_chart(
+                px.bar(
+                    pd.DataFrame([{"Format": _fmt, "Entries": _s["total"]}]),
+                    x="Format",
+                    y="Entries",
+                    title="Format Distribution",
+                ),
+                use_container_width=True,
+            )
+
+        # ── Validation ────────────────────────────────────────────────────────
+        st.divider()
+        st.subheader("Validation")
+        _v1, _v2 = st.columns(2)
+        _v1.metric("Valid Entries", _s["valid_count"])
+        _v2.metric("Invalid Entries", _s["invalid_count"])
+
+        if _s["invalid_rows"]:
+            _df_val = pd.DataFrame([
+                {
+                    "Entry": r["entry"],
+                    "Error Count": r["error_count"],
+                    "Errors": "; ".join(r["errors"]),
+                }
+                for r in _s["invalid_rows"]
+            ])
+            st.dataframe(_df_val, use_container_width=True, hide_index=True)
+
+
+# ── Tab 3 (renumbered): Merge Datasets ────────────────────────────────────────
 with tab_merge:
     st.subheader("Merge Multiple Datasets")
 
