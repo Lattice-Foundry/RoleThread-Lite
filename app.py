@@ -52,6 +52,26 @@ button[kind="primary"]:not(:disabled):hover,
 
 JSONL_TYPES = [("JSONL files", "*.jsonl"), ("All files", "*.*")]
 
+_ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
+_ROLE_PLACEHOLDER = {
+    "user": "What the user says…",
+    "assistant": "What the assistant replies…",
+}
+
+
+def init_editor_state(prefix: str) -> None:
+    """Initialise session state keys for an entry editor instance.
+    Safe to call multiple times — only sets keys that don't exist yet."""
+    if f"{prefix}_turns" not in st.session_state:
+        st.session_state[f"{prefix}_turns"] = [
+            {"role": "user"}, {"role": "assistant"}
+        ]
+    if f"{prefix}_planned_exchanges" not in st.session_state:
+        st.session_state[f"{prefix}_planned_exchanges"] = 1
+    if f"{prefix}_clear" not in st.session_state:
+        st.session_state[f"{prefix}_clear"] = False
+
+
 # ── One-time session initialisation ───────────────────────────────────────────
 if "prefs" not in st.session_state:
     prefs = load_preferences()
@@ -66,8 +86,7 @@ if "prefs" not in st.session_state:
     st.session_state.filter_tags = []
     st.session_state.filter_only_used = True
     st.session_state.filter_match_mode = "Any selected tags"
-    st.session_state.turns = [{"role": "user"}, {"role": "assistant"}]
-    st.session_state.planned_exchanges = 1
+    init_editor_state("create")
     st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
     st.session_state.dataset_format = prefs.get("dataset_format", "ChatML")
@@ -322,51 +341,62 @@ with tab_create:
     st.subheader("New Entry")
 
     # Apply any pending clear before widgets are instantiated
-    if st.session_state.pop("clear_entry_fields", False):
-        _old_turn_count = len(st.session_state.get("turns", []))
-        st.session_state.turns = [{"role": "user"}, {"role": "assistant"}]
+    if st.session_state.pop("create_clear", False):
+        _old_turn_count = len(st.session_state.get("create_turns", []))
+        st.session_state["create_turns"] = [{"role": "user"}, {"role": "assistant"}]
         # Explicitly blank the first pair so Streamlit actually resets the widgets
-        st.session_state["turn_0"] = ""
-        st.session_state["turn_1"] = ""
+        st.session_state["create_turn_0"] = ""
+        st.session_state["create_turn_1"] = ""
         # Remove any extra turns beyond the reset pair
         for _i in range(2, _old_turn_count):
-            st.session_state.pop(f"turn_{_i}", None)
+            st.session_state.pop(f"create_turn_{_i}", None)
         for _cat in TAGS:
-            st.session_state[f"tags_{_cat}"] = []
+            st.session_state[f"create_tags_{_cat}"] = []
 
     # ── Multi-turn conversation builder ───────────────────────────────────────
     # Restore any tag values that were saved before an Add/Remove rerun.
     for _cat in TAGS:
-        _bk = f"_tags_backup_{_cat}"
+        _bk = f"_create_tags_backup_{_cat}"
         if _bk in st.session_state:
-            st.session_state[f"tags_{_cat}"] = st.session_state.pop(_bk)
+            st.session_state[f"create_tags_{_cat}"] = st.session_state.pop(_bk)
 
-    _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
-    _ROLE_PLACEHOLDER = {
-        "user": "What the user says…",
-        "assistant": "What the assistant replies…",
-    }
+    # Build _turns_now early so planning metrics can use actual fill state.
+    # Widget values from the previous run are already in session state before
+    # the widgets render, so this read is always up-to-date.
+    _turns_now = [
+        {"role": t["role"], "content": st.session_state.get(f"create_turn_{i}", "")}
+        for i, t in enumerate(st.session_state["create_turns"])
+    ]
 
     st.number_input(
         "Planned exchanges",
         min_value=1,
         step=1,
-        key="planned_exchanges",
+        key="create_planned_exchanges",
     )
 
     # ── Planning metrics (recomputed every run) ────────────────────────────────
-    _current_exchanges = len(st.session_state.turns) // 2
-    _planned_exchanges = st.session_state.planned_exchanges
+    # Only count an exchange as complete when BOTH turns are filled in.
+    _current_exchanges = sum(
+        1
+        for _pi in range(0, len(_turns_now), 2)
+        if (
+            _pi + 1 < len(_turns_now)
+            and _turns_now[_pi]["content"].strip()
+            and _turns_now[_pi + 1]["content"].strip()
+        )
+    )
+    _planned_exchanges = st.session_state["create_planned_exchanges"]
     _remaining = max(0, _planned_exchanges - _current_exchanges)
     _overage = max(0, _current_exchanges - _planned_exchanges)
 
     # Render each user/assistant pair as a two-column row
-    for _pair in range(0, len(st.session_state.turns), 2):
+    for _pair in range(0, len(st.session_state["create_turns"]), 2):
         _col_user, _col_asst = st.columns(2)
         for _col, _idx in ((_col_user, _pair), (_col_asst, _pair + 1)):
-            if _idx >= len(st.session_state.turns):
+            if _idx >= len(st.session_state["create_turns"]):
                 break
-            _turn = st.session_state.turns[_idx]
+            _turn = st.session_state["create_turns"][_idx]
             _role = _turn["role"]
             _color = _ROLE_COLOR.get(_role, "#000")
             with _col:
@@ -375,9 +405,9 @@ with tab_create:
                     unsafe_allow_html=True,
                 )
                 st.text_area(
-                    label=f"turn_{_idx}",
+                    label=f"create_turn_{_idx}",
                     placeholder=_ROLE_PLACEHOLDER.get(_role, ""),
-                    key=f"turn_{_idx}",
+                    key=f"create_turn_{_idx}",
                     height=150,
                     label_visibility="collapsed",
                 )
@@ -387,20 +417,20 @@ with tab_create:
     with _btn_add:
         if st.button(_add_label, width='stretch'):
             for _cat in TAGS:
-                st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
-            st.session_state.turns += [{"role": "user"}, {"role": "assistant"}]
+                st.session_state[f"_create_tags_backup_{_cat}"] = list(st.session_state.get(f"create_tags_{_cat}", []))
+            st.session_state["create_turns"] += [{"role": "user"}, {"role": "assistant"}]
             st.rerun()
     with _btn_remove:
         if st.button(
             "Remove Last Exchange",
-            disabled=len(st.session_state.turns) <= 2,
+            disabled=len(st.session_state["create_turns"]) <= 2,
             width='stretch',
         ):
             for _cat in TAGS:
-                st.session_state[f"_tags_backup_{_cat}"] = list(st.session_state.get(f"tags_{_cat}", []))
-            _n = len(st.session_state.turns)
-            st.session_state.turns = st.session_state.turns[:-2]
-            for _k in [f"turn_{_n - 2}", f"turn_{_n - 1}"]:
+                st.session_state[f"_create_tags_backup_{_cat}"] = list(st.session_state.get(f"create_tags_{_cat}", []))
+            _n = len(st.session_state["create_turns"])
+            st.session_state["create_turns"] = st.session_state["create_turns"][:-2]
+            for _k in [f"create_turn_{_n - 2}", f"create_turn_{_n - 1}"]:
                 st.session_state.pop(_k, None)
             st.rerun()
 
@@ -413,12 +443,6 @@ with tab_create:
         "user": st.session_state.preview_user_name,
         "assistant": st.session_state.preview_assistant_name,
     }
-
-    # _turns_now is built here so the preview and the entry builder share the same data
-    _turns_now = [
-        {"role": t["role"], "content": st.session_state.get(f"turn_{i}", "")}
-        for i, t in enumerate(st.session_state.turns)
-    ]
 
     _preview_turns = [t for t in _turns_now if t["content"].strip()]
     if not _preview_turns:
@@ -441,7 +465,7 @@ with tab_create:
     tag_cols = st.columns(len(TAGS))
     for col, (category, options) in zip(tag_cols, TAGS.items()):
         with col:
-            chosen = st.multiselect(f"{category} tags", options=options, key=f"tags_{category}")
+            chosen = st.multiselect(f"{category} tags", options=options, key=f"create_tags_{category}")
             selected_tags.extend(chosen)
 
     _has_content = any(t["content"].strip() for t in _turns_now)
@@ -487,7 +511,7 @@ with tab_create:
                     "last_save_directory": str(Path(p).parent),
                 })
                 st.session_state["manage_load_path_pending"] = p
-                st.session_state["clear_entry_fields"] = True
+                st.session_state["create_clear"] = True
                 st.success(f"Entry appended to `{Path(p).resolve()}`.")
                 st.rerun()
             except Exception as exc:
