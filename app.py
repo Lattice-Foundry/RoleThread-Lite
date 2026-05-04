@@ -182,6 +182,40 @@ def render_turn_builder(prefix: str) -> list[dict]:
     return _turns_now
 
 
+def render_conversation_preview(turns_now: list[dict], prefix: str) -> None:  # noqa: ARG001
+    """Render the read-only conversation preview for an editor instance.
+
+    Iterates turns_now, applying narration/dialogue formatting via
+    _format_preview_content and speaker labels from preferences.
+    Shows an empty-state caption when no turns have content.
+
+    prefix is reserved for future use (e.g. per-editor preview settings).
+    """
+    # prefix is intentionally unused — reserved for future per-editor settings
+    _ = prefix
+
+    _SPEAKER_LABEL = {
+        "user": st.session_state.preview_user_name,
+        "assistant": st.session_state.preview_assistant_name,
+    }
+
+    _preview_turns = [t for t in turns_now if t["content"].strip()]
+    if not _preview_turns:
+        st.caption("Your conversation will appear here as you write…")
+        return
+
+    for _pt in _preview_turns:
+        _role = _pt["role"]
+        _color = _ROLE_COLOR.get(_role, "#000")
+        _name = _SPEAKER_LABEL.get(_role, _role.upper())
+        _body = _format_preview_content(_pt["content"])
+        st.markdown(
+            f"<span style='color:{_color};font-weight:bold'>{_name.upper()}:</span> {_body}",
+            unsafe_allow_html=True,
+        )
+        st.write("")
+
+
 # ── One-time session initialisation ───────────────────────────────────────────
 if "prefs" not in st.session_state:
     prefs = load_preferences()
@@ -453,6 +487,7 @@ with tab_create:
 
     # Re-derive planning metrics so the preview and action blocks can use them.
     _planned_exchanges = st.session_state["create_planned_exchanges"]
+    _total_slots = len(turns_now) // 2  # all pairs, filled or not
     _current_exchanges = sum(
         1
         for _pi in range(0, len(turns_now), 2)
@@ -462,30 +497,21 @@ with tab_create:
             and turns_now[_pi + 1]["content"].strip()
         )
     )
-    _overage = max(0, _current_exchanges - _planned_exchanges)
+    # Overage is based on slots so a blank extra pair is still flagged.
+    _overage = max(0, _total_slots - _planned_exchanges)
+    # Pairs where at least one turn is empty (stripped silently by make_entry).
+    _blank_pairs = sum(
+        1
+        for _pi in range(0, len(turns_now), 2)
+        if _pi + 1 < len(turns_now) and (
+            not turns_now[_pi]["content"].strip()
+            or not turns_now[_pi + 1]["content"].strip()
+        )
+    )
 
     # ── Conversation preview (full width, below Add/Remove buttons) ────────────
     st.subheader("Conversation Preview")
-
-    _SPEAKER_LABEL = {
-        "user": st.session_state.preview_user_name,
-        "assistant": st.session_state.preview_assistant_name,
-    }
-
-    _preview_turns = [t for t in turns_now if t["content"].strip()]
-    if not _preview_turns:
-        st.caption("Your conversation will appear here as you write…")
-    else:
-        for _pt in _preview_turns:
-            _role = _pt["role"]
-            _color = _ROLE_COLOR.get(_role, "#000")
-            _name = _SPEAKER_LABEL.get(_role, _role.upper())
-            _body = _format_preview_content(_pt["content"])
-            st.markdown(
-                f"<span style='color:{_color};font-weight:bold'>{_name.upper()}:</span> {_body}",
-                unsafe_allow_html=True,
-            )
-            st.write("")
+    render_conversation_preview(turns_now, "create")
 
     st.divider()
     st.subheader("Tag & Complete Exchange")
@@ -520,8 +546,13 @@ with tab_create:
 
     if _current_exchanges < _planned_exchanges:
         st.warning("You have not reached your planned number of exchanges yet.")
-    elif _overage > 0:
+    if _overage > 0:
         st.info(f"You are {_overage} exchange(s) over your planned count. You can still save this exchange.")
+    if _blank_pairs > 0:
+        st.warning(
+            f"{_blank_pairs} exchange pair(s) have empty fields and will not be saved. "
+            "Fill them in or remove them before completing."
+        )
 
     _complete_disabled = not _entry_valid or _current_exchanges < _planned_exchanges
     if st.button("Complete Exchange", disabled=_complete_disabled, type="primary", width='stretch'):
