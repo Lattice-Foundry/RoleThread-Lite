@@ -216,6 +216,126 @@ def render_conversation_preview(turns_now: list[dict], prefix: str) -> None:  # 
         st.write("")
 
 
+def render_entry_actions(
+    turns_now: list[dict],
+    prefix: str,
+    mode: str,
+    entry_index: int | None = None,
+) -> None:
+    """Render the tag selector, JSON preview, validation, planning warnings,
+    and save button for an entry editor instance.
+
+    mode — "create" appends to the dataset file;
+           "edit"   overwrites loaded_entries[entry_index] in place.
+    entry_index — required when mode == "edit"; ignored for "create".
+    """
+    st.divider()
+    st.subheader("Tag & Complete Exchange")
+
+    # ── Tag selectors ──────────────────────────────────────────────────────────
+    selected_tags: list[str] = []
+    tag_cols = st.columns(len(TAGS))
+    for col, (category, options) in zip(tag_cols, TAGS.items()):
+        with col:
+            chosen = st.multiselect(
+                f"{category} tags", options=options, key=f"{prefix}_tags_{category}"
+            )
+            selected_tags.extend(chosen)
+
+    # ── Entry preview & validation ─────────────────────────────────────────────
+    _has_content = any(t["content"].strip() for t in turns_now)
+
+    entry_preview = None
+    _entry_valid = False
+    if _has_content:
+        entry_preview = make_entry(
+            turns=turns_now,
+            system_prompt=st.session_state.system_prompt,
+            tags=selected_tags,
+        )
+        errors = validate_entry(entry_preview)
+
+        with st.expander("Preview JSON", expanded=False):
+            st.code(json.dumps(entry_preview, ensure_ascii=False, indent=2), language="json")
+
+        if errors:
+            for err in errors:
+                st.error(err)
+        else:
+            st.success("Entry looks valid.")
+            _entry_valid = True
+
+    # ── Planning warnings ──────────────────────────────────────────────────────
+    _planned_exchanges = st.session_state.get(f"{prefix}_planned_exchanges", 1)
+    _total_slots = len(turns_now) // 2
+    _current_exchanges = sum(
+        1
+        for _pi in range(0, len(turns_now), 2)
+        if (
+            _pi + 1 < len(turns_now)
+            and turns_now[_pi]["content"].strip()
+            and turns_now[_pi + 1]["content"].strip()
+        )
+    )
+    _overage = max(0, _total_slots - _planned_exchanges)
+    _blank_pairs = sum(
+        1
+        for _pi in range(0, len(turns_now), 2)
+        if _pi + 1 < len(turns_now) and (
+            not turns_now[_pi]["content"].strip()
+            or not turns_now[_pi + 1]["content"].strip()
+        )
+    )
+
+    if _current_exchanges < _planned_exchanges:
+        st.warning("You have not reached your planned number of exchanges yet.")
+    if _overage > 0:
+        st.info(
+            f"You are {_overage} exchange(s) over your planned count. "
+            "You can still save this exchange."
+        )
+    if _blank_pairs > 0:
+        st.warning(
+            f"{_blank_pairs} exchange pair(s) have empty fields and will not be saved. "
+            "Fill them in or remove them before completing."
+        )
+
+    # ── Save button ────────────────────────────────────────────────────────────
+    _btn_label = "Complete Exchange" if mode == "create" else "Save Changes"
+    _complete_disabled = not _entry_valid or _current_exchanges < _planned_exchanges
+    if st.button(_btn_label, disabled=_complete_disabled, type="primary", width='stretch'):
+        save_path = st.session_state.get("create_save_path", "").strip()
+        if not save_path:
+            st.error("Please set a dataset file path in Settings.")
+        elif mode == "create":
+            try:
+                append_to_dataset(save_path, entry_preview)
+                st.session_state.loaded_path = save_path
+                entries, _ = load_dataset(save_path)
+                st.session_state.loaded_entries = entries
+                _update_prefs({
+                    "last_loaded_dataset_path": save_path,
+                    "last_save_directory": str(Path(save_path).parent),
+                })
+                st.session_state["manage_load_path_pending"] = save_path
+                st.session_state[f"{prefix}_clear"] = True
+                st.success(f"Entry appended to `{Path(save_path).resolve()}`.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Failed to save: {exc}")
+        elif mode == "edit":
+            if entry_index is None:
+                st.warning("edit mode requires entry_index — nothing saved.")
+            else:
+                try:
+                    st.session_state.loaded_entries[entry_index] = entry_preview
+                    save_dataset(save_path, st.session_state.loaded_entries)
+                    st.success(f"Entry {entry_index + 1} updated.")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Failed to save: {exc}")
+
+
 # ── One-time session initialisation ───────────────────────────────────────────
 if "prefs" not in st.session_state:
     prefs = load_preferences()
@@ -485,96 +605,11 @@ with tab_create:
     st.subheader("New Entry")
     turns_now = render_turn_builder("create")
 
-    # Re-derive planning metrics so the preview and action blocks can use them.
-    _planned_exchanges = st.session_state["create_planned_exchanges"]
-    _total_slots = len(turns_now) // 2  # all pairs, filled or not
-    _current_exchanges = sum(
-        1
-        for _pi in range(0, len(turns_now), 2)
-        if (
-            _pi + 1 < len(turns_now)
-            and turns_now[_pi]["content"].strip()
-            and turns_now[_pi + 1]["content"].strip()
-        )
-    )
-    # Overage is based on slots so a blank extra pair is still flagged.
-    _overage = max(0, _total_slots - _planned_exchanges)
-    # Pairs where at least one turn is empty (stripped silently by make_entry).
-    _blank_pairs = sum(
-        1
-        for _pi in range(0, len(turns_now), 2)
-        if _pi + 1 < len(turns_now) and (
-            not turns_now[_pi]["content"].strip()
-            or not turns_now[_pi + 1]["content"].strip()
-        )
-    )
-
     # ── Conversation preview (full width, below Add/Remove buttons) ────────────
     st.subheader("Conversation Preview")
     render_conversation_preview(turns_now, "create")
 
-    st.divider()
-    st.subheader("Tag & Complete Exchange")
-    selected_tags: list[str] = []
-    tag_cols = st.columns(len(TAGS))
-    for col, (category, options) in zip(tag_cols, TAGS.items()):
-        with col:
-            chosen = st.multiselect(f"{category} tags", options=options, key=f"create_tags_{category}")
-            selected_tags.extend(chosen)
-
-    _has_content = any(t["content"].strip() for t in turns_now)
-
-    entry_preview = None
-    _entry_valid = False
-    if _has_content:
-        entry_preview = make_entry(
-            turns=turns_now,
-            system_prompt=st.session_state.system_prompt,
-            tags=selected_tags,
-        )
-        errors = validate_entry(entry_preview)
-
-        with st.expander("Preview JSON", expanded=False):
-            st.code(json.dumps(entry_preview, ensure_ascii=False, indent=2), language="json")
-
-        if errors:
-            for err in errors:
-                st.error(err)
-        else:
-            st.success("Entry looks valid.")
-            _entry_valid = True
-
-    if _current_exchanges < _planned_exchanges:
-        st.warning("You have not reached your planned number of exchanges yet.")
-    if _overage > 0:
-        st.info(f"You are {_overage} exchange(s) over your planned count. You can still save this exchange.")
-    if _blank_pairs > 0:
-        st.warning(
-            f"{_blank_pairs} exchange pair(s) have empty fields and will not be saved. "
-            "Fill them in or remove them before completing."
-        )
-
-    _complete_disabled = not _entry_valid or _current_exchanges < _planned_exchanges
-    if st.button("Complete Exchange", disabled=_complete_disabled, type="primary", width='stretch'):
-        if not save_path.strip():
-            st.error("Please set a dataset file path at the top of this tab.")
-        else:
-            try:
-                p = save_path.strip()
-                append_to_dataset(p, entry_preview)
-                st.session_state.loaded_path = p
-                entries, _ = load_dataset(p)
-                st.session_state.loaded_entries = entries
-                _update_prefs({
-                    "last_loaded_dataset_path": p,
-                    "last_save_directory": str(Path(p).parent),
-                })
-                st.session_state["manage_load_path_pending"] = p
-                st.session_state["create_clear"] = True
-                st.success(f"Entry appended to `{Path(p).resolve()}`.")
-                st.rerun()
-            except Exception as exc:
-                st.error(f"Failed to save: {exc}")
+    render_entry_actions(turns_now, "create", mode="create")
 
 
 # ── Tab 2: Manage Dataset ──────────────────────────────────────────────────────
