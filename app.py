@@ -26,7 +26,28 @@ from dataset import (
 from preferences import get_initial_dir, load_preferences, save_preferences
 
 st.set_page_config(page_title="Roleplay Dataset Manager", layout="wide")
-st.title("Roleplay Dataset Manager")
+
+# Display name shown under the title (maps internal page key → sidebar label)
+_PAGE_DISPLAY_NAMES: dict[str, str] = {
+    "Create Entry":   "New Entry",
+    "Manage Dataset": "Manage Dataset",
+    "Merge Datasets": "Merge Datasets",
+    "Edit Entries":   "Edit Entries",
+    "Import":         "Import",
+    "Export":         "Export",
+    "Validation":     "Validate",
+    "Statistics":     "Statistics",
+    "Settings":       "Preferences",
+}
+_header_page = _PAGE_DISPLAY_NAMES.get(
+    st.session_state.get("page", "Create Entry"),
+    st.session_state.get("page", "Create Entry"),
+)
+st.markdown(
+    f"<h1 style='color:#1a73e8;margin-bottom:0.15rem'>Roleplay Dataset Manager</h1>"
+    f"<p style='color:white;font-size:1.05rem;margin-top:0;margin-bottom:0.5rem'>{_header_page}</p>",
+    unsafe_allow_html=True,
+)
 
 st.markdown("""
 <style>
@@ -515,6 +536,7 @@ if "prefs" not in st.session_state:
     st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
     st.session_state.dataset_format = prefs.get("dataset_format", "ChatML")
+    st.session_state.page = "Create Entry"
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
@@ -526,74 +548,47 @@ if "prefs" not in st.session_state:
             st.session_state.stale_last_path = last
 
 
-# ── Tabs ───────────────────────────────────────────────────────────────────────
-tab_create, tab_manage, tab_stats, tab_merge, tab_settings = st.tabs(
-    ["✍️ Create Entry", "📂 Manage Dataset", "📊 Statistics", "🔀 Merge Datasets", "⚙️ Settings"]
-)
+# ── Sidebar navigation ─────────────────────────────────────────────────────────
+if "page" not in st.session_state:
+    st.session_state.page = "Create Entry"
+
+_page = st.session_state.page
+
+_NAV_SECTIONS = [
+    ("Create", [
+        ("New Entry",       "Create Entry"),
+    ]),
+    ("Dataset", [
+        ("Manage Dataset",  "Manage Dataset"),
+        ("Merge Datasets",  "Merge Datasets"),
+        ("Edit Entries",    "Edit Entries"),
+    ]),
+    ("Tools", [
+        ("Import",          "Import"),
+        ("Export",          "Export"),
+        ("Validate",        "Validation"),
+    ]),
+    ("Analytics", [
+        ("Statistics",      "Statistics"),
+    ]),
+    ("Settings", [
+        ("Preferences",     "Settings"),
+    ]),
+]
+
+for _sec_name, _sec_items in _NAV_SECTIONS:
+    st.sidebar.markdown(f"**{_sec_name}**")
+    for _display_label, _target in _sec_items:
+        _btn_label = f"▶ {_display_label}" if _page == _target else _display_label
+        if st.sidebar.button(_btn_label, key=f"_nav_{_target}", width="stretch"):
+            st.session_state.page = _target
+            st.rerun()
+
+page = st.session_state.page
 
 
-# ── Tab 4: Settings ────────────────────────────────────────────────────────────
-with tab_settings:
-    st.subheader("Dataset Format")
-
-    def _persist_dataset_format():
-        st.session_state.dataset_format = st.session_state["_dataset_format_select"]
-        _update_prefs({"dataset_format": st.session_state.dataset_format})
-
-    st.selectbox(
-        "Default dataset format",
-        options=["ChatML"],
-        index=["ChatML"].index(st.session_state.dataset_format)
-        if st.session_state.dataset_format in ["ChatML"] else 0,
-        key="_dataset_format_select",
-        on_change=_persist_dataset_format,
-    )
-
-    st.divider()
-    st.subheader("Save Location")
-
-    save_path = path_input(
-        "Dataset file path (.jsonl)",
-        state_key="create_save_path",
-        browse_fn=browse_save_file,
-        browse_kwargs={
-            "default_name": Path(st.session_state.loaded_path).name or "dataset.jsonl",
-            "pref_path_key": "last_loaded_dataset_path",
-        },
-        default=st.session_state.prefs.get("last_loaded_dataset_path") or st.session_state.loaded_path or "dataset.jsonl",
-    )
-
-    # Keep Load Dataset path in sync with Save Location
-    if save_path and save_path != st.session_state.get("manage_load_path"):
-        st.session_state["manage_load_path_pending"] = save_path
-
-    st.divider()
-    st.subheader("Conversation Preview Settings")
-
-    def _persist_preview_user_name():
-        st.session_state.preview_user_name = st.session_state["_preview_user_name_input"]
-        _update_prefs({"preview_user_name": st.session_state.preview_user_name})
-
-    def _persist_preview_assistant_name():
-        st.session_state.preview_assistant_name = st.session_state["_preview_assistant_name_input"]
-        _update_prefs({"preview_assistant_name": st.session_state.preview_assistant_name})
-
-    st.text_input(
-        "User Name",
-        value=st.session_state.preview_user_name,
-        key="_preview_user_name_input",
-        on_change=_persist_preview_user_name,
-    )
-    st.text_input(
-        "Assistant Name",
-        value=st.session_state.preview_assistant_name,
-        key="_preview_assistant_name_input",
-        on_change=_persist_preview_assistant_name,
-    )
-
-
-# ── Tab 1: Create Entry ────────────────────────────────────────────────────────
-with tab_create:
+# ── Create Entry ───────────────────────────────────────────────────────────────
+if page == "Create Entry":
     st.subheader("System Prompt")
 
     def _persist_system_prompt():
@@ -618,8 +613,8 @@ with tab_create:
     render_entry_actions(turns_now, "create", mode="create")
 
 
-# ── Tab 2: Manage Dataset ──────────────────────────────────────────────────────
-with tab_manage:
+# ── Manage Dataset ─────────────────────────────────────────────────────────────
+elif page == "Manage Dataset":
     if st.session_state.stale_last_path and not st.session_state.loaded_path:
         st.warning(
             f"Last dataset `{st.session_state.stale_last_path}` no longer exists. "
@@ -705,48 +700,6 @@ with tab_manage:
 
     entries = st.session_state.loaded_entries
     if entries:
-        st.divider()
-        export_path = path_input(
-            "Export path",
-            state_key="manage_export_path",
-            browse_fn=browse_save_file,
-            browse_kwargs={
-                "default_name": Path(st.session_state.loaded_path).name or "dataset.jsonl",
-                "pref_path_key": "last_save_dataset_path",
-            },
-            default=st.session_state.loaded_path,
-        )
-        if st.button("Save / Overwrite Dataset"):
-            try:
-                p = export_path.strip()
-                save_dataset(p, entries)
-                _update_prefs({
-                    "last_save_dataset_path": p,
-                    "last_save_directory": str(Path(p).parent),
-                })
-                st.success(f"Saved {len(entries)} entries to `{p}`.")
-            except Exception as exc:
-                st.error(f"Failed to save: {exc}")
-
-        dl_name = Path(st.session_state.loaded_path).name or "dataset.jsonl"
-        dl_col, clean_col = st.columns([2, 3])
-        with clean_col:
-            st.write("")
-            clean_download = st.checkbox("Clean — Tag data removed", value=False)
-        with dl_col:
-            if clean_download:
-                dl_entries = [{"messages": e["messages"]} for e in entries]
-            else:
-                dl_entries = entries
-            content = "\n".join(json.dumps(e, ensure_ascii=False) for e in dl_entries)
-            st.download_button(
-                "Download as JSONL",
-                data=content.encode("utf-8"),
-                file_name=dl_name,
-                mime="application/jsonlines",
-                width='stretch',
-            )
-
         st.divider()
         st.subheader(f"Entries ({len(entries)})")
 
@@ -861,8 +814,9 @@ with tab_manage:
         else:
             per_page = st.session_state.entries_per_page
             last_page = max(0, (total_filtered - 1) // per_page)
-            page = min(st.session_state.get("entry_page", 0), last_page)
-            start = page * per_page
+            # _cur_page used here to avoid shadowing the navigation `page` variable
+            _cur_page = min(st.session_state.get("entry_page", 0), last_page)
+            start = _cur_page * per_page
             end = min(start + per_page, total_filtered)
 
             if filter_tags:
@@ -905,17 +859,160 @@ with tab_manage:
 
             col_prev, col_next = st.columns(2)
             with col_prev:
-                if st.button("Previous", disabled=(page == 0), width='stretch'):
-                    st.session_state.entry_page = page - 1
+                if st.button("Previous", disabled=(_cur_page == 0), width='stretch'):
+                    st.session_state.entry_page = _cur_page - 1
                     st.rerun()
             with col_next:
-                if st.button("Next", disabled=(page >= last_page), width='stretch'):
-                    st.session_state.entry_page = page + 1
+                if st.button("Next", disabled=(_cur_page >= last_page), width='stretch'):
+                    st.session_state.entry_page = _cur_page + 1
                     st.rerun()
 
 
-# ── Tab 3: Statistics ─────────────────────────────────────────────────────────
-with tab_stats:
+# ── Edit Entries (placeholder) ─────────────────────────────────────────────────
+elif page == "Edit Entries":
+    st.info("This page is planned but not implemented yet.")
+
+
+# ── Merge Datasets ─────────────────────────────────────────────────────────────
+elif page == "Merge Datasets":
+    st.subheader("Merge Multiple Datasets")
+
+    if "merge_input_paths_pending" in st.session_state:
+        st.session_state["merge_input_paths"] = st.session_state.pop("merge_input_paths_pending")
+    elif "merge_input_paths" not in st.session_state:
+        st.session_state["merge_input_paths"] = ""
+
+    col_area, col_add = st.columns([5, 1])
+    with col_area:
+        raw_paths = st.text_area(
+            "File paths to merge (one per line)",
+            placeholder="data/set1.jsonl\ndata/set2.jsonl\ndata/set3.jsonl",
+            height=120,
+            key="merge_input_paths",
+        )
+    with col_add:
+        st.write("")
+        st.write("")
+        if st.button("Add Files"):
+            browse_open_multiple("merge_input_paths", "merge_input_paths_pending")
+
+    shuffle = st.checkbox("Randomly shuffle merged output", value=True)
+
+    output_path = path_input(
+        "Output file path",
+        state_key="merge_output_path",
+        browse_fn=browse_save_file,
+        browse_kwargs={
+            "default_name": "merged_dataset.jsonl",
+            "pref_path_key": "last_merge_output_path",
+        },
+        default=st.session_state.prefs.get("last_merge_output_path") or "merged_dataset.jsonl",
+    )
+
+    if st.button("Merge", type="primary"):
+        paths = [p.strip() for p in raw_paths.strip().splitlines() if p.strip()]
+        if not paths:
+            st.error("Enter at least one file path.")
+        else:
+            merged, stats = merge_datasets(paths, shuffle=shuffle)
+
+            st.info(
+                f"Loaded: **{stats['total_loaded']}** | "
+                f"Duplicates removed: **{stats['duplicates_removed']}** | "
+                f"Final count: **{len(merged)}**"
+            )
+
+            if stats["parse_errors"]:
+                with st.expander("Parse errors"):
+                    for err in stats["parse_errors"]:
+                        st.error(err)
+
+            if merged:
+                p = output_path.strip()
+                try:
+                    save_dataset(p, merged)
+                    _update_prefs({
+                        "last_merge_output_path": p,
+                        "last_save_directory": str(Path(p).parent),
+                    })
+                    st.success(f"Merged dataset saved to `{p}`.")
+
+                    content = "\n".join(json.dumps(e, ensure_ascii=False) for e in merged)
+                    st.download_button(
+                        "Download merged JSONL",
+                        data=content.encode("utf-8"),
+                        file_name=Path(p).name,
+                        mime="application/jsonlines",
+                    )
+                except Exception as exc:
+                    st.error(f"Failed to save merged dataset: {exc}")
+
+
+# ── Export ─────────────────────────────────────────────────────────────────────
+elif page == "Export":
+    st.subheader("Export Dataset")
+
+    _export_entries = st.session_state.loaded_entries
+    if not _export_entries:
+        st.info("Load a dataset to export.")
+    else:
+        st.caption(f"{len(_export_entries)} entries loaded from `{st.session_state.loaded_path or 'unknown'}`")
+
+        # ── Pending export: runs on the rerun AFTER the dialog closes ──────────
+        # Processed before widgets render so the success message appears cleanly.
+        if "export_path_pending" in st.session_state:
+            _pending_path = st.session_state.pop("export_path_pending")
+            _pending_clean = st.session_state.pop("export_clean_pending", False)
+            if _pending_path:
+                try:
+                    _out = (
+                        [{"messages": e["messages"]} for e in _export_entries]
+                        if _pending_clean
+                        else _export_entries
+                    )
+                    save_dataset(_pending_path, _out)
+                    st.success(f"Exported {len(_out)} entries to `{Path(_pending_path).resolve()}`.")
+                except Exception as exc:
+                    st.error(f"Export failed: {exc}")
+
+        clean_export = st.checkbox("Clean — Tag data removed", value=False, key="export_clean")
+
+        if st.button("Export as JSONL", type="primary", width="stretch"):
+            _export_default = Path(st.session_state.loaded_path).name if st.session_state.loaded_path else "dataset.jsonl"
+            _export_initial_dir = (
+                str(Path(st.session_state.loaded_path).parent)
+                if st.session_state.loaded_path and Path(st.session_state.loaded_path).parent.exists()
+                else None
+            )
+            _root = _tk_root()
+            _export_path = filedialog.asksaveasfilename(
+                title="Export dataset",
+                defaultextension=".jsonl",
+                initialfile=_export_default,
+                initialdir=_export_initial_dir,
+                filetypes=JSONL_TYPES,
+            )
+            _root.destroy()
+            if _export_path:
+                # Store path and clean flag, then rerun immediately.
+                # This lets Tkinter finish cleanly before Streamlit does any more work.
+                st.session_state["export_path_pending"] = _export_path
+                st.session_state["export_clean_pending"] = clean_export
+                st.rerun()
+
+
+# ── Import (placeholder) ───────────────────────────────────────────────────────
+elif page == "Import":
+    st.info("This page is planned but not implemented yet.")
+
+
+# ── Validation (placeholder) ───────────────────────────────────────────────────
+elif page == "Validation":
+    st.info("This page is planned but not implemented yet.")
+
+
+# ── Statistics ─────────────────────────────────────────────────────────────────
+elif page == "Statistics":
     _stat_entries = st.session_state.loaded_entries
 
     if not _stat_entries:
@@ -1038,76 +1135,61 @@ with tab_stats:
             st.dataframe(_df_val, width='stretch', hide_index=True)
 
 
-# ── Tab 4 (renumbered): Merge Datasets ────────────────────────────────────────
-with tab_merge:
-    st.subheader("Merge Multiple Datasets")
+# ── Settings ───────────────────────────────────────────────────────────────────
+elif page == "Settings":
+    st.subheader("Dataset Format")
 
-    if "merge_input_paths_pending" in st.session_state:
-        st.session_state["merge_input_paths"] = st.session_state.pop("merge_input_paths_pending")
-    elif "merge_input_paths" not in st.session_state:
-        st.session_state["merge_input_paths"] = ""
+    def _persist_dataset_format():
+        st.session_state.dataset_format = st.session_state["_dataset_format_select"]
+        _update_prefs({"dataset_format": st.session_state.dataset_format})
 
-    col_area, col_add = st.columns([5, 1])
-    with col_area:
-        raw_paths = st.text_area(
-            "File paths to merge (one per line)",
-            placeholder="data/set1.jsonl\ndata/set2.jsonl\ndata/set3.jsonl",
-            height=120,
-            key="merge_input_paths",
-        )
-    with col_add:
-        st.write("")
-        st.write("")
-        if st.button("Add Files"):
-            browse_open_multiple("merge_input_paths", "merge_input_paths_pending")
-
-    shuffle = st.checkbox("Randomly shuffle merged output", value=True)
-
-    output_path = path_input(
-        "Output file path",
-        state_key="merge_output_path",
-        browse_fn=browse_save_file,
-        browse_kwargs={
-            "default_name": "merged_dataset.jsonl",
-            "pref_path_key": "last_merge_output_path",
-        },
-        default=st.session_state.prefs.get("last_merge_output_path") or "merged_dataset.jsonl",
+    st.selectbox(
+        "Default dataset format",
+        options=["ChatML"],
+        index=["ChatML"].index(st.session_state.dataset_format)
+        if st.session_state.dataset_format in ["ChatML"] else 0,
+        key="_dataset_format_select",
+        on_change=_persist_dataset_format,
     )
 
-    if st.button("Merge", type="primary"):
-        paths = [p.strip() for p in raw_paths.strip().splitlines() if p.strip()]
-        if not paths:
-            st.error("Enter at least one file path.")
-        else:
-            merged, stats = merge_datasets(paths, shuffle=shuffle)
+    st.divider()
+    st.subheader("Save Location")
 
-            st.info(
-                f"Loaded: **{stats['total_loaded']}** | "
-                f"Duplicates removed: **{stats['duplicates_removed']}** | "
-                f"Final count: **{len(merged)}**"
-            )
+    save_path = path_input(
+        "Dataset file path (.jsonl)",
+        state_key="create_save_path",
+        browse_fn=browse_save_file,
+        browse_kwargs={
+            "default_name": Path(st.session_state.loaded_path).name or "dataset.jsonl",
+            "pref_path_key": "last_loaded_dataset_path",
+        },
+        default=st.session_state.prefs.get("last_loaded_dataset_path") or st.session_state.loaded_path or "dataset.jsonl",
+    )
 
-            if stats["parse_errors"]:
-                with st.expander("Parse errors"):
-                    for err in stats["parse_errors"]:
-                        st.error(err)
+    # Keep Load Dataset path in sync with Save Location
+    if save_path and save_path != st.session_state.get("manage_load_path"):
+        st.session_state["manage_load_path_pending"] = save_path
 
-            if merged:
-                p = output_path.strip()
-                try:
-                    save_dataset(p, merged)
-                    _update_prefs({
-                        "last_merge_output_path": p,
-                        "last_save_directory": str(Path(p).parent),
-                    })
-                    st.success(f"Merged dataset saved to `{p}`.")
+    st.divider()
+    st.subheader("Conversation Preview Settings")
 
-                    content = "\n".join(json.dumps(e, ensure_ascii=False) for e in merged)
-                    st.download_button(
-                        "Download merged JSONL",
-                        data=content.encode("utf-8"),
-                        file_name=Path(p).name,
-                        mime="application/jsonlines",
-                    )
-                except Exception as exc:
-                    st.error(f"Failed to save merged dataset: {exc}")
+    def _persist_preview_user_name():
+        st.session_state.preview_user_name = st.session_state["_preview_user_name_input"]
+        _update_prefs({"preview_user_name": st.session_state.preview_user_name})
+
+    def _persist_preview_assistant_name():
+        st.session_state.preview_assistant_name = st.session_state["_preview_assistant_name_input"]
+        _update_prefs({"preview_assistant_name": st.session_state.preview_assistant_name})
+
+    st.text_input(
+        "User Name",
+        value=st.session_state.preview_user_name,
+        key="_preview_user_name_input",
+        on_change=_persist_preview_user_name,
+    )
+    st.text_input(
+        "Assistant Name",
+        value=st.session_state.preview_assistant_name,
+        key="_preview_assistant_name_input",
+        on_change=_persist_preview_assistant_name,
+    )
