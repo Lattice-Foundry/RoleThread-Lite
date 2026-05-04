@@ -27,25 +27,8 @@ from preferences import get_initial_dir, load_preferences, save_preferences
 
 st.set_page_config(page_title="Roleplay Dataset Manager", layout="wide")
 
-# Display name shown under the title (maps internal page key → sidebar label)
-_PAGE_DISPLAY_NAMES: dict[str, str] = {
-    "Create Entry":   "New Entry",
-    "Manage Dataset": "Manage Dataset",
-    "Merge Datasets": "Merge Datasets",
-    "Edit Entries":   "Edit Entries",
-    "Import":         "Import",
-    "Export":         "Export",
-    "Validation":     "Validate",
-    "Statistics":     "Statistics",
-    "Settings":       "Preferences",
-}
-_header_page = _PAGE_DISPLAY_NAMES.get(
-    st.session_state.get("page", "Create Entry"),
-    st.session_state.get("page", "Create Entry"),
-)
 st.markdown(
-    f"<h1 style='color:#1a73e8;margin-bottom:0.15rem'>Roleplay Dataset Manager</h1>"
-    f"<p style='color:white;font-size:1.05rem;margin-top:0;margin-bottom:0.5rem'>{_header_page}</p>",
+    "<h1 style='color:#1a73e8'>Roleplay Dataset Manager</h1>",
     unsafe_allow_html=True,
 )
 
@@ -67,6 +50,21 @@ button[kind="primary"]:not(:disabled):hover,
     background-color: #1565c0 !important;
     border-color: #0d47a1 !important;
     color: white !important;
+}
+/* Active sidebar nav button — blue text, no background fill.
+   More specific selector overrides the general primary-button rule above. */
+section[data-testid="stSidebar"] button[data-testid="baseButton-primary"]:not(:disabled),
+section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled) {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    color: #1a73e8 !important;
+    box-shadow: none !important;
+}
+section[data-testid="stSidebar"] button[data-testid="baseButton-primary"]:not(:disabled):hover,
+section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled):hover {
+    background-color: rgba(26, 115, 232, 0.08) !important;
+    border-color: transparent !important;
+    color: #1565c0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -559,12 +557,11 @@ _NAV_SECTIONS = [
         ("New Entry",       "Create Entry"),
     ]),
     ("Dataset", [
-        ("Manage Dataset",  "Manage Dataset"),
-        ("Merge Datasets",  "Merge Datasets"),
+        ("Manage",          "Manage Dataset"),
+        ("Merge",           "Merge Datasets"),
         ("Edit Entries",    "Edit Entries"),
     ]),
     ("Tools", [
-        ("Import",          "Import"),
         ("Export",          "Export"),
         ("Validate",        "Validation"),
     ]),
@@ -580,7 +577,8 @@ for _sec_name, _sec_items in _NAV_SECTIONS:
     st.sidebar.markdown(f"**{_sec_name}**")
     for _display_label, _target in _sec_items:
         _btn_label = f"▶ {_display_label}" if _page == _target else _display_label
-        if st.sidebar.button(_btn_label, key=f"_nav_{_target}", width="stretch"):
+        if st.sidebar.button(_btn_label, key=f"_nav_{_target}", width="stretch",
+                             type="primary" if _page == _target else "secondary"):
             st.session_state.page = _target
             st.rerun()
 
@@ -999,11 +997,6 @@ elif page == "Export":
                 st.session_state["export_path_pending"] = _export_path
                 st.session_state["export_clean_pending"] = clean_export
                 st.rerun()
-
-
-# ── Import (placeholder) ───────────────────────────────────────────────────────
-elif page == "Import":
-    st.info("This page is planned but not implemented yet.")
 
 
 # ── Validation (placeholder) ───────────────────────────────────────────────────
