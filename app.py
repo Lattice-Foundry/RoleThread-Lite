@@ -50,6 +50,7 @@ button[kind="primary"]:not(:disabled):hover,
 </style>
 """, unsafe_allow_html=True)
 
+# ── Module-level constants ─────────────────────────────────────────────────────
 JSONL_TYPES = [("JSONL files", "*.jsonl"), ("All files", "*.*")]
 
 _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
@@ -58,7 +59,163 @@ _ROLE_PLACEHOLDER = {
     "assistant": "What the assistant replies…",
 }
 
+_UNTAGGED = "__untagged__"
 
+
+# ── Preferences helpers ────────────────────────────────────────────────────────
+def _update_prefs(updates: dict) -> None:
+    st.session_state.prefs.update(updates)
+    save_preferences(st.session_state.prefs)
+
+
+# ── Tkinter helpers ────────────────────────────────────────────────────────────
+def _tk_root():
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes("-topmost", 1)
+    return root
+
+
+def browse_open_file(pending_key: str, pref_path_key: str = "last_loaded_dataset_path") -> None:
+    prefs = st.session_state.prefs
+    root = _tk_root()
+    path = filedialog.askopenfilename(
+        title="Select dataset file",
+        filetypes=JSONL_TYPES,
+        initialdir=get_initial_dir(prefs, path_key=pref_path_key, dir_key="last_open_directory"),
+    )
+    root.destroy()
+    if path:
+        st.session_state[pending_key] = path
+        _update_prefs({
+            pref_path_key: path,
+            "last_open_directory": str(Path(path).parent),
+        })
+        st.rerun()
+
+
+def browse_save_file(
+    pending_key: str,
+    default_name: str = "dataset.jsonl",
+    pref_path_key: str = "last_save_dataset_path",
+) -> None:
+    prefs = st.session_state.prefs
+    root = _tk_root()
+    path = filedialog.asksaveasfilename(
+        title="Save dataset as",
+        defaultextension=".jsonl",
+        initialfile=default_name,
+        initialdir=get_initial_dir(prefs, path_key=pref_path_key, dir_key="last_save_directory"),
+        filetypes=JSONL_TYPES,
+    )
+    root.destroy()
+    if path:
+        st.session_state[pending_key] = path
+        _update_prefs({
+            pref_path_key: path,
+            "last_save_directory": str(Path(path).parent),
+        })
+        st.rerun()
+
+
+def browse_open_multiple(widget_key: str, pending_key: str) -> None:
+    prefs = st.session_state.prefs
+    root = _tk_root()
+    paths = filedialog.askopenfilenames(
+        title="Select dataset files to merge",
+        filetypes=JSONL_TYPES,
+        initialdir=get_initial_dir(prefs, dir_key="last_open_directory"),
+    )
+    root.destroy()
+    if paths:
+        existing = st.session_state.get(widget_key, "").strip()
+        new_lines = "\n".join(paths)
+        combined = (existing + "\n" + new_lines).strip() if existing else new_lines
+        st.session_state[pending_key] = combined
+        _update_prefs({"last_open_directory": str(Path(paths[0]).parent)})
+        st.rerun()
+
+
+# ── path_input widget ──────────────────────────────────────────────────────────
+def path_input(label: str, state_key: str, browse_fn, browse_kwargs: dict, default: str = "") -> str:
+    """Text input + Browse button. Uses pending-key pattern to update the field from browse."""
+    pending_key = f"{state_key}_pending"
+
+    if pending_key in st.session_state:
+        st.session_state[state_key] = st.session_state.pop(pending_key)
+    elif state_key not in st.session_state:
+        st.session_state[state_key] = default
+
+    col_input, col_btn = st.columns([5, 1])
+    with col_input:
+        value = st.text_input(label, key=state_key)
+    with col_btn:
+        st.write("")
+        if st.button("Browse", key=f"browse_{state_key}"):
+            browse_fn(pending_key, **browse_kwargs)
+    return value
+
+
+# ── Tag filtering helper ───────────────────────────────────────────────────────
+def filter_entries_by_tags(
+    entries: list[dict],
+    selected_tags: list[str],
+    match_mode: str,
+) -> list[dict]:
+    if not selected_tags:
+        return entries
+
+    normal_tags = [t for t in selected_tags if t != _UNTAGGED]
+    include_untagged = _UNTAGGED in selected_tags
+    normal_set = set(normal_tags)
+
+    result = []
+    for entry in entries:
+        entry_tags = entry.get("tags") or []
+        is_untagged = len(entry_tags) == 0
+
+        if is_untagged:
+            if include_untagged and not normal_tags:
+                result.append(entry)
+            elif include_untagged and match_mode == "Exact match":
+                result.append(entry)
+            continue
+
+        # Tagged entry — normal_tags must be non-empty to match
+        if not normal_tags:
+            continue
+        entry_set = set(entry_tags)
+        if match_mode == "All selected tags":
+            if normal_set.issubset(entry_set):
+                result.append(entry)
+        elif match_mode == "Exact match":
+            if entry_set == normal_set:
+                result.append(entry)
+        else:  # Any selected tags
+            if normal_set.intersection(entry_set):
+                result.append(entry)
+
+    return result
+
+
+# ── Narration / dialogue formatter ────────────────────────────────────────────
+def _format_preview_content(text: str) -> str:
+    """Split content into dialogue (plain) and narration (orange italic).
+    Text inside double-quotes is treated as dialogue and left unstyled.
+    Everything else is narration and rendered orange + italic."""
+    parts = re.split(r'(".*?")', text, flags=re.DOTALL)
+    out = ""
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith('"') and part.endswith('"') and len(part) >= 2:
+            out += part  # dialogue — plain/default color
+        else:
+            out += f"<span style='color:#e67e22;font-style:italic'>{part}</span>"
+    return out
+
+
+# ── Editor functions ───────────────────────────────────────────────────────────
 def init_editor_state(prefix: str) -> None:
     """Initialise session state keys for an entry editor instance.
     Safe to call multiple times — only sets keys that don't exist yet."""
@@ -123,7 +280,7 @@ def render_turn_builder(prefix: str) -> list[dict]:
         )
     )
     _planned_exchanges = st.session_state[f"{prefix}_planned_exchanges"]
-    _remaining = max(0, _planned_exchanges - _current_exchanges)
+    _remaining = max(0, _planned_exchanges - len(_turns_now) // 2)
     _overage = max(0, _current_exchanges - _planned_exchanges)
 
     # ── Turn pair rendering loop ───────────────────────────────────────────────
@@ -149,7 +306,11 @@ def render_turn_builder(prefix: str) -> list[dict]:
                 )
 
     # ── Add / Remove Exchange buttons ─────────────────────────────────────────
-    _add_label = f"Add Exchange ({_remaining} Remaining)" if _remaining > 0 else "Add Exchange"
+    _add_label = (
+        f"Add Exchange ({_remaining} Remaining)"
+        if _remaining > 0 and _planned_exchanges >= 2
+        else "Add Exchange"
+    )
     _btn_add, _btn_remove = st.columns(2)
     with _btn_add:
         if st.button(_add_label, key=f"{prefix}_btn_add", width='stretch'):
@@ -287,14 +448,14 @@ def render_entry_actions(
         )
     )
 
-    if _current_exchanges < _planned_exchanges:
+    if _planned_exchanges > 1 and _current_exchanges < _planned_exchanges:
         st.warning("You have not reached your planned number of exchanges yet.")
     if _overage > 0:
         st.info(
             f"You are {_overage} exchange(s) over your planned count. "
             "You can still save this exchange."
         )
-    if _blank_pairs > 0:
+    if _planned_exchanges > 1 and _blank_pairs > 0:
         st.warning(
             f"{_blank_pairs} exchange pair(s) have empty fields and will not be saved. "
             "Fill them in or remove them before completing."
@@ -363,161 +524,6 @@ if "prefs" not in st.session_state:
             st.session_state.loaded_path = last
         else:
             st.session_state.stale_last_path = last
-
-
-# ── Preferences helpers ────────────────────────────────────────────────────────
-def _update_prefs(updates: dict) -> None:
-    st.session_state.prefs.update(updates)
-    save_preferences(st.session_state.prefs)
-
-
-# ── Tkinter helpers ────────────────────────────────────────────────────────────
-def _tk_root():
-    root = tk.Tk()
-    root.withdraw()
-    root.wm_attributes("-topmost", 1)
-    return root
-
-
-def browse_open_file(pending_key: str, pref_path_key: str = "last_loaded_dataset_path") -> None:
-    prefs = st.session_state.prefs
-    root = _tk_root()
-    path = filedialog.askopenfilename(
-        title="Select dataset file",
-        filetypes=JSONL_TYPES,
-        initialdir=get_initial_dir(prefs, path_key=pref_path_key, dir_key="last_open_directory"),
-    )
-    root.destroy()
-    if path:
-        st.session_state[pending_key] = path
-        _update_prefs({
-            pref_path_key: path,
-            "last_open_directory": str(Path(path).parent),
-        })
-        st.rerun()
-
-
-def browse_save_file(
-    pending_key: str,
-    default_name: str = "dataset.jsonl",
-    pref_path_key: str = "last_save_dataset_path",
-) -> None:
-    prefs = st.session_state.prefs
-    root = _tk_root()
-    path = filedialog.asksaveasfilename(
-        title="Save dataset as",
-        defaultextension=".jsonl",
-        initialfile=default_name,
-        initialdir=get_initial_dir(prefs, path_key=pref_path_key, dir_key="last_save_directory"),
-        filetypes=JSONL_TYPES,
-    )
-    root.destroy()
-    if path:
-        st.session_state[pending_key] = path
-        _update_prefs({
-            pref_path_key: path,
-            "last_save_directory": str(Path(path).parent),
-        })
-        st.rerun()
-
-
-def browse_open_multiple(widget_key: str, pending_key: str) -> None:
-    prefs = st.session_state.prefs
-    root = _tk_root()
-    paths = filedialog.askopenfilenames(
-        title="Select dataset files to merge",
-        filetypes=JSONL_TYPES,
-        initialdir=get_initial_dir(prefs, dir_key="last_open_directory"),
-    )
-    root.destroy()
-    if paths:
-        existing = st.session_state.get(widget_key, "").strip()
-        new_lines = "\n".join(paths)
-        combined = (existing + "\n" + new_lines).strip() if existing else new_lines
-        st.session_state[pending_key] = combined
-        _update_prefs({"last_open_directory": str(Path(paths[0]).parent)})
-        st.rerun()
-
-
-# ── path_input widget ──────────────────────────────────────────────────────────
-def path_input(label: str, state_key: str, browse_fn, browse_kwargs: dict, default: str = "") -> str:
-    """Text input + Browse button. Uses pending-key pattern to update the field from browse."""
-    pending_key = f"{state_key}_pending"
-
-    if pending_key in st.session_state:
-        st.session_state[state_key] = st.session_state.pop(pending_key)
-    elif state_key not in st.session_state:
-        st.session_state[state_key] = default
-
-    col_input, col_btn = st.columns([5, 1])
-    with col_input:
-        value = st.text_input(label, key=state_key)
-    with col_btn:
-        st.write("")
-        if st.button("Browse", key=f"browse_{state_key}"):
-            browse_fn(pending_key, **browse_kwargs)
-    return value
-
-
-# ── Tag filtering helper ───────────────────────────────────────────────────────
-_UNTAGGED = "__untagged__"
-
-def filter_entries_by_tags(
-    entries: list[dict],
-    selected_tags: list[str],
-    match_mode: str,
-) -> list[dict]:
-    if not selected_tags:
-        return entries
-
-    normal_tags = [t for t in selected_tags if t != _UNTAGGED]
-    include_untagged = _UNTAGGED in selected_tags
-    normal_set = set(normal_tags)
-
-    result = []
-    for entry in entries:
-        entry_tags = entry.get("tags") or []
-        is_untagged = len(entry_tags) == 0
-
-        if is_untagged:
-            if include_untagged and not normal_tags:
-                result.append(entry)
-            elif include_untagged and match_mode == "Exact match":
-                result.append(entry)
-            continue
-
-        # Tagged entry — normal_tags must be non-empty to match
-        if not normal_tags:
-            continue
-        entry_set = set(entry_tags)
-        if match_mode == "All selected tags":
-            if normal_set.issubset(entry_set):
-                result.append(entry)
-        elif match_mode == "Exact match":
-            if entry_set == normal_set:
-                result.append(entry)
-        else:  # Any selected tags
-            if normal_set.intersection(entry_set):
-                result.append(entry)
-
-    return result
-
-
-# ── Narration / dialogue formatter ────────────────────────────────────────────
-def _format_preview_content(text: str) -> str:
-    """Split content into dialogue (plain) and narration (orange italic).
-    Text inside double-quotes is treated as dialogue and left unstyled.
-    Everything else is narration and rendered orange + italic."""
-    parts = re.split(r'(".*?")', text, flags=re.DOTALL)
-    out = ""
-    for part in parts:
-        if not part:
-            continue
-        if part.startswith('"') and part.endswith('"') and len(part) >= 2:
-            out += part  # dialogue — plain/default color
-        else:
-            out += f"<span style='color:#e67e22;font-style:italic'>{part}</span>"
-    return out
 
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
@@ -1032,7 +1038,7 @@ with tab_stats:
             st.dataframe(_df_val, width='stretch', hide_index=True)
 
 
-# ── Tab 3 (renumbered): Merge Datasets ────────────────────────────────────────
+# ── Tab 4 (renumbered): Merge Datasets ────────────────────────────────────────
 with tab_merge:
     st.subheader("Merge Multiple Datasets")
 
