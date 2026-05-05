@@ -5,10 +5,7 @@ PREFS_FILE = Path(__file__).parent / "preferences.json"
 
 DEFAULTS: dict = {
     "last_loaded_dataset_path": "",
-    "last_save_dataset_path": "",
-    "last_merge_output_path": "",
     "last_open_directory": "",
-    "last_save_directory": "",
     "last_system_prompt": "",
     "preview_user_name": "User",
     "preview_assistant_name": "Assistant",

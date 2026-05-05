@@ -122,7 +122,6 @@ def browse_open_file(pending_key: str, pref_path_key: str = "last_loaded_dataset
 def browse_save_file(
     pending_key: str,
     default_name: str = "dataset.jsonl",
-    pref_path_key: str = "last_save_dataset_path",
 ) -> None:
     prefs = st.session_state.prefs
     root = _tk_root()
@@ -130,16 +129,12 @@ def browse_save_file(
         title="Save dataset as",
         defaultextension=".jsonl",
         initialfile=default_name,
-        initialdir=get_initial_dir(prefs, path_key=pref_path_key, dir_key="last_save_directory"),
+        initialdir=get_initial_dir(prefs, dir_key="last_open_directory"),
         filetypes=JSONL_TYPES,
     )
     root.destroy()
     if path:
         st.session_state[pending_key] = path
-        _update_prefs({
-            pref_path_key: path,
-            "last_save_directory": str(Path(path).parent),
-        })
         st.rerun()
 
 
@@ -620,18 +615,16 @@ def render_entry_actions(
     _btn_label = "Complete Exchange" if mode == "create" else "Save Changes"
     _complete_disabled = not _entry_valid or _current_exchanges < _planned_exchanges
     if st.button(_btn_label, disabled=_complete_disabled, type="primary", width='stretch'):
-        save_path = st.session_state.get("create_save_path", "").strip()
+        save_path = st.session_state.get("loaded_path", "").strip()
         if not save_path:
-            st.error("Please set a dataset file path in Settings.")
+            st.error("No dataset loaded. Please load or create a dataset before saving an exchange.")
         elif mode == "create":
             try:
                 append_to_dataset(save_path, entry_preview)
-                st.session_state.loaded_path = save_path
                 entries, _ = load_dataset(save_path)
                 set_loaded_entries(entries)
                 _update_prefs({
                     "last_loaded_dataset_path": save_path,
-                    "last_save_directory": str(Path(save_path).parent),
                 })
                 st.session_state["manage_load_path_pending"] = save_path
                 st.session_state[f"{prefix}_clear"] = True
@@ -671,8 +664,6 @@ if "prefs" not in st.session_state:
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
     st.session_state.dataset_format = prefs.get("dataset_format", "ChatML")
     st.session_state.page = "Create Entry"
-    # Initialise save path from prefs so Create Entry works before Settings is visited
-    st.session_state["create_save_path"] = prefs.get("last_loaded_dataset_path") or ""
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
@@ -683,12 +674,6 @@ if "prefs" not in st.session_state:
         else:
             st.session_state.stale_last_path = last
 
-
-# ── Global pending-key processing ─────────────────────────────────────────────
-# Consume cross-page pending keys every render so they take effect regardless
-# of which page is currently active.
-if "create_save_path_pending" in st.session_state:
-    st.session_state["create_save_path"] = st.session_state.pop("create_save_path_pending")
 
 # ── Sidebar navigation ─────────────────────────────────────────────────────────
 if "page" not in st.session_state:
@@ -774,14 +759,10 @@ elif page == "Manage Dataset":
         default=st.session_state.prefs.get("last_loaded_dataset_path") or st.session_state.loaded_path or "dataset.jsonl",
     )
 
-    # Keep Save Location path in sync with Load Dataset
-    if load_path and load_path != st.session_state.get("create_save_path"):
-        st.session_state["create_save_path_pending"] = load_path
-
     col_load, col_new = st.columns(2)
 
     with col_load:
-        if st.button("Load", width='stretch'):
+        if st.button("Load", width='stretch', disabled=not load_path.strip()):
             p = load_path.strip()
             entries, errors = load_dataset(p)
             if errors:
@@ -791,7 +772,6 @@ elif page == "Manage Dataset":
             st.session_state.loaded_path = p
             st.session_state.stale_last_path = ""
             st.session_state.entry_page = 0
-            st.session_state["create_save_path_pending"] = p
             _update_prefs({
                 "last_loaded_dataset_path": p,
                 "last_open_directory": str(Path(p).parent),
@@ -806,7 +786,7 @@ elif page == "Manage Dataset":
                 title="Create new dataset",
                 defaultextension=".jsonl",
                 initialfile="dataset.jsonl",
-                initialdir=get_initial_dir(prefs, dir_key="last_save_directory"),
+                initialdir=get_initial_dir(prefs, dir_key="last_open_directory"),
                 filetypes=JSONL_TYPES,
             )
             root.destroy()
@@ -827,14 +807,11 @@ elif page == "Manage Dataset":
                     st.session_state.loaded_path = new_path
                     st.session_state.stale_last_path = ""
                     st.session_state.entry_page = 0
-                    # Push new path into both path fields via pending keys
                     st.session_state["manage_load_path_pending"] = new_path
-                    st.session_state["create_save_path_pending"] = new_path
                     st.session_state["clear_entry_fields"] = True
                     _update_prefs({
                         "last_loaded_dataset_path": new_path,
-                        "last_save_dataset_path": new_path,
-                        "last_save_directory": str(Path(new_path).parent),
+                        "last_open_directory": str(Path(new_path).parent),
                     })
                     st.success(f"New dataset created at `{Path(new_path).resolve()}`.")
                     st.rerun()
@@ -1047,11 +1024,8 @@ elif page == "Merge Datasets":
         "Output file path",
         state_key="merge_output_path",
         browse_fn=browse_save_file,
-        browse_kwargs={
-            "default_name": "merged_dataset.jsonl",
-            "pref_path_key": "last_merge_output_path",
-        },
-        default=st.session_state.prefs.get("last_merge_output_path") or "merged_dataset.jsonl",
+        browse_kwargs={"default_name": "merged_dataset.jsonl"},
+        default="merged_dataset.jsonl",
     )
 
     if st.button("Merge", type="primary"):
@@ -1076,10 +1050,6 @@ elif page == "Merge Datasets":
                 p = output_path.strip()
                 try:
                     save_dataset(p, merged)
-                    _update_prefs({
-                        "last_merge_output_path": p,
-                        "last_save_directory": str(Path(p).parent),
-                    })
                     st.success(f"Merged dataset saved to `{p}`.")
 
                     content = "\n".join(json.dumps(e, ensure_ascii=False) for e in merged)
@@ -1098,6 +1068,9 @@ elif page == "Export":
     ensure_entry_registry()
     st.subheader("Export Dataset")
 
+    if "export_success_msg" in st.session_state:
+        st.success(st.session_state.pop("export_success_msg"))
+
     _export_entries = st.session_state.loaded_entries
     if not _export_entries:
         st.info("Load a dataset to export.")
@@ -1113,7 +1086,7 @@ elif page == "Export":
             state_key="export_save_path",
             browse_fn=browse_export_file,
             browse_kwargs={},
-            default=st.session_state.loaded_path or "dataset.jsonl",
+            default="",
         )
 
         if st.button("Export as JSONL", type="primary", width="stretch"):
@@ -1128,7 +1101,11 @@ elif page == "Export":
                         else _export_entries
                     )
                     save_dataset(_p, _out)
-                    st.success(f"Exported {len(_out)} entries to `{Path(_p).resolve()}`.")
+                    st.session_state["export_success_msg"] = (
+                        f"Exported {len(_out)} entries to `{Path(_p).resolve()}`."
+                    )
+                    st.session_state["export_save_path_pending"] = ""
+                    st.rerun()
                 except Exception as exc:
                     st.error(f"Export failed: {exc}")
 
@@ -1281,24 +1258,6 @@ elif page == "Settings":
         key="_dataset_format_select",
         on_change=_persist_dataset_format,
     )
-
-    st.divider()
-    st.subheader("Save Location")
-
-    save_path = path_input(
-        "Dataset file path (.jsonl)",
-        state_key="create_save_path",
-        browse_fn=browse_save_file,
-        browse_kwargs={
-            "default_name": Path(st.session_state.loaded_path).name or "dataset.jsonl",
-            "pref_path_key": "last_loaded_dataset_path",
-        },
-        default=st.session_state.prefs.get("last_loaded_dataset_path") or st.session_state.loaded_path or "dataset.jsonl",
-    )
-
-    # Keep Load Dataset path in sync with Save Location
-    if save_path and save_path != st.session_state.get("manage_load_path"):
-        st.session_state["manage_load_path_pending"] = save_path
 
     st.divider()
     st.subheader("Conversation Preview Settings")
