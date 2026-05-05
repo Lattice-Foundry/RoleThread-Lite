@@ -286,6 +286,88 @@ def get_all_entry_pairs() -> list[tuple[str, dict]]:
     return get_entry_pairs(st.session_state.loaded_entries, st.session_state.entry_registry)
 
 
+# ── Selection helpers ─────────────────────────────────────────────────────────
+
+def ensure_selection_state() -> None:
+    """Ensure selected_entry_ids exists as a set in session state."""
+    if not isinstance(st.session_state.get("selected_entry_ids"), set):
+        st.session_state.selected_entry_ids = set()
+
+
+def clear_selected_entries() -> None:
+    """Clear all selected entry IDs."""
+    st.session_state.selected_entry_ids = set()
+
+
+def toggle_entry_selection(entry_id: str, selected: bool) -> None:
+    """Add or remove entry_id from selected_entry_ids."""
+    ensure_selection_state()
+    if selected:
+        st.session_state.selected_entry_ids.add(entry_id)
+    else:
+        st.session_state.selected_entry_ids.discard(entry_id)
+
+
+def select_visible_entries(visible_pairs: list[tuple[str, dict]]) -> None:
+    """Add all visible (current-page) entry IDs to selected_entry_ids."""
+    ensure_selection_state()
+    for entry_id, _ in visible_pairs:
+        st.session_state.selected_entry_ids.add(entry_id)
+
+
+def deselect_visible_entries(visible_pairs: list[tuple[str, dict]]) -> None:
+    """Remove all visible (current-page) entry IDs from selected_entry_ids."""
+    ensure_selection_state()
+    for entry_id, _ in visible_pairs:
+        st.session_state.selected_entry_ids.discard(entry_id)
+
+
+def get_selected_entry_ids() -> list[str]:
+    """Return selected IDs as a list."""
+    ensure_selection_state()
+    return list(st.session_state.selected_entry_ids)
+
+
+def prune_selection_to_loaded_entries() -> None:
+    """Remove selected IDs that no longer exist in the current registry.
+
+    Call after loading, creating, deleting, or any registry rebuild.
+    """
+    ensure_selection_state()
+    ensure_entry_registry()
+    valid_ids = set(st.session_state.entry_registry.get("ids", []))
+    st.session_state.selected_entry_ids &= valid_ids
+
+
+def save_loaded_dataset() -> bool:
+    """Save loaded_entries to loaded_path. Returns True on success, False on failure."""
+    try:
+        save_dataset(st.session_state.loaded_path, st.session_state.loaded_entries)
+        return True
+    except Exception as exc:
+        st.error(f"Failed to save dataset: {exc}")
+        return False
+
+
+def delete_selected_entries() -> tuple[int, list[str]]:
+    """Delete selected entries by temp ID and persist to disk.
+
+    Clears selection only if the save succeeds.
+    Returns (count_deleted, list_of_failed_ids).
+    """
+    ids_to_delete = get_selected_entry_ids()
+    deleted = 0
+    failures: list[str] = []
+    for entry_id in ids_to_delete:
+        if delete_loaded_entry_by_id(entry_id):
+            deleted += 1
+        else:
+            failures.append(entry_id)
+    if deleted > 0 and save_loaded_dataset():
+        clear_selected_entries()
+    return deleted, failures
+
+
 # ── Editor functions ───────────────────────────────────────────────────────────
 def init_editor_state(prefix: str) -> None:
     """Initialise session state keys for an entry editor instance.
@@ -593,6 +675,8 @@ if "prefs" not in st.session_state:
     st.session_state.filter_tags = []
     st.session_state.filter_only_used = True
     st.session_state.filter_match_mode = "Any selected tags"
+    st.session_state.selected_entry_ids = set()
+    st.session_state.confirm_delete_entries = prefs.get("confirm_delete_entries", True)
     init_editor_state("create")
     st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
@@ -677,6 +761,7 @@ if page == "Create Entry":
 # ── Manage Dataset ─────────────────────────────────────────────────────────────
 elif page == "Manage Dataset":
     ensure_entry_registry()
+    ensure_selection_state()
     if st.session_state.stale_last_path and not st.session_state.loaded_path:
         st.warning(
             f"Last dataset `{st.session_state.stale_last_path}` no longer exists. "
@@ -706,6 +791,7 @@ elif page == "Manage Dataset":
             st.session_state.loaded_path = p
             st.session_state.stale_last_path = ""
             st.session_state.entry_page = 0
+            clear_selected_entries()
             _update_prefs({
                 "last_loaded_dataset_path": p,
                 "last_open_directory": str(Path(p).parent),
@@ -741,6 +827,7 @@ elif page == "Manage Dataset":
                     st.session_state.loaded_path = new_path
                     st.session_state.stale_last_path = ""
                     st.session_state.entry_page = 0
+                    clear_selected_entries()
                     st.session_state["manage_load_path_pending"] = new_path
                     st.session_state["clear_entry_fields"] = True
                     _update_prefs({
@@ -858,15 +945,105 @@ elif page == "Manage Dataset":
             _cur_page = min(st.session_state.get("entry_page", 0), last_page)
             start = _cur_page * per_page
             end = min(start + per_page, total_filtered)
+            visible_pairs = filtered_pairs[start:end]
 
+            # ── Status line (always visible) ───────────────────────────────────
+            _total_sel = len(get_selected_entry_ids())
             if filter_tags:
                 st.caption(
-                    f"Showing {start + 1}–{end} of {total_filtered} filtered entries ({total_all} total)"
+                    f"Showing {start + 1}–{end} of {total_filtered} filtered entries "
+                    f"({total_all} total) | {_total_sel} of {total_filtered} selected"
                 )
             else:
-                st.caption(f"Showing {start + 1}–{end} of {total_all} entries")
+                st.caption(
+                    f"Showing {start + 1}–{end} of {total_all} entries "
+                    f"| {_total_sel} of {total_all} selected"
+                )
 
-            for i, (entry_id, entry) in enumerate(filtered_pairs[start:end], start=start):
+            # ── Selection + action buttons (single row) ────────────────────────
+            _no_sel = _total_sel == 0
+            _col_sel_all, _col_clear, _col_delete, _col_act_spacer = st.columns(
+                [1, 1, 1, 2]
+            )
+            with _col_sel_all:
+                if st.button("Select all visible", key="btn_select_all_visible",
+                             width="stretch"):
+                    select_visible_entries(visible_pairs)
+                    st.rerun()
+            with _col_clear:
+                if st.button("Clear visible selection", key="btn_clear_visible",
+                             width="stretch"):
+                    deselect_visible_entries(visible_pairs)
+                    st.rerun()
+            with _col_delete:
+                if st.button("Delete Selected", key="btn_delete_selected",
+                             disabled=_no_sel, width="stretch"):
+                    if st.session_state.get("confirm_delete_entries", True):
+                        st.session_state["pending_delete_selected"] = True
+                        st.rerun()
+                    else:
+                        _n, _failures = delete_selected_entries()
+                        prune_selection_to_loaded_entries()
+                        _new_total = len(st.session_state.loaded_entries)
+                        if _new_total == 0 or st.session_state.entry_page > max(
+                            0, (_new_total - 1) // per_page
+                        ):
+                            st.session_state.entry_page = 0
+                        if _failures:
+                            st.warning(
+                                f"Deleted {_n} entries. "
+                                f"{len(_failures)} could not be removed."
+                            )
+                        else:
+                            st.success(f"Deleted {_n} entries.")
+                        st.rerun()
+
+            # ── Confirmation UI (shown below button row when pending) ───────────
+            if st.session_state.get("pending_delete_selected"):
+                _pending_sel_ids = get_selected_entry_ids()
+                st.warning(
+                    f"Delete {len(_pending_sel_ids)} selected entrie(s)? "
+                    "This cannot be undone."
+                )
+                _col_confirm, _col_cancel, _col_del_spacer = st.columns([1, 1, 2])
+                with _col_confirm:
+                    if st.button("Confirm Delete", type="primary",
+                                 key="btn_confirm_delete", width="stretch"):
+                        _n, _failures = delete_selected_entries()
+                        st.session_state.pop("pending_delete_selected", None)
+                        prune_selection_to_loaded_entries()
+                        _new_total = len(st.session_state.loaded_entries)
+                        if _new_total == 0 or st.session_state.entry_page > max(
+                            0, (_new_total - 1) // per_page
+                        ):
+                            st.session_state.entry_page = 0
+                        if _failures:
+                            st.warning(
+                                f"Deleted {_n} entries. "
+                                f"{len(_failures)} could not be removed."
+                            )
+                        else:
+                            st.success(f"Deleted {_n} entries.")
+                        st.rerun()
+                with _col_cancel:
+                    if st.button("Cancel", key="btn_cancel_delete", width="stretch"):
+                        st.session_state.pop("pending_delete_selected", None)
+                        st.rerun()
+
+            # ── Entry list ─────────────────────────────────────────────────────
+            # Sync all visible checkbox widget keys from selected_entry_ids
+            # BEFORE any checkbox widget renders so visual state is always correct.
+            for _sync_id, _ in visible_pairs:
+                st.session_state[f"select_{_sync_id}"] = (
+                    _sync_id in st.session_state.selected_entry_ids
+                )
+
+            def _on_checkbox_change(entry_id: str) -> None:
+                toggle_entry_selection(
+                    entry_id, st.session_state[f"select_{entry_id}"]
+                )
+
+            for i, (entry_id, entry) in enumerate(visible_pairs, start=start):
                 errs = validate_entry(entry)
                 entry_tags = get_entry_tags(entry)
                 _tag_part = ", ".join(entry_tags) if entry_tags else "untagged"
@@ -878,26 +1055,42 @@ elif page == "Manage Dataset":
                 )
                 if errs:
                     label += " ⚠️"
-                with st.expander(label):
-                    st.caption(f"Temp ID: {entry_id}")
-                    if errs:
-                        for err in errs:
-                            st.error(err)
-                    msgs = entry.get("messages", [])
-                    for msg in msgs:
-                        role = msg.get("role", "?")
-                        content = msg.get("content", "")
-                        color = {"system": "#555", "user": "#1a73e8", "assistant": "#188038"}.get(role, "#000")
-                        if role == "system":
-                            body = f"<span style='color:#f1c40f'>{content}</span>"
-                        else:
-                            body = _format_preview_content(content)
-                        st.markdown(
-                            f"<span style='color:{color};font-weight:bold;text-transform:uppercase'>{role}:</span> {body}",
-                            unsafe_allow_html=True,
-                        )
-                        st.write("")
+                _col_cb, _col_entry = st.columns([1, 20])
+                with _col_cb:
+                    st.checkbox(
+                        "Select",
+                        key=f"select_{entry_id}",
+                        on_change=_on_checkbox_change,
+                        args=(entry_id,),
+                        label_visibility="collapsed",
+                    )
+                with _col_entry:
+                    with st.expander(label):
+                        st.caption(f"Temp ID: {entry_id}")
+                        if errs:
+                            for err in errs:
+                                st.error(err)
+                        msgs = entry.get("messages", [])
+                        for msg in msgs:
+                            role = msg.get("role", "?")
+                            content = msg.get("content", "")
+                            color = {
+                                "system": "#555",
+                                "user": "#1a73e8",
+                                "assistant": "#188038",
+                            }.get(role, "#000")
+                            if role == "system":
+                                body = f"<span style='color:#f1c40f'>{content}</span>"
+                            else:
+                                body = _format_preview_content(content)
+                            st.markdown(
+                                f"<span style='color:{color};font-weight:bold;"
+                                f"text-transform:uppercase'>{role}:</span> {body}",
+                                unsafe_allow_html=True,
+                            )
+                            st.write("")
 
+            # ── Pagination buttons ─────────────────────────────────────────────
             col_prev, col_next = st.columns(2)
             with col_prev:
                 if st.button("Previous", disabled=(_cur_page == 0), width='stretch'):
@@ -1176,6 +1369,20 @@ elif page == "Settings":
         if st.session_state.dataset_format in ["ChatML"] else 0,
         key="_dataset_format_select",
         on_change=_persist_dataset_format,
+    )
+
+    st.divider()
+    st.subheader("Editing Safety")
+
+    def _persist_confirm_delete():
+        st.session_state.confirm_delete_entries = st.session_state["_confirm_delete_checkbox"]
+        _update_prefs({"confirm_delete_entries": st.session_state.confirm_delete_entries})
+
+    st.checkbox(
+        "Confirm before deleting entries",
+        value=st.session_state.get("confirm_delete_entries", True),
+        key="_confirm_delete_checkbox",
+        on_change=_persist_confirm_delete,
     )
 
     st.divider()

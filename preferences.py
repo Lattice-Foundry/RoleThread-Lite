@@ -10,6 +10,7 @@ DEFAULTS: dict = {
     "preview_user_name": "User",
     "preview_assistant_name": "Assistant",
     "dataset_format": "ChatML",
+    "confirm_delete_entries": True,
 }
 
 
