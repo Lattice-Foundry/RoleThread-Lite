@@ -155,6 +155,92 @@ def entry_text_length(entry: dict) -> int:
         return 0
 
 
+# ── Temp-ID registry helpers ───────────────────────────────────────────────────
+
+def make_temp_entry_id(n: int) -> str:
+    """Return a zero-padded temp ID string, e.g. make_temp_entry_id(1) → 'tmp_000001'."""
+    return f"tmp_{n:06d}"
+
+
+def build_entry_registry(entries: list[dict]) -> dict:
+    """Build a fresh registry for a list of entries.
+
+    Returns:
+        {
+            "ids":          ["tmp_000001", ...],
+            "id_to_index":  {"tmp_000001": 0, ...},
+            "next_id":      int   # next unused counter value
+        }
+    """
+    ids = [make_temp_entry_id(i + 1) for i in range(len(entries))]
+    return {
+        "ids": ids,
+        "id_to_index": {eid: i for i, eid in enumerate(ids)},
+        "next_id": len(entries) + 1,
+    }
+
+
+def rebuild_id_to_index(ids: list[str]) -> dict:
+    """Reconstruct id_to_index from the current ordered IDs list."""
+    return {eid: i for i, eid in enumerate(ids)}
+
+
+def registry_is_valid(registry: dict, entries: list[dict]) -> bool:
+    """Return True only when registry is internally consistent with entries.
+
+    Returns False (triggering a silent rebuild) if anything looks wrong.
+    """
+    if not isinstance(registry, dict):
+        return False
+    ids = registry.get("ids")
+    if not isinstance(ids, list):
+        return False
+    if len(ids) != len(entries):
+        return False
+    if len(set(ids)) != len(ids):          # IDs must be unique
+        return False
+    id_to_index = registry.get("id_to_index")
+    if not isinstance(id_to_index, dict):
+        return False
+    if id_to_index != {eid: i for i, eid in enumerate(ids)}:
+        return False
+    next_id = registry.get("next_id")
+    if not isinstance(next_id, int) or next_id < 1:
+        return False
+    return True
+
+
+def append_registry_id(registry: dict) -> str:
+    """Append one new temp ID, update id_to_index and next_id. Returns the new ID."""
+    new_id = make_temp_entry_id(registry["next_id"])
+    registry["ids"].append(new_id)
+    registry["id_to_index"][new_id] = len(registry["ids"]) - 1
+    registry["next_id"] += 1
+    return new_id
+
+
+def remove_registry_id(registry: dict, entry_id: str) -> bool:
+    """Remove entry_id from the registry and rebuild id_to_index.
+
+    Returns True if the ID was found and removed, False otherwise.
+    """
+    if entry_id not in registry.get("id_to_index", {}):
+        return False
+    registry["ids"].remove(entry_id)
+    registry["id_to_index"] = rebuild_id_to_index(registry["ids"])
+    return True
+
+
+def get_index_for_entry_id(registry: dict, entry_id: str) -> int | None:
+    """Return the source list index for a temp ID, or None if not found."""
+    return registry.get("id_to_index", {}).get(entry_id)
+
+
+def get_entry_pairs(entries: list[dict], registry: dict) -> list[tuple[str, dict]]:
+    """Return [(entry_id, entry), ...] in source order."""
+    return list(zip(registry["ids"], entries))
+
+
 def build_dataset_stats(entries: list[dict]) -> dict:
     """Compute aggregate statistics for a list of dataset entries.
 

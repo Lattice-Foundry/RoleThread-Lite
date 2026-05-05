@@ -11,15 +11,21 @@ import streamlit as st
 from dataset import (
     DEFAULT_SYSTEM_PROMPT,
     TAGS,
+    append_registry_id,
     append_to_dataset,
     build_dataset_stats,
+    build_entry_registry,
     count_exchanges,
     entry_text_length,
+    get_entry_pairs,
     get_entry_messages,
+    get_index_for_entry_id,
     get_role_messages,
     load_dataset,
     make_entry,
     merge_datasets,
+    registry_is_valid,
+    remove_registry_id,
     save_dataset,
     validate_entry,
 )
@@ -137,6 +143,29 @@ def browse_save_file(
         st.rerun()
 
 
+def browse_export_file(pending_key: str) -> None:
+    """Open a save-as dialog for the Export page.
+    Does NOT update preferences — export is a one-off operation."""
+    _default = Path(st.session_state.loaded_path).name if st.session_state.loaded_path else "dataset.jsonl"
+    _initial_dir = (
+        str(Path(st.session_state.loaded_path).parent)
+        if st.session_state.loaded_path and Path(st.session_state.loaded_path).parent.exists()
+        else None
+    )
+    root = _tk_root()
+    path = filedialog.asksaveasfilename(
+        title="Export dataset",
+        defaultextension=".jsonl",
+        initialfile=_default,
+        initialdir=_initial_dir,
+        filetypes=JSONL_TYPES,
+    )
+    root.destroy()
+    if path:
+        st.session_state[pending_key] = path
+        st.rerun()
+
+
 def browse_open_multiple(widget_key: str, pending_key: str) -> None:
     prefs = st.session_state.prefs
     root = _tk_root()
@@ -232,6 +261,113 @@ def _format_preview_content(text: str) -> str:
         else:
             out += f"<span style='color:#e67e22;font-style:italic'>{part}</span>"
     return out
+
+
+# ── Session-state registry helpers ────────────────────────────────────────────
+
+def ensure_entry_registry() -> None:
+    """Ensure entry_registry exists and is consistent with loaded_entries.
+    Rebuilds silently if missing or invalid — safe to call anywhere."""
+    entries = st.session_state.get("loaded_entries", [])
+    if not registry_is_valid(st.session_state.get("entry_registry"), entries):
+        st.session_state.entry_registry = build_entry_registry(entries)
+
+
+def set_loaded_entries(entries: list[dict]) -> None:
+    """Replace loaded_entries and rebuild the registry from scratch."""
+    st.session_state.loaded_entries = entries
+    st.session_state.entry_registry = build_entry_registry(entries)
+
+
+def append_loaded_entry(entry: dict) -> None:
+    """Append one entry and add a matching temp ID to the registry."""
+    ensure_entry_registry()
+    st.session_state.loaded_entries.append(entry)
+    append_registry_id(st.session_state.entry_registry)
+
+
+def get_loaded_entry_by_id(entry_id: str) -> dict | None:
+    """Return the entry for the given temp ID, or None if not found."""
+    ensure_entry_registry()
+    idx = get_index_for_entry_id(st.session_state.entry_registry, entry_id)
+    if idx is None:
+        return None
+    entries = st.session_state.loaded_entries
+    return entries[idx] if 0 <= idx < len(entries) else None
+
+
+def replace_loaded_entry_by_id(entry_id: str, new_entry: dict) -> bool:
+    """Overwrite the entry at entry_id in-place. Returns True on success."""
+    ensure_entry_registry()
+    idx = get_index_for_entry_id(st.session_state.entry_registry, entry_id)
+    if idx is None:
+        return False
+    entries = st.session_state.loaded_entries
+    if not (0 <= idx < len(entries)):
+        return False
+    st.session_state.loaded_entries[idx] = new_entry
+    return True
+
+
+def delete_loaded_entry_by_id(entry_id: str) -> bool:
+    """Delete the entry at entry_id and remove it from the registry. Returns True on success."""
+    ensure_entry_registry()
+    idx = get_index_for_entry_id(st.session_state.entry_registry, entry_id)
+    if idx is None:
+        return False
+    entries = st.session_state.loaded_entries
+    if not (0 <= idx < len(entries)):
+        return False
+    del st.session_state.loaded_entries[idx]
+    remove_registry_id(st.session_state.entry_registry, entry_id)
+    return True
+
+
+def get_all_entry_pairs() -> list[tuple[str, dict]]:
+    """Return [(entry_id, entry), ...] for all loaded entries."""
+    ensure_entry_registry()
+    return get_entry_pairs(st.session_state.loaded_entries, st.session_state.entry_registry)
+
+
+def filter_entry_pairs_by_tags(
+    pairs: list[tuple[str, dict]],
+    selected_tags: list[str],
+    match_mode: str,
+) -> list[tuple[str, dict]]:
+    """Filter (entry_id, entry) pairs by tag selection — mirrors filter_entries_by_tags."""
+    if not selected_tags:
+        return pairs
+
+    normal_tags = [t for t in selected_tags if t != _UNTAGGED]
+    include_untagged = _UNTAGGED in selected_tags
+    normal_set = set(normal_tags)
+
+    result = []
+    for entry_id, entry in pairs:
+        entry_tags = entry.get("tags") or []
+        is_untagged = len(entry_tags) == 0
+
+        if is_untagged:
+            if include_untagged and not normal_tags:
+                result.append((entry_id, entry))
+            elif include_untagged and match_mode == "Exact match":
+                result.append((entry_id, entry))
+            continue
+
+        if not normal_tags:
+            continue
+        entry_set = set(entry_tags)
+        if match_mode == "All selected tags":
+            if normal_set.issubset(entry_set):
+                result.append((entry_id, entry))
+        elif match_mode == "Exact match":
+            if entry_set == normal_set:
+                result.append((entry_id, entry))
+        else:  # Any selected tags
+            if normal_set.intersection(entry_set):
+                result.append((entry_id, entry))
+
+    return result
 
 
 # ── Editor functions ───────────────────────────────────────────────────────────
@@ -492,7 +628,7 @@ def render_entry_actions(
                 append_to_dataset(save_path, entry_preview)
                 st.session_state.loaded_path = save_path
                 entries, _ = load_dataset(save_path)
-                st.session_state.loaded_entries = entries
+                set_loaded_entries(entries)
                 _update_prefs({
                     "last_loaded_dataset_path": save_path,
                     "last_save_directory": str(Path(save_path).parent),
@@ -522,7 +658,7 @@ if "prefs" not in st.session_state:
     st.session_state.prefs = prefs
 
     st.session_state.system_prompt = prefs.get("last_system_prompt") or DEFAULT_SYSTEM_PROMPT
-    st.session_state.loaded_entries = []
+    set_loaded_entries([])
     st.session_state.loaded_path = ""
     st.session_state.stale_last_path = ""
     st.session_state.entry_page = 0
@@ -535,16 +671,24 @@ if "prefs" not in st.session_state:
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
     st.session_state.dataset_format = prefs.get("dataset_format", "ChatML")
     st.session_state.page = "Create Entry"
+    # Initialise save path from prefs so Create Entry works before Settings is visited
+    st.session_state["create_save_path"] = prefs.get("last_loaded_dataset_path") or ""
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
         if Path(last).exists():
             entries, errors = load_dataset(last)
-            st.session_state.loaded_entries = entries
+            set_loaded_entries(entries)
             st.session_state.loaded_path = last
         else:
             st.session_state.stale_last_path = last
 
+
+# ── Global pending-key processing ─────────────────────────────────────────────
+# Consume cross-page pending keys every render so they take effect regardless
+# of which page is currently active.
+if "create_save_path_pending" in st.session_state:
+    st.session_state["create_save_path"] = st.session_state.pop("create_save_path_pending")
 
 # ── Sidebar navigation ─────────────────────────────────────────────────────────
 if "page" not in st.session_state:
@@ -613,6 +757,7 @@ if page == "Create Entry":
 
 # ── Manage Dataset ─────────────────────────────────────────────────────────────
 elif page == "Manage Dataset":
+    ensure_entry_registry()
     if st.session_state.stale_last_path and not st.session_state.loaded_path:
         st.warning(
             f"Last dataset `{st.session_state.stale_last_path}` no longer exists. "
@@ -642,7 +787,7 @@ elif page == "Manage Dataset":
             if errors:
                 for e in errors:
                     st.error(e)
-            st.session_state.loaded_entries = entries
+            set_loaded_entries(entries)
             st.session_state.loaded_path = p
             st.session_state.stale_last_path = ""
             st.session_state.entry_page = 0
@@ -678,7 +823,7 @@ elif page == "Manage Dataset":
             if new_path:
                 try:
                     save_dataset(new_path, [])  # create empty file
-                    st.session_state.loaded_entries = []
+                    set_loaded_entries([])
                     st.session_state.loaded_path = new_path
                     st.session_state.stale_last_path = ""
                     st.session_state.entry_page = 0
@@ -697,9 +842,10 @@ elif page == "Manage Dataset":
                     st.error(f"Failed to create dataset: {exc}")
 
     entries = st.session_state.loaded_entries
-    if entries:
+    all_pairs = get_all_entry_pairs()
+    if all_pairs:
         st.divider()
-        st.subheader(f"Entries ({len(entries)})")
+        st.subheader(f"Entries ({len(all_pairs)})")
 
         invalid_count = sum(1 for e in entries if validate_entry(e))
         if invalid_count:
@@ -784,8 +930,8 @@ elif page == "Manage Dataset":
             )
 
         # ── Apply filter ───────────────────────────────────────────────────────
-        filtered_entries = filter_entries_by_tags(
-            entries,
+        filtered_pairs = filter_entry_pairs_by_tags(
+            all_pairs,
             selected_tags=filter_tags,
             match_mode=match_mode,
         )
@@ -804,8 +950,8 @@ elif page == "Manage Dataset":
             st.session_state.entry_page = 0
             st.rerun()
 
-        total_filtered = len(filtered_entries)
-        total_all = len(entries)
+        total_filtered = len(filtered_pairs)
+        total_all = len(all_pairs)
 
         if total_filtered == 0:
             st.info("No entries match the current filters.")
@@ -824,7 +970,7 @@ elif page == "Manage Dataset":
             else:
                 st.caption(f"Showing {start + 1}–{end} of {total_all} entries")
 
-            for i, entry in enumerate(filtered_entries[start:end], start=start):
+            for i, (entry_id, entry) in enumerate(filtered_pairs[start:end], start=start):
                 errs = validate_entry(entry)
                 entry_tags = entry.get("tags") or []
                 _tag_part = ", ".join(entry_tags) if entry_tags else "untagged"
@@ -837,6 +983,7 @@ elif page == "Manage Dataset":
                 if errs:
                     label += " ⚠️"
                 with st.expander(label):
+                    st.caption(f"Temp ID: {entry_id}")
                     if errs:
                         for err in errs:
                             st.error(err)
@@ -948,6 +1095,7 @@ elif page == "Merge Datasets":
 
 # ── Export ─────────────────────────────────────────────────────────────────────
 elif page == "Export":
+    ensure_entry_registry()
     st.subheader("Export Dataset")
 
     _export_entries = st.session_state.loaded_entries
@@ -956,47 +1104,33 @@ elif page == "Export":
     else:
         st.caption(f"{len(_export_entries)} entries loaded from `{st.session_state.loaded_path or 'unknown'}`")
 
-        # ── Pending export: runs on the rerun AFTER the dialog closes ──────────
-        # Processed before widgets render so the success message appears cleanly.
-        if "export_path_pending" in st.session_state:
-            _pending_path = st.session_state.pop("export_path_pending")
-            _pending_clean = st.session_state.pop("export_clean_pending", False)
-            if _pending_path:
+        clean_export = st.checkbox("Clean — Tag data removed", value=False, key="export_clean")
+
+        # Browse button opens save dialog (pure Tkinter → rerun, no save work done here).
+        # Export button only calls save_dataset — no Tkinter, no threading risk.
+        export_save_path = path_input(
+            "Export file path",
+            state_key="export_save_path",
+            browse_fn=browse_export_file,
+            browse_kwargs={},
+            default=st.session_state.loaded_path or "dataset.jsonl",
+        )
+
+        if st.button("Export as JSONL", type="primary", width="stretch"):
+            _p = export_save_path.strip()
+            if not _p:
+                st.error("Set an export path or use Browse to pick a location.")
+            else:
                 try:
                     _out = (
                         [{"messages": e["messages"]} for e in _export_entries]
-                        if _pending_clean
+                        if clean_export
                         else _export_entries
                     )
-                    save_dataset(_pending_path, _out)
-                    st.success(f"Exported {len(_out)} entries to `{Path(_pending_path).resolve()}`.")
+                    save_dataset(_p, _out)
+                    st.success(f"Exported {len(_out)} entries to `{Path(_p).resolve()}`.")
                 except Exception as exc:
                     st.error(f"Export failed: {exc}")
-
-        clean_export = st.checkbox("Clean — Tag data removed", value=False, key="export_clean")
-
-        if st.button("Export as JSONL", type="primary", width="stretch"):
-            _export_default = Path(st.session_state.loaded_path).name if st.session_state.loaded_path else "dataset.jsonl"
-            _export_initial_dir = (
-                str(Path(st.session_state.loaded_path).parent)
-                if st.session_state.loaded_path and Path(st.session_state.loaded_path).parent.exists()
-                else None
-            )
-            _root = _tk_root()
-            _export_path = filedialog.asksaveasfilename(
-                title="Export dataset",
-                defaultextension=".jsonl",
-                initialfile=_export_default,
-                initialdir=_export_initial_dir,
-                filetypes=JSONL_TYPES,
-            )
-            _root.destroy()
-            if _export_path:
-                # Store path and clean flag, then rerun immediately.
-                # This lets Tkinter finish cleanly before Streamlit does any more work.
-                st.session_state["export_path_pending"] = _export_path
-                st.session_state["export_clean_pending"] = clean_export
-                st.rerun()
 
 
 # ── Validation (placeholder) ───────────────────────────────────────────────────
@@ -1006,6 +1140,7 @@ elif page == "Validation":
 
 # ── Statistics ─────────────────────────────────────────────────────────────────
 elif page == "Statistics":
+    ensure_entry_registry()
     _stat_entries = st.session_state.loaded_entries
 
     if not _stat_entries:
@@ -1117,8 +1252,10 @@ elif page == "Statistics":
         _v2.metric("Invalid Entries", _s["invalid_count"])
 
         if _s["invalid_rows"]:
+            _stat_ids = st.session_state.entry_registry.get("ids", [])
             _df_val = pd.DataFrame([
                 {
+                    "Temp ID": _stat_ids[r["entry"] - 1] if r["entry"] - 1 < len(_stat_ids) else "—",
                     "Entry": r["entry"],
                     "Error Count": r["error_count"],
                     "Errors": "; ".join(r["errors"]),
