@@ -18,6 +18,7 @@ from dataset import (
     count_exchanges,
     entry_text_length,
     filter_entry_pairs_by_tags,
+    get_all_tags,
     get_available_filter_tags,
     get_entry_messages,
     get_entry_pairs,
@@ -30,6 +31,7 @@ from dataset import (
     merge_datasets,
     registry_is_valid,
     remove_registry_id,
+    replace_entry_tags,
     save_dataset,
     validate_entry,
 )
@@ -948,7 +950,8 @@ elif page == "Manage Dataset":
             visible_pairs = filtered_pairs[start:end]
 
             # ── Status line (always visible) ───────────────────────────────────
-            _total_sel = len(get_selected_entry_ids())
+            _selected_ids = get_selected_entry_ids()
+            _total_sel = len(_selected_ids)
             if filter_tags:
                 st.caption(
                     f"Showing {start + 1}–{end} of {total_filtered} filtered entries "
@@ -1030,9 +1033,70 @@ elif page == "Manage Dataset":
                         st.session_state.pop("pending_delete_selected", None)
                         st.rerun()
 
+            # ── Quick tag editor ───────────────────────────────────────────────
+            _selected_count = len(_selected_ids)
+            if _selected_count >= 1:
+                _tag_label_map = get_tag_label_map(include_untagged=False)
+
+            if _selected_count == 1:
+                st.markdown("**Quick Tag Edit**")
+                _qt_entry_id = _selected_ids[0]
+                _qt_entry = get_loaded_entry_by_id(_qt_entry_id)
+                if _qt_entry is not None:
+                    _qt_current_tags = get_entry_tags(_qt_entry)
+                    _qt_chosen = st.multiselect(
+                        "Tags for selected entry",
+                        options=get_all_tags(),
+                        default=_qt_current_tags,
+                        format_func=lambda t: _tag_label_map.get(t, t),
+                        key=f"single_quick_tags_{_qt_entry_id}",
+                    )
+                    if st.button("Save Tags", key="btn_save_single_tags"):
+                        replace_entry_tags(_qt_entry, _qt_chosen)
+                        if save_loaded_dataset():
+                            st.success("Tags updated for selected entry.")
+                            st.rerun()
+
+            elif _selected_count >= 2:
+                st.markdown("**Bulk Tag Edit**")
+                _bulk_chosen = st.multiselect(
+                    "Replacement tags",
+                    options=get_all_tags(),
+                    format_func=lambda t: _tag_label_map.get(t, t),
+                    key="bulk_replace_tags",
+                )
+                _col_bulk_replace, _col_bulk_clear = st.columns(2)
+                with _col_bulk_replace:
+                    if st.button(
+                        f"Replace tags on {_selected_count} selected",
+                        key="btn_bulk_replace_tags",
+                        width="stretch",
+                    ):
+                        for _bid in _selected_ids:
+                            _be = get_loaded_entry_by_id(_bid)
+                            if _be is not None:
+                                replace_entry_tags(_be, _bulk_chosen)
+                        if save_loaded_dataset():
+                            st.success(f"Tags replaced for {_selected_count} entries.")
+                            st.rerun()
+                with _col_bulk_clear:
+                    if st.button(
+                        f"Clear tags on {_selected_count} selected",
+                        key="btn_bulk_clear_tags",
+                        width="stretch",
+                    ):
+                        for _bid in _selected_ids:
+                            _be = get_loaded_entry_by_id(_bid)
+                            if _be is not None:
+                                replace_entry_tags(_be, [])
+                        if save_loaded_dataset():
+                            st.success(f"Tags cleared for {_selected_count} entries.")
+                            st.rerun()
+
             # ── Entry list ─────────────────────────────────────────────────────
             # Sync all visible checkbox widget keys from selected_entry_ids
             # BEFORE any checkbox widget renders so visual state is always correct.
+            # Only visible_pairs (current page) are synced — other pages are unaffected.
             for _sync_id, _ in visible_pairs:
                 st.session_state[f"select_{_sync_id}"] = (
                     _sync_id in st.session_state.selected_entry_ids
