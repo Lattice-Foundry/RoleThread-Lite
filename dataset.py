@@ -268,8 +268,12 @@ def merge_datasets(paths: list[str], shuffle: bool = True) -> tuple[list[dict], 
         stats["parse_errors"].extend(errors)
         for entry in entries:
             stats["total_loaded"] += 1
-            msgs = {m["role"]: m["content"] for m in entry.get("messages", []) if m.get("role") in ("user", "assistant")}
-            key = json.dumps(msgs, sort_keys=True)
+            msgs = [
+                {"role": m["role"], "content": m.get("content", "")}
+                for m in entry.get("messages", [])
+                if isinstance(m, dict) and m.get("role") in ("user", "assistant")
+            ]
+            key = json.dumps(msgs, ensure_ascii=False, sort_keys=True)
             if key in seen:
                 stats["duplicates_removed"] += 1
             else:
