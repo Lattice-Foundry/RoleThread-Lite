@@ -11,37 +11,26 @@ import streamlit as st
 from dataset import (
     DEFAULT_SYSTEM_PROMPT,
     TAGS,
-    add_tags_to_entry,
     append_registry_id,
     append_to_dataset,
     build_dataset_stats,
     build_entry_registry,
     count_exchanges,
-    entry_is_untagged,
-    entry_matches_tags,
     entry_text_length,
-    filter_entries_by_tags,
     filter_entry_pairs_by_tags,
-    get_all_tags,
     get_available_filter_tags,
     get_entry_messages,
     get_entry_pairs,
     get_entry_tags,
     get_index_for_entry_id,
     get_role_messages,
-    get_tag_category_map,
     get_tag_label_map,
-    get_used_tags,
-    has_untagged_entries,
     load_dataset,
     make_entry,
     merge_datasets,
     registry_is_valid,
     remove_registry_id,
-    remove_tags_from_entry,
-    replace_entry_tags,
     save_dataset,
-    set_entry_tags,
     validate_entry,
 )
 from preferences import get_initial_dir, load_preferences, save_preferences
@@ -343,12 +332,14 @@ def render_turn_builder(prefix: str) -> list[dict]:
     ]
 
     # ── Planned exchanges number input ────────────────────────────────────────
-    st.number_input(
-        "Planned exchanges",
-        min_value=1,
-        step=1,
-        key=f"{prefix}_planned_exchanges",
-    )
+    _col_planned, _col_planned_spacer = st.columns([1, 3])
+    with _col_planned:
+        st.number_input(
+            "Planned exchanges",
+            min_value=1,
+            step=1,
+            key=f"{prefix}_planned_exchanges",
+        )
 
     # ── Planning metrics (recomputed every run) ────────────────────────────────
     # Only count an exchange as complete when BOTH turns are filled in.
@@ -842,12 +833,14 @@ elif page == "Manage Dataset":
         # ── Pagination ─────────────────────────────────────────────────────────
         per_page_options = [10, 25, 50, 100]
         default_idx = per_page_options.index(st.session_state.get("entries_per_page", 25))
-        selected_per_page = st.selectbox(
-            "Entries per page",
-            options=per_page_options,
-            index=default_idx,
-            key="_entries_per_page_select",
-        )
+        _col_per_page, _col_per_page_spacer = st.columns([1, 3])
+        with _col_per_page:
+            selected_per_page = st.selectbox(
+                "Entries per page",
+                options=per_page_options,
+                index=default_idx,
+                key="_entries_per_page_select",
+            )
         if selected_per_page != st.session_state.get("entries_per_page"):
             st.session_state.entries_per_page = selected_per_page
             st.session_state.entry_page = 0
