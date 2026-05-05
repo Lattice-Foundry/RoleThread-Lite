@@ -371,6 +371,69 @@ def delete_selected_entries() -> tuple[int, list[str]]:
     return deleted, failures
 
 
+# ── Quick-edit helpers ────────────────────────────────────────────────────────
+
+def start_quick_edit(entry_id: str, entry: dict) -> None:
+    """Enter quick edit mode for entry_id.
+
+    Sets quick_edit_entry_id and pre-loads each user/assistant message into
+    its text-area session-state key so the widget opens with current content.
+    """
+    st.session_state.quick_edit_entry_id = entry_id
+    for idx, msg in enumerate(entry.get("messages", [])):
+        if isinstance(msg, dict) and msg.get("role") in ("user", "assistant"):
+            st.session_state[f"quick_edit_{entry_id}_{idx}"] = msg.get("content", "")
+
+
+def cancel_quick_edit() -> None:
+    """Exit quick edit mode without saving."""
+    entry_id = st.session_state.get("quick_edit_entry_id")
+    st.session_state.quick_edit_entry_id = None
+    # Remove stale text-area keys for the closed entry so re-opening starts fresh
+    if entry_id:
+        keys_to_drop = [
+            k for k in list(st.session_state.keys())
+            if k.startswith(f"quick_edit_{entry_id}_")
+        ]
+        for k in keys_to_drop:
+            st.session_state.pop(k, None)
+
+
+def save_quick_edit(entry_id: str, entry: dict) -> bool:
+    """Read edited message content from session state, validate, then save.
+
+    Updates only user/assistant message content in place.
+    System message, role names, tags, and message order are preserved.
+    Returns True on successful save, False if validation fails or save errors.
+    """
+    msgs = entry.get("messages", [])
+    updated_msgs = []
+    for idx, msg in enumerate(msgs):
+        if not isinstance(msg, dict):
+            updated_msgs.append(msg)
+            continue
+        role = msg.get("role")
+        if role in ("user", "assistant"):
+            new_content = st.session_state.get(
+                f"quick_edit_{entry_id}_{idx}", msg.get("content", "")
+            )
+            updated_msgs.append({**msg, "content": new_content})
+        else:
+            updated_msgs.append(dict(msg))
+
+    # Validate against a temporary copy before committing
+    temp_entry = {**entry, "messages": updated_msgs}
+    errors = validate_entry(temp_entry)
+    if errors:
+        for err in errors:
+            st.error(err)
+        return False
+
+    # Apply in-place and persist
+    entry["messages"] = updated_msgs
+    return save_loaded_dataset()
+
+
 # ── Editor functions ───────────────────────────────────────────────────────────
 def init_editor_state(prefix: str) -> None:
     """Initialise session state keys for an entry editor instance.
@@ -680,6 +743,7 @@ if "prefs" not in st.session_state:
     st.session_state.filter_match_mode = "Any selected tags"
     st.session_state.selected_entry_ids = set()
     st.session_state.confirm_delete_entries = prefs.get("confirm_delete_entries", True)
+    st.session_state.quick_edit_entry_id = None
     init_editor_state("create")
     st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
@@ -963,6 +1027,10 @@ elif page == "Manage Dataset":
                 end = min(start + per_page, total_filtered)
             visible_pairs = filtered_pairs[start:end]
 
+            # ── Flash messages ─────────────────────────────────────────────────
+            if "quick_edit_success" in st.session_state:
+                st.success(st.session_state.pop("quick_edit_success"))
+
             # ── Status line (always visible) ───────────────────────────────────
             _selected_ids = get_selected_entry_ids()
             _total_sel = len(_selected_ids)
@@ -1190,28 +1258,82 @@ elif page == "Manage Dataset":
                 with _col_entry:
                     with st.expander(label):
                         st.caption(f"Temp ID: {entry_id}")
-                        if errs:
-                            for err in errs:
-                                st.error(err)
-                        msgs = entry.get("messages", [])
-                        for msg in msgs:
-                            role = msg.get("role", "?")
-                            content = msg.get("content", "")
-                            color = {
-                                "system": "#555",
-                                "user": "#1a73e8",
-                                "assistant": "#188038",
-                            }.get(role, "#000")
-                            if role == "system":
-                                body = f"<span style='color:#f1c40f'>{content}</span>"
-                            else:
-                                body = _format_preview_content(content)
-                            st.markdown(
-                                f"<span style='color:{color};font-weight:bold;"
-                                f"text-transform:uppercase'>{role}:</span> {body}",
-                                unsafe_allow_html=True,
-                            )
-                            st.write("")
+                        _is_qe = (
+                            st.session_state.get("quick_edit_entry_id") == entry_id
+                        )
+
+                        if _is_qe:
+                            # ── Quick edit mode ────────────────────────────────
+                            st.markdown("**Quick Edit Messages**")
+                            _qe_msgs = entry.get("messages", [])
+                            _exchange_num = 0
+                            for _qe_idx, _qe_msg in enumerate(_qe_msgs):
+                                if not isinstance(_qe_msg, dict):
+                                    continue
+                                _qe_role = _qe_msg.get("role")
+                                if _qe_role == "user":
+                                    _exchange_num += 1
+                                if _qe_role in ("user", "assistant"):
+                                    st.text_area(
+                                        f"{_qe_role.upper()} message {_exchange_num}",
+                                        key=f"quick_edit_{entry_id}_{_qe_idx}",
+                                        height=120,
+                                    )
+                            _col_save_qe, _col_cancel_qe = st.columns(2)
+                            with _col_save_qe:
+                                if st.button(
+                                    "Save Quick Edit",
+                                    key=f"btn_save_qe_{entry_id}",
+                                    type="primary",
+                                    width="stretch",
+                                ):
+                                    if save_quick_edit(entry_id, entry):
+                                        cancel_quick_edit()
+                                        st.session_state["quick_edit_success"] = (
+                                            "Entry updated."
+                                        )
+                                        st.rerun()
+                            with _col_cancel_qe:
+                                if st.button(
+                                    "Cancel",
+                                    key=f"btn_cancel_qe_{entry_id}",
+                                    width="stretch",
+                                ):
+                                    cancel_quick_edit()
+                                    st.rerun()
+
+                        else:
+                            # ── Normal preview mode ────────────────────────────
+                            if st.button(
+                                "Quick Edit",
+                                key=f"btn_quick_edit_{entry_id}",
+                            ):
+                                start_quick_edit(entry_id, entry)
+                                st.rerun()
+                            if errs:
+                                for err in errs:
+                                    st.error(err)
+                            msgs = entry.get("messages", [])
+                            for msg in msgs:
+                                role = msg.get("role", "?")
+                                content = msg.get("content", "")
+                                color = {
+                                    "system": "#555",
+                                    "user": "#1a73e8",
+                                    "assistant": "#188038",
+                                }.get(role, "#000")
+                                if role == "system":
+                                    body = (
+                                        f"<span style='color:#f1c40f'>{content}</span>"
+                                    )
+                                else:
+                                    body = _format_preview_content(content)
+                                st.markdown(
+                                    f"<span style='color:{color};font-weight:bold;"
+                                    f"text-transform:uppercase'>{role}:</span> {body}",
+                                    unsafe_allow_html=True,
+                                )
+                                st.write("")
 
             # ── Pagination buttons ─────────────────────────────────────────────
             col_prev, col_next = st.columns(2)
