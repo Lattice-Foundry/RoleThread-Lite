@@ -11,22 +11,37 @@ import streamlit as st
 from dataset import (
     DEFAULT_SYSTEM_PROMPT,
     TAGS,
+    add_tags_to_entry,
     append_registry_id,
     append_to_dataset,
     build_dataset_stats,
     build_entry_registry,
     count_exchanges,
+    entry_is_untagged,
+    entry_matches_tags,
     entry_text_length,
-    get_entry_pairs,
+    filter_entries_by_tags,
+    filter_entry_pairs_by_tags,
+    get_all_tags,
+    get_available_filter_tags,
     get_entry_messages,
+    get_entry_pairs,
+    get_entry_tags,
     get_index_for_entry_id,
     get_role_messages,
+    get_tag_category_map,
+    get_tag_label_map,
+    get_used_tags,
+    has_untagged_entries,
     load_dataset,
     make_entry,
     merge_datasets,
     registry_is_valid,
     remove_registry_id,
+    remove_tags_from_entry,
+    replace_entry_tags,
     save_dataset,
+    set_entry_tags,
     validate_entry,
 )
 from preferences import get_initial_dir, load_preferences, save_preferences
@@ -199,48 +214,6 @@ def path_input(label: str, state_key: str, browse_fn, browse_kwargs: dict, defau
     return value
 
 
-# ── Tag filtering helper ───────────────────────────────────────────────────────
-def filter_entries_by_tags(
-    entries: list[dict],
-    selected_tags: list[str],
-    match_mode: str,
-) -> list[dict]:
-    if not selected_tags:
-        return entries
-
-    normal_tags = [t for t in selected_tags if t != _UNTAGGED]
-    include_untagged = _UNTAGGED in selected_tags
-    normal_set = set(normal_tags)
-
-    result = []
-    for entry in entries:
-        entry_tags = entry.get("tags") or []
-        is_untagged = len(entry_tags) == 0
-
-        if is_untagged:
-            if include_untagged and not normal_tags:
-                result.append(entry)
-            elif include_untagged and match_mode == "Exact match":
-                result.append(entry)
-            continue
-
-        # Tagged entry — normal_tags must be non-empty to match
-        if not normal_tags:
-            continue
-        entry_set = set(entry_tags)
-        if match_mode == "All selected tags":
-            if normal_set.issubset(entry_set):
-                result.append(entry)
-        elif match_mode == "Exact match":
-            if entry_set == normal_set:
-                result.append(entry)
-        else:  # Any selected tags
-            if normal_set.intersection(entry_set):
-                result.append(entry)
-
-    return result
-
-
 # ── Narration / dialogue formatter ────────────────────────────────────────────
 def _format_preview_content(text: str) -> str:
     """Split content into dialogue (plain) and narration (orange italic).
@@ -322,47 +295,6 @@ def get_all_entry_pairs() -> list[tuple[str, dict]]:
     """Return [(entry_id, entry), ...] for all loaded entries."""
     ensure_entry_registry()
     return get_entry_pairs(st.session_state.loaded_entries, st.session_state.entry_registry)
-
-
-def filter_entry_pairs_by_tags(
-    pairs: list[tuple[str, dict]],
-    selected_tags: list[str],
-    match_mode: str,
-) -> list[tuple[str, dict]]:
-    """Filter (entry_id, entry) pairs by tag selection — mirrors filter_entries_by_tags."""
-    if not selected_tags:
-        return pairs
-
-    normal_tags = [t for t in selected_tags if t != _UNTAGGED]
-    include_untagged = _UNTAGGED in selected_tags
-    normal_set = set(normal_tags)
-
-    result = []
-    for entry_id, entry in pairs:
-        entry_tags = entry.get("tags") or []
-        is_untagged = len(entry_tags) == 0
-
-        if is_untagged:
-            if include_untagged and not normal_tags:
-                result.append((entry_id, entry))
-            elif include_untagged and match_mode == "Exact match":
-                result.append((entry_id, entry))
-            continue
-
-        if not normal_tags:
-            continue
-        entry_set = set(entry_tags)
-        if match_mode == "All selected tags":
-            if normal_set.issubset(entry_set):
-                result.append((entry_id, entry))
-        elif match_mode == "Exact match":
-            if entry_set == normal_set:
-                result.append((entry_id, entry))
-        else:  # Any selected tags
-            if normal_set.intersection(entry_set):
-                result.append((entry_id, entry))
-
-    return result
 
 
 # ── Editor functions ───────────────────────────────────────────────────────────
@@ -527,6 +459,24 @@ def render_conversation_preview(turns_now: list[dict], prefix: str) -> None:  # 
         st.write("")
 
 
+def render_tag_multiselects(prefix: str) -> list[str]:
+    """Render per-category tag multiselects and return the combined selected tags.
+
+    Renders one st.multiselect per category using widget keys
+    ``{prefix}_tags_{category}``.  Safe to call multiple times in the same
+    render pass — Streamlit deduplicates by key.
+    """
+    selected_tags: list[str] = []
+    tag_cols = st.columns(len(TAGS))
+    for col, (category, options) in zip(tag_cols, TAGS.items()):
+        with col:
+            chosen = st.multiselect(
+                f"{category} tags", options=options, key=f"{prefix}_tags_{category}"
+            )
+            selected_tags.extend(chosen)
+    return selected_tags
+
+
 def render_entry_actions(
     turns_now: list[dict],
     prefix: str,
@@ -544,14 +494,7 @@ def render_entry_actions(
     st.subheader("Tag & Complete Exchange")
 
     # ── Tag selectors ──────────────────────────────────────────────────────────
-    selected_tags: list[str] = []
-    tag_cols = st.columns(len(TAGS))
-    for col, (category, options) in zip(tag_cols, TAGS.items()):
-        with col:
-            chosen = st.multiselect(
-                f"{category} tags", options=options, key=f"{prefix}_tags_{category}"
-            )
-            selected_tags.extend(chosen)
+    selected_tags = render_tag_multiselects(prefix)
 
     # ── Entry preview & validation ─────────────────────────────────────────────
     _has_content = any(t["content"].strip() for t in turns_now)
@@ -831,19 +774,7 @@ elif page == "Manage Dataset":
             st.success("All entries are valid.")
 
         # ── Filter controls ────────────────────────────────────────────────────
-        _label_map: dict[str, str] = {_UNTAGGED: "Untagged"}
-        for _cat, _cat_tags in TAGS.items():
-            for _tag in _cat_tags:
-                _label_map[_tag] = f"{_cat} / {_tag}"
-
-        _used_tags: set[str] = set()
-        _has_untagged = False
-        for _e in entries:
-            _et = _e.get("tags") or []
-            if _et:
-                _used_tags.update(_et)
-            else:
-                _has_untagged = True
+        _label_map = get_tag_label_map(untagged_key=_UNTAGGED)
 
         def _reset_page() -> None:
             st.session_state.entry_page = 0
@@ -854,17 +785,12 @@ elif page == "Manage Dataset":
 
         only_used = st.checkbox(
             "Only show used tags",
+            value=st.session_state.get("filter_only_used", True),
             key="filter_only_used",
             on_change=_reset_page_and_selection,
         )
 
-        _all_flat = [t for _c in TAGS.values() for t in _c]
-        if only_used:
-            _available = [t for t in _all_flat if t in _used_tags]
-            if _has_untagged:
-                _available.append(_UNTAGGED)
-        else:
-            _available = _all_flat + [_UNTAGGED]
+        _available = get_available_filter_tags(entries, only_used=only_used, untagged_key=_UNTAGGED)
 
         # Apply pending correction BEFORE the widget instantiates (Streamlit
         # forbids writing a widget's key after it has rendered in the same run).
@@ -949,7 +875,7 @@ elif page == "Manage Dataset":
 
             for i, (entry_id, entry) in enumerate(filtered_pairs[start:end], start=start):
                 errs = validate_entry(entry)
-                entry_tags = entry.get("tags") or []
+                entry_tags = get_entry_tags(entry)
                 _tag_part = ", ".join(entry_tags) if entry_tags else "untagged"
                 _fmt_part = st.session_state.dataset_format
                 _exc_part = count_exchanges(entry)

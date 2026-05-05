@@ -155,6 +155,182 @@ def entry_text_length(entry: dict) -> int:
         return 0
 
 
+# ── Tag helpers ───────────────────────────────────────────────────────────────
+
+def get_all_tags() -> list[str]:
+    """Return a flat list of all tags from TAGS in category order."""
+    return [tag for tags in TAGS.values() for tag in tags]
+
+
+def get_tag_category_map() -> dict[str, str]:
+    """Return {tag: category} for all known tags."""
+    return {tag: cat for cat, tags in TAGS.items() for tag in tags}
+
+
+def get_tag_label_map(
+    include_untagged: bool = True,
+    untagged_key: str = "__untagged__",
+) -> dict[str, str]:
+    """Return display labels: {"pacing": "Behavior / pacing", "__untagged__": "Untagged", …}."""
+    result: dict[str, str] = {}
+    if include_untagged:
+        result[untagged_key] = "Untagged"
+    for cat, tags in TAGS.items():
+        for tag in tags:
+            result[tag] = f"{cat} / {tag}"
+    return result
+
+
+def get_entry_tags(entry: dict) -> list[str]:
+    """Safely return entry["tags"] if it is a non-empty list of strings, else []."""
+    try:
+        tags = entry.get("tags")
+        if isinstance(tags, list) and all(isinstance(t, str) for t in tags):
+            return tags
+        return []
+    except Exception:
+        return []
+
+
+def set_entry_tags(entry: dict, tags: list[str]) -> dict:
+    """Set entry["tags"] to a deduplicated, order-preserving list of strings. Returns entry."""
+    seen: set[str] = set()
+    clean: list[str] = []
+    for t in tags:
+        if isinstance(t, str) and t not in seen:
+            seen.add(t)
+            clean.append(t)
+    entry["tags"] = clean
+    return entry
+
+
+def add_tags_to_entry(entry: dict, tags: list[str]) -> dict:
+    """Append tags to existing entry tags (no duplicates, order-preserving). Returns entry."""
+    return set_entry_tags(entry, get_entry_tags(entry) + tags)
+
+
+def remove_tags_from_entry(entry: dict, tags: list[str]) -> dict:
+    """Remove the supplied tags from the entry. Returns entry."""
+    remove_set = set(tags)
+    return set_entry_tags(entry, [t for t in get_entry_tags(entry) if t not in remove_set])
+
+
+def replace_entry_tags(entry: dict, tags: list[str]) -> dict:
+    """Replace all tags with the supplied list (deduplicated). Returns entry."""
+    return set_entry_tags(entry, tags)
+
+
+def entry_is_untagged(entry: dict) -> bool:
+    """Return True if the entry has no tags."""
+    return len(get_entry_tags(entry)) == 0
+
+
+def get_used_tags(entries: list[dict]) -> set[str]:
+    """Return the set of all tags appearing in any entry."""
+    result: set[str] = set()
+    for entry in entries:
+        result.update(get_entry_tags(entry))
+    return result
+
+
+def has_untagged_entries(entries: list[dict]) -> bool:
+    """Return True if any entry has no tags."""
+    return any(entry_is_untagged(e) for e in entries)
+
+
+def get_available_filter_tags(
+    entries: list[dict],
+    only_used: bool,
+    include_untagged: bool = True,
+    untagged_key: str = "__untagged__",
+) -> list[str]:
+    """Return the ordered tag list for a filter multiselect.
+
+    When only_used is True, only tags present in entries are included.
+    untagged_key is appended when appropriate.
+    """
+    all_flat = get_all_tags()
+    if only_used:
+        used = get_used_tags(entries)
+        result = [t for t in all_flat if t in used]
+        if include_untagged and has_untagged_entries(entries):
+            result.append(untagged_key)
+    else:
+        result = all_flat[:]
+        if include_untagged:
+            result.append(untagged_key)
+    return result
+
+
+def entry_matches_tags(
+    entry: dict,
+    selected_tags: list[str],
+    match_mode: str,
+    untagged_key: str = "__untagged__",
+) -> bool:
+    """Return True if entry passes the tag filter.
+
+    Reproduces the existing filtering logic exactly:
+    - No selected_tags → always True.
+    - Untagged entries handled separately from tagged ones.
+    - match_mode: "Any selected tags" | "All selected tags" | "Exact match"
+    """
+    if not selected_tags:
+        return True
+
+    normal_tags = [t for t in selected_tags if t != untagged_key]
+    include_untagged = untagged_key in selected_tags
+    normal_set = set(normal_tags)
+
+    entry_tags = get_entry_tags(entry)
+    is_untagged = len(entry_tags) == 0
+
+    if is_untagged:
+        if include_untagged and not normal_tags:
+            return True
+        if include_untagged and match_mode == "Exact match":
+            return True
+        return False
+
+    # Tagged entry — normal_tags must be non-empty to match
+    if not normal_tags:
+        return False
+    entry_set = set(entry_tags)
+    if match_mode == "All selected tags":
+        return normal_set.issubset(entry_set)
+    if match_mode == "Exact match":
+        return entry_set == normal_set
+    # "Any selected tags"
+    return bool(normal_set.intersection(entry_set))
+
+
+def filter_entries_by_tags(
+    entries: list[dict],
+    selected_tags: list[str],
+    match_mode: str,
+    untagged_key: str = "__untagged__",
+) -> list[dict]:
+    """Return only entries that pass the tag filter."""
+    if not selected_tags:
+        return entries
+    return [e for e in entries if entry_matches_tags(e, selected_tags, match_mode, untagged_key)]
+
+
+def filter_entry_pairs_by_tags(
+    pairs: list[tuple[str, dict]],
+    selected_tags: list[str],
+    match_mode: str,
+    untagged_key: str = "__untagged__",
+) -> list[tuple[str, dict]]:
+    """Return only (entry_id, entry) pairs that pass the tag filter."""
+    if not selected_tags:
+        return pairs
+    return [
+        (eid, e) for eid, e in pairs
+        if entry_matches_tags(e, selected_tags, match_mode, untagged_key)
+    ]
+
+
 # ── Temp-ID registry helpers ───────────────────────────────────────────────────
 
 def make_temp_entry_id(n: int) -> str:
@@ -274,14 +450,12 @@ def build_dataset_stats(entries: list[dict]) -> dict:
     valid_count = total - invalid_count
 
     # ── Tags ──────────────────────────────────────────────────────────────────
-    tag_to_category: dict[str, str] = {
-        tag: cat for cat, tags in TAGS.items() for tag in tags
-    }
+    tag_to_category = get_tag_category_map()
 
     all_tags: list[str] = []
     untagged_count = 0
     for entry in entries:
-        tags = entry.get("tags") or []
+        tags = get_entry_tags(entry)
         if tags:
             all_tags.extend(tags)
         else:
