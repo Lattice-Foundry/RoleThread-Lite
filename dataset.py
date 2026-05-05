@@ -155,6 +155,26 @@ def entry_text_length(entry: dict) -> int:
         return 0
 
 
+# ── Entry mutation helpers ────────────────────────────────────────────────────
+
+def set_entry_system_prompt(entry: dict, system_prompt: str) -> dict:
+    """Replace or insert the system prompt message in an entry.
+
+    If the first message has role 'system' its content is replaced in-place.
+    Otherwise a new system message is inserted at index 0.
+    Tags and user/assistant messages are not modified.
+    Returns the entry.
+    """
+    if "messages" not in entry or not isinstance(entry["messages"], list):
+        entry["messages"] = []
+    msgs = entry["messages"]
+    if msgs and isinstance(msgs[0], dict) and msgs[0].get("role") == "system":
+        msgs[0]["content"] = system_prompt
+    else:
+        msgs.insert(0, {"role": "system", "content": system_prompt})
+    return entry
+
+
 # ── Tag helpers ───────────────────────────────────────────────────────────────
 
 def get_all_tags() -> list[str]:

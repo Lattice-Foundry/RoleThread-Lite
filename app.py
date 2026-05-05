@@ -33,6 +33,7 @@ from dataset import (
     remove_registry_id,
     replace_entry_tags,
     save_dataset,
+    set_entry_system_prompt,
     validate_entry,
 )
 from preferences import get_initial_dir, load_preferences, save_preferences
@@ -920,8 +921,13 @@ elif page == "Manage Dataset":
         )
 
         # ── Pagination ─────────────────────────────────────────────────────────
-        per_page_options = [10, 25, 50, 100]
-        default_idx = per_page_options.index(st.session_state.get("entries_per_page", 25))
+        per_page_options = [10, 25, 50, 100, 500, "Show All"]
+        _saved_per_page = st.session_state.get("entries_per_page", 25)
+        default_idx = (
+            per_page_options.index(_saved_per_page)
+            if _saved_per_page in per_page_options
+            else 1  # fallback to 25
+        )
         _col_per_page, _col_per_page_spacer = st.columns([1, 3])
         with _col_per_page:
             selected_per_page = st.selectbox(
@@ -941,12 +947,20 @@ elif page == "Manage Dataset":
         if total_filtered == 0:
             st.info("No entries match the current filters.")
         else:
-            per_page = st.session_state.entries_per_page
-            last_page = max(0, (total_filtered - 1) // per_page)
-            # _cur_page used here to avoid shadowing the navigation `page` variable
-            _cur_page = min(st.session_state.get("entry_page", 0), last_page)
-            start = _cur_page * per_page
-            end = min(start + per_page, total_filtered)
+            _per_page_setting = st.session_state.entries_per_page
+            if _per_page_setting == "Show All":
+                per_page = total_filtered
+                last_page = 0
+                _cur_page = 0
+                start = 0
+                end = total_filtered
+            else:
+                per_page = _per_page_setting
+                last_page = max(0, (total_filtered - 1) // per_page)
+                # _cur_page used here to avoid shadowing the navigation `page` variable
+                _cur_page = min(st.session_state.get("entry_page", 0), last_page)
+                start = _cur_page * per_page
+                end = min(start + per_page, total_filtered)
             visible_pairs = filtered_pairs[start:end]
 
             # ── Status line (always visible) ───────────────────────────────────
@@ -965,18 +979,25 @@ elif page == "Manage Dataset":
 
             # ── Selection + action buttons (single row) ────────────────────────
             _no_sel = _total_sel == 0
-            _col_sel_all, _col_clear, _col_delete, _col_act_spacer = st.columns(
-                [1, 1, 1, 2]
-            )
+            (
+                _col_sel_all, _col_clear,
+                _col_sys_prompt, _col_delete, _col_act_spacer,
+            ) = st.columns([1, 1, 1, 1, 2])
             with _col_sel_all:
                 if st.button("Select all visible", key="btn_select_all_visible",
                              width="stretch"):
                     select_visible_entries(visible_pairs)
                     st.rerun()
             with _col_clear:
-                if st.button("Clear visible selection", key="btn_clear_visible",
+                if st.button("Clear Selection", key="btn_clear_visible",
                              width="stretch"):
                     deselect_visible_entries(visible_pairs)
+                    st.rerun()
+            with _col_sys_prompt:
+                if st.button("Modify System", key="btn_modify_sys_prompt",
+                             disabled=_no_sel, width="stretch"):
+                    st.session_state["pending_system_prompt_edit"] = True
+                    st.session_state.pop("bulk_system_prompt_text", None)
                     st.rerun()
             with _col_delete:
                 if st.button("Delete Selected", key="btn_delete_selected",
@@ -1031,6 +1052,44 @@ elif page == "Manage Dataset":
                 with _col_cancel:
                     if st.button("Cancel", key="btn_cancel_delete", width="stretch"):
                         st.session_state.pop("pending_delete_selected", None)
+                        st.rerun()
+
+            # ── System prompt editor (shown when pending) ──────────────────────
+            if "sys_prompt_success" in st.session_state:
+                st.success(st.session_state.pop("sys_prompt_success"))
+
+            if st.session_state.get("pending_system_prompt_edit"):
+                st.info(
+                    f"Replace the system prompt for {_total_sel} selected "
+                    "entrie(s). This will overwrite existing system prompts "
+                    "or insert one if missing."
+                )
+                _new_prompt = st.text_area(
+                    "New system prompt",
+                    key="bulk_system_prompt_text",
+                    height=120,
+                )
+                _col_apply, _col_sp_cancel, _col_sp_spacer = st.columns([1, 1, 2])
+                with _col_apply:
+                    if st.button(
+                        "Apply System Prompt",
+                        key="btn_apply_sys_prompt",
+                        disabled=not (_new_prompt or "").strip(),
+                        width="stretch",
+                    ):
+                        for _sid in _selected_ids:
+                            _se = get_loaded_entry_by_id(_sid)
+                            if _se is not None:
+                                set_entry_system_prompt(_se, _new_prompt.strip())
+                        if save_loaded_dataset():
+                            st.session_state.pop("pending_system_prompt_edit", None)
+                            st.session_state["sys_prompt_success"] = (
+                                f"System prompt updated for {_total_sel} entries."
+                            )
+                            st.rerun()
+                with _col_sp_cancel:
+                    if st.button("Cancel", key="btn_sp_cancel", width="stretch"):
+                        st.session_state.pop("pending_system_prompt_edit", None)
                         st.rerun()
 
             # ── Quick tag editor ───────────────────────────────────────────────
