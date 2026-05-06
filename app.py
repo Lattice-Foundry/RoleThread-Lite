@@ -564,6 +564,44 @@ def render_turn_builder(prefix: str) -> list[dict]:
     return _turns_now
 
 
+def render_json_preview(entry: dict, expanded: bool = False) -> None:
+    """Render a collapsible JSON preview for a dataset entry."""
+    with st.expander("Preview JSON", expanded=expanded):
+        st.code(json.dumps(entry, ensure_ascii=False, indent=2), language="json")
+
+
+def render_message_preview(
+    messages: list[dict],
+    include_system: bool = True,
+) -> None:
+    """Render a formatted read-only preview of a saved entry's message list.
+
+    System messages are rendered in yellow; user and assistant messages use
+    their respective role colors with narration/dialogue formatting applied
+    via _format_preview_content().  Unknown or malformed messages are
+    rendered safely without raising.
+    """
+    _COLOR = {"system": "#555", "user": "#1a73e8", "assistant": "#188038"}
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role", "")
+        if role == "system" and not include_system:
+            continue
+        content = msg.get("content", "")
+        color = _COLOR.get(role, "#000")
+        if role == "system":
+            body = f"<span style='color:#f1c40f'>{content}</span>"
+        else:
+            body = _format_preview_content(content)
+        st.markdown(
+            f"<span style='color:{color};font-weight:bold;"
+            f"text-transform:uppercase'>{role or '?'}:</span> {body}",
+            unsafe_allow_html=True,
+        )
+        st.write("")
+
+
 def render_conversation_preview(turns_now: list[dict], prefix: str) -> None:  # noqa: ARG001
     """Render the read-only conversation preview for an editor instance.
 
@@ -648,8 +686,7 @@ def render_entry_actions(
         )
         errors = validate_entry(entry_preview)
 
-        with st.expander("Preview JSON", expanded=False):
-            st.code(json.dumps(entry_preview, ensure_ascii=False, indent=2), language="json")
+        render_json_preview(entry_preview, expanded=False)
 
         if errors:
             for err in errors:
@@ -1313,27 +1350,9 @@ elif page == "Manage Dataset":
                             if errs:
                                 for err in errs:
                                     st.error(err)
-                            msgs = entry.get("messages", [])
-                            for msg in msgs:
-                                role = msg.get("role", "?")
-                                content = msg.get("content", "")
-                                color = {
-                                    "system": "#555",
-                                    "user": "#1a73e8",
-                                    "assistant": "#188038",
-                                }.get(role, "#000")
-                                if role == "system":
-                                    body = (
-                                        f"<span style='color:#f1c40f'>{content}</span>"
-                                    )
-                                else:
-                                    body = _format_preview_content(content)
-                                st.markdown(
-                                    f"<span style='color:{color};font-weight:bold;"
-                                    f"text-transform:uppercase'>{role}:</span> {body}",
-                                    unsafe_allow_html=True,
-                                )
-                                st.write("")
+                            render_message_preview(
+                                entry.get("messages", []), include_system=True
+                            )
 
             # ── Pagination buttons ─────────────────────────────────────────────
             col_prev, col_next = st.columns(2)
