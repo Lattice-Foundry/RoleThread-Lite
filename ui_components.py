@@ -11,7 +11,7 @@ import streamlit as st
 
 from dataset import TAGS
 
-# ── Role colors (shared with render_turn_builder in app.py) ───────────────────
+# ── Role colors (shared with render_turn_builder in ui_create.py) ────────────
 _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
 
 
