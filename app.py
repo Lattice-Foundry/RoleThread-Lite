@@ -1,4 +1,4 @@
-"""Roleplay Dataset Manager — Streamlit entry point.
+"""LoreForge — Streamlit entry point.
 
 Responsibilities:
   - Page config, global CSS, and app header
@@ -22,10 +22,10 @@ from ui.ui_settings import render_settings_page
 from ui.ui_stats import render_stats_page
 
 # ── Page config ────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Roleplay Dataset Manager", layout="wide")
+st.set_page_config(page_title="LoreForge", layout="wide")
 
 st.markdown(
-    "<h1 style='color:#1a73e8'>Roleplay Dataset Manager</h1>",
+    "<h1 style='color:#1a73e8'>LoreForge — Narrative Intelligence Studio</h1>",
     unsafe_allow_html=True,
 )
 
