@@ -2,6 +2,7 @@
 import streamlit as st
 
 from core.dataset import (
+    TAGS,
     count_exchanges,
     filter_entry_pairs_by_tags,
     get_available_filter_tags,
@@ -26,10 +27,95 @@ _BROWSER_STATE_KEYS = (
 )
 
 
+# ── Edit buffer helpers ────────────────────────────────────────────────────────
+
+def entry_to_edit_buffer(entry: dict) -> dict:
+    """Extract editable fields from a dataset entry into a plain buffer dict.
+
+    Returns:
+        {
+            "system_prompt": str,
+            "turns":         [{"role": ..., "content": ...}, ...],
+            "tags":          list[str],
+            "planned_exchanges": int,   # ≥ 1
+        }
+    """
+    msgs = entry.get("messages", [])
+    if not isinstance(msgs, list):
+        msgs = []
+
+    system_prompt = ""
+    turns: list[dict] = []
+    for msg in msgs:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content", "")
+        if role == "system" and not system_prompt:
+            system_prompt = content
+        elif role in ("user", "assistant"):
+            turns.append({"role": role, "content": content})
+
+    tags = get_entry_tags(entry)
+    planned_exchanges = max(1, count_exchanges(entry))
+
+    return {
+        "system_prompt": system_prompt,
+        "turns": turns,
+        "tags": tags,
+        "planned_exchanges": planned_exchanges,
+    }
+
+
+def load_full_edit_buffer(entry_id: str) -> bool:
+    """Load entry data into full_edit_* session-state keys.
+
+    Returns True on success, False if the entry cannot be found.
+    Unknown tags (not belonging to any TAGS category) are stored separately
+    in full_edit_unknown_tags and are never discarded.
+    """
+    entry = get_loaded_entry_by_id(entry_id)
+    if entry is None:
+        return False
+
+    buf = entry_to_edit_buffer(entry)
+
+    # ── Scalar keys ───────────────────────────────────────────────────────────
+    st.session_state["full_edit_entry_id"] = entry_id
+    st.session_state["full_edit_system_prompt"] = buf["system_prompt"]
+    st.session_state["full_edit_turns"] = [{"role": t["role"]} for t in buf["turns"]]
+    st.session_state["full_edit_planned_exchanges"] = buf["planned_exchanges"]
+
+    # ── Per-turn content keys ─────────────────────────────────────────────────
+    for i, turn in enumerate(buf["turns"]):
+        st.session_state[f"full_edit_turn_{i}"] = turn["content"]
+
+    # ── Tag category keys ──────────────────────────────────────────────────────
+    all_known: set[str] = set()
+    for category, options in TAGS.items():
+        cat_tags = [t for t in buf["tags"] if t in options]
+        st.session_state[f"full_edit_tags_{category}"] = cat_tags
+        all_known.update(options)
+
+    st.session_state["full_edit_unknown_tags"] = [
+        t for t in buf["tags"] if t not in all_known
+    ]
+
+    return True
+
+
 # ── Full-edit mode helpers ─────────────────────────────────────────────────────
 
 def start_full_edit(entry_id: str) -> None:
-    """Snapshot browser filter/page state, enter workspace mode, and rerun."""
+    """Load edit buffer, snapshot browser state, enter workspace, and rerun.
+
+    If the entry cannot be loaded, shows an inline error and does not enter
+    workspace mode — the browser continues rendering normally below.
+    """
+    if not load_full_edit_buffer(entry_id):
+        st.error(f"Could not load entry `{entry_id}` for editing.")
+        return
+
     st.session_state["_ee_browser_snapshot"] = {
         k: st.session_state.get(k) for k in _BROWSER_STATE_KEYS
     }
@@ -39,12 +125,32 @@ def start_full_edit(entry_id: str) -> None:
 
 
 def cancel_full_edit() -> None:
-    """Restore browser filter/page state, return to browser mode, and rerun."""
+    """Clear the edit buffer, restore browser state, and return to browser mode."""
+    # ── Clear fixed full_edit keys ─────────────────────────────────────────────
+    for _k in (
+        "full_edit_entry_id",
+        "full_edit_system_prompt",
+        "full_edit_turns",
+        "full_edit_planned_exchanges",
+        "full_edit_unknown_tags",
+        "editing_entry_id",
+    ):
+        st.session_state.pop(_k, None)
+
+    # ── Clear per-turn content keys ────────────────────────────────────────────
+    for _k in [k for k in st.session_state if k.startswith("full_edit_turn_")]:
+        del st.session_state[_k]
+
+    # ── Clear per-category tag keys ────────────────────────────────────────────
+    for _k in [k for k in st.session_state if k.startswith("full_edit_tags_")]:
+        del st.session_state[_k]
+
+    # ── Restore browser filter/page state ─────────────────────────────────────
     snapshot = st.session_state.pop("_ee_browser_snapshot", {})
-    for k, v in snapshot.items():
-        if v is not None:
-            st.session_state[k] = v
-    st.session_state.editing_entry_id = None
+    for _k, _v in snapshot.items():
+        if _v is not None:
+            st.session_state[_k] = _v
+
     st.session_state.edit_entries_mode = "browser"
     st.rerun()
 
@@ -54,8 +160,9 @@ def cancel_full_edit() -> None:
 def render_edit_workspace_placeholder() -> None:
     """Placeholder workspace shown while edit_entries_mode == 'workspace'.
 
-    Full editor will be built in the next phase — this phase only confirms
-    that mode routing, entry lookup, and the cancel flow all work correctly.
+    Displays the loaded edit-buffer summary (planned exchanges, turn count,
+    tags) and the read-only message preview.  The real editor UI is built in
+    the next phase.
     """
     entry_id = st.session_state.get("editing_entry_id")
 
@@ -73,10 +180,33 @@ def render_edit_workspace_placeholder() -> None:
             cancel_full_edit()
         return
 
+    # ── Header ─────────────────────────────────────────────────────────────────
     st.subheader("Full Edit Entry")
     st.caption(f"Temp ID: {entry_id}")
+
+    # ── Buffer summary ──────────────────────────────────────────────────────────
+    _planned = st.session_state.get("full_edit_planned_exchanges", 1)
+    _turns = st.session_state.get("full_edit_turns", [])
+    _known_tags: list[str] = []
+    for _cat in TAGS:
+        _known_tags.extend(st.session_state.get(f"full_edit_tags_{_cat}", []))
+    _unknown_tags: list[str] = st.session_state.get("full_edit_unknown_tags", [])
+
+    _mc1, _mc2, _mc3 = st.columns(3)
+    _mc1.metric("Planned Exchanges", _planned)
+    _mc2.metric("Turns Loaded", len(_turns))
+    _mc3.metric("Tags Loaded", len(_known_tags) + len(_unknown_tags))
+
+    if _known_tags:
+        st.caption(f"Tags: {', '.join(_known_tags)}")
+    if _unknown_tags:
+        st.warning(f"Unknown tags (preserved): {', '.join(_unknown_tags)}")
+
     st.info("Full editor workspace will be built in the next phase.")
+
+    # ── Read-only preview ───────────────────────────────────────────────────────
     render_message_preview(entry.get("messages", []), include_system=True)
+
     if st.button("Cancel / Back to Edit Entries", key="btn_cancel_full_edit",
                  width="stretch"):
         cancel_full_edit()
