@@ -8,10 +8,17 @@ from core.dataset import (
     get_available_filter_tags,
     get_entry_tags,
     get_tag_label_map,
+    make_entry,
     validate_entry,
 )
 from core.state import ensure_entry_registry, get_all_entry_pairs, get_loaded_entry_by_id
-from ui.ui_components import render_message_preview
+from ui.ui_components import (
+    render_conversation_preview,
+    render_json_preview,
+    render_message_preview,
+    render_tag_multiselects,
+)
+from ui.ui_create import render_turn_builder
 
 _UNTAGGED = "__untagged__"
 
@@ -155,26 +162,26 @@ def cancel_full_edit() -> None:
     st.rerun()
 
 
-# ── Workspace placeholder ──────────────────────────────────────────────────────
+# ── Full edit workspace ────────────────────────────────────────────────────────
 
-def render_edit_workspace_placeholder() -> None:
-    """Placeholder workspace shown while edit_entries_mode == 'workspace'.
+def render_full_edit_workspace() -> None:
+    """Full-edit workspace rendered when edit_entries_mode == 'workspace'.
 
-    Displays the loaded edit-buffer summary (planned exchanges, turn count,
-    tags) and the read-only message preview.  The real editor UI is built in
-    the next phase.
+    Renders the system prompt, turn builder, conversation preview, tag
+    selectors, JSON preview, and validation — all populated from the
+    full_edit_* session-state buffer loaded in Phase 2.  No save button yet.
     """
     entry_id = st.session_state.get("editing_entry_id")
 
+    # ── Guard: no entry selected ───────────────────────────────────────────────
     if not entry_id:
         st.warning("No entry selected for editing.")
         if st.button("Back to Edit Entries", key="btn_back_no_id"):
             cancel_full_edit()
         return
 
-    entry = get_loaded_entry_by_id(entry_id)
-
-    if entry is None:
+    # ── Guard: entry disappeared from registry ─────────────────────────────────
+    if get_loaded_entry_by_id(entry_id) is None:
         st.error("Selected entry could not be found.")
         if st.button("Back to Edit Entries", key="btn_back_not_found"):
             cancel_full_edit()
@@ -184,29 +191,54 @@ def render_edit_workspace_placeholder() -> None:
     st.subheader("Full Edit Entry")
     st.caption(f"Temp ID: {entry_id}")
 
-    # ── Buffer summary ──────────────────────────────────────────────────────────
-    _planned = st.session_state.get("full_edit_planned_exchanges", 1)
-    _turns = st.session_state.get("full_edit_turns", [])
-    _known_tags: list[str] = []
-    for _cat in TAGS:
-        _known_tags.extend(st.session_state.get(f"full_edit_tags_{_cat}", []))
+    # ── System prompt ──────────────────────────────────────────────────────────
+    st.divider()
+    st.subheader("System Prompt")
+    st.text_area(
+        "System Prompt",
+        key="full_edit_system_prompt",
+        height=120,
+        label_visibility="collapsed",
+    )
+
+    # ── Turn builder (includes planned exchanges input + turn text areas) ───────
+    st.divider()
+    turns_now = render_turn_builder("full_edit")
+
+    # ── Conversation preview ───────────────────────────────────────────────────
+    st.subheader("Conversation Preview")
+    render_conversation_preview(turns_now, "full_edit")
+
+    # ── Tags ───────────────────────────────────────────────────────────────────
+    st.divider()
+    st.subheader("Tag & Complete Exchange")
+    selected_tags = render_tag_multiselects("full_edit")
+
     _unknown_tags: list[str] = st.session_state.get("full_edit_unknown_tags", [])
-
-    _mc1, _mc2, _mc3 = st.columns(3)
-    _mc1.metric("Planned Exchanges", _planned)
-    _mc2.metric("Turns Loaded", len(_turns))
-    _mc3.metric("Tags Loaded", len(_known_tags) + len(_unknown_tags))
-
-    if _known_tags:
-        st.caption(f"Tags: {', '.join(_known_tags)}")
     if _unknown_tags:
-        st.warning(f"Unknown tags (preserved): {', '.join(_unknown_tags)}")
+        st.warning(
+            "This entry contains unknown tags not currently in the tag registry: "
+            + ", ".join(_unknown_tags)
+        )
 
-    st.info("Full editor workspace will be built in the next phase.")
+    # ── JSON preview + validation ──────────────────────────────────────────────
+    _has_content = any(t["content"].strip() for t in turns_now)
+    if _has_content:
+        _entry_preview = make_entry(
+            turns=turns_now,
+            system_prompt=st.session_state.get("full_edit_system_prompt", ""),
+            tags=selected_tags + _unknown_tags,
+        )
+        render_json_preview(_entry_preview, expanded=False)
+        _errors = validate_entry(_entry_preview)
+        if _errors:
+            for _err in _errors:
+                st.error(_err)
+        else:
+            st.success("Entry looks valid.")
 
-    # ── Read-only preview ───────────────────────────────────────────────────────
-    render_message_preview(entry.get("messages", []), include_system=True)
-
+    # ── Cancel ─────────────────────────────────────────────────────────────────
+    st.divider()
     if st.button("Cancel / Back to Edit Entries", key="btn_cancel_full_edit",
                  width="stretch"):
         cancel_full_edit()
@@ -221,7 +253,7 @@ def render_edit_entries_page() -> None:
     ensure_entry_registry()
 
     if st.session_state.get("edit_entries_mode") == "workspace":
-        render_edit_workspace_placeholder()
+        render_full_edit_workspace()
         return
 
     _ee_entries = st.session_state.loaded_entries
