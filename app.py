@@ -13,6 +13,7 @@ import streamlit as st
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset
 from core.preferences import load_preferences
 from core.state import set_loaded_entries
+from core.tag_registry import seed_default_tags
 from ui.ui_create import init_editor_state, render_create_page
 from ui.ui_edit_entries import render_edit_entries_page
 from ui.ui_export import render_export_page
@@ -70,6 +71,11 @@ section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled):hover {
 if "prefs" not in st.session_state:
     prefs = load_preferences()
     st.session_state.prefs = prefs
+
+    try:
+        seed_default_tags()
+    except Exception as _seed_exc:
+        st.warning(f"Tag database initialisation failed: {_seed_exc}")
 
     st.session_state.system_prompt = prefs.get("last_system_prompt") or DEFAULT_SYSTEM_PROMPT
     set_loaded_entries([])

@@ -7,6 +7,7 @@ venv/
 __pycache__/
 *.pyc
 .streamlit/
-preferences.json
+app_data/preferences.json
+app_data/loreforge.db
 training_data/
 *.jsonl
