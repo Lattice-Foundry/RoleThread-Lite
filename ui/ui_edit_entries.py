@@ -19,6 +19,7 @@ from core.state import (
     save_loaded_dataset,
 )
 from ui.ui_components import (
+    calculate_exchange_metrics,
     render_conversation_preview,
     render_json_preview,
     render_message_preview,
@@ -236,8 +237,9 @@ def render_full_edit_workspace() -> None:
     """Full-edit workspace rendered when edit_entries_mode == 'workspace'.
 
     Renders the system prompt, turn builder, conversation preview, tag
-    selectors, JSON preview, and validation — all populated from the
-    full_edit_* session-state buffer loaded in Phase 2.  No save button yet.
+    selectors, JSON preview, planning warnings, and validation — all
+    populated from the full_edit_* session-state buffer.  Includes Save Edits
+    and Cancel / Back buttons.
     """
     entry_id = st.session_state.get("editing_entry_id")
 
@@ -289,6 +291,11 @@ def render_full_edit_workspace() -> None:
             + ", ".join(_unknown_tags)
         )
 
+    # ── Planning metrics (needed for warnings + save gating) ──────────────────
+    _planned_exchanges = st.session_state.get("full_edit_planned_exchanges", 1)
+    _m = calculate_exchange_metrics(turns_now, _planned_exchanges)
+    _current_exchanges = _m["current_exchanges"]
+
     # ── JSON preview + validation ──────────────────────────────────────────────
     _has_content = any(t["content"].strip() for t in turns_now)
     _entry_valid = False
@@ -307,6 +314,20 @@ def render_full_edit_workspace() -> None:
             st.success("Entry looks valid.")
             _entry_valid = True
 
+    # ── Planning warnings (matches Create Entry messaging exactly) ─────────────
+    if _planned_exchanges > 1 and _current_exchanges < _planned_exchanges:
+        st.warning("You have not reached your planned number of exchanges yet.")
+    if _m["overage"] > 0:
+        st.info(
+            f"You are {_m['overage']} exchange(s) over your planned count. "
+            "You can still save this exchange."
+        )
+    if _planned_exchanges > 1 and _m["blank_pairs"] > 0:
+        st.warning(
+            f"{_m['blank_pairs']} exchange pair(s) have empty fields and will not be saved. "
+            "Fill them in or remove them before completing."
+        )
+
     # ── Save / Cancel ──────────────────────────────────────────────────────────
     st.divider()
     _col_save, _col_cancel = st.columns(2)
@@ -315,7 +336,7 @@ def render_full_edit_workspace() -> None:
             "Save Edits",
             key="btn_save_full_edit",
             type="primary",
-            disabled=not _entry_valid,
+            disabled=not _entry_valid or _current_exchanges < _planned_exchanges,
             width="stretch",
         ):
             save_full_edit()

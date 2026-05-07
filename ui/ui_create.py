@@ -7,6 +7,7 @@ from core.dataset import TAGS, append_to_dataset, load_dataset, make_entry, save
 from core.state import _update_prefs, set_loaded_entries
 from ui.ui_components import (
     _ROLE_COLOR,
+    calculate_exchange_metrics,
     render_conversation_preview,
     render_json_preview,
     render_tag_multiselects,
@@ -199,36 +200,19 @@ def render_entry_actions(
 
     # ── Planning warnings ──────────────────────────────────────────────────────
     _planned_exchanges = st.session_state.get(f"{prefix}_planned_exchanges", 1)
-    _total_slots = len(turns_now) // 2
-    _current_exchanges = sum(
-        1
-        for _pi in range(0, len(turns_now), 2)
-        if (
-            _pi + 1 < len(turns_now)
-            and turns_now[_pi]["content"].strip()
-            and turns_now[_pi + 1]["content"].strip()
-        )
-    )
-    _overage = max(0, _total_slots - _planned_exchanges)
-    _blank_pairs = sum(
-        1
-        for _pi in range(0, len(turns_now), 2)
-        if _pi + 1 < len(turns_now) and (
-            not turns_now[_pi]["content"].strip()
-            or not turns_now[_pi + 1]["content"].strip()
-        )
-    )
+    _m = calculate_exchange_metrics(turns_now, _planned_exchanges)
+    _current_exchanges = _m["current_exchanges"]
 
     if _planned_exchanges > 1 and _current_exchanges < _planned_exchanges:
         st.warning("You have not reached your planned number of exchanges yet.")
-    if _overage > 0:
+    if _m["overage"] > 0:
         st.info(
-            f"You are {_overage} exchange(s) over your planned count. "
+            f"You are {_m['overage']} exchange(s) over your planned count. "
             "You can still save this exchange."
         )
-    if _planned_exchanges > 1 and _blank_pairs > 0:
+    if _planned_exchanges > 1 and _m["blank_pairs"] > 0:
         st.warning(
-            f"{_blank_pairs} exchange pair(s) have empty fields and will not be saved. "
+            f"{_m['blank_pairs']} exchange pair(s) have empty fields and will not be saved. "
             "Fill them in or remove them before completing."
         )
 

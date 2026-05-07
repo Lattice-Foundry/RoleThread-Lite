@@ -109,6 +109,48 @@ def render_conversation_preview(turns_now: list[dict], prefix: str) -> None:  # 
         st.write("")
 
 
+# ── Editor planning metrics ───────────────────────────────────────────────────
+
+def calculate_exchange_metrics(turns_now: list[dict], planned_exchanges: int) -> dict:
+    """Compute planning metrics for an entry editor's current turn list.
+
+    Pure function — no Streamlit dependency.  Used by both Create Entry and
+    Full Edit to drive planning warnings and save-button gating.
+
+    Returns:
+        {
+            "current_exchanges": int,  # fully-filled user/assistant pairs
+            "total_slots":       int,  # total pair slots (filled or blank)
+            "blank_pairs":       int,  # pairs with at least one empty side
+            "overage":           int,  # slots beyond planned_exchanges
+        }
+    """
+    total_slots = len(turns_now) // 2
+    current_exchanges = sum(
+        1
+        for pi in range(0, len(turns_now), 2)
+        if (
+            pi + 1 < len(turns_now)
+            and turns_now[pi]["content"].strip()
+            and turns_now[pi + 1]["content"].strip()
+        )
+    )
+    blank_pairs = sum(
+        1
+        for pi in range(0, len(turns_now), 2)
+        if pi + 1 < len(turns_now) and (
+            not turns_now[pi]["content"].strip()
+            or not turns_now[pi + 1]["content"].strip()
+        )
+    )
+    return {
+        "current_exchanges": current_exchanges,
+        "total_slots": total_slots,
+        "blank_pairs": blank_pairs,
+        "overage": max(0, total_slots - planned_exchanges),
+    }
+
+
 # ── Tag selector helper ───────────────────────────────────────────────────────
 
 def render_tag_multiselects(prefix: str) -> list[str]:
