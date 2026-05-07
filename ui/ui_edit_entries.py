@@ -9,15 +9,91 @@ from core.dataset import (
     get_tag_label_map,
     validate_entry,
 )
-from core.state import ensure_entry_registry, get_all_entry_pairs
+from core.state import ensure_entry_registry, get_all_entry_pairs, get_loaded_entry_by_id
 from ui.ui_components import render_message_preview
 
 _UNTAGGED = "__untagged__"
 
+# Filter/page keys that must survive the browser → workspace → browser round-trip.
+# Snapshotted on entry, restored on exit so Streamlit widget state is correct
+# even if the browser widgets were not rendered during workspace mode.
+_BROWSER_STATE_KEYS = (
+    "edit_filter_tags",
+    "edit_filter_only_used",
+    "edit_filter_match_mode",
+    "edit_entry_page",
+    "edit_entries_per_page",
+)
+
+
+# ── Full-edit mode helpers ─────────────────────────────────────────────────────
+
+def start_full_edit(entry_id: str) -> None:
+    """Snapshot browser filter/page state, enter workspace mode, and rerun."""
+    st.session_state["_ee_browser_snapshot"] = {
+        k: st.session_state.get(k) for k in _BROWSER_STATE_KEYS
+    }
+    st.session_state.editing_entry_id = entry_id
+    st.session_state.edit_entries_mode = "workspace"
+    st.rerun()
+
+
+def cancel_full_edit() -> None:
+    """Restore browser filter/page state, return to browser mode, and rerun."""
+    snapshot = st.session_state.pop("_ee_browser_snapshot", {})
+    for k, v in snapshot.items():
+        if v is not None:
+            st.session_state[k] = v
+    st.session_state.editing_entry_id = None
+    st.session_state.edit_entries_mode = "browser"
+    st.rerun()
+
+
+# ── Workspace placeholder ──────────────────────────────────────────────────────
+
+def render_edit_workspace_placeholder() -> None:
+    """Placeholder workspace shown while edit_entries_mode == 'workspace'.
+
+    Full editor will be built in the next phase — this phase only confirms
+    that mode routing, entry lookup, and the cancel flow all work correctly.
+    """
+    entry_id = st.session_state.get("editing_entry_id")
+
+    if not entry_id:
+        st.warning("No entry selected for editing.")
+        if st.button("Back to Edit Entries", key="btn_back_no_id"):
+            cancel_full_edit()
+        return
+
+    entry = get_loaded_entry_by_id(entry_id)
+
+    if entry is None:
+        st.error("Selected entry could not be found.")
+        if st.button("Back to Edit Entries", key="btn_back_not_found"):
+            cancel_full_edit()
+        return
+
+    st.subheader("Full Edit Entry")
+    st.caption(f"Temp ID: {entry_id}")
+    st.info("Full editor workspace will be built in the next phase.")
+    render_message_preview(entry.get("messages", []), include_system=True)
+    if st.button("Cancel / Back to Edit Entries", key="btn_cancel_full_edit",
+                 width="stretch"):
+        cancel_full_edit()
+
 
 def render_edit_entries_page() -> None:
-    """Render the Edit Entries browser page."""
+    """Render the Edit Entries page.
+
+    Routes to the full-edit workspace when edit_entries_mode == 'workspace',
+    otherwise renders the existing browser view.
+    """
     ensure_entry_registry()
+
+    if st.session_state.get("edit_entries_mode") == "workspace":
+        render_edit_workspace_placeholder()
+        return
+
     _ee_entries = st.session_state.loaded_entries
     _ee_all_pairs = get_all_entry_pairs()
 
@@ -39,7 +115,6 @@ def render_edit_entries_page() -> None:
 
     _ee_only_used = st.checkbox(
         "Only show used tags",
-        value=st.session_state.get("edit_filter_only_used", True),
         key="edit_filter_only_used",
         on_change=_ee_reset_page_and_selection,
     )
@@ -171,6 +246,8 @@ def render_edit_entries_page() -> None:
             _ee_label += " ⚠️"
         with st.expander(_ee_label):
             st.caption(f"Temp ID: {_ee_entry_id}")
+            if st.button("Edit Entry", key=f"btn_full_edit_{_ee_entry_id}"):
+                start_full_edit(_ee_entry_id)
             if _ee_errs:
                 for _ee_err in _ee_errs:
                     st.error(_ee_err)
