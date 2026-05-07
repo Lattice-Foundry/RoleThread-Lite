@@ -11,7 +11,13 @@ from core.dataset import (
     make_entry,
     validate_entry,
 )
-from core.state import ensure_entry_registry, get_all_entry_pairs, get_loaded_entry_by_id
+from core.state import (
+    ensure_entry_registry,
+    get_all_entry_pairs,
+    get_loaded_entry_by_id,
+    replace_loaded_entry_by_id,
+    save_loaded_dataset,
+)
 from ui.ui_components import (
     render_conversation_preview,
     render_json_preview,
@@ -162,6 +168,68 @@ def cancel_full_edit() -> None:
     st.rerun()
 
 
+def save_full_edit() -> bool:
+    """Build the edited entry from the workspace buffer, validate, replace, and save.
+
+    On success: sets flash message, clears buffer, returns to browser via
+    cancel_full_edit() (which calls st.rerun() — the function never returns True
+    in that path).  On any failure: shows an error, leaves workspace open,
+    returns False.
+    """
+    entry_id = st.session_state.get("full_edit_entry_id") or st.session_state.get(
+        "editing_entry_id"
+    )
+    if not entry_id:
+        st.error("No entry selected for editing.")
+        return False
+
+    # ── Rebuild turns from live widget keys ────────────────────────────────────
+    turns_now = [
+        {
+            "role": t["role"],
+            "content": st.session_state.get(f"full_edit_turn_{i}", ""),
+        }
+        for i, t in enumerate(st.session_state.get("full_edit_turns", []))
+    ]
+
+    # ── Read system prompt and tags from live widget keys ──────────────────────
+    system_prompt: str = st.session_state.get("full_edit_system_prompt", "")
+
+    selected_tags: list[str] = []
+    for _cat in TAGS:
+        selected_tags.extend(st.session_state.get(f"full_edit_tags_{_cat}", []))
+    unknown_tags: list[str] = st.session_state.get("full_edit_unknown_tags", [])
+
+    # ── Build edited entry (does NOT mutate loaded_entries yet) ────────────────
+    edited_entry = make_entry(
+        turns=turns_now,
+        system_prompt=system_prompt,
+        tags=selected_tags + unknown_tags,
+    )
+
+    # ── Validate ───────────────────────────────────────────────────────────────
+    errors = validate_entry(edited_entry)
+    if errors:
+        for err in errors:
+            st.error(err)
+        return False
+
+    # ── Replace in registry (temp-ID based, position-safe) ────────────────────
+    if not replace_loaded_entry_by_id(entry_id, edited_entry):
+        st.error("Could not update selected entry.")
+        return False
+
+    # ── Persist to disk ────────────────────────────────────────────────────────
+    if not save_loaded_dataset():
+        # save_loaded_dataset() already shows st.error on failure
+        return False
+
+    # ── Success: flash message + cleanup + return to browser ──────────────────
+    st.session_state["full_edit_success"] = "Entry updated."
+    cancel_full_edit()  # clears buffer, restores browser state, calls st.rerun()
+    return True          # unreachable after rerun, kept for type correctness
+
+
 # ── Full edit workspace ────────────────────────────────────────────────────────
 
 def render_full_edit_workspace() -> None:
@@ -223,6 +291,7 @@ def render_full_edit_workspace() -> None:
 
     # ── JSON preview + validation ──────────────────────────────────────────────
     _has_content = any(t["content"].strip() for t in turns_now)
+    _entry_valid = False
     if _has_content:
         _entry_preview = make_entry(
             turns=turns_now,
@@ -236,12 +305,24 @@ def render_full_edit_workspace() -> None:
                 st.error(_err)
         else:
             st.success("Entry looks valid.")
+            _entry_valid = True
 
-    # ── Cancel ─────────────────────────────────────────────────────────────────
+    # ── Save / Cancel ──────────────────────────────────────────────────────────
     st.divider()
-    if st.button("Cancel / Back to Edit Entries", key="btn_cancel_full_edit",
-                 width="stretch"):
-        cancel_full_edit()
+    _col_save, _col_cancel = st.columns(2)
+    with _col_save:
+        if st.button(
+            "Save Edits",
+            key="btn_save_full_edit",
+            type="primary",
+            disabled=not _entry_valid,
+            width="stretch",
+        ):
+            save_full_edit()
+    with _col_cancel:
+        if st.button("Cancel / Back to Edit Entries", key="btn_cancel_full_edit",
+                     width="stretch"):
+            cancel_full_edit()
 
 
 def render_edit_entries_page() -> None:
@@ -264,6 +345,9 @@ def render_edit_entries_page() -> None:
         return
 
     st.subheader(f"Browse Entries ({len(_ee_all_pairs)})")
+
+    if "full_edit_success" in st.session_state:
+        st.success(st.session_state.pop("full_edit_success"))
 
     # ── Filter controls ────────────────────────────────────────────────────────
     _ee_label_map = get_tag_label_map(untagged_key=_UNTAGGED)
