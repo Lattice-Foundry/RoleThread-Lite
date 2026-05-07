@@ -4,8 +4,8 @@ from pathlib import Path
 
 import streamlit as st
 
-from dataset import merge_datasets, save_dataset
-from file_dialogs import browse_open_multiple, browse_save_file, path_input
+from core.dataset import merge_datasets, save_dataset
+from core.file_dialogs import browse_open_multiple, browse_save_file, path_input
 
 
 def render_merge_page() -> None:

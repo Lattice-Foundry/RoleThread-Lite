@@ -1,12 +1,12 @@
 """Session-state bridge helpers.
 
 All functions here read from or write to st.session_state.
-Pure data logic lives in dataset.py; UI rendering lives in ui_components.py.
+Pure data logic lives in core/dataset.py; UI rendering lives in ui/ui_components.py.
 This module must not import app.py (would cause a circular import).
 """
 import streamlit as st
 
-from dataset import (
+from core.dataset import (
     append_registry_id,
     build_entry_registry,
     get_entry_pairs,
@@ -16,7 +16,7 @@ from dataset import (
     save_dataset,
     validate_entry,
 )
-from preferences import save_preferences
+from core.preferences import save_preferences
 
 
 # ── Preferences session helper ─────────────────────────────────────────────────

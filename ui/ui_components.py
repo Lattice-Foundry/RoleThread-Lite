@@ -9,7 +9,7 @@ import re
 
 import streamlit as st
 
-from dataset import TAGS
+from core.dataset import TAGS
 
 # ── Role colors (shared with render_turn_builder in ui_create.py) ────────────
 _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}

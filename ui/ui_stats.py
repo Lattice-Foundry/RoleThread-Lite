@@ -3,8 +3,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from dataset import build_dataset_stats
-from state import ensure_entry_registry
+from core.dataset import build_dataset_stats
+from core.state import ensure_entry_registry
 
 
 def render_stats_page() -> None:

@@ -10,16 +10,16 @@ from pathlib import Path
 
 import streamlit as st
 
-from dataset import DEFAULT_SYSTEM_PROMPT, load_dataset
-from preferences import load_preferences
-from state import set_loaded_entries
-from ui_create import init_editor_state, render_create_page
-from ui_edit_entries import render_edit_entries_page
-from ui_export import render_export_page
-from ui_manage import render_manage_page
-from ui_merge import render_merge_page
-from ui_settings import render_settings_page
-from ui_stats import render_stats_page
+from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset
+from core.preferences import load_preferences
+from core.state import set_loaded_entries
+from ui.ui_create import init_editor_state, render_create_page
+from ui.ui_edit_entries import render_edit_entries_page
+from ui.ui_export import render_export_page
+from ui.ui_manage import render_manage_page
+from ui.ui_merge import render_merge_page
+from ui.ui_settings import render_settings_page
+from ui.ui_stats import render_stats_page
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Roleplay Dataset Manager", layout="wide")

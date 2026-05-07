@@ -1,7 +1,10 @@
 import json
 from pathlib import Path
 
-PREFS_FILE = Path(__file__).parent / "preferences.json"
+APP_DATA_DIR = Path(__file__).resolve().parent.parent / "app_data"
+APP_DATA_DIR.mkdir(exist_ok=True)
+
+PREFS_FILE = APP_DATA_DIR / "preferences.json"
 
 DEFAULTS: dict = {
     "last_loaded_dataset_path": "",
@@ -26,6 +29,7 @@ def load_preferences() -> dict:
 
 
 def save_preferences(prefs: dict) -> None:
+    APP_DATA_DIR.mkdir(exist_ok=True)
     PREFS_FILE.write_text(
         json.dumps(prefs, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",

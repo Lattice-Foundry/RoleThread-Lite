@@ -14,7 +14,7 @@ from tkinter import filedialog
 
 import streamlit as st
 
-from preferences import get_initial_dir, save_preferences
+from core.preferences import get_initial_dir, save_preferences
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 JSONL_TYPES = [("JSONL files", "*.jsonl"), ("All files", "*.*")]
@@ -33,7 +33,7 @@ def _tk_root() -> tk.Tk:
 def _save_prefs(updates: dict) -> None:
     """Update st.session_state.prefs in place and persist to disk.
 
-    Mirrors _update_prefs() in state.py — kept separate to avoid a circular
+    Mirrors _update_prefs() in core/state.py — kept separate to avoid a circular
     import.  Only call from within file dialog callbacks.
     """
     st.session_state.prefs.update(updates)

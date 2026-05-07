@@ -1,7 +1,7 @@
 """Edit Entries page — read-only dataset browser with filtering and pagination."""
 import streamlit as st
 
-from dataset import (
+from core.dataset import (
     count_exchanges,
     filter_entry_pairs_by_tags,
     get_available_filter_tags,
@@ -9,8 +9,8 @@ from dataset import (
     get_tag_label_map,
     validate_entry,
 )
-from state import ensure_entry_registry, get_all_entry_pairs
-from ui_components import render_message_preview
+from core.state import ensure_entry_registry, get_all_entry_pairs
+from ui.ui_components import render_message_preview
 
 _UNTAGGED = "__untagged__"
 

@@ -1,7 +1,7 @@
 """Settings page."""
 import streamlit as st
 
-from state import _update_prefs
+from core.state import _update_prefs
 
 
 def render_settings_page() -> None:

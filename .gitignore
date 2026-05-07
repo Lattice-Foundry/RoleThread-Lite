@@ -1,7 +1,8 @@
 trainer/
 backup/
 training_data/
-notes.txt
+.claude/
+dev/
 venv/
 __pycache__/
 *.pyc

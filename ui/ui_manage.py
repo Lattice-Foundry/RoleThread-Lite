@@ -4,7 +4,7 @@ from tkinter import filedialog
 
 import streamlit as st
 
-from dataset import (
+from core.dataset import (
     count_exchanges,
     filter_entry_pairs_by_tags,
     get_all_tags,
@@ -17,9 +17,9 @@ from dataset import (
     set_entry_system_prompt,
     validate_entry,
 )
-from file_dialogs import JSONL_TYPES, _tk_root, browse_open_file, path_input
-from preferences import get_initial_dir
-from state import (
+from core.file_dialogs import JSONL_TYPES, _tk_root, browse_open_file, path_input
+from core.preferences import get_initial_dir
+from core.state import (
     _update_prefs,
     cancel_quick_edit,
     clear_selected_entries,
@@ -38,7 +38,7 @@ from state import (
     start_quick_edit,
     toggle_entry_selection,
 )
-from ui_components import render_message_preview
+from ui.ui_components import render_message_preview
 
 _UNTAGGED = "__untagged__"
 

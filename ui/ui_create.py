@@ -3,9 +3,9 @@ from pathlib import Path
 
 import streamlit as st
 
-from dataset import TAGS, append_to_dataset, load_dataset, make_entry, save_dataset, validate_entry
-from state import _update_prefs, set_loaded_entries
-from ui_components import (
+from core.dataset import TAGS, append_to_dataset, load_dataset, make_entry, save_dataset, validate_entry
+from core.state import _update_prefs, set_loaded_entries
+from ui.ui_components import (
     _ROLE_COLOR,
     render_conversation_preview,
     render_json_preview,
