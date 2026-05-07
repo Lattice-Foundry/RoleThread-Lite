@@ -57,7 +57,8 @@ class Tag(Base):
     -------
     id           — auto-increment primary key
     category_id  — FK → tag_categories.id
-    name         — display name / slug (e.g. "pacing")
+    name         — user-facing display label (e.g. "Emotional Awareness")
+    slug         — stable internal identifier stored in JSONL (e.g. "emotional_awareness")
     sort_order   — integer used to preserve display order within a category
     is_active    — soft-delete flag; inactive tags are hidden in the UI
     is_builtin   — True for tags seeded from the hardcoded TAGS dict; False
@@ -70,6 +71,7 @@ class Tag(Base):
         Integer, ForeignKey("tag_categories.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_builtin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -78,4 +80,4 @@ class Tag(Base):
     category: Mapped["TagCategory"] = relationship("TagCategory", back_populates="tags")
 
     def __repr__(self) -> str:
-        return f"<Tag id={self.id} name={self.name!r} category_id={self.category_id}>"
+        return f"<Tag id={self.id} slug={self.slug!r} category_id={self.category_id}>"
