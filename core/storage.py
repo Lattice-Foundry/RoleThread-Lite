@@ -1,4 +1,8 @@
-"""Application-managed storage paths."""
+"""Application-managed storage paths.
+
+This module centralizes LoreForge's local directories and creates them on
+startup. It must stay independent of Streamlit.
+"""
 from pathlib import Path
 
 
@@ -16,12 +20,18 @@ def ensure_app_directories() -> None:
 
 
 def get_default_training_data_dir() -> Path:
+    """Return the default folder for user datasets."""
+
     return TRAINING_DATA_DIR
 
 
 def get_backups_dir() -> Path:
+    """Return the default backup root."""
+
     return BACKUPS_DIR
 
 
 def get_temp_dir() -> Path:
+    """Return the app-managed temporary directory."""
+
     return TEMP_DIR

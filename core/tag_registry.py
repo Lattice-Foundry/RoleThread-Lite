@@ -1,23 +1,7 @@
-"""Tag registry helpers for LoreForge.
+"""DB-backed tag registry helpers.
 
-Public API
-----------
-slugify_tag_name(name)       — normalise any display name to a lowercase_snake_case slug
-prettify_tag_name(slug)      — convert a slug to a title-case display label
-seed_default_tags()          — idempotently seed TAGS dict into the DB (runs migration)
-get_active_tag_categories()  — return active TagCategory rows, ordered
-get_active_tags(category_id) — return active Tag rows for a category
-get_tag_registry_dict()      — return {category_name: [tag_slug, ...], ...}
-                                values are slugs (JSONL canonical identifiers)
-get_tag_label_map(include_untagged, untagged_key)
-                             — return {slug: "Category / Pretty Name", ...}
-                                used for format_func in filter and tag-edit multiselects
-get_all_tag_slugs()          — flat list of all active tag slugs in category/sort order
-get_tag_category_map()       — return {tag_slug: category_display_name} for all active tags
-get_full_tag_registry()      — return list[dict] of categories + tags for UI display
-create_custom_category(name) — validate and insert a new user category; returns (ok, msg)
-create_custom_tag(category_id, name)
-                             — validate and insert a new custom tag; returns (ok, msg)
+JSONL entries store tag slugs; this module owns slug/display conversion,
+registry seeding, lookup helpers, and additive custom tag writes.
 """
 import re
 
@@ -35,25 +19,7 @@ _UPPERCASE_WORDS: frozenset[str] = frozenset({"ai", "id"})
 # ── Slug helper ────────────────────────────────────────────────────────────────
 
 def slugify_tag_name(name: str) -> str:
-    """Convert a display name to a lowercase_snake_case slug.
-
-    Steps
-    -----
-    1. Strip whitespace and lowercase.
-    2. Replace ``&`` with a space so "Source & Status" doesn't become
-       "source__status" after step 3.
-    3. Replace every run of non-alphanumeric characters with a single ``_``.
-    4. Collapse any remaining repeated underscores.
-    5. Strip leading/trailing underscores.
-
-    Examples
-    --------
-    "Behavior"         → "behavior"
-    "Source & Status"  → "source_status"
-    "no_user_control"  → "no_user_control"
-    "AI Generated"     → "ai_generated"
-    "emotional-awareness" → "emotional_awareness"
-    """
+    """Convert a display name to a lowercase_snake_case slug."""
     slug = name.strip().lower()
     slug = slug.replace("&", " ")
     slug = re.sub(r"[^a-z0-9]+", "_", slug)
@@ -65,20 +31,7 @@ def slugify_tag_name(name: str) -> str:
 # ── Display-name helper ────────────────────────────────────────────────────────
 
 def prettify_tag_name(slug: str) -> str:
-    """Convert a slug to a title-case display label.
-
-    Words listed in ``_UPPERCASE_WORDS`` (e.g. "ai") are rendered fully
-    uppercase; all other words are capitalised normally.
-
-    Examples
-    --------
-    "pacing"             → "Pacing"
-    "no_user_control"    → "No User Control"
-    "followup_question"  → "Followup Question"
-    "emotional_awareness"→ "Emotional Awareness"
-    "ai_generated"       → "AI Generated"
-    "needs_edit"         → "Needs Edit"
-    """
+    """Convert a tag slug to a display label."""
     words = re.split(r"[_\-]+", slug.strip())
     titled = [
         w.upper() if w.lower() in _UPPERCASE_WORDS else w.capitalize()
@@ -136,29 +89,7 @@ def _migrate_tags_slug_column() -> None:
 # ── Seeding ────────────────────────────────────────────────────────────────────
 
 def seed_default_tags() -> None:
-    """Idempotently seed the hardcoded TAGS dict into the database.
-
-    Behaviour
-    ---------
-    1. Calls ``init_db()`` to ensure tables exist (idempotent CREATE TABLE).
-    2. Calls ``_migrate_tags_slug_column()`` to upgrade existing databases
-       that lack the ``slug`` column and backfill any legacy rows.
-    3. For each category in TAGS (in definition order):
-       - Gets or creates a ``TagCategory`` row matched by slug.
-       - Updates ``name`` and ``sort_order`` on existing rows (allows
-         display-name fixes without losing custom tags).
-    4. For each tag value in the category:
-       - Derives ``slug = slugify_tag_name(raw_value)``
-         and ``name = prettify_tag_name(slug)``.
-       - Primary lookup: ``(category_id, slug)``.
-       - Fallback lookup: ``(category_id, name=raw_value)`` for rows that
-         were inserted in Phase 1 before slug existed.
-       - Creates a new row if neither lookup finds anything.
-       - Updates ``slug``, ``name``, ``sort_order``, ``is_builtin`` on hits.
-    5. Commits once at the end.  Rolls back on any error and re-raises.
-    6. Never deletes existing tags — users may have referenced them in
-       saved JSONL entries on disk.
-    """
+    """Idempotently seed built-in tags without deleting user data."""
     init_db()
     _migrate_tags_slug_column()
 
@@ -392,27 +323,7 @@ _MAX_ACTIVE_CATEGORIES = 10
 
 
 def get_full_tag_registry() -> list[dict]:
-    """Return active categories with their active tags as plain dicts.
-
-    Shape::
-
-        [
-            {
-                "id": 1, "name": "Behavior", "slug": "behavior",
-                "sort_order": 0,
-                "tags": [
-                    {"id": 1, "name": "Pacing", "slug": "pacing",
-                     "sort_order": 0, "is_builtin": True},
-                    ...
-                ],
-            },
-            ...
-        ]
-
-    Returns plain dicts (not ORM objects) so callers never hit detached-
-    instance errors after the session is closed.  Returns an empty list if
-    the DB is unseeded.
-    """
+    """Return active categories and tags as plain dicts for UI rendering."""
     session = SessionLocal()
     try:
         categories = (
@@ -451,22 +362,7 @@ def get_full_tag_registry() -> list[dict]:
 
 
 def create_custom_category(name: str) -> tuple[bool, str]:
-    """Validate and insert a new user-defined tag category.
-
-    Rules
-    -----
-    - Name must be non-empty after stripping.
-    - Slug derived via ``slugify_tag_name`` must be non-empty.
-    - Slug must not already exist in ``tag_categories``.
-    - Active category count must be below ``_MAX_ACTIVE_CATEGORIES``.
-    - ``sort_order`` = current max + 1.
-    - ``TagCategory`` has no ``is_builtin`` column, so none is set.
-
-    Returns
-    -------
-    ``(True, "Category created.")`` on success,
-    ``(False, "<reason>")`` on any validation or DB error.
-    """
+    """Validate and insert a user-defined tag category."""
     name = name.strip()
     if not name:
         return False, "Category name cannot be empty."
@@ -512,24 +408,7 @@ def create_custom_category(name: str) -> tuple[bool, str]:
 
 
 def create_custom_tag(category_id: int, name: str) -> tuple[bool, str]:
-    """Validate and insert a new custom tag into an existing category.
-
-    Rules
-    -----
-    - Name must be non-empty after stripping.
-    - Slug derived via ``slugify_tag_name`` must be non-empty.
-    - Target category must exist and be active.
-    - Slug must not already exist **globally** across all tags, because JSONL
-      files store tag slugs as flat strings — a collision in any category
-      would produce ambiguous entries.
-    - ``sort_order`` = current max within the target category + 1.
-    - ``is_builtin`` is explicitly set to ``False``.
-
-    Returns
-    -------
-    ``(True, "Tag created.")`` on success,
-    ``(False, "<reason>")`` on any validation or DB error.
-    """
+    """Validate and insert a custom tag into an existing category."""
     name = name.strip()
     if not name:
         return False, "Tag name cannot be empty."

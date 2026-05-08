@@ -1,3 +1,8 @@
+"""Persisted local application preferences.
+
+Preferences are stored as JSON under app_data and merged with defaults on
+load. This module is filesystem-only and must stay Streamlit-free.
+"""
 import json
 from pathlib import Path
 
@@ -28,6 +33,8 @@ DEFAULTS: dict = {
 
 
 def load_preferences() -> dict:
+    """Load preferences, falling back to defaults on missing or invalid data."""
+
     try:
         if PREFS_FILE.exists():
             data = json.loads(PREFS_FILE.read_text(encoding="utf-8"))
@@ -39,6 +46,8 @@ def load_preferences() -> dict:
 
 
 def save_preferences(prefs: dict) -> None:
+    """Write preferences to disk as UTF-8 JSON."""
+
     ensure_app_directories()
     PREFS_FILE.write_text(
         json.dumps(prefs, indent=2, ensure_ascii=False) + "\n",

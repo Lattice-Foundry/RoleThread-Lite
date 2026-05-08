@@ -1,4 +1,8 @@
-"""Manage Dataset page — load, browse, select, edit, and delete entries."""
+"""Streamlit page for managing the loaded dataset.
+
+This module owns selection, filters, pagination, and widgets. Durable
+dataset mutations delegate to services.
+"""
 from pathlib import Path
 from tkinter import filedialog
 

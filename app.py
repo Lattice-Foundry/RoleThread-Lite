@@ -1,10 +1,7 @@
-"""LoreForge — Streamlit entry point.
+"""LoreForge Streamlit entry point.
 
-Responsibilities:
-  - Page config, global CSS, and app header
-  - One-time session-state initialisation
-  - Sidebar navigation
-  - Page dispatch (delegates all rendering to ui_* modules)
+Owns app startup, session initialization, sidebar navigation, and page
+dispatch. Page rendering belongs in ui modules.
 """
 from pathlib import Path
 

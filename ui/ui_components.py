@@ -11,11 +11,8 @@ import streamlit as st
 
 from core.tag_registry import get_tag_registry_dict, prettify_tag_name
 
-# ── Role colors (shared with render_turn_builder in ui_create.py) ────────────
 _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
 
-
-# ── Narration / dialogue formatter ────────────────────────────────────────────
 
 def _format_preview_content(text: str) -> str:
     """Split content into dialogue (plain) and narration (orange italic).
@@ -29,13 +26,11 @@ def _format_preview_content(text: str) -> str:
         if not part:
             continue
         if part.startswith('"') and part.endswith('"') and len(part) >= 2:
-            out += part  # dialogue — plain/default color
+            out += part
         else:
             out += f"<span style='color:#e67e22;font-style:italic'>{part}</span>"
     return out
 
-
-# ── Preview render helpers ────────────────────────────────────────────────────
 
 def render_json_preview(entry: dict, expanded: bool = False) -> None:
     """Render a collapsible JSON preview for a dataset entry."""
@@ -47,13 +42,7 @@ def render_message_preview(
     messages: list[dict],
     include_system: bool = True,
 ) -> None:
-    """Render a formatted read-only preview of a saved entry's message list.
-
-    System messages are rendered in yellow; user and assistant messages use
-    their respective role colors with narration/dialogue formatting applied
-    via _format_preview_content().  Unknown or malformed messages are
-    rendered safely without raising.
-    """
+    """Render a formatted read-only preview of saved entry messages."""
     _COLOR = {"system": "#555", "user": "#1a73e8", "assistant": "#188038"}
     for msg in messages:
         if not isinstance(msg, dict):
@@ -76,14 +65,7 @@ def render_message_preview(
 
 
 def render_conversation_preview(turns_now: list[dict], prefix: str) -> None:  # noqa: ARG001
-    """Render the read-only conversation preview for an editor instance.
-
-    Iterates turns_now, applying narration/dialogue formatting via
-    _format_preview_content and speaker labels from preferences.
-    Shows an empty-state caption when no turns have content.
-
-    prefix is reserved for future use (e.g. per-editor preview settings).
-    """
+    """Render the read-only conversation preview for an editor instance."""
     # prefix is intentionally unused — reserved for future per-editor settings
     _ = prefix
 
@@ -109,22 +91,8 @@ def render_conversation_preview(turns_now: list[dict], prefix: str) -> None:  # 
         st.write("")
 
 
-# ── Editor planning metrics ───────────────────────────────────────────────────
-
 def calculate_exchange_metrics(turns_now: list[dict], planned_exchanges: int) -> dict:
-    """Compute planning metrics for an entry editor's current turn list.
-
-    Pure function — no Streamlit dependency.  Used by both Create Entry and
-    Full Edit to drive planning warnings and save-button gating.
-
-    Returns:
-        {
-            "current_exchanges": int,  # fully-filled user/assistant pairs
-            "total_slots":       int,  # total pair slots (filled or blank)
-            "blank_pairs":       int,  # pairs with at least one empty side
-            "overage":           int,  # slots beyond planned_exchanges
-        }
-    """
+    """Compute editor planning counts for the current turn list."""
     total_slots = len(turns_now) // 2
     current_exchanges = sum(
         1
@@ -151,21 +119,8 @@ def calculate_exchange_metrics(turns_now: list[dict], planned_exchanges: int) ->
     }
 
 
-# ── Tag selector helper ───────────────────────────────────────────────────────
-
 def render_tag_multiselects(prefix: str) -> list[str]:
-    """Render per-category tag multiselects and return the combined selected tags.
-
-    Renders one ``st.multiselect`` per category using widget keys
-    ``{prefix}_tags_{category}``.  Options are tag slugs; the ``format_func``
-    displays pretty human-readable names (e.g. "Emotional Awareness").
-
-    Falls back to the hardcoded ``core.dataset.TAGS`` dict if the DB registry
-    is empty (e.g. before the first successful seed).
-
-    Safe to call multiple times in the same render pass — Streamlit
-    deduplicates by key.
-    """
+    """Render tag multiselects and return the combined selected slugs."""
     _registry = get_tag_registry_dict()
     if not _registry:
         # Graceful fallback: DB not seeded yet — use hardcoded TAGS

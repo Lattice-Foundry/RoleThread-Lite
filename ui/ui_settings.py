@@ -1,4 +1,4 @@
-"""Settings page."""
+"""Streamlit page for local app settings."""
 from pathlib import Path
 
 import streamlit as st

@@ -1,4 +1,8 @@
-"""Local dataset backup helpers."""
+"""Local dataset backup helpers.
+
+Backups are file-based, grouped by dataset stem, and pruned per dataset.
+No UI or Streamlit behavior belongs here.
+"""
 import os
 import re
 import shutil

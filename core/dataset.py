@@ -1,3 +1,8 @@
+"""Pure dataset helpers for JSONL entries.
+
+This module owns entry validation, JSONL persistence, tag helpers, temporary
+entry registries, statistics, and merge logic. It must stay Streamlit-free.
+"""
 import json
 import os
 import random
@@ -33,6 +38,8 @@ def make_entry(turns: list[dict], system_prompt: str, tags: list[str] | None = N
 
 
 def validate_entry(entry: dict) -> list[str]:
+    """Return validation errors for one ChatML-style dataset entry."""
+
     errors = []
     if "messages" not in entry:
         errors.append("Missing 'messages' key")
@@ -77,6 +84,8 @@ def validate_entry(entry: dict) -> list[str]:
 
 
 def load_dataset(path: str) -> tuple[list[dict], list[str]]:
+    """Load JSONL entries and return parse errors without raising."""
+
     entries, parse_errors = [], []
     p = Path(path)
     if not p.exists():
@@ -97,6 +106,8 @@ def load_dataset(path: str) -> tuple[list[dict], list[str]]:
 
 
 def save_dataset(path: str, entries: list[dict]) -> None:
+    """Atomically rewrite a JSONL dataset."""
+
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     temp_path: Path | None = None
@@ -124,6 +135,8 @@ def save_dataset(path: str, entries: list[dict]) -> None:
 
 
 def append_to_dataset(path: str, entry: dict) -> None:
+    """Append one JSONL entry and fsync before returning."""
+
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(entry, ensure_ascii=False) + "\n"
@@ -289,17 +302,7 @@ def get_available_filter_tags(
     untagged_key: str = "__untagged__",
     all_known_tags: list[str] | None = None,
 ) -> list[str]:
-    """Return the ordered tag list for a filter multiselect.
-
-    When ``only_used`` is True, only tags present in entries are included.
-    ``untagged_key`` is appended when appropriate.
-
-    ``all_known_tags`` — ordered list of known tag slugs from the registry.
-    When provided, registry-order is preserved and any unknown used tags
-    (slugs present in entries but absent from the registry) are appended at
-    the end in sorted order so they remain selectable.  When omitted, falls
-    back to the hardcoded TAGS list.
-    """
+    """Return ordered tag options for filters, preserving unknown used tags."""
     all_flat = all_known_tags if all_known_tags is not None else get_all_tags()
     if only_used:
         used = get_used_tags(entries)
@@ -578,6 +581,8 @@ def build_dataset_stats(
 
 
 def merge_datasets(paths: list[str], shuffle: bool = True) -> tuple[list[dict], dict]:
+    """Merge JSONL datasets while removing duplicate user/assistant exchanges."""
+
     seen, merged = set(), []
     stats = {"total_loaded": 0, "duplicates_removed": 0, "parse_errors": []}
 

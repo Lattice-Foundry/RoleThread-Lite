@@ -1,4 +1,8 @@
-"""Create Entry page — entry editor, turn builder, and action helpers."""
+"""Streamlit page for creating dataset entries.
+
+This module owns widgets and form state. Durable entry appends delegate to
+services.
+"""
 from pathlib import Path
 
 import streamlit as st

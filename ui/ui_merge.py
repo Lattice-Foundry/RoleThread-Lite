@@ -1,4 +1,8 @@
-"""Merge Datasets page."""
+"""Streamlit page for merging JSONL datasets.
+
+This module owns file selection and merge previews. Durable merge saves
+delegate to services.
+"""
 import json
 from pathlib import Path
 

@@ -1,4 +1,8 @@
-"""Framework-independent dataset mutation workflows."""
+"""Framework-independent dataset mutation services.
+
+Services accept plain Python values and return DatasetOperationResult.
+They must not import Streamlit or touch session state.
+"""
 from __future__ import annotations
 
 import copy
@@ -17,6 +21,8 @@ from core.dataset import (
 
 @dataclass
 class DatasetOperationResult:
+    """Structured result returned by dataset mutation services."""
+
     ok: bool
     message: str
     entries: list[dict] | None = None
@@ -93,6 +99,8 @@ def save_quick_edit_service(
     backup_enabled: bool = True,
     backup_reason: str = "before_quick_edit",
 ) -> DatasetOperationResult:
+    """Persist user/assistant message edits for one entry."""
+
     if not dataset_path:
         return DatasetOperationResult(
             ok=False,
@@ -149,6 +157,8 @@ def save_full_edit_service(
     backup_enabled: bool = True,
     backup_reason: str = "before_full_edit",
 ) -> DatasetOperationResult:
+    """Persist a fully edited replacement entry."""
+
     if not dataset_path:
         return DatasetOperationResult(
             ok=False,
@@ -203,6 +213,8 @@ def replace_single_entry_tags_service(
     backup_enabled: bool = True,
     backup_reason: str = "before_single_tag_edit",
 ) -> DatasetOperationResult:
+    """Replace tags for one entry."""
+
     if not dataset_path:
         return DatasetOperationResult(
             ok=False,
@@ -258,6 +270,8 @@ def replace_tags_bulk_service(
     backup_enabled: bool = True,
     backup_reason: str = "before_bulk_tag_replace",
 ) -> DatasetOperationResult:
+    """Replace tags for selected entries."""
+
     errors = _validate_dataset_path(dataset_path)
     normalized_indices, index_errors = _normalized_indices(entry_indices, entries)
     errors.extend(index_errors)
@@ -306,6 +320,8 @@ def clear_tags_bulk_service(
     backup_enabled: bool = True,
     backup_reason: str = "before_bulk_tag_clear",
 ) -> DatasetOperationResult:
+    """Clear tags for selected entries."""
+
     errors = _validate_dataset_path(dataset_path)
     normalized_indices, index_errors = _normalized_indices(entry_indices, entries)
     errors.extend(index_errors)
@@ -353,6 +369,8 @@ def replace_system_prompt_bulk_service(
     backup_enabled: bool = True,
     backup_reason: str = "before_bulk_system_prompt_replace",
 ) -> DatasetOperationResult:
+    """Replace the system prompt for selected entries."""
+
     errors = _validate_dataset_path(dataset_path)
     normalized_indices, index_errors = _normalized_indices(entry_indices, entries)
     errors.extend(index_errors)
@@ -401,6 +419,8 @@ def delete_entries_service(
     backup_enabled: bool = True,
     backup_reason: str = "before_delete_selected",
 ) -> DatasetOperationResult:
+    """Delete selected entries by source index."""
+
     errors = _validate_dataset_path(dataset_path)
     normalized_indices, index_errors = _normalized_indices(entry_indices, entries)
     errors.extend(index_errors)
@@ -449,6 +469,8 @@ def save_merged_entries_service(
     backup_enabled: bool = True,
     backup_reason: str = "before_merge_save",
 ) -> DatasetOperationResult:
+    """Persist the final result of a dataset merge."""
+
     if not dataset_path:
         return DatasetOperationResult(
             ok=False,
@@ -502,6 +524,8 @@ def create_entry_service(
     entries: list[dict],
     new_entry: dict,
 ) -> DatasetOperationResult:
+    """Validate and append one newly created entry."""
+
     if not dataset_path:
         return DatasetOperationResult(
             ok=False,

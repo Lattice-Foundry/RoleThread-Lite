@@ -1,4 +1,8 @@
-"""Edit Entries page — read-only dataset browser with filtering and pagination."""
+"""Streamlit page for full-entry editing.
+
+This module owns edit buffers, browser state, and widgets. Durable full-edit
+saves delegate to services.
+"""
 import streamlit as st
 
 from core.backups import auto_backups_enabled
@@ -49,16 +53,7 @@ _BROWSER_STATE_KEYS = (
 # ── Edit buffer helpers ────────────────────────────────────────────────────────
 
 def entry_to_edit_buffer(entry: dict) -> dict:
-    """Extract editable fields from a dataset entry into a plain buffer dict.
-
-    Returns:
-        {
-            "system_prompt": str,
-            "turns":         [{"role": ..., "content": ...}, ...],
-            "tags":          list[str],
-            "planned_exchanges": int,   # ≥ 1
-        }
-    """
+    """Extract editable fields from an entry into a plain buffer dict."""
     msgs = entry.get("messages", [])
     if not isinstance(msgs, list):
         msgs = []

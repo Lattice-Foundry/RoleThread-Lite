@@ -1,12 +1,7 @@
-"""File dialog helpers and the reusable path_input widget.
+"""File dialog adapter used by the Streamlit UI.
 
-All Tkinter/filedialog logic lives here so app.py stays free of dialog
-boilerplate.  Every function follows the same threading-safe pattern:
-
-    open dialog → destroy root → set pending key → st.rerun()
-
-This means the Tkinter root is always destroyed on the same thread that
-created it, which avoids the Tcl_AsyncDelete crash.
+This module is UI-aware despite living under core. Consider moving it to
+ui/ or adapters/ in a future boundary cleanup.
 """
 import tkinter as tk
 from pathlib import Path

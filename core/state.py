@@ -1,8 +1,7 @@
-"""Session-state bridge helpers.
+"""Streamlit session-state bridge helpers.
 
-All functions here read from or write to st.session_state.
-Pure data logic lives in core/dataset.py; UI rendering lives in ui/ui_components.py.
-This module must not import app.py (would cause a circular import).
+This module may touch st.session_state, but durable dataset mutations should
+delegate to services. It must not import app.py.
 """
 import streamlit as st
 

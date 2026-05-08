@@ -1,34 +1,18 @@
-"""SQLAlchemy ORM models for LoreForge.
-
-Models
-------
-TagCategory  — a named group of tags (e.g. "Behavior", "Scene")
-Tag          — a single tag belonging to a category
-
-Both models use SQLAlchemy 2.x declarative style (DeclarativeBase,
-Mapped, mapped_column).
-"""
+"""SQLAlchemy ORM models for LoreForge metadata."""
 from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 # ── Base ───────────────────────────────────────────────────────────────────────
 class Base(DeclarativeBase):
+    """Base class for LoreForge ORM models."""
+
     pass
 
 
 # ── TagCategory ────────────────────────────────────────────────────────────────
 class TagCategory(Base):
-    """A named category that groups related tags.
-
-    Columns
-    -------
-    id          — auto-increment primary key
-    name        — display name (e.g. "Behavior")
-    slug        — URL/code-safe identifier derived from name (e.g. "behavior")
-    sort_order  — integer used to preserve display order; lower = earlier
-    is_active   — soft-delete flag; inactive categories are hidden in the UI
-    """
+    """A named category that groups related tags."""
     __tablename__ = "tag_categories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -51,19 +35,7 @@ class TagCategory(Base):
 
 # ── Tag ────────────────────────────────────────────────────────────────────────
 class Tag(Base):
-    """A single tag that can be applied to a dataset entry.
-
-    Columns
-    -------
-    id           — auto-increment primary key
-    category_id  — FK → tag_categories.id
-    name         — user-facing display label (e.g. "Emotional Awareness")
-    slug         — stable internal identifier stored in JSONL (e.g. "emotional_awareness")
-    sort_order   — integer used to preserve display order within a category
-    is_active    — soft-delete flag; inactive tags are hidden in the UI
-    is_builtin   — True for tags seeded from the hardcoded TAGS dict; False
-                   for tags added by the user in the future Custom Tags UI
-    """
+    """A single tag that can be applied to a dataset entry."""
     __tablename__ = "tags"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
