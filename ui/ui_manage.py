@@ -1,5 +1,4 @@
 """Manage Dataset page — load, browse, select, edit, and delete entries."""
-import copy
 from pathlib import Path
 from tkinter import filedialog
 
@@ -13,7 +12,6 @@ from core.dataset import (
     get_entry_tags,
     load_dataset,
     save_dataset,
-    set_entry_system_prompt,
     validate_entry,
 )
 from core.tag_registry import (
@@ -35,7 +33,6 @@ from core.state import (
     get_loaded_entry_by_id,
     get_selected_entry_ids,
     prune_selection_to_loaded_entries,
-    save_proposed_loaded_entries,
     save_quick_edit,
     select_visible_entries,
     set_loaded_entries,
@@ -45,6 +42,7 @@ from core.state import (
 from services.dataset_service import (
     clear_tags_bulk_service,
     replace_single_entry_tags_service,
+    replace_system_prompt_bulk_service,
     replace_tags_bulk_service,
 )
 from ui.ui_components import render_message_preview
@@ -409,22 +407,38 @@ def render_manage_page() -> None:
                         disabled=not (_new_prompt or "").strip(),
                         width="stretch",
                     ):
-                        _proposed_entries = copy.deepcopy(st.session_state.loaded_entries)
-                        for _sid in _selected_ids:
-                            _idx = get_loaded_entry_index_by_id(_sid)
-                            if _idx is not None:
-                                set_entry_system_prompt(
-                                    _proposed_entries[_idx], _new_prompt.strip()
-                                )
-                        if save_proposed_loaded_entries(
-                            _proposed_entries,
-                            backup_reason="before_bulk_system_prompt",
-                        ):
+                        _indices = [
+                            _idx for _idx in (
+                                get_loaded_entry_index_by_id(_sid)
+                                for _sid in _selected_ids
+                            )
+                            if _idx is not None
+                        ]
+                        _sys_result = replace_system_prompt_bulk_service(
+                            dataset_path=st.session_state.get("loaded_path", ""),
+                            entries=st.session_state.loaded_entries,
+                            entry_indices=_indices,
+                            system_prompt=_new_prompt.strip(),
+                            backup_enabled=auto_backups_enabled(
+                                st.session_state.get("prefs", {})
+                            ),
+                        )
+                        if _sys_result.ok and _sys_result.entries is not None:
+                            st.session_state.loaded_entries = _sys_result.entries
+                            ensure_entry_registry()
+                            _backup_note = (
+                                " Backup created." if _sys_result.backup_path else ""
+                            )
                             st.session_state.pop("pending_system_prompt_edit", None)
                             st.session_state["sys_prompt_success"] = (
-                                f"System prompt updated for {_total_sel} entries. Backup created."
+                                f"{_sys_result.message}{_backup_note}"
                             )
                             st.rerun()
+                        else:
+                            for _err in _sys_result.errors:
+                                st.error(_err)
+                            if not _sys_result.errors:
+                                st.error(_sys_result.message)
                 with _col_sp_cancel:
                     if st.button("Cancel", key="btn_sp_cancel", width="stretch"):
                         st.session_state.pop("pending_system_prompt_edit", None)

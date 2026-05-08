@@ -6,7 +6,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from core.backups import create_dataset_backup
-from core.dataset import replace_entry_tags, save_dataset, validate_entry
+from core.dataset import (
+    replace_entry_tags,
+    save_dataset,
+    set_entry_system_prompt,
+    validate_entry,
+)
 
 
 @dataclass
@@ -332,6 +337,55 @@ def clear_tags_bulk_service(
     return DatasetOperationResult(
         ok=True,
         message=f"Tags cleared for {len(normalized_indices)} entries.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=len(normalized_indices),
+    )
+
+
+def replace_system_prompt_bulk_service(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    entry_indices: list[int],
+    system_prompt: str,
+    backup_enabled: bool = True,
+    backup_reason: str = "before_bulk_system_prompt_replace",
+) -> DatasetOperationResult:
+    errors = _validate_dataset_path(dataset_path)
+    normalized_indices, index_errors = _normalized_indices(entry_indices, entries)
+    errors.extend(index_errors)
+    if not isinstance(system_prompt, str):
+        errors.append("System prompt must be a string")
+    if errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not update system prompt.",
+            errors=errors,
+        )
+
+    proposed_entries = _copy_entries(entries)
+    for index in normalized_indices:
+        set_entry_system_prompt(proposed_entries[index], system_prompt)
+
+    try:
+        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+    try:
+        save_dataset(dataset_path, proposed_entries)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save dataset: {exc}",
+        )
+
+    return DatasetOperationResult(
+        ok=True,
+        message=f"System prompt updated for {len(normalized_indices)} entries.",
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=len(normalized_indices),
