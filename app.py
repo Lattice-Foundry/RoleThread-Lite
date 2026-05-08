@@ -17,6 +17,7 @@ from core.tag_registry import seed_default_tags
 from ui.ui_create import init_editor_state, render_create_page
 from ui.ui_edit_entries import render_edit_entries_page
 from ui.ui_export import render_export_page
+from ui.ui_tag_management import render_tag_management_page
 from ui.ui_manage import render_manage_page
 from ui.ui_merge import render_merge_page
 from ui.ui_settings import render_settings_page
@@ -130,6 +131,7 @@ _NAV_SECTIONS = [
     ("Tools", [
         ("Export",          "Export"),
         ("Validate",        "Validation"),
+        ("Tag Management",  "Tag Management"),
     ]),
     ("Analytics", [
         ("Statistics",      "Statistics"),
@@ -168,6 +170,8 @@ elif page == "Export":
     render_export_page()
 elif page == "Validation":
     st.info("This page is planned but not implemented yet.")
+elif page == "Tag Management":
+    render_tag_management_page()
 elif page == "Statistics":
     render_stats_page()
 elif page == "Settings":

@@ -14,10 +14,14 @@ get_tag_label_map(include_untagged, untagged_key)
                                 used for format_func in filter and tag-edit multiselects
 get_all_tag_slugs()          — flat list of all active tag slugs in category/sort order
 get_tag_category_map()       — return {tag_slug: category_display_name} for all active tags
+get_full_tag_registry()      — return list[dict] of categories + tags for UI display
+create_custom_category(name) — validate and insert a new user category; returns (ok, msg)
+create_custom_tag(category_id, name)
+                             — validate and insert a new custom tag; returns (ok, msg)
 """
 import re
 
-from sqlalchemy import inspect as sa_inspect, text
+from sqlalchemy import func, inspect as sa_inspect, text
 
 from core.dataset import TAGS
 from core.db import SessionLocal, engine, init_db
@@ -377,5 +381,200 @@ def get_tag_category_map() -> dict[str, str]:
             for t in tags:
                 result[t.slug] = cat.name
         return result
+    finally:
+        session.close()
+
+
+# ── Write helpers (additive-only) ─────────────────────────────────────────────
+
+# Hard ceiling on active categories to keep the UI manageable.
+_MAX_ACTIVE_CATEGORIES = 5
+
+
+def get_full_tag_registry() -> list[dict]:
+    """Return active categories with their active tags as plain dicts.
+
+    Shape::
+
+        [
+            {
+                "id": 1, "name": "Behavior", "slug": "behavior",
+                "sort_order": 0,
+                "tags": [
+                    {"id": 1, "name": "Pacing", "slug": "pacing",
+                     "sort_order": 0, "is_builtin": True},
+                    ...
+                ],
+            },
+            ...
+        ]
+
+    Returns plain dicts (not ORM objects) so callers never hit detached-
+    instance errors after the session is closed.  Returns an empty list if
+    the DB is unseeded.
+    """
+    session = SessionLocal()
+    try:
+        categories = (
+            session.query(TagCategory)
+            .filter_by(is_active=True)
+            .order_by(TagCategory.sort_order, TagCategory.name)
+            .all()
+        )
+        result: list[dict] = []
+        for cat in categories:
+            tags = (
+                session.query(Tag)
+                .filter_by(category_id=cat.id, is_active=True)
+                .order_by(Tag.sort_order, Tag.name)
+                .all()
+            )
+            result.append({
+                "id": cat.id,
+                "name": cat.name,
+                "slug": cat.slug,
+                "sort_order": cat.sort_order,
+                "tags": [
+                    {
+                        "id": t.id,
+                        "name": t.name,
+                        "slug": t.slug,
+                        "sort_order": t.sort_order,
+                        "is_builtin": t.is_builtin,
+                    }
+                    for t in tags
+                ],
+            })
+        return result
+    finally:
+        session.close()
+
+
+def create_custom_category(name: str) -> tuple[bool, str]:
+    """Validate and insert a new user-defined tag category.
+
+    Rules
+    -----
+    - Name must be non-empty after stripping.
+    - Slug derived via ``slugify_tag_name`` must be non-empty.
+    - Slug must not already exist in ``tag_categories``.
+    - Active category count must be below ``_MAX_ACTIVE_CATEGORIES``.
+    - ``sort_order`` = current max + 1.
+    - ``TagCategory`` has no ``is_builtin`` column, so none is set.
+
+    Returns
+    -------
+    ``(True, "Category created.")`` on success,
+    ``(False, "<reason>")`` on any validation or DB error.
+    """
+    name = name.strip()
+    if not name:
+        return False, "Category name cannot be empty."
+
+    slug = slugify_tag_name(name)
+    if not slug:
+        return False, "Could not generate a valid slug from the provided name."
+
+    display_name = prettify_tag_name(slug)
+
+    session = SessionLocal()
+    try:
+        # ── Duplicate slug check ───────────────────────────────────────────────
+        if session.query(TagCategory).filter_by(slug=slug).first() is not None:
+            return False, f"A category with slug '{slug}' already exists."
+
+        # ── Active category limit ──────────────────────────────────────────────
+        active_count = session.query(TagCategory).filter_by(is_active=True).count()
+        if active_count >= _MAX_ACTIVE_CATEGORIES:
+            return (
+                False,
+                f"Category limit reached. "
+                f"This version supports {_MAX_ACTIVE_CATEGORIES} active categories.",
+            )
+
+        # ── sort_order: one after the current maximum ──────────────────────────
+        max_order: int = session.query(func.max(TagCategory.sort_order)).scalar() or 0
+
+        category = TagCategory(
+            name=display_name,
+            slug=slug,
+            sort_order=max_order + 1,
+            is_active=True,
+        )
+        session.add(category)
+        session.commit()
+        return True, "Category created."
+    except Exception as exc:
+        session.rollback()
+        return False, f"Database error: {exc}"
+    finally:
+        session.close()
+
+
+def create_custom_tag(category_id: int, name: str) -> tuple[bool, str]:
+    """Validate and insert a new custom tag into an existing category.
+
+    Rules
+    -----
+    - Name must be non-empty after stripping.
+    - Slug derived via ``slugify_tag_name`` must be non-empty.
+    - Target category must exist and be active.
+    - Slug must not already exist **globally** across all tags, because JSONL
+      files store tag slugs as flat strings — a collision in any category
+      would produce ambiguous entries.
+    - ``sort_order`` = current max within the target category + 1.
+    - ``is_builtin`` is explicitly set to ``False``.
+
+    Returns
+    -------
+    ``(True, "Tag created.")`` on success,
+    ``(False, "<reason>")`` on any validation or DB error.
+    """
+    name = name.strip()
+    if not name:
+        return False, "Tag name cannot be empty."
+
+    slug = slugify_tag_name(name)
+    if not slug:
+        return False, "Could not generate a valid slug from the provided name."
+
+    display_name = prettify_tag_name(slug)
+
+    session = SessionLocal()
+    try:
+        # ── Validate category ──────────────────────────────────────────────────
+        category = (
+            session.query(TagCategory)
+            .filter_by(id=category_id, is_active=True)
+            .first()
+        )
+        if category is None:
+            return False, "Selected category does not exist or is inactive."
+
+        # ── Global duplicate slug check ────────────────────────────────────────
+        if session.query(Tag).filter_by(slug=slug).first() is not None:
+            return False, f"A tag with slug '{slug}' already exists."
+
+        # ── sort_order: one after current max in this category ─────────────────
+        max_order: int = (
+            session.query(func.max(Tag.sort_order))
+            .filter_by(category_id=category_id)
+            .scalar()
+        ) or 0
+
+        tag = Tag(
+            category_id=category_id,
+            name=display_name,
+            slug=slug,
+            sort_order=max_order + 1,
+            is_active=True,
+            is_builtin=False,
+        )
+        session.add(tag)
+        session.commit()
+        return True, "Tag created."
+    except Exception as exc:
+        session.rollback()
+        return False, f"Database error: {exc}"
     finally:
         session.close()

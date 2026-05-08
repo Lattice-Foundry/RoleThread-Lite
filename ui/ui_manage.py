@@ -27,7 +27,6 @@ from core.state import (
     cancel_quick_edit,
     clear_selected_entries,
     delete_selected_entries,
-    deselect_visible_entries,
     ensure_entry_registry,
     ensure_selection_state,
     get_all_entry_pairs,
@@ -81,6 +80,7 @@ def render_manage_page() -> None:
             st.session_state.loaded_path = p
             st.session_state.stale_last_path = ""
             st.session_state.entry_page = 0
+            st.session_state["manage_select_all_mode"] = False
             clear_selected_entries()
             _update_prefs({
                 "last_loaded_dataset_path": p,
@@ -119,6 +119,7 @@ def render_manage_page() -> None:
                     st.session_state.loaded_path = new_path
                     st.session_state.stale_last_path = ""
                     st.session_state.entry_page = 0
+                    st.session_state["manage_select_all_mode"] = False
                     clear_selected_entries()
                     st.session_state["manage_load_path_pending"] = new_path
                     st.session_state["clear_entry_fields"] = True
@@ -260,6 +261,21 @@ def render_manage_page() -> None:
                 end = min(start + per_page, total_filtered)
             visible_pairs = filtered_pairs[start:end]
 
+            # ── Select-all-mode fingerprint guard ─────────────────────────────
+            # Captures (filter, match-mode, per-page, page) when "Select all
+            # visible" is clicked.  If any of those change on a later render the
+            # selection is stale, so clear it immediately before anything renders.
+            _view_fingerprint = (
+                tuple(sorted(filter_tags)),
+                match_mode,
+                st.session_state.entries_per_page,
+                _cur_page,
+            )
+            if st.session_state.get("manage_select_all_mode", False):
+                if st.session_state.get("_select_all_fingerprint") != _view_fingerprint:
+                    st.session_state["manage_select_all_mode"] = False
+                    clear_selected_entries()
+
             # ── Flash messages ─────────────────────────────────────────────────
             if "quick_edit_success" in st.session_state:
                 st.success(st.session_state.pop("quick_edit_success"))
@@ -289,12 +305,16 @@ def render_manage_page() -> None:
             with _col_sel_all:
                 if st.button("Select all visible", key="btn_select_all_visible",
                              width="stretch"):
+                    st.session_state["manage_select_all_mode"] = True
+                    st.session_state["_select_all_fingerprint"] = _view_fingerprint
+                    clear_selected_entries()
                     select_visible_entries(visible_pairs)
                     st.rerun()
             with _col_clear:
                 if st.button("Clear Selection", key="btn_clear_visible",
                              width="stretch"):
-                    deselect_visible_entries(visible_pairs)
+                    st.session_state["manage_select_all_mode"] = False
+                    clear_selected_entries()
                     st.rerun()
             with _col_sys_prompt:
                 if st.button("Modify System", key="btn_modify_sys_prompt",
@@ -310,6 +330,7 @@ def render_manage_page() -> None:
                         st.rerun()
                     else:
                         _n, _failures = delete_selected_entries()
+                        st.session_state["manage_select_all_mode"] = False
                         prune_selection_to_loaded_entries()
                         _new_total = len(st.session_state.loaded_entries)
                         if _new_total == 0 or st.session_state.entry_page > max(
@@ -338,6 +359,7 @@ def render_manage_page() -> None:
                                  key="btn_confirm_delete", width="stretch"):
                         _n, _failures = delete_selected_entries()
                         st.session_state.pop("pending_delete_selected", None)
+                        st.session_state["manage_select_all_mode"] = False
                         prune_selection_to_loaded_entries()
                         _new_total = len(st.session_state.loaded_entries)
                         if _new_total == 0 or st.session_state.entry_page > max(
@@ -478,6 +500,7 @@ def render_manage_page() -> None:
                 )
 
             def _on_checkbox_change(entry_id: str) -> None:
+                st.session_state["manage_select_all_mode"] = False
                 toggle_entry_selection(
                     entry_id, st.session_state[f"select_{entry_id}"]
                 )
