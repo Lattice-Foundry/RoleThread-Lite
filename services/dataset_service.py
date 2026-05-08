@@ -7,6 +7,7 @@ from pathlib import Path
 
 from core.backups import create_dataset_backup
 from core.dataset import (
+    append_to_dataset,
     replace_entry_tags,
     save_dataset,
     set_entry_system_prompt,
@@ -492,4 +493,53 @@ def save_merged_entries_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=len(proposed_entries),
+    )
+
+
+def create_entry_service(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    new_entry: dict,
+) -> DatasetOperationResult:
+    if not dataset_path:
+        return DatasetOperationResult(
+            ok=False,
+            message="No dataset loaded. Please load or create a dataset before saving an exchange.",
+        )
+    if not isinstance(entries, list):
+        return DatasetOperationResult(
+            ok=False,
+            message="Loaded entries must be a list.",
+        )
+    if not isinstance(new_entry, dict):
+        return DatasetOperationResult(
+            ok=False,
+            message="New entry must be a dictionary.",
+        )
+
+    errors = validate_entry(new_entry)
+    if errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Entry is not valid.",
+            errors=errors,
+        )
+
+    entry_to_append = copy.deepcopy(new_entry)
+    try:
+        append_to_dataset(dataset_path, entry_to_append)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save: {exc}",
+        )
+
+    proposed_entries = _copy_entries(entries)
+    proposed_entries.append(entry_to_append)
+    return DatasetOperationResult(
+        ok=True,
+        message="Entry appended.",
+        entries=proposed_entries,
+        affected_count=1,
     )

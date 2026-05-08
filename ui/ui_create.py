@@ -3,9 +3,10 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.dataset import append_to_dataset, make_entry, save_dataset, validate_entry
+from core.dataset import make_entry, save_dataset, validate_entry
 from core.tag_registry import get_tag_registry_dict
-from core.state import _update_prefs, append_loaded_entry
+from core.state import _update_prefs, ensure_entry_registry
+from services.dataset_service import create_entry_service
 from ui.ui_components import (
     _ROLE_COLOR,
     calculate_exchange_metrics,
@@ -233,9 +234,14 @@ def render_entry_actions(
         if not save_path:
             st.error("No dataset loaded. Please load or create a dataset before saving an exchange.")
         elif mode == "create":
-            try:
-                append_to_dataset(save_path, entry_preview)
-                append_loaded_entry(entry_preview)
+            result = create_entry_service(
+                dataset_path=save_path,
+                entries=st.session_state.loaded_entries,
+                new_entry=entry_preview,
+            )
+            if result.ok and result.entries is not None:
+                st.session_state.loaded_entries = result.entries
+                ensure_entry_registry()
                 _update_prefs({
                     "last_loaded_dataset_path": save_path,
                 })
@@ -243,8 +249,11 @@ def render_entry_actions(
                 st.session_state[f"{prefix}_clear"] = True
                 st.success(f"Entry appended to `{Path(save_path).resolve()}`.")
                 st.rerun()
-            except Exception as exc:
-                st.error(f"Failed to save: {exc}")
+            else:
+                for err in result.errors:
+                    st.error(err)
+                if not result.errors:
+                    st.error(result.message)
         elif mode == "edit":
             if entry_index is None:
                 st.warning("edit mode requires entry_index — nothing saved.")
