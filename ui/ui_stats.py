@@ -5,6 +5,7 @@ import streamlit as st
 
 from core.dataset import build_dataset_stats
 from core.state import ensure_entry_registry
+from core.tag_registry import get_tag_category_map
 
 
 def render_stats_page() -> None:
@@ -16,7 +17,7 @@ def render_stats_page() -> None:
         st.info("Load a dataset in Manage Dataset to see statistics.")
         return
 
-    _s = build_dataset_stats(_stat_entries)
+    _s = build_dataset_stats(_stat_entries, tag_category_map=get_tag_category_map())
 
     # ── Summary cards ──────────────────────────────────────────────────────────
     _c1, _c2, _c3, _c4, _c5, _c6 = st.columns(6)

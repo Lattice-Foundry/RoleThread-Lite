@@ -9,7 +9,7 @@ import re
 
 import streamlit as st
 
-from core.dataset import TAGS
+from core.tag_registry import get_tag_registry_dict, prettify_tag_name
 
 # ── Role colors (shared with render_turn_builder in ui_create.py) ────────────
 _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
@@ -156,16 +156,31 @@ def calculate_exchange_metrics(turns_now: list[dict], planned_exchanges: int) ->
 def render_tag_multiselects(prefix: str) -> list[str]:
     """Render per-category tag multiselects and return the combined selected tags.
 
-    Renders one st.multiselect per category using widget keys
-    ``{prefix}_tags_{category}``.  Safe to call multiple times in the same
-    render pass — Streamlit deduplicates by key.
+    Renders one ``st.multiselect`` per category using widget keys
+    ``{prefix}_tags_{category}``.  Options are tag slugs; the ``format_func``
+    displays pretty human-readable names (e.g. "Emotional Awareness").
+
+    Falls back to the hardcoded ``core.dataset.TAGS`` dict if the DB registry
+    is empty (e.g. before the first successful seed).
+
+    Safe to call multiple times in the same render pass — Streamlit
+    deduplicates by key.
     """
+    _registry = get_tag_registry_dict()
+    if not _registry:
+        # Graceful fallback: DB not seeded yet — use hardcoded TAGS
+        from core.dataset import TAGS as _TAGS  # local import avoids circular dep
+        _registry = _TAGS
+
     selected_tags: list[str] = []
-    tag_cols = st.columns(len(TAGS))
-    for col, (category, options) in zip(tag_cols, TAGS.items()):
+    tag_cols = st.columns(max(1, len(_registry)))
+    for col, (category, options) in zip(tag_cols, _registry.items()):
         with col:
             chosen = st.multiselect(
-                f"{category} tags", options=options, key=f"{prefix}_tags_{category}"
+                f"{category} tags",
+                options=options,
+                format_func=prettify_tag_name,
+                key=f"{prefix}_tags_{category}",
             )
             selected_tags.extend(chosen)
     return selected_tags

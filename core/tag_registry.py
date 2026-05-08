@@ -8,8 +8,12 @@ seed_default_tags()          — idempotently seed TAGS dict into the DB (runs m
 get_active_tag_categories()  — return active TagCategory rows, ordered
 get_active_tags(category_id) — return active Tag rows for a category
 get_tag_registry_dict()      — return {category_name: [tag_slug, ...], ...}
-                                for active categories/tags; values are slugs because
-                                JSONL files store tag slugs as the canonical identifiers
+                                values are slugs (JSONL canonical identifiers)
+get_tag_label_map(include_untagged, untagged_key)
+                             — return {slug: "Category / Pretty Name", ...}
+                                used for format_func in filter and tag-edit multiselects
+get_all_tag_slugs()          — flat list of all active tag slugs in category/sort order
+get_tag_category_map()       — return {tag_slug: category_display_name} for all active tags
 """
 import re
 
@@ -255,7 +259,7 @@ def get_tag_registry_dict() -> dict[str, list[str]]:
 
     Values are **slugs** (not display names) because JSONL files store the
     slug as the canonical tag identifier.  This shape mirrors the hardcoded
-    ``core.dataset.TAGS`` dict and is intended for future UI wiring.
+    ``core.dataset.TAGS`` dict and is intended for UI wiring.
 
     Only active categories and active tags are included; order follows
     ``sort_order``.  Returns an empty dict if the database is unseeded.
@@ -277,6 +281,101 @@ def get_tag_registry_dict() -> dict[str, list[str]]:
                 .all()
             )
             result[cat.name] = [t.slug for t in tags]
+        return result
+    finally:
+        session.close()
+
+
+def get_tag_label_map(
+    include_untagged: bool = True,
+    untagged_key: str = "__untagged__",
+) -> dict[str, str]:
+    """Return ``{tag_slug: "Category / Pretty Name"}`` for all active tags.
+
+    Used as the ``format_func`` source for filter and tag-edit multiselects.
+    Unknown tags (slugs not in the DB) are not included; callers should fall
+    back to ``prettify_tag_name(slug)`` for those.
+
+    When ``include_untagged`` is True, adds ``{untagged_key: "Untagged"}``.
+    Returns a minimal dict (just the untagged entry) if the DB is unseeded.
+    """
+    session = SessionLocal()
+    try:
+        categories = (
+            session.query(TagCategory)
+            .filter_by(is_active=True)
+            .order_by(TagCategory.sort_order, TagCategory.name)
+            .all()
+        )
+        result: dict[str, str] = {}
+        if include_untagged:
+            result[untagged_key] = "Untagged"
+        for cat in categories:
+            tags = (
+                session.query(Tag)
+                .filter_by(category_id=cat.id, is_active=True)
+                .order_by(Tag.sort_order, Tag.slug)
+                .all()
+            )
+            for t in tags:
+                result[t.slug] = f"{cat.name} / {t.name}"
+        return result
+    finally:
+        session.close()
+
+
+def get_all_tag_slugs() -> list[str]:
+    """Return all active tag slugs as a flat list in category/sort order.
+
+    Used to populate ``options`` in multiselects that should show all known
+    tags (quick-edit, bulk-edit, ``only_used=False`` filter).
+    Returns an empty list if the DB is unseeded.
+    """
+    session = SessionLocal()
+    try:
+        categories = (
+            session.query(TagCategory)
+            .filter_by(is_active=True)
+            .order_by(TagCategory.sort_order, TagCategory.name)
+            .all()
+        )
+        result: list[str] = []
+        for cat in categories:
+            tags = (
+                session.query(Tag)
+                .filter_by(category_id=cat.id, is_active=True)
+                .order_by(Tag.sort_order, Tag.slug)
+                .all()
+            )
+            result.extend(t.slug for t in tags)
+        return result
+    finally:
+        session.close()
+
+
+def get_tag_category_map() -> dict[str, str]:
+    """Return ``{tag_slug: category_display_name}`` for all active tags.
+
+    Used by ``build_dataset_stats()`` to bucket tags into display categories.
+    Tags not in the map (unknown slugs) will fall through to the ``"Unknown"``
+    bucket.  Returns an empty dict if the DB is unseeded.
+    """
+    session = SessionLocal()
+    try:
+        categories = (
+            session.query(TagCategory)
+            .filter_by(is_active=True)
+            .all()
+        )
+        result: dict[str, str] = {}
+        for cat in categories:
+            tags = (
+                session.query(Tag)
+                .filter_by(category_id=cat.id, is_active=True)
+                .all()
+            )
+            for t in tags:
+                result[t.slug] = cat.name
         return result
     finally:
         session.close()

@@ -3,7 +3,8 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.dataset import TAGS, append_to_dataset, load_dataset, make_entry, save_dataset, validate_entry
+from core.dataset import append_to_dataset, load_dataset, make_entry, save_dataset, validate_entry
+from core.tag_registry import get_tag_registry_dict
 from core.state import _update_prefs, set_loaded_entries
 from ui.ui_components import (
     _ROLE_COLOR,
@@ -46,6 +47,14 @@ def render_turn_builder(prefix: str) -> list[dict]:
     exchange-count caption.  Returns _turns_now — the list of
     {role, content} dicts reflecting the current widget values.
     """
+    # ── DB-backed category names (used for tag backup/restore/clear loops) ───────
+    # Fetched once per render; falls back to hardcoded TAGS if DB not seeded.
+    _tag_registry = get_tag_registry_dict()
+    if not _tag_registry:
+        from core.dataset import TAGS as _TAGS_FB
+        _tag_registry = _TAGS_FB
+    _tag_cat_names = list(_tag_registry.keys())
+
     # ── Pending clear ──────────────────────────────────────────────────────────
     if st.session_state.pop(f"{prefix}_clear", False):
         _old_turn_count = len(st.session_state.get(f"{prefix}_turns", []))
@@ -54,11 +63,11 @@ def render_turn_builder(prefix: str) -> list[dict]:
         st.session_state[f"{prefix}_turn_1"] = ""
         for _i in range(2, _old_turn_count):
             st.session_state.pop(f"{prefix}_turn_{_i}", None)
-        for _cat in TAGS:
+        for _cat in _tag_cat_names:
             st.session_state[f"{prefix}_tags_{_cat}"] = []
 
     # ── Tag backup restore ─────────────────────────────────────────────────────
-    for _cat in TAGS:
+    for _cat in _tag_cat_names:
         _bk = f"_{prefix}_tags_backup_{_cat}"
         if _bk in st.session_state:
             st.session_state[f"{prefix}_tags_{_cat}"] = st.session_state.pop(_bk)
@@ -126,7 +135,7 @@ def render_turn_builder(prefix: str) -> list[dict]:
     _btn_add, _btn_remove = st.columns(2)
     with _btn_add:
         if st.button(_add_label, key=f"{prefix}_btn_add", width="stretch"):
-            for _cat in TAGS:
+            for _cat in _tag_cat_names:
                 st.session_state[f"_{prefix}_tags_backup_{_cat}"] = list(
                     st.session_state.get(f"{prefix}_tags_{_cat}", [])
                 )
@@ -139,7 +148,7 @@ def render_turn_builder(prefix: str) -> list[dict]:
             disabled=len(st.session_state[f"{prefix}_turns"]) <= 2,
             width="stretch",
         ):
-            for _cat in TAGS:
+            for _cat in _tag_cat_names:
                 st.session_state[f"_{prefix}_tags_backup_{_cat}"] = list(
                     st.session_state.get(f"{prefix}_tags_{_cat}", [])
                 )

@@ -263,16 +263,26 @@ def get_available_filter_tags(
     only_used: bool,
     include_untagged: bool = True,
     untagged_key: str = "__untagged__",
+    all_known_tags: list[str] | None = None,
 ) -> list[str]:
     """Return the ordered tag list for a filter multiselect.
 
-    When only_used is True, only tags present in entries are included.
-    untagged_key is appended when appropriate.
+    When ``only_used`` is True, only tags present in entries are included.
+    ``untagged_key`` is appended when appropriate.
+
+    ``all_known_tags`` — ordered list of known tag slugs from the registry.
+    When provided, registry-order is preserved and any unknown used tags
+    (slugs present in entries but absent from the registry) are appended at
+    the end in sorted order so they remain selectable.  When omitted, falls
+    back to the hardcoded TAGS list.
     """
-    all_flat = get_all_tags()
+    all_flat = all_known_tags if all_known_tags is not None else get_all_tags()
     if only_used:
         used = get_used_tags(entries)
         result = [t for t in all_flat if t in used]
+        # Append unknown used tags (in entries but absent from all_flat)
+        _known_set = set(all_flat)
+        result.extend(t for t in sorted(used) if t not in _known_set)
         if include_untagged and has_untagged_entries(entries):
             result.append(untagged_key)
     else:
@@ -437,7 +447,10 @@ def get_entry_pairs(entries: list[dict], registry: dict) -> list[tuple[str, dict
     return list(zip(registry["ids"], entries))
 
 
-def build_dataset_stats(entries: list[dict]) -> dict:
+def build_dataset_stats(
+    entries: list[dict],
+    tag_category_map: dict[str, str] | None = None,
+) -> dict:
     """Compute aggregate statistics for a list of dataset entries.
 
     Returns a plain dict — no Streamlit or pandas dependency here.
@@ -470,7 +483,8 @@ def build_dataset_stats(entries: list[dict]) -> dict:
     valid_count = total - invalid_count
 
     # ── Tags ──────────────────────────────────────────────────────────────────
-    tag_to_category = get_tag_category_map()
+    # Accept a pre-built DB-backed map from the caller; fall back to TAGS.
+    tag_to_category = tag_category_map if tag_category_map is not None else get_tag_category_map()
 
     all_tags: list[str] = []
     untagged_count = 0

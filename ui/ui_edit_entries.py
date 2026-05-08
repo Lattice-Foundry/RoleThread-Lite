@@ -2,14 +2,18 @@
 import streamlit as st
 
 from core.dataset import (
-    TAGS,
     count_exchanges,
     filter_entry_pairs_by_tags,
     get_available_filter_tags,
     get_entry_tags,
-    get_tag_label_map,
     make_entry,
     validate_entry,
+)
+from core.tag_registry import (
+    get_all_tag_slugs,
+    get_tag_label_map,
+    get_tag_registry_dict,
+    prettify_tag_name,
 )
 from core.state import (
     ensure_entry_registry,
@@ -85,7 +89,7 @@ def load_full_edit_buffer(entry_id: str) -> bool:
     """Load entry data into full_edit_* session-state keys.
 
     Returns True on success, False if the entry cannot be found.
-    Unknown tags (not belonging to any TAGS category) are stored separately
+    Unknown tags (not found in any DB registry category) are stored separately
     in full_edit_unknown_tags and are never discarded.
     """
     entry = get_loaded_entry_by_id(entry_id)
@@ -104,9 +108,10 @@ def load_full_edit_buffer(entry_id: str) -> bool:
     for i, turn in enumerate(buf["turns"]):
         st.session_state[f"full_edit_turn_{i}"] = turn["content"]
 
-    # ── Tag category keys ──────────────────────────────────────────────────────
+    # ── Tag category keys (DB-backed registry) ─────────────────────────────────
+    _registry = get_tag_registry_dict()
     all_known: set[str] = set()
-    for category, options in TAGS.items():
+    for category, options in _registry.items():
         cat_tags = [t for t in buf["tags"] if t in options]
         st.session_state[f"full_edit_tags_{category}"] = cat_tags
         all_known.update(options)
@@ -197,7 +202,7 @@ def save_full_edit() -> bool:
     system_prompt: str = st.session_state.get("full_edit_system_prompt", "")
 
     selected_tags: list[str] = []
-    for _cat in TAGS:
+    for _cat in get_tag_registry_dict():
         selected_tags.extend(st.session_state.get(f"full_edit_tags_{_cat}", []))
     unknown_tags: list[str] = st.session_state.get("full_edit_unknown_tags", [])
 
@@ -371,7 +376,9 @@ def render_edit_entries_page() -> None:
         st.success(st.session_state.pop("full_edit_success"))
 
     # ── Filter controls ────────────────────────────────────────────────────────
+    # DB-backed label map and known-slug list for filter multiselect
     _ee_label_map = get_tag_label_map(untagged_key=_UNTAGGED)
+    _ee_all_known_slugs = get_all_tag_slugs()
 
     def _ee_reset_page() -> None:
         st.session_state.edit_entry_page = 0
@@ -387,7 +394,10 @@ def render_edit_entries_page() -> None:
     )
 
     _ee_available = get_available_filter_tags(
-        _ee_entries, only_used=_ee_only_used, untagged_key=_UNTAGGED
+        _ee_entries,
+        only_used=_ee_only_used,
+        untagged_key=_UNTAGGED,
+        all_known_tags=_ee_all_known_slugs,
     )
 
     # Apply pending correction before the multiselect widget renders
@@ -409,7 +419,8 @@ def render_edit_entries_page() -> None:
         _ee_filter_tags = st.multiselect(
             "Filter entries by tag",
             options=_ee_available,
-            format_func=lambda x: _ee_label_map.get(x, x),
+            # Known slugs → "Category / Pretty Name"; unknown slugs → prettified
+            format_func=lambda x: _ee_label_map.get(x, prettify_tag_name(x)),
             key="edit_filter_tags",
             on_change=_ee_reset_page,
         )

@@ -7,15 +7,18 @@ import streamlit as st
 from core.dataset import (
     count_exchanges,
     filter_entry_pairs_by_tags,
-    get_all_tags,
     get_available_filter_tags,
     get_entry_tags,
-    get_tag_label_map,
     load_dataset,
     replace_entry_tags,
     save_dataset,
     set_entry_system_prompt,
     validate_entry,
+)
+from core.tag_registry import (
+    get_all_tag_slugs,
+    get_tag_label_map,
+    prettify_tag_name,
 )
 from core.file_dialogs import JSONL_TYPES, _tk_root, browse_open_file, path_input
 from core.preferences import get_initial_dir
@@ -141,7 +144,9 @@ def render_manage_page() -> None:
             st.success("All entries are valid.")
 
         # ── Filter controls ────────────────────────────────────────────────────
+        # DB-backed label map: {slug: "Category / Pretty Name", __untagged__: "Untagged"}
         _label_map = get_tag_label_map(untagged_key=_UNTAGGED)
+        _all_known_slugs = get_all_tag_slugs()
 
         def _reset_page() -> None:
             st.session_state.entry_page = 0
@@ -158,7 +163,10 @@ def render_manage_page() -> None:
         )
 
         _available = get_available_filter_tags(
-            entries, only_used=only_used, untagged_key=_UNTAGGED
+            entries,
+            only_used=only_used,
+            untagged_key=_UNTAGGED,
+            all_known_tags=_all_known_slugs,
         )
 
         # Apply pending correction BEFORE the widget instantiates (Streamlit
@@ -176,7 +184,8 @@ def render_manage_page() -> None:
             filter_tags = st.multiselect(
                 "Filter entries by tag",
                 options=_available,
-                format_func=lambda x: _label_map.get(x, x),
+                # Known slugs → "Category / Pretty Name"; unknown slugs → prettified
+                format_func=lambda x: _label_map.get(x, prettify_tag_name(x)),
                 key="filter_tags",
                 on_change=_reset_page,
             )
@@ -254,6 +263,8 @@ def render_manage_page() -> None:
             # ── Flash messages ─────────────────────────────────────────────────
             if "quick_edit_success" in st.session_state:
                 st.success(st.session_state.pop("quick_edit_success"))
+            if "tag_save_success" in st.session_state:
+                st.success(st.session_state.pop("tag_save_success"))
 
             # ── Status line (always visible) ───────────────────────────────────
             _selected_ids = get_selected_entry_ids()
@@ -387,7 +398,10 @@ def render_manage_page() -> None:
             # ── Quick tag editor ───────────────────────────────────────────────
             _selected_count = len(_selected_ids)
             if _selected_count >= 1:
+                # DB-backed label map for tag selectors (no untagged sentinel)
                 _tag_label_map = get_tag_label_map(include_untagged=False)
+                _all_slugs = get_all_tag_slugs()
+                _all_slugs_set = set(_all_slugs)
 
             if _selected_count == 1:
                 st.markdown("**Quick Tag Edit**")
@@ -395,25 +409,30 @@ def render_manage_page() -> None:
                 _qt_entry = get_loaded_entry_by_id(_qt_entry_id)
                 if _qt_entry is not None:
                     _qt_current_tags = get_entry_tags(_qt_entry)
+                    # Include any unknown tags already on this entry in the
+                    # options list so they can be kept or deselected — they
+                    # won't appear in fresh selections from the registry.
+                    _qt_unknown = [t for t in _qt_current_tags if t not in _all_slugs_set]
+                    _qt_options = _all_slugs + _qt_unknown
                     _qt_chosen = st.multiselect(
                         "Tags for selected entry",
-                        options=get_all_tags(),
+                        options=_qt_options,
                         default=_qt_current_tags,
-                        format_func=lambda t: _tag_label_map.get(t, t),
+                        format_func=lambda t: _tag_label_map.get(t, prettify_tag_name(t)),
                         key=f"single_quick_tags_{_qt_entry_id}",
                     )
                     if st.button("Save Tags", key="btn_save_single_tags"):
                         replace_entry_tags(_qt_entry, _qt_chosen)
                         if save_loaded_dataset():
-                            st.success("Tags updated for selected entry.")
+                            st.session_state["tag_save_success"] = "Tags updated for selected entry."
                             st.rerun()
 
             elif _selected_count >= 2:
                 st.markdown("**Bulk Tag Edit**")
                 _bulk_chosen = st.multiselect(
                     "Replacement tags",
-                    options=get_all_tags(),
-                    format_func=lambda t: _tag_label_map.get(t, t),
+                    options=_all_slugs,
+                    format_func=lambda t: _tag_label_map.get(t, prettify_tag_name(t)),
                     key="bulk_replace_tags",
                 )
                 _col_bulk_replace, _col_bulk_clear = st.columns(2)
@@ -421,6 +440,7 @@ def render_manage_page() -> None:
                     if st.button(
                         f"Replace tags on {_selected_count} selected",
                         key="btn_bulk_replace_tags",
+                        disabled=not _bulk_chosen,
                         width="stretch",
                     ):
                         for _bid in _selected_ids:
@@ -428,7 +448,9 @@ def render_manage_page() -> None:
                             if _be is not None:
                                 replace_entry_tags(_be, _bulk_chosen)
                         if save_loaded_dataset():
-                            st.success(f"Tags replaced for {_selected_count} entries.")
+                            st.session_state["tag_save_success"] = (
+                                f"Tags replaced for {_selected_count} entries."
+                            )
                             st.rerun()
                 with _col_bulk_clear:
                     if st.button(
@@ -441,7 +463,9 @@ def render_manage_page() -> None:
                             if _be is not None:
                                 replace_entry_tags(_be, [])
                         if save_loaded_dataset():
-                            st.success(f"Tags cleared for {_selected_count} entries.")
+                            st.session_state["tag_save_success"] = (
+                                f"Tags cleared for {_selected_count} entries."
+                            )
                             st.rerun()
 
             # ── Entry list ─────────────────────────────────────────────────────
