@@ -69,6 +69,7 @@ def browse_open_file(
 def browse_save_file(
     pending_key: str,
     default_name: str = "dataset.jsonl",
+    dir_key: str = "default_dataset_directory",
 ) -> None:
     """Open a save-as picker and store the result in pending_key."""
     prefs = st.session_state.prefs
@@ -77,8 +78,26 @@ def browse_save_file(
         title="Save dataset as",
         defaultextension=".jsonl",
         initialfile=default_name,
-        initialdir=get_initial_dir(prefs, dir_key="last_open_directory"),
+        initialdir=get_initial_dir(prefs, dir_key=dir_key),
         filetypes=JSONL_TYPES,
+    )
+    root.destroy()
+    if path:
+        st.session_state[pending_key] = path
+        st.rerun()
+
+
+def browse_directory(
+    pending_key: str,
+    title: str = "Select folder",
+    dir_key: str = "default_dataset_directory",
+) -> None:
+    """Open a directory picker and store the result in pending_key."""
+    prefs = st.session_state.prefs
+    root = _tk_root()
+    path = filedialog.askdirectory(
+        title=title,
+        initialdir=get_initial_dir(prefs, dir_key=dir_key),
     )
     root.destroy()
     if path:
@@ -100,7 +119,7 @@ def browse_export_file(pending_key: str) -> None:
         str(Path(st.session_state.loaded_path).parent)
         if st.session_state.loaded_path
         and Path(st.session_state.loaded_path).parent.exists()
-        else None
+        else get_initial_dir(st.session_state.prefs, dir_key="default_dataset_directory")
     )
     root = _tk_root()
     path = filedialog.asksaveasfilename(

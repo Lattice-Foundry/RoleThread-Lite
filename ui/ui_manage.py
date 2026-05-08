@@ -98,7 +98,7 @@ def render_manage_page() -> None:
                 title="Create new dataset",
                 defaultextension=".jsonl",
                 initialfile="dataset.jsonl",
-                initialdir=get_initial_dir(prefs, dir_key="last_open_directory"),
+                initialdir=get_initial_dir(prefs, dir_key="default_dataset_directory"),
                 filetypes=JSONL_TYPES,
             )
             root.destroy()
@@ -345,7 +345,7 @@ def render_manage_page() -> None:
                                 f"{len(_failures)} could not be removed."
                             )
                         else:
-                            st.success(f"Deleted {_n} entries.")
+                            st.success(f"Deleted {_n} entries. Backup created.")
                         st.rerun()
 
             # ── Confirmation UI (shown below button row when pending) ───────────
@@ -374,7 +374,7 @@ def render_manage_page() -> None:
                                 f"{len(_failures)} could not be removed."
                             )
                         else:
-                            st.success(f"Deleted {_n} entries.")
+                            st.success(f"Deleted {_n} entries. Backup created.")
                         st.rerun()
                 with _col_cancel:
                     if st.button("Cancel", key="btn_cancel_delete", width="stretch"):
@@ -411,10 +411,13 @@ def render_manage_page() -> None:
                                 set_entry_system_prompt(
                                     _proposed_entries[_idx], _new_prompt.strip()
                                 )
-                        if save_proposed_loaded_entries(_proposed_entries):
+                        if save_proposed_loaded_entries(
+                            _proposed_entries,
+                            backup_reason="before_bulk_system_prompt",
+                        ):
                             st.session_state.pop("pending_system_prompt_edit", None)
                             st.session_state["sys_prompt_success"] = (
-                                f"System prompt updated for {_total_sel} entries."
+                                f"System prompt updated for {_total_sel} entries. Backup created."
                             )
                             st.rerun()
                 with _col_sp_cancel:
@@ -458,9 +461,10 @@ def render_manage_page() -> None:
                         else:
                             _proposed_entries = st.session_state.loaded_entries
                         if _idx is not None and save_proposed_loaded_entries(
-                            _proposed_entries
+                            _proposed_entries,
+                            backup_reason="before_single_tag_edit",
                         ):
-                            st.session_state["tag_save_success"] = "Tags updated for selected entry."
+                            st.session_state["tag_save_success"] = "Tags updated for selected entry. Backup created."
                             st.rerun()
 
             elif _selected_count >= 2:
@@ -484,9 +488,12 @@ def render_manage_page() -> None:
                             _idx = get_loaded_entry_index_by_id(_bid)
                             if _idx is not None:
                                 replace_entry_tags(_proposed_entries[_idx], _bulk_chosen)
-                        if save_proposed_loaded_entries(_proposed_entries):
+                        if save_proposed_loaded_entries(
+                            _proposed_entries,
+                            backup_reason="before_bulk_tag_replace",
+                        ):
                             st.session_state["tag_save_success"] = (
-                                f"Tags replaced for {_selected_count} entries."
+                                f"Tags replaced for {_selected_count} entries. Backup created."
                             )
                             st.rerun()
                 with _col_bulk_clear:
@@ -500,9 +507,12 @@ def render_manage_page() -> None:
                             _idx = get_loaded_entry_index_by_id(_bid)
                             if _idx is not None:
                                 replace_entry_tags(_proposed_entries[_idx], [])
-                        if save_proposed_loaded_entries(_proposed_entries):
+                        if save_proposed_loaded_entries(
+                            _proposed_entries,
+                            backup_reason="before_bulk_tag_clear",
+                        ):
                             st.session_state["tag_save_success"] = (
-                                f"Tags cleared for {_selected_count} entries."
+                                f"Tags cleared for {_selected_count} entries. Backup created."
                             )
                             st.rerun()
 
@@ -577,7 +587,7 @@ def render_manage_page() -> None:
                                     if save_quick_edit(entry_id, entry):
                                         cancel_quick_edit()
                                         st.session_state["quick_edit_success"] = (
-                                            "Entry updated."
+                                            "Entry updated. Backup created."
                                         )
                                         st.rerun()
                             with _col_cancel_qe:

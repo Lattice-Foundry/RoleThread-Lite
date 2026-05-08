@@ -9,17 +9,15 @@ engine        — bound SQLAlchemy engine (sqlite)
 SessionLocal  — session factory (call SessionLocal() to get a Session)
 init_db()     — create all tables defined in core.models (idempotent)
 """
-from pathlib import Path
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
-# core/db.py lives in core/, so .parent.parent goes to the project root.
-_APP_DATA_DIR = Path(__file__).resolve().parent.parent / "app_data"
-_APP_DATA_DIR.mkdir(exist_ok=True)
+from core.storage import APP_DATA_DIR, ensure_app_directories
 
-_DB_PATH = _APP_DATA_DIR / "loreforge.db"
+# ── Paths ──────────────────────────────────────────────────────────────────────
+ensure_app_directories()
+
+_DB_PATH = APP_DATA_DIR / "loreforge.db"
 _DB_URL = f"sqlite:///{_DB_PATH}"
 
 # ── Engine ─────────────────────────────────────────────────────────────────────

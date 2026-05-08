@@ -220,11 +220,15 @@ def save_full_edit() -> bool:
         return False
 
     # Save the proposed replacement before committing it to session state.
-    if not save_replaced_loaded_entry_by_id(entry_id, edited_entry):
+    if not save_replaced_loaded_entry_by_id(
+        entry_id,
+        edited_entry,
+        backup_reason="before_full_edit",
+    ):
         return False
 
     # ── Success: flash message + cleanup + return to browser ──────────────────
-    st.session_state["full_edit_success"] = "Entry updated."
+    st.session_state["full_edit_success"] = "Entry updated. Backup created."
     cancel_full_edit()  # clears buffer, restores browser state, calls st.rerun()
     return True          # unreachable after rerun, kept for type correctness
 

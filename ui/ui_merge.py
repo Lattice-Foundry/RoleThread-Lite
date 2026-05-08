@@ -4,6 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from core.backups import auto_backups_enabled, create_dataset_backup
 from core.dataset import merge_datasets, save_dataset
 from core.file_dialogs import browse_open_multiple, browse_save_file, path_input
 
@@ -64,8 +65,20 @@ def render_merge_page() -> None:
             if merged:
                 p = output_path.strip()
                 try:
+                    backup_created = False
+                    if Path(p).exists() and auto_backups_enabled(st.session_state.get("prefs", {})):
+                        try:
+                            backup_path = create_dataset_backup(p, "before_merge_overwrite")
+                        except Exception as exc:
+                            st.error(f"Failed to create merge output backup: {exc}")
+                            return
+                        if backup_path is None:
+                            st.error("Could not create backup for existing merge output.")
+                            return
+                        backup_created = True
                     save_dataset(p, merged)
-                    st.success(f"Merged dataset saved to `{p}`.")
+                    _backup_note = " Backup created." if backup_created else ""
+                    st.success(f"Merged dataset saved to `{p}`.{_backup_note}")
 
                     content = "\n".join(json.dumps(e, ensure_ascii=False) for e in merged)
                     st.download_button(

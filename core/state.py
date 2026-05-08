@@ -6,6 +6,7 @@ This module must not import app.py (would cause a circular import).
 """
 import streamlit as st
 
+from core.backups import auto_backups_enabled, create_dataset_backup
 from core.dataset import (
     append_registry_id,
     build_entry_registry,
@@ -138,10 +139,31 @@ def save_loaded_dataset() -> bool:
     return save_entries_to_loaded_path(st.session_state.loaded_entries)
 
 
-def save_entries_to_loaded_path(entries: list[dict]) -> bool:
+def backup_loaded_dataset(reason: str) -> bool:
+    """Create a backup for the loaded dataset before a broad mutation."""
+    if not auto_backups_enabled(st.session_state.get("prefs", {})):
+        return True
+    path = st.session_state.get("loaded_path", "").strip()
+    if not path:
+        st.error("No dataset loaded. Please load or create a dataset before saving.")
+        return False
+    try:
+        backup_path = create_dataset_backup(path, reason)
+    except Exception as exc:
+        st.error(f"Failed to create dataset backup: {exc}")
+        return False
+    if backup_path is None:
+        st.error("Could not create dataset backup because the loaded dataset file was not found.")
+        return False
+    return True
+
+
+def save_entries_to_loaded_path(entries: list[dict], backup_reason: str | None = None) -> bool:
     """Save a proposed entry list to loaded_path without committing session state."""
     if not st.session_state.get("loaded_path", "").strip():
         st.error("No dataset loaded. Please load or create a dataset before saving.")
+        return False
+    if backup_reason and not backup_loaded_dataset(backup_reason):
         return False
     try:
         save_dataset(st.session_state.loaded_path, entries)
@@ -151,23 +173,30 @@ def save_entries_to_loaded_path(entries: list[dict]) -> bool:
         return False
 
 
-def save_proposed_loaded_entries(entries: list[dict]) -> bool:
+def save_proposed_loaded_entries(
+    entries: list[dict],
+    backup_reason: str | None = None,
+) -> bool:
     """Save a proposed entry list, then commit it to session state on success."""
-    if not save_entries_to_loaded_path(entries):
+    if not save_entries_to_loaded_path(entries, backup_reason=backup_reason):
         return False
     st.session_state.loaded_entries = entries
     ensure_entry_registry()
     return True
 
 
-def save_replaced_loaded_entry_by_id(entry_id: str, new_entry: dict) -> bool:
+def save_replaced_loaded_entry_by_id(
+    entry_id: str,
+    new_entry: dict,
+    backup_reason: str | None = None,
+) -> bool:
     """Save a copy with entry_id replaced, then commit memory only after disk succeeds."""
     idx = get_loaded_entry_index_by_id(entry_id)
     if idx is None:
         return False
     proposed_entries = list(st.session_state.loaded_entries)
     proposed_entries[idx] = new_entry
-    return save_proposed_loaded_entries(proposed_entries)
+    return save_proposed_loaded_entries(proposed_entries, backup_reason=backup_reason)
 
 
 def delete_selected_entries() -> tuple[int, list[str]]:
@@ -193,7 +222,10 @@ def delete_selected_entries() -> tuple[int, list[str]]:
 
     deleted = len(st.session_state.loaded_entries) - len(proposed_entries)
     if deleted > 0:
-        if not save_entries_to_loaded_path(proposed_entries):
+        if not save_entries_to_loaded_path(
+            proposed_entries,
+            backup_reason="before_delete_selected",
+        ):
             return 0, attempted_ids + failures
         st.session_state.loaded_entries = proposed_entries
         st.session_state.entry_registry = {
@@ -263,4 +295,8 @@ def save_quick_edit(entry_id: str, entry: dict) -> bool:
             st.error(err)
         return False
 
-    return save_replaced_loaded_entry_by_id(entry_id, temp_entry)
+    return save_replaced_loaded_entry_by_id(
+        entry_id,
+        temp_entry,
+        backup_reason="before_quick_edit",
+    )

@@ -13,6 +13,7 @@ import streamlit as st
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset
 from core.preferences import load_preferences
 from core.state import set_loaded_entries
+from core.storage import ensure_app_directories
 from core.tag_registry import seed_default_tags
 from ui.ui_create import init_editor_state, render_create_page
 from ui.ui_edit_entries import render_edit_entries_page
@@ -24,6 +25,7 @@ from ui.ui_settings import render_settings_page
 from ui.ui_stats import render_stats_page
 
 # ── Page config ────────────────────────────────────────────────────────────────
+ensure_app_directories()
 st.set_page_config(page_title="LoreForge", layout="wide")
 
 st.markdown(
@@ -101,6 +103,10 @@ if "prefs" not in st.session_state:
     st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
     st.session_state.dataset_format = prefs.get("dataset_format", "ChatML")
+    st.session_state.default_dataset_directory = prefs.get("default_dataset_directory", "")
+    st.session_state.auto_backups_enabled = prefs.get("auto_backups_enabled", True)
+    st.session_state.backup_directory = prefs.get("backup_directory", "")
+    st.session_state.backups_per_dataset = prefs.get("backups_per_dataset", 25)
     st.session_state.page = "Create Entry"
 
     last = prefs.get("last_loaded_dataset_path", "")
