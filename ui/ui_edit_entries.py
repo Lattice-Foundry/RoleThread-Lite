@@ -9,7 +9,6 @@ from core.backups import auto_backups_enabled
 from core.dataset import (
     count_exchanges,
     filter_entry_pairs_by_tags,
-    get_available_filter_tags,
     get_entry_tags,
     make_entry,
     validate_entry,
@@ -27,6 +26,13 @@ from core.state import (
     get_loaded_entry_index_by_id,
 )
 from services.dataset_service import save_full_edit_service
+from ui.browser_helpers import (
+    build_filter_tag_state,
+    calculate_pagination,
+    format_entry_summary_label,
+    normalize_untagged_selection,
+    slice_visible_pairs,
+)
 from ui.ui_components import (
     calculate_exchange_metrics,
     render_conversation_preview,
@@ -403,26 +409,24 @@ def render_edit_entries_page() -> None:
         on_change=_ee_reset_page_and_selection,
     )
 
-    _ee_available = get_available_filter_tags(
-        _ee_entries,
-        only_used=_ee_only_used,
-        untagged_key=_UNTAGGED,
-        all_known_tags=_ee_all_known_slugs,
-    )
-
     # Apply pending correction before the multiselect widget renders
     if "edit_filter_tags_pending" in st.session_state:
         st.session_state["edit_filter_tags"] = st.session_state.pop(
             "edit_filter_tags_pending"
         )
 
-    # Drop stale selections no longer in available options
-    _ee_clamped = [
-        t for t in st.session_state.get("edit_filter_tags", [])
-        if t in _ee_available
-    ]
-    if _ee_clamped != st.session_state.get("edit_filter_tags", []):
-        st.session_state["edit_filter_tags"] = _ee_clamped
+    _ee_filter_state = build_filter_tag_state(
+        entries=_ee_entries,
+        selected_tags=st.session_state.get("edit_filter_tags", []),
+        only_used_tags=_ee_only_used,
+        all_known_tags=_ee_all_known_slugs,
+        untagged_key=_UNTAGGED,
+    )
+    _ee_available = _ee_filter_state.available_tags
+    if _ee_filter_state.selected_tags_changed:
+        st.session_state["edit_filter_tags"] = (
+            _ee_filter_state.clamped_selected_tags
+        )
 
     _ee_filter_col, _ee_mode_col = st.columns([3, 1])
     with _ee_filter_col:
@@ -436,14 +440,13 @@ def render_edit_entries_page() -> None:
         )
 
     # Guard against "Select all" accidentally including __untagged__
-    _ee_available_real = [t for t in _ee_available if t != _UNTAGGED]
-    _ee_selected_real = [t for t in _ee_filter_tags if t != _UNTAGGED]
-    if (
-        _UNTAGGED in _ee_filter_tags
-        and _ee_available_real
-        and set(_ee_selected_real) == set(_ee_available_real)
-    ):
-        st.session_state["edit_filter_tags_pending"] = _ee_selected_real
+    _ee_normalized_filter_tags = normalize_untagged_selection(
+        selected_tags=_ee_filter_tags,
+        available_tags=_ee_available,
+        untagged_key=_UNTAGGED,
+    )
+    if _ee_normalized_filter_tags != _ee_filter_tags:
+        st.session_state["edit_filter_tags_pending"] = _ee_normalized_filter_tags
         st.rerun()
 
     with _ee_mode_col:
@@ -489,22 +492,16 @@ def render_edit_entries_page() -> None:
         st.info("No entries match the current filters.")
         return
 
-    _ee_per_page_setting = st.session_state.edit_entries_per_page
-    if _ee_per_page_setting == "Show All":
-        _ee_per_page = _ee_total_filtered
-        _ee_last_page = 0
-        _ee_cur_page = 0
-        _ee_start = 0
-        _ee_end = _ee_total_filtered
-    else:
-        _ee_per_page = _ee_per_page_setting
-        _ee_last_page = max(0, (_ee_total_filtered - 1) // _ee_per_page)
-        _ee_cur_page = min(
-            st.session_state.get("edit_entry_page", 0), _ee_last_page
-        )
-        _ee_start = _ee_cur_page * _ee_per_page
-        _ee_end = min(_ee_start + _ee_per_page, _ee_total_filtered)
-    _ee_visible_pairs = _ee_filtered_pairs[_ee_start:_ee_end]
+    _ee_pagination = calculate_pagination(
+        total_items=_ee_total_filtered,
+        requested_page=st.session_state.get("edit_entry_page", 0),
+        per_page_setting=st.session_state.edit_entries_per_page,
+    )
+    _ee_cur_page = _ee_pagination.page
+    _ee_last_page = _ee_pagination.last_page
+    _ee_start = _ee_pagination.start
+    _ee_end = _ee_pagination.end
+    _ee_visible_pairs = slice_visible_pairs(_ee_filtered_pairs, _ee_pagination)
 
     # ── Status line ────────────────────────────────────────────────────────────
     if _ee_filter_tags:
@@ -522,16 +519,12 @@ def render_edit_entries_page() -> None:
         _ee_visible_pairs, start=_ee_start
     ):
         _ee_errs = validate_entry(_ee_entry)
-        _ee_entry_tags = get_entry_tags(_ee_entry)
-        _ee_tag_part = ", ".join(_ee_entry_tags) if _ee_entry_tags else "untagged"
-        _ee_fmt_part = st.session_state.dataset_format
-        _ee_exc_part = count_exchanges(_ee_entry)
-        _ee_label = (
-            f"Entry {_ee_i + 1} | FORMAT: {_ee_fmt_part} | "
-            f"TAGS: {_ee_tag_part} | EXCHANGES: {_ee_exc_part}"
+        _ee_label = format_entry_summary_label(
+            display_index=_ee_i,
+            entry=_ee_entry,
+            dataset_format=st.session_state.dataset_format,
+            errors=_ee_errs,
         )
-        if _ee_errs:
-            _ee_label += " ⚠️"
         with st.expander(_ee_label):
             st.caption(f"Temp ID: {_ee_entry_id}")
             if st.button("Edit Entry", key=f"btn_full_edit_{_ee_entry_id}"):

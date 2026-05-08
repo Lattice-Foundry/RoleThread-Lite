@@ -10,9 +10,7 @@ import streamlit as st
 
 from core.backups import auto_backups_enabled
 from core.dataset import (
-    count_exchanges,
     filter_entry_pairs_by_tags,
-    get_available_filter_tags,
     get_entry_tags,
     load_dataset,
     save_dataset,
@@ -48,6 +46,13 @@ from services.dataset_service import (
     replace_single_entry_tags_service,
     replace_system_prompt_bulk_service,
     replace_tags_bulk_service,
+)
+from ui.browser_helpers import (
+    build_filter_tag_state,
+    calculate_pagination,
+    format_entry_summary_label,
+    normalize_untagged_selection,
+    slice_visible_pairs,
 )
 from ui.ui_components import render_message_preview
 
@@ -172,22 +177,21 @@ def render_manage_page() -> None:
             on_change=_reset_page_and_selection,
         )
 
-        _available = get_available_filter_tags(
-            entries,
-            only_used=only_used,
-            untagged_key=_UNTAGGED,
-            all_known_tags=_all_known_slugs,
-        )
-
         # Apply pending correction BEFORE the widget instantiates (Streamlit
         # forbids writing a widget's key after it has rendered in the same run).
         if "filter_tags_pending" in st.session_state:
             st.session_state["filter_tags"] = st.session_state.pop("filter_tags_pending")
 
-        # Drop any stale selections no longer in the available option list
-        _clamped = [t for t in st.session_state.get("filter_tags", []) if t in _available]
-        if _clamped != st.session_state.get("filter_tags", []):
-            st.session_state["filter_tags"] = _clamped
+        _filter_state = build_filter_tag_state(
+            entries=entries,
+            selected_tags=st.session_state.get("filter_tags", []),
+            only_used_tags=only_used,
+            all_known_tags=_all_known_slugs,
+            untagged_key=_UNTAGGED,
+        )
+        _available = _filter_state.available_tags
+        if _filter_state.selected_tags_changed:
+            st.session_state["filter_tags"] = _filter_state.clamped_selected_tags
 
         filter_col, mode_col = st.columns([3, 1])
         with filter_col:
@@ -203,14 +207,13 @@ def render_manage_page() -> None:
         # If every available real tag is selected alongside __untagged__, the
         # user almost certainly hit "Select all". Write the correction to a
         # pending key and rerun so it is applied before the widget renders.
-        _available_real = [t for t in _available if t != _UNTAGGED]
-        _selected_real = [t for t in filter_tags if t != _UNTAGGED]
-        if (
-            _UNTAGGED in filter_tags
-            and _available_real
-            and set(_selected_real) == set(_available_real)
-        ):
-            st.session_state["filter_tags_pending"] = _selected_real
+        _normalized_filter_tags = normalize_untagged_selection(
+            selected_tags=filter_tags,
+            available_tags=_available,
+            untagged_key=_UNTAGGED,
+        )
+        if _normalized_filter_tags != filter_tags:
+            st.session_state["filter_tags_pending"] = _normalized_filter_tags
             st.rerun()
         with mode_col:
             match_mode = st.radio(
@@ -254,21 +257,17 @@ def render_manage_page() -> None:
         if total_filtered == 0:
             st.info("No entries match the current filters.")
         else:
-            _per_page_setting = st.session_state.entries_per_page
-            if _per_page_setting == "Show All":
-                per_page = total_filtered
-                last_page = 0
-                _cur_page = 0
-                start = 0
-                end = total_filtered
-            else:
-                per_page = _per_page_setting
-                last_page = max(0, (total_filtered - 1) // per_page)
-                # _cur_page used here to avoid shadowing the navigation `page` variable
-                _cur_page = min(st.session_state.get("entry_page", 0), last_page)
-                start = _cur_page * per_page
-                end = min(start + per_page, total_filtered)
-            visible_pairs = filtered_pairs[start:end]
+            _pagination = calculate_pagination(
+                total_items=total_filtered,
+                requested_page=st.session_state.get("entry_page", 0),
+                per_page_setting=st.session_state.entries_per_page,
+            )
+            per_page = _pagination.per_page
+            last_page = _pagination.last_page
+            _cur_page = _pagination.page
+            start = _pagination.start
+            end = _pagination.end
+            visible_pairs = slice_visible_pairs(filtered_pairs, _pagination)
 
             # ── Select-all-mode fingerprint guard ─────────────────────────────
             # Captures (filter, match-mode, per-page, page) when "Select all
@@ -607,16 +606,12 @@ def render_manage_page() -> None:
 
             for i, (entry_id, entry) in enumerate(visible_pairs, start=start):
                 errs = validate_entry(entry)
-                entry_tags = get_entry_tags(entry)
-                _tag_part = ", ".join(entry_tags) if entry_tags else "untagged"
-                _fmt_part = st.session_state.dataset_format
-                _exc_part = count_exchanges(entry)
-                label = (
-                    f"Entry {i + 1} | FORMAT: {_fmt_part} | "
-                    f"TAGS: {_tag_part} | EXCHANGES: {_exc_part}"
+                label = format_entry_summary_label(
+                    display_index=i,
+                    entry=entry,
+                    dataset_format=st.session_state.dataset_format,
+                    errors=errs,
                 )
-                if errs:
-                    label += " ⚠️"
                 _col_cb, _col_entry = st.columns([1, 20])
                 with _col_cb:
                     st.checkbox(
