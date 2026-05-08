@@ -1,6 +1,7 @@
 """Edit Entries page — read-only dataset browser with filtering and pagination."""
 import streamlit as st
 
+from core.backups import auto_backups_enabled
 from core.dataset import (
     count_exchanges,
     filter_entry_pairs_by_tags,
@@ -19,8 +20,9 @@ from core.state import (
     ensure_entry_registry,
     get_all_entry_pairs,
     get_loaded_entry_by_id,
-    save_replaced_loaded_entry_by_id,
+    get_loaded_entry_index_by_id,
 )
+from services.dataset_service import save_full_edit_service
 from ui.ui_components import (
     calculate_exchange_metrics,
     render_conversation_preview,
@@ -219,16 +221,32 @@ def save_full_edit() -> bool:
             st.error(err)
         return False
 
-    # Save the proposed replacement before committing it to session state.
-    if not save_replaced_loaded_entry_by_id(
-        entry_id,
-        edited_entry,
-        backup_reason="before_full_edit",
-    ):
+    entry_index = get_loaded_entry_index_by_id(entry_id)
+    if entry_index is None:
+        st.error("Could not find the selected entry.")
         return False
 
+    result = save_full_edit_service(
+        dataset_path=st.session_state.get("loaded_path", ""),
+        entries=st.session_state.loaded_entries,
+        entry_index=entry_index,
+        updated_entry=edited_entry,
+        backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
+    )
+    if not result.ok:
+        for err in result.errors:
+            st.error(err)
+        if not result.errors:
+            st.error(result.message)
+        return False
+
+    if result.entries is not None:
+        st.session_state.loaded_entries = result.entries
+        ensure_entry_registry()
+
     # ── Success: flash message + cleanup + return to browser ──────────────────
-    st.session_state["full_edit_success"] = "Entry updated. Backup created."
+    _backup_note = " Backup created." if result.backup_path else ""
+    st.session_state["full_edit_success"] = f"{result.message}{_backup_note}"
     cancel_full_edit()  # clears buffer, restores browser state, calls st.rerun()
     return True          # unreachable after rerun, kept for type correctness
 

@@ -107,6 +107,60 @@ def save_quick_edit_service(
     )
 
 
+def save_full_edit_service(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    entry_index: int,
+    updated_entry: dict,
+    backup_enabled: bool = True,
+    backup_reason: str = "before_full_edit",
+) -> DatasetOperationResult:
+    if not dataset_path:
+        return DatasetOperationResult(
+            ok=False,
+            message="No dataset loaded. Please load or create a dataset before saving.",
+        )
+    if not _valid_index(entries, entry_index):
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not find the selected entry.",
+        )
+
+    edited_entry = copy.deepcopy(updated_entry)
+    errors = validate_entry(edited_entry)
+    if errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Entry validation failed.",
+            errors=errors,
+        )
+
+    proposed_entries = _replace_entry_at_index(entries, entry_index, edited_entry)
+    try:
+        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+    try:
+        save_dataset(dataset_path, proposed_entries)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save dataset: {exc}",
+        )
+
+    return DatasetOperationResult(
+        ok=True,
+        message="Entry updated.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=1,
+    )
+
+
 def replace_single_entry_tags_service(
     *,
     dataset_path: str,
