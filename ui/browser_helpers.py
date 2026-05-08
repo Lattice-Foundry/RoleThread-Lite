@@ -106,6 +106,32 @@ def format_entry_summary_label(
     return label
 
 
+def format_browser_status_caption(
+    *,
+    start: int,
+    end: int,
+    total_filtered: int,
+    total_all: int,
+    filtered: bool,
+    selected_count: int | None = None,
+) -> str:
+    """Format the browser status caption text."""
+    display_start = 0 if total_filtered == 0 else start + 1
+    if filtered:
+        caption = (
+            f"Showing {display_start}\u2013{end} of {total_filtered} "
+            f"filtered entries ({total_all} total)"
+        )
+        selected_total = total_filtered
+    else:
+        caption = f"Showing {display_start}\u2013{end} of {total_all} entries"
+        selected_total = total_all
+
+    if selected_count is not None:
+        caption += f" | {selected_count} of {selected_total} selected"
+    return caption
+
+
 def build_filter_tag_state(
     *,
     entries: list[dict],

@@ -29,6 +29,7 @@ from services.dataset_service import save_full_edit_service
 from ui.browser_helpers import (
     build_filter_tag_state,
     calculate_pagination,
+    format_browser_status_caption,
     format_entry_summary_label,
     normalize_untagged_selection,
     slice_visible_pairs,
@@ -504,15 +505,15 @@ def render_edit_entries_page() -> None:
     _ee_visible_pairs = slice_visible_pairs(_ee_filtered_pairs, _ee_pagination)
 
     # ── Status line ────────────────────────────────────────────────────────────
-    if _ee_filter_tags:
-        st.caption(
-            f"Showing {_ee_start + 1}–{_ee_end} of {_ee_total_filtered} "
-            f"filtered entries ({_ee_total_all} total)"
+    st.caption(
+        format_browser_status_caption(
+            start=_ee_start,
+            end=_ee_end,
+            total_filtered=_ee_total_filtered,
+            total_all=_ee_total_all,
+            filtered=bool(_ee_filter_tags),
         )
-    else:
-        st.caption(
-            f"Showing {_ee_start + 1}–{_ee_end} of {_ee_total_all} entries"
-        )
+    )
 
     # ── Entry list ─────────────────────────────────────────────────────────────
     for _ee_i, (_ee_entry_id, _ee_entry) in enumerate(

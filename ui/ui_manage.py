@@ -50,6 +50,7 @@ from services.dataset_service import (
 from ui.browser_helpers import (
     build_filter_tag_state,
     calculate_pagination,
+    format_browser_status_caption,
     format_entry_summary_label,
     normalize_untagged_selection,
     slice_visible_pairs,
@@ -293,16 +294,16 @@ def render_manage_page() -> None:
             # ── Status line (always visible) ───────────────────────────────────
             _selected_ids = get_selected_entry_ids()
             _total_sel = len(_selected_ids)
-            if filter_tags:
-                st.caption(
-                    f"Showing {start + 1}–{end} of {total_filtered} filtered entries "
-                    f"({total_all} total) | {_total_sel} of {total_filtered} selected"
+            st.caption(
+                format_browser_status_caption(
+                    start=start,
+                    end=end,
+                    total_filtered=total_filtered,
+                    total_all=total_all,
+                    filtered=bool(filter_tags),
+                    selected_count=_total_sel,
                 )
-            else:
-                st.caption(
-                    f"Showing {start + 1}–{end} of {total_all} entries "
-                    f"| {_total_sel} of {total_all} selected"
-                )
+            )
 
             # ── Selection + action buttons (single row) ────────────────────────
             _no_sel = _total_sel == 0
