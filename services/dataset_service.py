@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from core.backups import create_dataset_backup
 from core.dataset import replace_entry_tags, save_dataset, validate_entry
@@ -24,6 +25,32 @@ def _copy_entries(entries: list[dict]) -> list[dict]:
 
 def _valid_index(entries: list[dict], index: int) -> bool:
     return 0 <= index < len(entries)
+
+
+def _normalized_indices(entry_indices: list[int], entries: list[dict]) -> tuple[list[int], list[str]]:
+    errors: list[str] = []
+    if not entry_indices:
+        errors.append("No entries selected.")
+        return [], errors
+
+    normalized: list[int] = []
+    seen: set[int] = set()
+    for index in entry_indices:
+        if not isinstance(index, int) or not _valid_index(entries, index):
+            errors.append(f"Invalid entry index: {index}")
+            continue
+        if index not in seen:
+            seen.add(index)
+            normalized.append(index)
+    return normalized, errors
+
+
+def _validate_dataset_path(dataset_path: str) -> list[str]:
+    if not dataset_path:
+        return ["No dataset loaded. Please load or create a dataset before saving."]
+    if not Path(dataset_path).is_file():
+        return ["Dataset file was not found."]
+    return []
 
 
 def _replace_entry_at_index(
@@ -213,4 +240,99 @@ def replace_single_entry_tags_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=1,
+    )
+
+
+def replace_tags_bulk_service(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    entry_indices: list[int],
+    tags: list[str],
+    backup_enabled: bool = True,
+    backup_reason: str = "before_bulk_tag_replace",
+) -> DatasetOperationResult:
+    errors = _validate_dataset_path(dataset_path)
+    normalized_indices, index_errors = _normalized_indices(entry_indices, entries)
+    errors.extend(index_errors)
+    if not all(isinstance(tag, str) for tag in tags):
+        errors.append("Each tag must be a string")
+    if errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not replace tags.",
+            errors=errors,
+        )
+
+    proposed_entries = _copy_entries(entries)
+    for index in normalized_indices:
+        replace_entry_tags(proposed_entries[index], tags)
+
+    try:
+        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+    try:
+        save_dataset(dataset_path, proposed_entries)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save dataset: {exc}",
+        )
+
+    return DatasetOperationResult(
+        ok=True,
+        message=f"Tags replaced for {len(normalized_indices)} entries.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=len(normalized_indices),
+    )
+
+
+def clear_tags_bulk_service(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    entry_indices: list[int],
+    backup_enabled: bool = True,
+    backup_reason: str = "before_bulk_tag_clear",
+) -> DatasetOperationResult:
+    errors = _validate_dataset_path(dataset_path)
+    normalized_indices, index_errors = _normalized_indices(entry_indices, entries)
+    errors.extend(index_errors)
+    if errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not clear tags.",
+            errors=errors,
+        )
+
+    proposed_entries = _copy_entries(entries)
+    for index in normalized_indices:
+        replace_entry_tags(proposed_entries[index], [])
+
+    try:
+        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+    try:
+        save_dataset(dataset_path, proposed_entries)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save dataset: {exc}",
+        )
+
+    return DatasetOperationResult(
+        ok=True,
+        message=f"Tags cleared for {len(normalized_indices)} entries.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=len(normalized_indices),
     )

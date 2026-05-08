@@ -12,7 +12,6 @@ from core.dataset import (
     get_available_filter_tags,
     get_entry_tags,
     load_dataset,
-    replace_entry_tags,
     save_dataset,
     set_entry_system_prompt,
     validate_entry,
@@ -43,7 +42,11 @@ from core.state import (
     start_quick_edit,
     toggle_entry_selection,
 )
-from services.dataset_service import replace_single_entry_tags_service
+from services.dataset_service import (
+    clear_tags_bulk_service,
+    replace_single_entry_tags_service,
+    replace_tags_bulk_service,
+)
 from ui.ui_components import render_message_preview
 
 _UNTAGGED = "__untagged__"
@@ -499,38 +502,73 @@ def render_manage_page() -> None:
                         disabled=not _bulk_chosen,
                         width="stretch",
                     ):
-                        _proposed_entries = copy.deepcopy(st.session_state.loaded_entries)
-                        for _bid in _selected_ids:
-                            _idx = get_loaded_entry_index_by_id(_bid)
-                            if _idx is not None:
-                                replace_entry_tags(_proposed_entries[_idx], _bulk_chosen)
-                        if save_proposed_loaded_entries(
-                            _proposed_entries,
-                            backup_reason="before_bulk_tag_replace",
-                        ):
+                        _indices = [
+                            _idx for _idx in (
+                                get_loaded_entry_index_by_id(_bid)
+                                for _bid in _selected_ids
+                            )
+                            if _idx is not None
+                        ]
+                        _bulk_result = replace_tags_bulk_service(
+                            dataset_path=st.session_state.get("loaded_path", ""),
+                            entries=st.session_state.loaded_entries,
+                            entry_indices=_indices,
+                            tags=_bulk_chosen,
+                            backup_enabled=auto_backups_enabled(
+                                st.session_state.get("prefs", {})
+                            ),
+                        )
+                        if _bulk_result.ok and _bulk_result.entries is not None:
+                            st.session_state.loaded_entries = _bulk_result.entries
+                            ensure_entry_registry()
+                            _backup_note = (
+                                " Backup created." if _bulk_result.backup_path else ""
+                            )
                             st.session_state["tag_save_success"] = (
-                                f"Tags replaced for {_selected_count} entries. Backup created."
+                                f"{_bulk_result.message}{_backup_note}"
                             )
                             st.rerun()
+                        else:
+                            for _err in _bulk_result.errors:
+                                st.error(_err)
+                            if not _bulk_result.errors:
+                                st.error(_bulk_result.message)
                 with _col_bulk_clear:
                     if st.button(
                         f"Clear tags on {_selected_count} selected",
                         key="btn_bulk_clear_tags",
                         width="stretch",
                     ):
-                        _proposed_entries = copy.deepcopy(st.session_state.loaded_entries)
-                        for _bid in _selected_ids:
-                            _idx = get_loaded_entry_index_by_id(_bid)
-                            if _idx is not None:
-                                replace_entry_tags(_proposed_entries[_idx], [])
-                        if save_proposed_loaded_entries(
-                            _proposed_entries,
-                            backup_reason="before_bulk_tag_clear",
-                        ):
+                        _indices = [
+                            _idx for _idx in (
+                                get_loaded_entry_index_by_id(_bid)
+                                for _bid in _selected_ids
+                            )
+                            if _idx is not None
+                        ]
+                        _bulk_result = clear_tags_bulk_service(
+                            dataset_path=st.session_state.get("loaded_path", ""),
+                            entries=st.session_state.loaded_entries,
+                            entry_indices=_indices,
+                            backup_enabled=auto_backups_enabled(
+                                st.session_state.get("prefs", {})
+                            ),
+                        )
+                        if _bulk_result.ok and _bulk_result.entries is not None:
+                            st.session_state.loaded_entries = _bulk_result.entries
+                            ensure_entry_registry()
+                            _backup_note = (
+                                " Backup created." if _bulk_result.backup_path else ""
+                            )
                             st.session_state["tag_save_success"] = (
-                                f"Tags cleared for {_selected_count} entries. Backup created."
+                                f"{_bulk_result.message}{_backup_note}"
                             )
                             st.rerun()
+                        else:
+                            for _err in _bulk_result.errors:
+                                st.error(_err)
+                            if not _bulk_result.errors:
+                                st.error(_bulk_result.message)
 
             # ── Entry list ─────────────────────────────────────────────────────
             # Sync all visible checkbox widget keys from selected_entry_ids
