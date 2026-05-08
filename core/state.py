@@ -17,7 +17,11 @@ from core.dataset import (
     save_dataset,
 )
 from core.preferences import save_preferences
-from services.dataset_service import DatasetOperationResult, save_quick_edit_service
+from services.dataset_service import (
+    DatasetOperationResult,
+    delete_entries_service,
+    save_quick_edit_service,
+)
 
 
 # ── Preferences session helper ─────────────────────────────────────────────────
@@ -199,11 +203,11 @@ def save_replaced_loaded_entry_by_id(
     return save_proposed_loaded_entries(proposed_entries, backup_reason=backup_reason)
 
 
-def delete_selected_entries() -> tuple[int, list[str]]:
+def delete_selected_entries() -> tuple[int, list[str], bool]:
     """Delete selected entries by temp ID and persist to disk.
 
     Clears selection only if the save succeeds.
-    Returns (count_deleted, list_of_failed_ids).
+    Returns (count_deleted, list_of_failed_ids, backup_created).
     """
     ensure_entry_registry()
     ids_to_delete = set(get_selected_entry_ids())
@@ -212,29 +216,39 @@ def delete_selected_entries() -> tuple[int, list[str]]:
     failures = [entry_id for entry_id in ids_to_delete if entry_id not in current_id_set]
     attempted_ids = [entry_id for entry_id in current_ids if entry_id in ids_to_delete]
 
-    proposed_entries: list[dict] = []
     proposed_ids: list[str] = []
-    for entry_id, entry in zip(current_ids, st.session_state.loaded_entries):
+    delete_indices: list[int] = []
+    for index, entry_id in enumerate(current_ids):
         if entry_id in ids_to_delete:
+            delete_indices.append(index)
             continue
         proposed_ids.append(entry_id)
-        proposed_entries.append(entry)
 
-    deleted = len(st.session_state.loaded_entries) - len(proposed_entries)
-    if deleted > 0:
-        if not save_entries_to_loaded_path(
-            proposed_entries,
-            backup_reason="before_delete_selected",
-        ):
-            return 0, attempted_ids + failures
-        st.session_state.loaded_entries = proposed_entries
+    if delete_indices:
+        result = delete_entries_service(
+            dataset_path=st.session_state.get("loaded_path", ""),
+            entries=st.session_state.loaded_entries,
+            entry_indices=delete_indices,
+            backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
+        )
+        if not result.ok:
+            for err in result.errors:
+                st.error(err)
+            if not result.errors:
+                st.error(result.message)
+            return 0, attempted_ids + failures, False
+        if result.entries is None:
+            st.error("Delete operation did not return updated entries.")
+            return 0, attempted_ids + failures, False
+        st.session_state.loaded_entries = result.entries
         st.session_state.entry_registry = {
             **st.session_state.entry_registry,
             "ids": proposed_ids,
             "id_to_index": rebuild_id_to_index(proposed_ids),
         }
         clear_selected_entries()
-    return deleted, failures
+        return result.affected_count, failures, result.backup_path is not None
+    return 0, failures, False
 
 
 # ── Quick-edit helpers ─────────────────────────────────────────────────────────

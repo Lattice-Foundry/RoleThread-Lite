@@ -334,7 +334,7 @@ def render_manage_page() -> None:
                         st.session_state["pending_delete_selected"] = True
                         st.rerun()
                     else:
-                        _n, _failures = delete_selected_entries()
+                        _n, _failures, _backup_created = delete_selected_entries()
                         st.session_state["manage_select_all_mode"] = False
                         prune_selection_to_loaded_entries()
                         _new_total = len(st.session_state.loaded_entries)
@@ -348,7 +348,8 @@ def render_manage_page() -> None:
                                 f"{len(_failures)} could not be removed."
                             )
                         else:
-                            st.success(f"Deleted {_n} entries. Backup created.")
+                            _backup_note = " Backup created." if _backup_created else ""
+                            st.success(f"Deleted {_n} entries.{_backup_note}")
                         st.rerun()
 
             # ── Confirmation UI (shown below button row when pending) ───────────
@@ -362,7 +363,7 @@ def render_manage_page() -> None:
                 with _col_confirm:
                     if st.button("Confirm Delete", type="primary",
                                  key="btn_confirm_delete", width="stretch"):
-                        _n, _failures = delete_selected_entries()
+                        _n, _failures, _backup_created = delete_selected_entries()
                         st.session_state.pop("pending_delete_selected", None)
                         st.session_state["manage_select_all_mode"] = False
                         prune_selection_to_loaded_entries()
@@ -377,7 +378,8 @@ def render_manage_page() -> None:
                                 f"{len(_failures)} could not be removed."
                             )
                         else:
-                            st.success(f"Deleted {_n} entries. Backup created.")
+                            _backup_note = " Backup created." if _backup_created else ""
+                            st.success(f"Deleted {_n} entries.{_backup_note}")
                         st.rerun()
                 with _col_cancel:
                     if st.button("Cancel", key="btn_cancel_delete", width="stretch"):

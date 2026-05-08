@@ -390,3 +390,52 @@ def replace_system_prompt_bulk_service(
         backup_path=backup_path,
         affected_count=len(normalized_indices),
     )
+
+
+def delete_entries_service(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    entry_indices: list[int],
+    backup_enabled: bool = True,
+    backup_reason: str = "before_delete_selected",
+) -> DatasetOperationResult:
+    errors = _validate_dataset_path(dataset_path)
+    normalized_indices, index_errors = _normalized_indices(entry_indices, entries)
+    errors.extend(index_errors)
+    if errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not delete selected entries.",
+            errors=errors,
+        )
+
+    delete_indices = set(normalized_indices)
+    proposed_entries = [
+        copy.deepcopy(entry)
+        for index, entry in enumerate(entries)
+        if index not in delete_indices
+    ]
+
+    try:
+        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+    try:
+        save_dataset(dataset_path, proposed_entries)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save dataset: {exc}",
+        )
+
+    return DatasetOperationResult(
+        ok=True,
+        message=f"Deleted {len(normalized_indices)} entries.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=len(normalized_indices),
+    )
