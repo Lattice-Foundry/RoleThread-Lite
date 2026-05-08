@@ -1,4 +1,5 @@
 """Local dataset backup helpers."""
+import os
 import re
 import shutil
 from datetime import datetime
@@ -81,15 +82,19 @@ def create_dataset_backup(dataset_path: str | Path, reason: str) -> Path | None:
     backup_dir = get_backup_root(prefs) / _safe_name(source.stem)
     backup_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    timestamp_dt = datetime.now()
+    timestamp = timestamp_dt.strftime("%Y-%m-%d_%H%M%S")
     reason_name = _safe_name(reason)
     backup_path = backup_dir / f"{timestamp}_{reason_name}.jsonl"
     counter = 1
     while backup_path.exists():
-        backup_path = backup_dir / f"{timestamp}_{reason_name}_{counter}.jsonl"
+        backup_path = backup_dir / f"{timestamp}_{reason_name}_{counter:03d}.jsonl"
         counter += 1
 
-    shutil.copy2(source, backup_path)
+    # Preserve bytes exactly, but timestamp the backup as the backup event.
+    shutil.copyfile(source, backup_path)
+    backup_time = timestamp_dt.timestamp()
+    os.utime(backup_path, (backup_time, backup_time))
     try:
         prune_dataset_backups(backup_dir, get_backups_per_dataset(prefs))
     except Exception as exc:

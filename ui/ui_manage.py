@@ -5,6 +5,7 @@ from tkinter import filedialog
 
 import streamlit as st
 
+from core.backups import auto_backups_enabled
 from core.dataset import (
     count_exchanges,
     filter_entry_pairs_by_tags,
@@ -42,6 +43,7 @@ from core.state import (
     start_quick_edit,
     toggle_entry_selection,
 )
+from services.dataset_service import replace_single_entry_tags_service
 from ui.ui_components import render_message_preview
 
 _UNTAGGED = "__untagged__"
@@ -454,18 +456,32 @@ def render_manage_page() -> None:
                     if st.button("Save Tags", key="btn_save_single_tags"):
                         _idx = get_loaded_entry_index_by_id(_qt_entry_id)
                         if _idx is not None:
-                            _proposed_entries = copy.deepcopy(
-                                st.session_state.loaded_entries
+                            _tag_result = replace_single_entry_tags_service(
+                                dataset_path=st.session_state.get("loaded_path", ""),
+                                entries=st.session_state.loaded_entries,
+                                entry_index=_idx,
+                                tags=_qt_chosen,
+                                backup_enabled=auto_backups_enabled(
+                                    st.session_state.get("prefs", {})
+                                ),
                             )
-                            replace_entry_tags(_proposed_entries[_idx], _qt_chosen)
+                            if _tag_result.ok and _tag_result.entries is not None:
+                                st.session_state.loaded_entries = _tag_result.entries
+                                ensure_entry_registry()
+                                _backup_note = (
+                                    " Backup created." if _tag_result.backup_path else ""
+                                )
+                                st.session_state["tag_save_success"] = (
+                                    f"{_tag_result.message}{_backup_note}"
+                                )
+                                st.rerun()
+                            else:
+                                for _err in _tag_result.errors:
+                                    st.error(_err)
+                                if not _tag_result.errors:
+                                    st.error(_tag_result.message)
                         else:
-                            _proposed_entries = st.session_state.loaded_entries
-                        if _idx is not None and save_proposed_loaded_entries(
-                            _proposed_entries,
-                            backup_reason="before_single_tag_edit",
-                        ):
-                            st.session_state["tag_save_success"] = "Tags updated for selected entry. Backup created."
-                            st.rerun()
+                            st.error("Could not find the selected entry.")
 
             elif _selected_count >= 2:
                 st.markdown("**Bulk Tag Edit**")
@@ -584,12 +600,22 @@ def render_manage_page() -> None:
                                     type="primary",
                                     width="stretch",
                                 ):
-                                    if save_quick_edit(entry_id, entry):
+                                    _quick_result = save_quick_edit(entry_id, entry)
+                                    if _quick_result.ok:
                                         cancel_quick_edit()
+                                        _backup_note = (
+                                            " Backup created."
+                                            if _quick_result.backup_path else ""
+                                        )
                                         st.session_state["quick_edit_success"] = (
-                                            "Entry updated. Backup created."
+                                            f"{_quick_result.message}{_backup_note}"
                                         )
                                         st.rerun()
+                                    else:
+                                        for _err in _quick_result.errors:
+                                            st.error(_err)
+                                        if not _quick_result.errors:
+                                            st.error(_quick_result.message)
                             with _col_cancel_qe:
                                 if st.button(
                                     "Cancel",

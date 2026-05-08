@@ -15,9 +15,9 @@ from core.dataset import (
     rebuild_id_to_index,
     registry_is_valid,
     save_dataset,
-    validate_entry,
 )
 from core.preferences import save_preferences
+from services.dataset_service import DatasetOperationResult, save_quick_edit_service
 
 
 # ── Preferences session helper ─────────────────────────────────────────────────
@@ -191,11 +191,11 @@ def save_replaced_loaded_entry_by_id(
     backup_reason: str | None = None,
 ) -> bool:
     """Save a copy with entry_id replaced, then commit memory only after disk succeeds."""
-    idx = get_loaded_entry_index_by_id(entry_id)
-    if idx is None:
+    entry_index = get_loaded_entry_index_by_id(entry_id)
+    if entry_index is None:
         return False
     proposed_entries = list(st.session_state.loaded_entries)
-    proposed_entries[idx] = new_entry
+    proposed_entries[entry_index] = new_entry
     return save_proposed_loaded_entries(proposed_entries, backup_reason=backup_reason)
 
 
@@ -265,38 +265,42 @@ def cancel_quick_edit() -> None:
             st.session_state.pop(k, None)
 
 
-def save_quick_edit(entry_id: str, entry: dict) -> bool:
-    """Read edited message content from session state, validate, then save.
+def save_quick_edit(entry_id: str, entry: dict) -> DatasetOperationResult:
+    """Read edited message content from session state, then delegate saving.
 
     Updates only user/assistant message content.
     System message, role names, tags, and message order are preserved.
-    Returns True on successful save, False if validation fails or save errors.
     """
+    entry_index = get_loaded_entry_index_by_id(entry_id)
+    if entry_index is None:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not find the selected entry.",
+        )
+
     msgs = entry.get("messages", [])
     updated_msgs = []
-    for idx, msg in enumerate(msgs):
+    for msg_index, msg in enumerate(msgs):
         if not isinstance(msg, dict):
             updated_msgs.append(msg)
             continue
         role = msg.get("role")
         if role in ("user", "assistant"):
             new_content = st.session_state.get(
-                f"quick_edit_{entry_id}_{idx}", msg.get("content", "")
+                f"quick_edit_{entry_id}_{msg_index}", msg.get("content", "")
             )
             updated_msgs.append({**msg, "content": new_content})
         else:
             updated_msgs.append(dict(msg))
 
-    # Validate against a temporary copy before committing
-    temp_entry = {**entry, "messages": updated_msgs}
-    errors = validate_entry(temp_entry)
-    if errors:
-        for err in errors:
-            st.error(err)
-        return False
-
-    return save_replaced_loaded_entry_by_id(
-        entry_id,
-        temp_entry,
-        backup_reason="before_quick_edit",
+    result = save_quick_edit_service(
+        dataset_path=st.session_state.get("loaded_path", ""),
+        entries=st.session_state.loaded_entries,
+        entry_index=entry_index,
+        updated_messages=updated_msgs,
+        backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
     )
+    if result.ok and result.entries is not None:
+        st.session_state.loaded_entries = result.entries
+        ensure_entry_registry()
+    return result
