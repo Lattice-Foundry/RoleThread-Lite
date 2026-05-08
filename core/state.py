@@ -13,7 +13,6 @@ from core.dataset import (
     get_index_for_entry_id,
     rebuild_id_to_index,
     registry_is_valid,
-    remove_registry_id,
     save_dataset,
     validate_entry,
 )
@@ -47,7 +46,7 @@ def set_loaded_entries(entries: list[dict]) -> None:
 
 
 def append_loaded_entry(entry: dict) -> None:
-    """Append one entry and add a matching temp ID to the registry."""
+    """Append one entry after it has already been persisted to disk."""
     ensure_entry_registry()
     st.session_state.loaded_entries.append(entry)
     append_registry_id(st.session_state.entry_registry)
@@ -63,19 +62,6 @@ def get_loaded_entry_by_id(entry_id: str) -> dict | None:
     return entries[idx] if 0 <= idx < len(entries) else None
 
 
-def replace_loaded_entry_by_id(entry_id: str, new_entry: dict) -> bool:
-    """Overwrite the entry at entry_id in-place. Returns True on success."""
-    ensure_entry_registry()
-    idx = get_index_for_entry_id(st.session_state.entry_registry, entry_id)
-    if idx is None:
-        return False
-    entries = st.session_state.loaded_entries
-    if not (0 <= idx < len(entries)):
-        return False
-    st.session_state.loaded_entries[idx] = new_entry
-    return True
-
-
 def get_loaded_entry_index_by_id(entry_id: str) -> int | None:
     """Return the current source index for entry_id, or None if not found."""
     ensure_entry_registry()
@@ -84,23 +70,6 @@ def get_loaded_entry_index_by_id(entry_id: str) -> int | None:
     if idx is None or not (0 <= idx < len(entries)):
         return None
     return idx
-
-
-def delete_loaded_entry_by_id(entry_id: str) -> bool:
-    """Delete the entry at entry_id and remove it from the registry.
-
-    Returns True on success.
-    """
-    ensure_entry_registry()
-    idx = get_index_for_entry_id(st.session_state.entry_registry, entry_id)
-    if idx is None:
-        return False
-    entries = st.session_state.loaded_entries
-    if not (0 <= idx < len(entries)):
-        return False
-    del st.session_state.loaded_entries[idx]
-    remove_registry_id(st.session_state.entry_registry, entry_id)
-    return True
 
 
 def get_all_entry_pairs() -> list[tuple[str, dict]]:

@@ -3,9 +3,9 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.dataset import append_to_dataset, load_dataset, make_entry, save_dataset, validate_entry
+from core.dataset import append_to_dataset, make_entry, save_dataset, validate_entry
 from core.tag_registry import get_tag_registry_dict
-from core.state import _update_prefs, set_loaded_entries
+from core.state import _update_prefs, append_loaded_entry
 from ui.ui_components import (
     _ROLE_COLOR,
     calculate_exchange_metrics,
@@ -235,8 +235,7 @@ def render_entry_actions(
         elif mode == "create":
             try:
                 append_to_dataset(save_path, entry_preview)
-                entries, _ = load_dataset(save_path)
-                set_loaded_entries(entries)
+                append_loaded_entry(entry_preview)
                 _update_prefs({
                     "last_loaded_dataset_path": save_path,
                 })

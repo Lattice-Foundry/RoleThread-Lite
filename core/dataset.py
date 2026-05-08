@@ -126,8 +126,11 @@ def save_dataset(path: str, entries: list[dict]) -> None:
 def append_to_dataset(path: str, entry: dict) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(entry, ensure_ascii=False) + "\n"
     with p.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        f.write(line)
+        f.flush()
+        os.fsync(f.fileno())
 
 
 # ── Per-entry helpers ──────────────────────────────────────────────────────────
