@@ -1,4 +1,5 @@
 """Manage Dataset page — load, browse, select, edit, and delete entries."""
+import copy
 from pathlib import Path
 from tkinter import filedialog
 
@@ -30,10 +31,11 @@ from core.state import (
     ensure_entry_registry,
     ensure_selection_state,
     get_all_entry_pairs,
+    get_loaded_entry_index_by_id,
     get_loaded_entry_by_id,
     get_selected_entry_ids,
     prune_selection_to_loaded_entries,
-    save_loaded_dataset,
+    save_proposed_loaded_entries,
     save_quick_edit,
     select_visible_entries,
     set_loaded_entries,
@@ -402,11 +404,14 @@ def render_manage_page() -> None:
                         disabled=not (_new_prompt or "").strip(),
                         width="stretch",
                     ):
+                        _proposed_entries = copy.deepcopy(st.session_state.loaded_entries)
                         for _sid in _selected_ids:
-                            _se = get_loaded_entry_by_id(_sid)
-                            if _se is not None:
-                                set_entry_system_prompt(_se, _new_prompt.strip())
-                        if save_loaded_dataset():
+                            _idx = get_loaded_entry_index_by_id(_sid)
+                            if _idx is not None:
+                                set_entry_system_prompt(
+                                    _proposed_entries[_idx], _new_prompt.strip()
+                                )
+                        if save_proposed_loaded_entries(_proposed_entries):
                             st.session_state.pop("pending_system_prompt_edit", None)
                             st.session_state["sys_prompt_success"] = (
                                 f"System prompt updated for {_total_sel} entries."
@@ -444,8 +449,17 @@ def render_manage_page() -> None:
                         key=f"single_quick_tags_{_qt_entry_id}",
                     )
                     if st.button("Save Tags", key="btn_save_single_tags"):
-                        replace_entry_tags(_qt_entry, _qt_chosen)
-                        if save_loaded_dataset():
+                        _idx = get_loaded_entry_index_by_id(_qt_entry_id)
+                        if _idx is not None:
+                            _proposed_entries = copy.deepcopy(
+                                st.session_state.loaded_entries
+                            )
+                            replace_entry_tags(_proposed_entries[_idx], _qt_chosen)
+                        else:
+                            _proposed_entries = st.session_state.loaded_entries
+                        if _idx is not None and save_proposed_loaded_entries(
+                            _proposed_entries
+                        ):
                             st.session_state["tag_save_success"] = "Tags updated for selected entry."
                             st.rerun()
 
@@ -465,11 +479,12 @@ def render_manage_page() -> None:
                         disabled=not _bulk_chosen,
                         width="stretch",
                     ):
+                        _proposed_entries = copy.deepcopy(st.session_state.loaded_entries)
                         for _bid in _selected_ids:
-                            _be = get_loaded_entry_by_id(_bid)
-                            if _be is not None:
-                                replace_entry_tags(_be, _bulk_chosen)
-                        if save_loaded_dataset():
+                            _idx = get_loaded_entry_index_by_id(_bid)
+                            if _idx is not None:
+                                replace_entry_tags(_proposed_entries[_idx], _bulk_chosen)
+                        if save_proposed_loaded_entries(_proposed_entries):
                             st.session_state["tag_save_success"] = (
                                 f"Tags replaced for {_selected_count} entries."
                             )
@@ -480,11 +495,12 @@ def render_manage_page() -> None:
                         key="btn_bulk_clear_tags",
                         width="stretch",
                     ):
+                        _proposed_entries = copy.deepcopy(st.session_state.loaded_entries)
                         for _bid in _selected_ids:
-                            _be = get_loaded_entry_by_id(_bid)
-                            if _be is not None:
-                                replace_entry_tags(_be, [])
-                        if save_loaded_dataset():
+                            _idx = get_loaded_entry_index_by_id(_bid)
+                            if _idx is not None:
+                                replace_entry_tags(_proposed_entries[_idx], [])
+                        if save_proposed_loaded_entries(_proposed_entries):
                             st.session_state["tag_save_success"] = (
                                 f"Tags cleared for {_selected_count} entries."
                             )

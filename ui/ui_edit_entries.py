@@ -19,8 +19,7 @@ from core.state import (
     ensure_entry_registry,
     get_all_entry_pairs,
     get_loaded_entry_by_id,
-    replace_loaded_entry_by_id,
-    save_loaded_dataset,
+    save_replaced_loaded_entry_by_id,
 )
 from ui.ui_components import (
     calculate_exchange_metrics,
@@ -220,14 +219,8 @@ def save_full_edit() -> bool:
             st.error(err)
         return False
 
-    # ── Replace in registry (temp-ID based, position-safe) ────────────────────
-    if not replace_loaded_entry_by_id(entry_id, edited_entry):
-        st.error("Could not update selected entry.")
-        return False
-
-    # ── Persist to disk ────────────────────────────────────────────────────────
-    if not save_loaded_dataset():
-        # save_loaded_dataset() already shows st.error on failure
+    # Save the proposed replacement before committing it to session state.
+    if not save_replaced_loaded_entry_by_id(entry_id, edited_entry):
         return False
 
     # ── Success: flash message + cleanup + return to browser ──────────────────

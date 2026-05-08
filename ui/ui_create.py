@@ -251,8 +251,10 @@ def render_entry_actions(
                 st.warning("edit mode requires entry_index — nothing saved.")
             else:
                 try:
-                    st.session_state.loaded_entries[entry_index] = entry_preview
-                    save_dataset(save_path, st.session_state.loaded_entries)
+                    _proposed_entries = list(st.session_state.loaded_entries)
+                    _proposed_entries[entry_index] = entry_preview
+                    save_dataset(save_path, _proposed_entries)
+                    st.session_state.loaded_entries = _proposed_entries
                     st.success(f"Entry {entry_index + 1} updated.")
                     st.rerun()
                 except Exception as exc:

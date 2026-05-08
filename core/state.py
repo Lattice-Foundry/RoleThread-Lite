@@ -11,6 +11,7 @@ from core.dataset import (
     build_entry_registry,
     get_entry_pairs,
     get_index_for_entry_id,
+    rebuild_id_to_index,
     registry_is_valid,
     remove_registry_id,
     save_dataset,
@@ -73,6 +74,16 @@ def replace_loaded_entry_by_id(entry_id: str, new_entry: dict) -> bool:
         return False
     st.session_state.loaded_entries[idx] = new_entry
     return True
+
+
+def get_loaded_entry_index_by_id(entry_id: str) -> int | None:
+    """Return the current source index for entry_id, or None if not found."""
+    ensure_entry_registry()
+    idx = get_index_for_entry_id(st.session_state.entry_registry, entry_id)
+    entries = st.session_state.loaded_entries
+    if idx is None or not (0 <= idx < len(entries)):
+        return None
+    return idx
 
 
 def delete_loaded_entry_by_id(entry_id: str) -> bool:
@@ -155,12 +166,39 @@ def prune_selection_to_loaded_entries() -> None:
 
 def save_loaded_dataset() -> bool:
     """Save loaded_entries to loaded_path. Returns True on success, False on failure."""
+    return save_entries_to_loaded_path(st.session_state.loaded_entries)
+
+
+def save_entries_to_loaded_path(entries: list[dict]) -> bool:
+    """Save a proposed entry list to loaded_path without committing session state."""
+    if not st.session_state.get("loaded_path", "").strip():
+        st.error("No dataset loaded. Please load or create a dataset before saving.")
+        return False
     try:
-        save_dataset(st.session_state.loaded_path, st.session_state.loaded_entries)
+        save_dataset(st.session_state.loaded_path, entries)
         return True
     except Exception as exc:
         st.error(f"Failed to save dataset: {exc}")
         return False
+
+
+def save_proposed_loaded_entries(entries: list[dict]) -> bool:
+    """Save a proposed entry list, then commit it to session state on success."""
+    if not save_entries_to_loaded_path(entries):
+        return False
+    st.session_state.loaded_entries = entries
+    ensure_entry_registry()
+    return True
+
+
+def save_replaced_loaded_entry_by_id(entry_id: str, new_entry: dict) -> bool:
+    """Save a copy with entry_id replaced, then commit memory only after disk succeeds."""
+    idx = get_loaded_entry_index_by_id(entry_id)
+    if idx is None:
+        return False
+    proposed_entries = list(st.session_state.loaded_entries)
+    proposed_entries[idx] = new_entry
+    return save_proposed_loaded_entries(proposed_entries)
 
 
 def delete_selected_entries() -> tuple[int, list[str]]:
@@ -169,15 +207,31 @@ def delete_selected_entries() -> tuple[int, list[str]]:
     Clears selection only if the save succeeds.
     Returns (count_deleted, list_of_failed_ids).
     """
-    ids_to_delete = get_selected_entry_ids()
-    deleted = 0
-    failures: list[str] = []
-    for entry_id in ids_to_delete:
-        if delete_loaded_entry_by_id(entry_id):
-            deleted += 1
-        else:
-            failures.append(entry_id)
-    if deleted > 0 and save_loaded_dataset():
+    ensure_entry_registry()
+    ids_to_delete = set(get_selected_entry_ids())
+    current_ids = st.session_state.entry_registry.get("ids", [])
+    current_id_set = set(current_ids)
+    failures = [entry_id for entry_id in ids_to_delete if entry_id not in current_id_set]
+    attempted_ids = [entry_id for entry_id in current_ids if entry_id in ids_to_delete]
+
+    proposed_entries: list[dict] = []
+    proposed_ids: list[str] = []
+    for entry_id, entry in zip(current_ids, st.session_state.loaded_entries):
+        if entry_id in ids_to_delete:
+            continue
+        proposed_ids.append(entry_id)
+        proposed_entries.append(entry)
+
+    deleted = len(st.session_state.loaded_entries) - len(proposed_entries)
+    if deleted > 0:
+        if not save_entries_to_loaded_path(proposed_entries):
+            return 0, attempted_ids + failures
+        st.session_state.loaded_entries = proposed_entries
+        st.session_state.entry_registry = {
+            **st.session_state.entry_registry,
+            "ids": proposed_ids,
+            "id_to_index": rebuild_id_to_index(proposed_ids),
+        }
         clear_selected_entries()
     return deleted, failures
 
@@ -213,7 +267,7 @@ def cancel_quick_edit() -> None:
 def save_quick_edit(entry_id: str, entry: dict) -> bool:
     """Read edited message content from session state, validate, then save.
 
-    Updates only user/assistant message content in place.
+    Updates only user/assistant message content.
     System message, role names, tags, and message order are preserved.
     Returns True on successful save, False if validation fails or save errors.
     """
@@ -240,6 +294,4 @@ def save_quick_edit(entry_id: str, entry: dict) -> bool:
             st.error(err)
         return False
 
-    # Apply in-place and persist
-    entry["messages"] = updated_msgs
-    return save_loaded_dataset()
+    return save_replaced_loaded_entry_by_id(entry_id, temp_entry)

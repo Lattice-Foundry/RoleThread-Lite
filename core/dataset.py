@@ -1,5 +1,7 @@
 import json
+import os
 import random
+import tempfile
 from pathlib import Path
 
 
@@ -97,9 +99,28 @@ def load_dataset(path: str) -> tuple[list[dict], list[str]]:
 def save_dataset(path: str, entries: list[dict]) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open("w", encoding="utf-8") as f:
-        for entry in entries:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    temp_path: Path | None = None
+    try:
+        # Write beside the target so os.replace() stays atomic on the same filesystem.
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=p.parent,
+            delete=False,
+        ) as f:
+            temp_path = Path(f.name)
+            for entry in entries:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, p)
+    except Exception:
+        if temp_path is not None and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+        raise
 
 
 def append_to_dataset(path: str, entry: dict) -> None:
