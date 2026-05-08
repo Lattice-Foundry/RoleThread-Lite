@@ -4,9 +4,11 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.backups import auto_backups_enabled, create_dataset_backup
-from core.dataset import merge_datasets, save_dataset
+from core.backups import auto_backups_enabled
+from core.dataset import merge_datasets
 from core.file_dialogs import browse_open_multiple, browse_save_file, path_input
+from core.state import prune_selection_to_loaded_entries, set_loaded_entries
+from services.dataset_service import save_merged_entries_service
 
 
 def render_merge_page() -> None:
@@ -64,20 +66,17 @@ def render_merge_page() -> None:
 
             if merged:
                 p = output_path.strip()
-                try:
-                    backup_created = False
-                    if Path(p).exists() and auto_backups_enabled(st.session_state.get("prefs", {})):
-                        try:
-                            backup_path = create_dataset_backup(p, "before_merge_overwrite")
-                        except Exception as exc:
-                            st.error(f"Failed to create merge output backup: {exc}")
-                            return
-                        if backup_path is None:
-                            st.error("Could not create backup for existing merge output.")
-                            return
-                        backup_created = True
-                    save_dataset(p, merged)
-                    _backup_note = " Backup created." if backup_created else ""
+                result = save_merged_entries_service(
+                    dataset_path=p,
+                    entries=merged,
+                    backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
+                )
+                if result.ok and result.entries is not None:
+                    loaded_path = st.session_state.get("loaded_path", "")
+                    if loaded_path and Path(loaded_path).resolve() == Path(p).resolve():
+                        set_loaded_entries(result.entries)
+                        prune_selection_to_loaded_entries()
+                    _backup_note = " Backup created." if result.backup_path else ""
                     st.success(f"Merged dataset saved to `{p}`.{_backup_note}")
 
                     content = "\n".join(json.dumps(e, ensure_ascii=False) for e in merged)
@@ -87,5 +86,8 @@ def render_merge_page() -> None:
                         file_name=Path(p).name,
                         mime="application/jsonlines",
                     )
-                except Exception as exc:
-                    st.error(f"Failed to save merged dataset: {exc}")
+                else:
+                    for err in result.errors:
+                        st.error(err)
+                    if not result.errors:
+                        st.error(result.message)

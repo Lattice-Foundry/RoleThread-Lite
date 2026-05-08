@@ -439,3 +439,57 @@ def delete_entries_service(
         backup_path=backup_path,
         affected_count=len(normalized_indices),
     )
+
+
+def save_merged_entries_service(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    backup_enabled: bool = True,
+    backup_reason: str = "before_merge_save",
+) -> DatasetOperationResult:
+    if not dataset_path:
+        return DatasetOperationResult(
+            ok=False,
+            message="No merge output path selected.",
+        )
+    if not isinstance(entries, list):
+        return DatasetOperationResult(
+            ok=False,
+            message="Merged entries must be a list.",
+        )
+
+    proposed_entries = _copy_entries(entries)
+    backup_path: str | None = None
+    target = Path(dataset_path)
+
+    if backup_enabled and target.exists():
+        try:
+            created_backup = create_dataset_backup(dataset_path, backup_reason)
+        except Exception as exc:
+            return DatasetOperationResult(
+                ok=False,
+                message=f"Failed to create merge output backup: {exc}",
+            )
+        if created_backup is None:
+            return DatasetOperationResult(
+                ok=False,
+                message="Could not create backup for existing merge output.",
+            )
+        backup_path = str(created_backup)
+
+    try:
+        save_dataset(dataset_path, proposed_entries)
+    except Exception as exc:
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save merged dataset: {exc}",
+        )
+
+    return DatasetOperationResult(
+        ok=True,
+        message="Merged dataset saved.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=len(proposed_entries),
+    )
