@@ -388,7 +388,7 @@ def get_tag_category_map() -> dict[str, str]:
 # ── Write helpers (additive-only) ─────────────────────────────────────────────
 
 # Hard ceiling on active categories to keep the UI manageable.
-_MAX_ACTIVE_CATEGORIES = 5
+_MAX_ACTIVE_CATEGORIES = 10
 
 
 def get_full_tag_registry() -> list[dict]:

@@ -172,15 +172,19 @@ def render_tag_multiselects(prefix: str) -> list[str]:
         from core.dataset import TAGS as _TAGS  # local import avoids circular dep
         _registry = _TAGS
 
+    _COLS_PER_ROW = 5
     selected_tags: list[str] = []
-    tag_cols = st.columns(max(1, len(_registry)))
-    for col, (category, options) in zip(tag_cols, _registry.items()):
-        with col:
-            chosen = st.multiselect(
-                f"{category} tags",
-                options=options,
-                format_func=prettify_tag_name,
-                key=f"{prefix}_tags_{category}",
-            )
-            selected_tags.extend(chosen)
+    _cat_items = list(_registry.items())
+    for _row_start in range(0, max(1, len(_cat_items)), _COLS_PER_ROW):
+        _chunk = _cat_items[_row_start : _row_start + _COLS_PER_ROW]
+        _row_cols = st.columns(_COLS_PER_ROW)
+        for col, (category, options) in zip(_row_cols, _chunk):
+            with col:
+                chosen = st.multiselect(
+                    f"{category} tags",
+                    options=options,
+                    format_func=prettify_tag_name,
+                    key=f"{prefix}_tags_{category}",
+                )
+                selected_tags.extend(chosen)
     return selected_tags
