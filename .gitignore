@@ -9,6 +9,5 @@ notes/
 venv/
 app_data/preferences.json
 app_data/loreforge.db
-training_data/
 *.pyc
 *.jsonl
