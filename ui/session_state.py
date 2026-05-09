@@ -23,7 +23,7 @@ from services.dataset_service import (
 
 # ── Preferences session helper ─────────────────────────────────────────────────
 
-def _update_prefs(updates: dict) -> None:
+def update_prefs(updates: dict) -> None:
     """Update st.session_state.prefs in place and persist to disk."""
     st.session_state.prefs.update(updates)
     save_preferences(st.session_state.prefs)

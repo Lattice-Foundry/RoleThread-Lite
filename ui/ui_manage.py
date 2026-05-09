@@ -24,7 +24,6 @@ from core.tag_registry import (
 from ui.file_dialogs import JSONL_TYPES, _tk_root, browse_open_file, path_input
 from core.preferences import get_initial_dir
 from ui.session_state import (
-    _update_prefs,
     cancel_quick_edit,
     clear_selected_entries,
     delete_selected_entries,
@@ -40,6 +39,7 @@ from ui.session_state import (
     set_loaded_entries,
     start_quick_edit,
     toggle_entry_selection,
+    update_prefs,
 )
 from services.dataset_service import (
     clear_tags_bulk_service,
@@ -97,7 +97,7 @@ def render_manage_page() -> None:
             st.session_state.entry_page = 0
             st.session_state["manage_select_all_mode"] = False
             clear_selected_entries()
-            _update_prefs({
+            update_prefs({
                 "last_loaded_dataset_path": p,
                 "last_open_directory": str(Path(p).parent),
             })
@@ -138,7 +138,7 @@ def render_manage_page() -> None:
                     clear_selected_entries()
                     st.session_state["manage_load_path_pending"] = new_path
                     st.session_state["clear_entry_fields"] = True
-                    _update_prefs({
+                    update_prefs({
                         "last_loaded_dataset_path": new_path,
                         "last_open_directory": str(Path(new_path).parent),
                     })

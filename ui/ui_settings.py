@@ -5,7 +5,7 @@ import streamlit as st
 
 from ui.file_dialogs import browse_directory, path_input
 from core.storage import get_backups_dir, get_default_training_data_dir
-from ui.session_state import _update_prefs
+from ui.session_state import update_prefs
 
 
 def render_settings_page() -> None:
@@ -34,7 +34,7 @@ def render_settings_page() -> None:
             normalized = str(target.resolve())
             st.session_state.default_dataset_directory = normalized
             st.session_state["_default_dataset_dir_input"] = normalized
-            _update_prefs({"default_dataset_directory": normalized})
+            update_prefs({"default_dataset_directory": normalized})
             st.success("Default Dataset Folder updated.")
         except Exception as exc:
             st.error(f"Could not update Default Dataset Folder: {exc}")
@@ -44,7 +44,7 @@ def render_settings_page() -> None:
 
     def _persist_auto_backups_enabled():
         st.session_state.auto_backups_enabled = st.session_state["_auto_backups_checkbox"]
-        _update_prefs({"auto_backups_enabled": st.session_state.auto_backups_enabled})
+        update_prefs({"auto_backups_enabled": st.session_state.auto_backups_enabled})
 
     st.checkbox(
         "Enable automatic backups before protected operations",
@@ -75,7 +75,7 @@ def render_settings_page() -> None:
             normalized = str(target.resolve())
             st.session_state.backup_directory = normalized
             st.session_state["_backup_dir_input"] = normalized
-            _update_prefs({"backup_directory": normalized})
+            update_prefs({"backup_directory": normalized})
             st.success("Backup Folder updated.")
         except Exception as exc:
             st.error(f"Could not update Backup Folder: {exc}")
@@ -83,7 +83,7 @@ def render_settings_page() -> None:
     def _persist_backups_per_dataset():
         keep_count = int(st.session_state["_backups_per_dataset_input"])
         st.session_state.backups_per_dataset = keep_count
-        _update_prefs({"backups_per_dataset": keep_count})
+        update_prefs({"backups_per_dataset": keep_count})
 
     try:
         current_keep_count = int(st.session_state.prefs.get("backups_per_dataset", 25))
@@ -107,7 +107,7 @@ def render_settings_page() -> None:
 
     def _persist_dataset_format():
         st.session_state.dataset_format = st.session_state["_dataset_format_select"]
-        _update_prefs({"dataset_format": st.session_state.dataset_format})
+        update_prefs({"dataset_format": st.session_state.dataset_format})
 
     st.selectbox(
         "Default dataset format",
@@ -123,7 +123,7 @@ def render_settings_page() -> None:
 
     def _persist_confirm_delete():
         st.session_state.confirm_delete_entries = st.session_state["_confirm_delete_checkbox"]
-        _update_prefs({"confirm_delete_entries": st.session_state.confirm_delete_entries})
+        update_prefs({"confirm_delete_entries": st.session_state.confirm_delete_entries})
 
     st.checkbox(
         "Confirm before deleting entries",
@@ -137,11 +137,11 @@ def render_settings_page() -> None:
 
     def _persist_preview_user_name():
         st.session_state.preview_user_name = st.session_state["_preview_user_name_input"]
-        _update_prefs({"preview_user_name": st.session_state.preview_user_name})
+        update_prefs({"preview_user_name": st.session_state.preview_user_name})
 
     def _persist_preview_assistant_name():
         st.session_state.preview_assistant_name = st.session_state["_preview_assistant_name_input"]
-        _update_prefs({"preview_assistant_name": st.session_state.preview_assistant_name})
+        update_prefs({"preview_assistant_name": st.session_state.preview_assistant_name})
 
     st.text_input(
         "User Name",

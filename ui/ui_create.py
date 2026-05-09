@@ -9,7 +9,7 @@ import streamlit as st
 
 from core.dataset import make_entry, validate_entry
 from core.tag_registry import get_tag_registry_dict
-from ui.session_state import _update_prefs, ensure_entry_registry
+from ui.session_state import update_prefs, ensure_entry_registry
 from services.dataset_service import create_entry_service
 from ui.ui_components import (
     _ROLE_COLOR,
@@ -244,7 +244,7 @@ def render_entry_actions(
             if result.ok and result.entries is not None:
                 st.session_state.loaded_entries = result.entries
                 ensure_entry_registry()
-                _update_prefs({
+                update_prefs({
                     "last_loaded_dataset_path": save_path,
                 })
                 st.session_state["manage_load_path_pending"] = save_path
@@ -265,7 +265,7 @@ def render_create_page() -> None:
     st.subheader("System Prompt")
 
     def _persist_system_prompt():
-        _update_prefs({"last_system_prompt": st.session_state.sys_prompt_input})
+        update_prefs({"last_system_prompt": st.session_state.sys_prompt_input})
 
     st.session_state.system_prompt = st.text_area(
         "Default system prompt (applied to every entry)",
