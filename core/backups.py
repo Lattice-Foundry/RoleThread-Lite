@@ -73,7 +73,10 @@ def prune_dataset_backups(dataset_backup_dir: Path, keep_count: int) -> None:
         reverse=True,
     )
     for old_backup in backups[keep_count:]:
-        old_backup.unlink()
+        try:
+            old_backup.unlink()
+        except OSError as exc:
+            print(f"Warning: could not prune backup `{old_backup}`: {exc}")
 
 
 def create_dataset_backup(dataset_path: str | Path, reason: str) -> Path | None:

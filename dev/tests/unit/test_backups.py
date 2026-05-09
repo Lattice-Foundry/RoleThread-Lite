@@ -175,6 +175,37 @@ def test_prune_dataset_backups_treats_keep_count_below_one_as_one(tmp_path):
     assert newest.exists()
 
 
+def test_prune_dataset_backups_continues_after_one_unlink_failure(
+    tmp_path,
+    monkeypatch,
+    capsys,
+):
+    backup_dir = tmp_path / "backups" / "dataset"
+    backup_dir.mkdir(parents=True)
+    locked = _write_dataset(backup_dir / "2026-01-01_120000_before_edit.jsonl", b"locked")
+    deletable = _write_dataset(backup_dir / "2026-01-01_120001_before_edit.jsonl", b"delete")
+    newest = _write_dataset(backup_dir / "2026-01-01_120002_before_edit.jsonl", b"keep")
+    real_unlink = Path.unlink
+    attempted: list[str] = []
+
+    def flaky_unlink(self, *args, **kwargs):
+        attempted.append(self.name)
+        if self == locked:
+            raise OSError("file is locked")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    backups.prune_dataset_backups(backup_dir, keep_count=1)
+
+    assert locked.exists()
+    assert not deletable.exists()
+    assert newest.exists()
+    assert locked.name in attempted
+    assert deletable.name in attempted
+    assert "could not prune backup" in capsys.readouterr().out
+
+
 def test_create_dataset_backup_prunes_to_configured_retention(tmp_path, monkeypatch):
     _use_prefs(monkeypatch, _prefs(tmp_path, backups_per_dataset=2))
     monkeypatch.setattr(
