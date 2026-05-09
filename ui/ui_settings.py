@@ -5,7 +5,7 @@ import streamlit as st
 
 from ui.file_dialogs import browse_directory, path_input
 from core.storage import get_backups_dir, get_default_training_data_dir
-from core.state import _update_prefs
+from ui.session_state import _update_prefs
 
 
 def render_settings_page() -> None:

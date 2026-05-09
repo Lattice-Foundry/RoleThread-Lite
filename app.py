@@ -9,7 +9,7 @@ import streamlit as st
 
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset
 from core.preferences import load_preferences
-from core.state import set_loaded_entries
+from ui.session_state import set_loaded_entries
 from core.storage import ensure_app_directories
 from core.tag_registry import seed_default_tags
 from ui.ui_create import init_editor_state, render_create_page

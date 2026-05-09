@@ -5,7 +5,7 @@ import streamlit as st
 
 from core.dataset import save_dataset
 from ui.file_dialogs import browse_export_file, path_input
-from core.state import ensure_entry_registry
+from ui.session_state import ensure_entry_registry
 
 
 def render_export_page() -> None:

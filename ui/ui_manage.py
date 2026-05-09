@@ -23,7 +23,7 @@ from core.tag_registry import (
 )
 from ui.file_dialogs import JSONL_TYPES, _tk_root, browse_open_file, path_input
 from core.preferences import get_initial_dir
-from core.state import (
+from ui.session_state import (
     _update_prefs,
     cancel_quick_edit,
     clear_selected_entries,

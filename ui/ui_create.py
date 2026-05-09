@@ -9,7 +9,7 @@ import streamlit as st
 
 from core.dataset import make_entry, save_dataset, validate_entry
 from core.tag_registry import get_tag_registry_dict
-from core.state import _update_prefs, ensure_entry_registry
+from ui.session_state import _update_prefs, ensure_entry_registry
 from services.dataset_service import create_entry_service
 from ui.ui_components import (
     _ROLE_COLOR,

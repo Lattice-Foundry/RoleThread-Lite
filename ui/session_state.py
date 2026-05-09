@@ -1,7 +1,7 @@
 """Streamlit session-state bridge helpers.
 
-This module may touch st.session_state, but durable dataset mutations should
-delegate to services. It must not import app.py.
+This UI-layer module may touch st.session_state and coordinate service calls.
+Pure dataset logic belongs in core or services.
 """
 import streamlit as st
 

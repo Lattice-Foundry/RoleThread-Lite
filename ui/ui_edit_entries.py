@@ -19,7 +19,7 @@ from core.tag_registry import (
     get_tag_registry_dict,
     prettify_tag_name,
 )
-from core.state import (
+from ui.session_state import (
     ensure_entry_registry,
     get_all_entry_pairs,
     get_loaded_entry_by_id,

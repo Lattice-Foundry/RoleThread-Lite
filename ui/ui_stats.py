@@ -4,7 +4,7 @@ import plotly.express as px
 import streamlit as st
 
 from core.dataset import build_dataset_stats
-from core.state import ensure_entry_registry
+from ui.session_state import ensure_entry_registry
 from core.tag_registry import get_tag_category_map
 
 
