@@ -7,7 +7,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.dataset import make_entry, save_dataset, validate_entry
+from core.dataset import make_entry, validate_entry
 from core.tag_registry import get_tag_registry_dict
 from ui.session_state import _update_prefs, ensure_entry_registry
 from services.dataset_service import create_entry_service
@@ -174,15 +174,9 @@ def render_turn_builder(prefix: str) -> list[dict]:
 def render_entry_actions(
     turns_now: list[dict],
     prefix: str,
-    mode: str,
-    entry_index: int | None = None,
 ) -> None:
     """Render the tag selector, JSON preview, validation, planning warnings,
-    and save button for an entry editor instance.
-
-    mode — "create" appends to the dataset file;
-           "edit"   overwrites loaded_entries[entry_index] in place.
-    entry_index — required when mode == "edit"; ignored for "create".
+    and save button for a create-entry editor instance.
     """
     st.divider()
     st.subheader("Tag & Complete Exchange")
@@ -231,13 +225,17 @@ def render_entry_actions(
         )
 
     # ── Save button ────────────────────────────────────────────────────────────
-    _btn_label = "Complete Exchange" if mode == "create" else "Save Changes"
     _complete_disabled = not _entry_valid or _current_exchanges < _planned_exchanges
-    if st.button(_btn_label, disabled=_complete_disabled, type="primary", width="stretch"):
+    if st.button(
+        "Complete Exchange",
+        disabled=_complete_disabled,
+        type="primary",
+        width="stretch",
+    ):
         save_path = st.session_state.get("loaded_path", "").strip()
         if not save_path:
             st.error("No dataset loaded. Please load or create a dataset before saving an exchange.")
-        elif mode == "create":
+        else:
             result = create_entry_service(
                 dataset_path=save_path,
                 entries=st.session_state.loaded_entries,
@@ -258,19 +256,6 @@ def render_entry_actions(
                     st.error(err)
                 if not result.errors:
                     st.error(result.message)
-        elif mode == "edit":
-            if entry_index is None:
-                st.warning("edit mode requires entry_index — nothing saved.")
-            else:
-                try:
-                    _proposed_entries = list(st.session_state.loaded_entries)
-                    _proposed_entries[entry_index] = entry_preview
-                    save_dataset(save_path, _proposed_entries)
-                    st.session_state.loaded_entries = _proposed_entries
-                    st.success(f"Entry {entry_index + 1} updated.")
-                    st.rerun()
-                except Exception as exc:
-                    st.error(f"Failed to save: {exc}")
 
 
 # ── Page renderer ──────────────────────────────────────────────────────────────
@@ -298,4 +283,4 @@ def render_create_page() -> None:
     st.subheader("Conversation Preview")
     render_conversation_preview(turns_now, "create")
 
-    render_entry_actions(turns_now, "create", mode="create")
+    render_entry_actions(turns_now, "create")

@@ -102,13 +102,6 @@ def select_visible_entries(visible_pairs: list[tuple[str, dict]]) -> None:
         st.session_state.selected_entry_ids.add(entry_id)
 
 
-def deselect_visible_entries(visible_pairs: list[tuple[str, dict]]) -> None:
-    """Remove all visible (current-page) entry IDs from selected_entry_ids."""
-    ensure_selection_state()
-    for entry_id, _ in visible_pairs:
-        st.session_state.selected_entry_ids.discard(entry_id)
-
-
 def get_selected_entry_ids() -> list[str]:
     """Return selected IDs as a list."""
     ensure_selection_state()

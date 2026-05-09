@@ -28,8 +28,8 @@ def _tk_root() -> tk.Tk:
 def _save_prefs(updates: dict) -> None:
     """Update st.session_state.prefs in place and persist to disk.
 
-    Mirrors _update_prefs() in core/state.py — kept separate to avoid a circular
-    import.  Only call from within file dialog callbacks.
+    Mirrors the session-state preference helper without importing the
+    session bridge from file dialog callbacks.
     """
     st.session_state.prefs.update(updates)
     save_preferences(st.session_state.prefs)
