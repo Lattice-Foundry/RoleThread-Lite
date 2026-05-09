@@ -1,7 +1,7 @@
 """File dialog adapter used by the Streamlit UI.
 
-This module is UI-aware despite living under core. Consider moving it to
-ui/ or adapters/ in a future boundary cleanup.
+This module owns Tkinter dialogs, pending path keys, and Streamlit reruns.
+It should not contain dataset business logic.
 """
 import tkinter as tk
 from pathlib import Path

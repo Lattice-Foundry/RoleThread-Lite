@@ -4,7 +4,7 @@ from pathlib import Path
 import streamlit as st
 
 from core.dataset import save_dataset
-from core.file_dialogs import browse_export_file, path_input
+from ui.file_dialogs import browse_export_file, path_input
 from core.state import ensure_entry_registry
 
 

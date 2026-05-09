@@ -3,7 +3,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.file_dialogs import browse_directory, path_input
+from ui.file_dialogs import browse_directory, path_input
 from core.storage import get_backups_dir, get_default_training_data_dir
 from core.state import _update_prefs
 

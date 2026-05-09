@@ -21,7 +21,7 @@ from core.tag_registry import (
     get_tag_label_map,
     prettify_tag_name,
 )
-from core.file_dialogs import JSONL_TYPES, _tk_root, browse_open_file, path_input
+from ui.file_dialogs import JSONL_TYPES, _tk_root, browse_open_file, path_input
 from core.preferences import get_initial_dir
 from core.state import (
     _update_prefs,

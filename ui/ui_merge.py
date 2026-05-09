@@ -10,7 +10,7 @@ import streamlit as st
 
 from core.backups import auto_backups_enabled
 from core.dataset import merge_datasets
-from core.file_dialogs import browse_open_multiple, browse_save_file, path_input
+from ui.file_dialogs import browse_open_multiple, browse_save_file, path_input
 from core.state import prune_selection_to_loaded_entries, set_loaded_entries
 from services.dataset_service import save_merged_entries_service
 
