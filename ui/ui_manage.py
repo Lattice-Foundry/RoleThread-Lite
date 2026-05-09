@@ -48,6 +48,9 @@ from services.dataset_service import (
     replace_tags_bulk_service,
 )
 from ui.browser_helpers import (
+    DEFAULT_PAGE_SIZE,
+    MATCH_MODE_OPTIONS,
+    PAGE_SIZE_OPTIONS,
     build_filter_tag_state,
     calculate_pagination,
     format_browser_status_caption,
@@ -219,7 +222,7 @@ def render_manage_page() -> None:
         with mode_col:
             match_mode = st.radio(
                 "Match mode",
-                options=["Any selected tags", "All selected tags", "Exact match"],
+                options=MATCH_MODE_OPTIONS,
                 key="filter_match_mode",
                 on_change=_reset_page,
             )
@@ -232,18 +235,17 @@ def render_manage_page() -> None:
         )
 
         # ── Pagination ─────────────────────────────────────────────────────────
-        per_page_options = [10, 25, 50, 100, 500, "Show All"]
-        _saved_per_page = st.session_state.get("entries_per_page", 25)
+        _saved_per_page = st.session_state.get("entries_per_page", DEFAULT_PAGE_SIZE)
         default_idx = (
-            per_page_options.index(_saved_per_page)
-            if _saved_per_page in per_page_options
-            else 1  # fallback to 25
+            PAGE_SIZE_OPTIONS.index(_saved_per_page)
+            if _saved_per_page in PAGE_SIZE_OPTIONS
+            else PAGE_SIZE_OPTIONS.index(DEFAULT_PAGE_SIZE)
         )
         _col_per_page, _col_per_page_spacer = st.columns([1, 3])
         with _col_per_page:
             selected_per_page = st.selectbox(
                 "Entries per page",
-                options=per_page_options,
+                options=PAGE_SIZE_OPTIONS,
                 index=default_idx,
                 key="_entries_per_page_select",
             )

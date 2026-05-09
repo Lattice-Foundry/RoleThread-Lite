@@ -1,4 +1,10 @@
 from ui.browser_helpers import (
+    DEFAULT_PAGE_SIZE,
+    MATCH_MODE_ALL,
+    MATCH_MODE_ANY,
+    MATCH_MODE_EXACT,
+    MATCH_MODE_OPTIONS,
+    PAGE_SIZE_OPTIONS,
     SHOW_ALL,
     build_filter_tag_state,
     calculate_pagination,
@@ -19,6 +25,21 @@ def _entry(*, tags=None, messages=None):
         ],
         "tags": tags or [],
     }
+
+
+def test_browser_constants_preserve_ui_values():
+    assert DEFAULT_PAGE_SIZE == 25
+    assert PAGE_SIZE_OPTIONS == [10, 25, 50, 100, 500, SHOW_ALL]
+    assert MATCH_MODE_OPTIONS == [
+        MATCH_MODE_ANY,
+        MATCH_MODE_ALL,
+        MATCH_MODE_EXACT,
+    ]
+    assert MATCH_MODE_OPTIONS == [
+        "Any selected tags",
+        "All selected tags",
+        "Exact match",
+    ]
 
 
 def test_calculate_pagination_first_page():

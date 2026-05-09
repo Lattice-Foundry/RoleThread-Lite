@@ -12,6 +12,7 @@ from core.preferences import load_preferences
 from ui.session_state import set_loaded_entries
 from core.storage import ensure_app_directories
 from core.tag_registry import seed_default_tags
+from ui.browser_helpers import DEFAULT_PAGE_SIZE, MATCH_MODE_ANY
 from ui.ui_create import init_editor_state, render_create_page
 from ui.ui_edit_entries import render_edit_entries_page
 from ui.ui_export import render_export_page
@@ -82,18 +83,18 @@ if "prefs" not in st.session_state:
     st.session_state.loaded_path = ""
     st.session_state.stale_last_path = ""
     st.session_state.entry_page = 0
-    st.session_state.entries_per_page = 25
+    st.session_state.entries_per_page = DEFAULT_PAGE_SIZE
     st.session_state.filter_tags = []
     st.session_state.filter_only_used = True
-    st.session_state.filter_match_mode = "Any selected tags"
+    st.session_state.filter_match_mode = MATCH_MODE_ANY
     st.session_state.selected_entry_ids = set()
     st.session_state.confirm_delete_entries = prefs.get("confirm_delete_entries", True)
     st.session_state.quick_edit_entry_id = None
     st.session_state.edit_entry_page = 0
-    st.session_state.edit_entries_per_page = 25
+    st.session_state.edit_entries_per_page = DEFAULT_PAGE_SIZE
     st.session_state.edit_filter_tags = []
     st.session_state.edit_filter_only_used = True
-    st.session_state.edit_filter_match_mode = "Any selected tags"
+    st.session_state.edit_filter_match_mode = MATCH_MODE_ANY
     st.session_state.edit_entries_mode = "browser"
     st.session_state.editing_entry_id = None
     init_editor_state("create")

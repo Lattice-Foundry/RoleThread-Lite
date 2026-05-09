@@ -8,6 +8,16 @@ from dataclasses import dataclass
 from core.dataset import count_exchanges, get_available_filter_tags, get_entry_tags
 
 SHOW_ALL = "Show All"
+DEFAULT_PAGE_SIZE = 25
+PAGE_SIZE_OPTIONS = [10, DEFAULT_PAGE_SIZE, 50, 100, 500, SHOW_ALL]
+MATCH_MODE_ANY = "Any selected tags"
+MATCH_MODE_ALL = "All selected tags"
+MATCH_MODE_EXACT = "Exact match"
+MATCH_MODE_OPTIONS = [
+    MATCH_MODE_ANY,
+    MATCH_MODE_ALL,
+    MATCH_MODE_EXACT,
+]
 
 
 @dataclass(frozen=True)
@@ -61,7 +71,7 @@ def calculate_pagination(
             is_show_all=True,
         )
 
-    per_page = per_page_setting if isinstance(per_page_setting, int) else 25
+    per_page = per_page_setting if isinstance(per_page_setting, int) else DEFAULT_PAGE_SIZE
     per_page = max(1, per_page)
     total_pages = max(1, (total_items + per_page - 1) // per_page)
     page = min(max(0, requested_page), total_pages - 1)

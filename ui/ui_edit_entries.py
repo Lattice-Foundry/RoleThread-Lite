@@ -27,6 +27,9 @@ from ui.session_state import (
 )
 from services.dataset_service import save_full_edit_service
 from ui.browser_helpers import (
+    DEFAULT_PAGE_SIZE,
+    MATCH_MODE_OPTIONS,
+    PAGE_SIZE_OPTIONS,
     build_filter_tag_state,
     calculate_pagination,
     format_browser_status_caption,
@@ -453,7 +456,7 @@ def render_edit_entries_page() -> None:
     with _ee_mode_col:
         _ee_match_mode = st.radio(
             "Match mode",
-            options=["Any selected tags", "All selected tags", "Exact match"],
+            options=MATCH_MODE_OPTIONS,
             key="edit_filter_match_mode",
             on_change=_ee_reset_page,
         )
@@ -466,18 +469,17 @@ def render_edit_entries_page() -> None:
     )
 
     # ── Pagination ─────────────────────────────────────────────────────────────
-    _ee_per_page_options = [10, 25, 50, 100, 500, "Show All"]
-    _ee_saved_per_page = st.session_state.get("edit_entries_per_page", 25)
+    _ee_saved_per_page = st.session_state.get("edit_entries_per_page", DEFAULT_PAGE_SIZE)
     _ee_default_idx = (
-        _ee_per_page_options.index(_ee_saved_per_page)
-        if _ee_saved_per_page in _ee_per_page_options
-        else 1
+        PAGE_SIZE_OPTIONS.index(_ee_saved_per_page)
+        if _ee_saved_per_page in PAGE_SIZE_OPTIONS
+        else PAGE_SIZE_OPTIONS.index(DEFAULT_PAGE_SIZE)
     )
     _ee_col_per_page, _ee_col_per_page_spacer = st.columns([1, 3])
     with _ee_col_per_page:
         _ee_selected_per_page = st.selectbox(
             "Entries per page",
-            options=_ee_per_page_options,
+            options=PAGE_SIZE_OPTIONS,
             index=_ee_default_idx,
             key="_ee_entries_per_page_select",
         )
