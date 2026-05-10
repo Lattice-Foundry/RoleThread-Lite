@@ -1,6 +1,7 @@
 """Tag Management page — additive-only custom tag and category creation."""
 import streamlit as st
 
+from core.dataset import build_entry_registry
 from core.tag_registry import (
     _MAX_ACTIVE_CATEGORIES,
     create_custom_category,
@@ -13,8 +14,12 @@ from core.tag_registry import (
 from ui.tag_management_helpers import (
     selected_assignable_archived_slugs,
     validate_pending_archived_assignment,
+    validate_pending_tag_rename,
 )
-from services.tag_lifecycle_service import assign_archived_imported_tags_to_category
+from services.tag_lifecycle_service import (
+    assign_archived_imported_tags_to_category,
+    rename_active_tag,
+)
 
 
 def render_tag_management_page() -> None:
@@ -29,9 +34,31 @@ def render_tag_management_page() -> None:
         st.session_state["tm_new_tag_name"] = ""
 
     st.subheader("Tag Management")
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stButton"] button[kind="tertiary"] {
+            padding: 0;
+            min-height: 1.25rem;
+            line-height: 1.25rem;
+            color: #b7791f;
+            text-decoration: underline;
+            background: transparent;
+            border: 0;
+            box-shadow: none;
+        }
+        div[data-testid="stButton"] button[kind="tertiary"] p {
+            color: #b7791f;
+            text-decoration: underline;
+            font-size: 0.92rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     st.info(
-        "Custom tag editing is additive-only for now. Rename, deactivate, delete, "
-        "and migration tools will be added after mismatch detection is implemented."
+        "Custom tag editing is intentionally conservative. Rename is available "
+        "for custom active tags; delete, merge, and migration tools will come later."
     )
 
     # ── Flash message (shown at top, consumed on next render) ─────────────────
@@ -48,6 +75,12 @@ def render_tag_management_page() -> None:
     if not registry:
         st.info("No tags found. The tag registry may not be seeded yet.")
     else:
+        _active_custom_slugs = {
+            tag["slug"]
+            for category in registry
+            for tag in category["tags"]
+            if not tag["is_builtin"]
+        }
         for cat in registry:
             tag_count = len(cat["tags"])
             _plural = "s" if tag_count != 1 else ""
@@ -59,13 +92,151 @@ def render_tag_management_page() -> None:
                     for tag in cat["tags"]:
                         _badge_color = "#888" if tag["is_builtin"] else "#1a73e8"
                         _badge_label = "built-in" if tag["is_builtin"] else "custom"
-                        st.markdown(
-                            f"**{tag['name']}** &nbsp; "
-                            f"`{tag['slug']}` &nbsp; "
-                            f"<span style='color:{_badge_color};"
-                            f"font-size:0.82em'>{_badge_label}</span>",
-                            unsafe_allow_html=True,
+                        _is_renaming = (
+                            st.session_state.get("tm_renaming_tag_slug")
+                            == tag["slug"]
                         )
+                        if _is_renaming:
+                            _rename_key = f"tm_rename_input_{tag['slug']}"
+                            if _rename_key not in st.session_state:
+                                st.session_state[_rename_key] = tag["name"]
+                            _new_display_name = st.text_input(
+                                "Rename tag:",
+                                key=_rename_key,
+                            )
+                            _new_slug = slugify_tag_name(_new_display_name)
+                            _new_pretty = prettify_tag_name(_new_slug)
+                            st.caption(f"Canonical ID Preview: `{_new_slug}`")
+
+                            _save_col, _cancel_col = st.columns(2)
+                            with _save_col:
+                                if st.button(
+                                    "Save Rename",
+                                    key=f"btn_tm_save_rename_{tag['slug']}",
+                                    type="primary",
+                                    disabled=not _new_slug,
+                                ):
+                                    if _new_slug == tag["slug"]:
+                                        st.session_state["tm_success"] = (
+                                            "Rename canceled; tag name is unchanged."
+                                        )
+                                        st.session_state.pop(
+                                            "tm_renaming_tag_slug", None
+                                        )
+                                        st.session_state.pop(
+                                            "tm_pending_tag_rename", None
+                                        )
+                                        st.rerun()
+                                    st.session_state["tm_pending_tag_rename"] = {
+                                        "old_slug": tag["slug"],
+                                        "old_display_name": tag["name"],
+                                        "new_slug": _new_slug,
+                                        "new_display_name": _new_pretty,
+                                    }
+                                    st.rerun()
+                            with _cancel_col:
+                                if st.button(
+                                    "Cancel",
+                                    key=f"btn_tm_cancel_rename_{tag['slug']}",
+                                ):
+                                    st.session_state.pop("tm_renaming_tag_slug", None)
+                                    st.session_state.pop("tm_pending_tag_rename", None)
+                                    st.rerun()
+                            continue
+
+                        _rename_col, _pipe_col, _delete_col, _detail_col = st.columns(
+                            [0.42, 0.06, 0.42, 9.1],
+                            gap="small",
+                        )
+                        with _rename_col:
+                            if not tag["is_builtin"] and st.button(
+                                "Rename",
+                                key=f"btn_tm_rename_{tag['slug']}",
+                                type="tertiary",
+                            ):
+                                st.session_state["tm_renaming_tag_slug"] = tag["slug"]
+                                st.session_state[
+                                    f"tm_rename_input_{tag['slug']}"
+                                ] = tag["name"]
+                                st.session_state.pop("tm_pending_tag_rename", None)
+                                st.rerun()
+                        with _pipe_col:
+                            if tag["is_builtin"]:
+                                st.empty()
+                            else:
+                                st.markdown(
+                                    "<span style='color:#999'>|</span>",
+                                    unsafe_allow_html=True,
+                                )
+                        with _delete_col:
+                            if tag["is_builtin"]:
+                                st.empty()
+                            else:
+                                st.markdown(
+                                    "<span style='color:#b42318;"
+                                    "text-decoration:underline;font-size:0.92rem'>"
+                                    "Delete</span>",
+                                    unsafe_allow_html=True,
+                                )
+                        with _detail_col:
+                            st.markdown(
+                                f"**{tag['name']}** &nbsp; "
+                                f"`{tag['slug']}` &nbsp; "
+                                f"<span style='color:{_badge_color};"
+                                f"font-size:0.82em'>{_badge_label}</span>",
+                                unsafe_allow_html=True,
+                            )
+
+        _pending_rename = st.session_state.get("tm_pending_tag_rename")
+        _validated_pending_rename = validate_pending_tag_rename(
+            pending_rename=_pending_rename,
+            current_rename_slug=st.session_state.get("tm_renaming_tag_slug"),
+            active_custom_slugs=_active_custom_slugs,
+        )
+        if _pending_rename and not _validated_pending_rename:
+            st.session_state.pop("tm_pending_tag_rename", None)
+            st.warning("Tag rename was refreshed because the row changed.")
+        _pending_rename = _validated_pending_rename
+        if _pending_rename:
+            st.warning(
+                f"Rename tag \"{_pending_rename['old_display_name']}\" to "
+                f"\"{_pending_rename['new_display_name']}\"?\n\n"
+                "This updates the canonical metadata identity used throughout "
+                "LoreForge. Existing dataset entries using this tag will also "
+                "be updated."
+            )
+            _confirm_col, _cancel_col = st.columns(2)
+            with _confirm_col:
+                if st.button(
+                    "Confirm Rename",
+                    key="btn_tm_confirm_tag_rename",
+                    type="primary",
+                ):
+                    _result = rename_active_tag(
+                        old_slug=_pending_rename["old_slug"],
+                        new_display_name=_pending_rename["new_display_name"],
+                        dataset_path=st.session_state.get("loaded_path", ""),
+                        entries=st.session_state.get("loaded_entries", []),
+                    )
+                    if _result.ok:
+                        if _result.entries is not None:
+                            st.session_state.loaded_entries = _result.entries
+                            st.session_state.entry_registry = build_entry_registry(
+                                _result.entries
+                            )
+                        st.session_state["tm_success"] = _result.message
+                        st.session_state.pop("tm_renaming_tag_slug", None)
+                        st.session_state.pop("tm_pending_tag_rename", None)
+                        st.rerun()
+                    else:
+                        st.error(_result.message)
+                        for _error in _result.errors:
+                            st.caption(_error)
+                        st.session_state.pop("tm_pending_tag_rename", None)
+            with _cancel_col:
+                if st.button("Cancel", key="btn_tm_cancel_tag_rename"):
+                    st.session_state.pop("tm_pending_tag_rename", None)
+                    st.rerun()
 
     # ── Section 1b: Archived lifecycle tags ───────────────────────────────────
     st.divider()

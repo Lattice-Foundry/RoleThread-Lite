@@ -37,3 +37,27 @@ def validate_pending_archived_assignment(
         return None
 
     return pending_assignment
+
+
+def validate_pending_tag_rename(
+    *,
+    pending_rename: dict | None,
+    current_rename_slug: str | None,
+    active_custom_slugs: set[str],
+) -> dict | None:
+    """Return pending rename only while it still matches the active edit row."""
+    if not pending_rename:
+        return None
+
+    old_slug = pending_rename.get("old_slug")
+    new_slug = pending_rename.get("new_slug")
+    new_display_name = pending_rename.get("new_display_name")
+    required_values = [old_slug, new_slug, new_display_name]
+    if not all(isinstance(value, str) and value for value in required_values):
+        return None
+    if old_slug != current_rename_slug:
+        return None
+    if old_slug not in active_custom_slugs:
+        return None
+
+    return pending_rename

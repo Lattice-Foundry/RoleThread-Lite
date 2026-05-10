@@ -548,13 +548,21 @@ def build_hidden_metadata() -> dict:
     }
 
 
-def build_rename_alias_metadata() -> dict:
+def build_rename_alias_metadata(
+    old_slug: str | None = None,
+    new_slug: str | None = None,
+) -> dict:
     """Return resolver metadata for a hidden rename alias."""
-    return {
+    metadata = {
         "lifecycle_state": LIFECYCLE_STATE_HIDDEN,
         "alias_type": TAG_LIFECYCLE_METADATA_RENAME,
         "resolver_behavior": RESOLVER_BEHAVIOR_MAP_TO_TARGET,
     }
+    if old_slug is not None:
+        metadata["old_slug"] = normalize_tag(old_slug).slug
+    if new_slug is not None:
+        metadata["new_slug"] = normalize_tag(new_slug).slug
+    return metadata
 
 
 def build_merge_alias_metadata() -> dict:
@@ -679,6 +687,34 @@ def clear_or_replace_tag_lifecycle_metadata(
         metadata=metadata,
         session=session,
     )
+
+
+def clear_current_tag_lifecycle_metadata(slug: str, session=None) -> None:
+    """Remove current-state lifecycle metadata for a slug, preserving aliases."""
+    normalized = normalize_tag(slug).slug
+    if not normalized:
+        return
+
+    own_session = session is None
+    active_session = session or SessionLocal()
+    try:
+        (
+            active_session.query(TagLifecycleMetadata)
+            .filter(
+                TagLifecycleMetadata.old_slug == normalized,
+                TagLifecycleMetadata.action.in_(TAG_CURRENT_METADATA_ACTIONS),
+            )
+            .delete(synchronize_session=False)
+        )
+        if own_session:
+            active_session.commit()
+    except Exception:
+        if own_session:
+            active_session.rollback()
+        raise
+    finally:
+        if own_session:
+            active_session.close()
 
 
 def _archive_metadata_for_tag(tag: dict) -> dict:
