@@ -77,13 +77,26 @@ def render_tag_management_page() -> None:
         st.info("No archived tags.")
     else:
         for tag in _archived_tags:
-            _label_col, _action_col = st.columns([7, 3])
+            _select_col, _label_col, _action_col = st.columns(
+                [0.35, 7.65, 3],
+                gap="small",
+            )
             _badge = tag["visible_badge"]
+            with _select_col:
+                if tag.get("selectable"):
+                    st.checkbox(
+                        "Select archived tag",
+                        key=f"tm_archived_select_{tag['slug']}",
+                        label_visibility="collapsed",
+                    )
+                else:
+                    st.empty()
             with _label_col:
                 st.markdown(
-                    f"**{tag['name']}** &nbsp; "
+                    f"<div style='padding-top:0.52rem;line-height:1.5'>"
+                    f"<strong>{tag['display_name']}</strong> &nbsp; "
                     f"<span style='color:#777;font-size:0.82em'>"
-                    f"{_badge}</span>",
+                    f"{_badge}</span></div>",
                     unsafe_allow_html=True,
                 )
             with _action_col:

@@ -141,6 +141,111 @@ def test_history_models_can_be_inserted(tag_db):
         session.close()
 
 
+def test_current_lifecycle_metadata_upserts_one_current_row(tag_db):
+    tag_registry.upsert_tag_lifecycle_metadata(
+        action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED,
+        old_slug="slow_burn",
+        old_display_name="Slow Burn",
+        new_slug="slow_burn",
+        new_display_name="Slow Burn",
+        metadata=tag_registry.build_imported_archive_metadata(),
+    )
+    tag_registry.upsert_tag_lifecycle_metadata(
+        action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED,
+        old_slug="slow-burn",
+        old_display_name="Slow Burn",
+        new_slug="slow_burn",
+        new_display_name="Slow Burn",
+        metadata=tag_registry.build_imported_archive_metadata(),
+    )
+
+    session = tag_db()
+    try:
+        histories = session.query(TagHistory).all()
+        assert len(histories) == 1
+        assert histories[0].action == tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
+    finally:
+        session.close()
+
+
+def test_current_lifecycle_metadata_replaces_imported_with_active_deleted_and_hidden(tag_db):
+    tag_registry.upsert_tag_lifecycle_metadata(
+        action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED,
+        old_slug="slow_burn",
+        metadata=tag_registry.build_imported_archive_metadata(),
+    )
+    tag_registry.clear_or_replace_tag_lifecycle_metadata(
+        action=tag_registry.TAG_HISTORY_ASSIGN_CATEGORY,
+        old_slug="slow_burn",
+        new_slug="slow_burn",
+        new_category_slug="pacing",
+        metadata=tag_registry.build_active_assigned_metadata("pacing"),
+    )
+
+    active_metadata = tag_registry.get_current_tag_lifecycle_metadata("slow burn")
+    assert active_metadata["lifecycle_state"] == "active"
+    assert active_metadata["activation_origin"] == "imported_assignment"
+    assert active_metadata["assigned_category_slug"] == "pacing"
+
+    tag_registry.clear_or_replace_tag_lifecycle_metadata(
+        action=tag_registry.TAG_HISTORY_ARCHIVE,
+        old_slug="slow_burn",
+        old_category_slug="pacing",
+        metadata=tag_registry.build_deleted_archive_metadata("pacing"),
+    )
+    deleted_metadata = tag_registry.get_current_tag_lifecycle_metadata("slow_burn")
+    assert deleted_metadata["lifecycle_state"] == "archived"
+    assert deleted_metadata["archive_origin"] == "deleted"
+    assert deleted_metadata["previous_category_slug"] == "pacing"
+
+    tag_registry.clear_or_replace_tag_lifecycle_metadata(
+        action=tag_registry.TAG_HISTORY_HIDE,
+        old_slug="slow_burn",
+        metadata=tag_registry.build_hidden_metadata(),
+    )
+    hidden_metadata = tag_registry.get_current_tag_lifecycle_metadata("slow_burn")
+    assert hidden_metadata["lifecycle_state"] == "hidden"
+    assert hidden_metadata["hide_reason"] == "hidden_from_archive"
+
+    session = tag_db()
+    try:
+        histories = session.query(TagHistory).all()
+        assert len(histories) == 1
+        assert histories[0].action == tag_registry.TAG_HISTORY_HIDE
+    finally:
+        session.close()
+
+
+@pytest.mark.parametrize(
+    ("action", "metadata_builder"),
+    [
+        (tag_registry.TAG_HISTORY_RENAME, tag_registry.build_rename_alias_metadata),
+        (tag_registry.TAG_HISTORY_MERGE, tag_registry.build_merge_alias_metadata),
+    ],
+)
+def test_alias_metadata_remains_resolver_usable(tag_db, action, metadata_builder):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="new_tag", category=category)
+        session.commit()
+    finally:
+        session.close()
+
+    tag_registry.upsert_tag_lifecycle_metadata(
+        action=action,
+        old_slug="old_tag",
+        new_slug="new_tag",
+        metadata=metadata_builder(),
+    )
+
+    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_ALIAS_MAPPED
+    assert result.resolved_slug == "new_tag"
+    assert result.should_rewrite_slug is True
+
+
 @pytest.mark.parametrize(
     "raw",
     ["Slow Burn", "slow burn", "slow-burn", "SLOW BURN"],
@@ -487,8 +592,12 @@ def test_lifecycle_specific_helpers_return_status_scoped_tags(tag_db):
     deleted = tag_registry.get_deleted_archived_tags()
     assert [tag["slug"] for tag in imported] == ["uncategorized_tag"]
     assert imported[0]["visible_badge"] == "Imported"
+    assert imported[0]["selectable"] is True
+    assert imported[0]["can_assign_to_category"] is True
     assert [tag["slug"] for tag in deleted] == ["archived_tag"]
     assert deleted[0]["visible_badge"] == "Deleted"
+    assert deleted[0]["selectable"] is False
+    assert deleted[0]["can_assign_to_category"] is False
 
     visible_archived = tag_registry.get_visible_archived_tags()
     assert [tag["name"] for tag in visible_archived] == [
@@ -574,6 +683,7 @@ def test_ensure_archived_import_tag_creates_inactive_archived_with_history(tag_d
         assert history.new_display_name == "Slow Burn"
         assert history.new_category_slug is None
         metadata = json.loads(history.metadata_json)
+        assert metadata["lifecycle_state"] == "archived"
         assert metadata["archive_origin"] == "imported"
         assert metadata["archive_reason"] == "unknown_import"
         assert metadata["visible_badge"] == "Imported"
@@ -584,6 +694,11 @@ def test_ensure_archived_import_tag_creates_inactive_archived_with_history(tag_d
     assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
         "slow_burn"
     ]
+    session = tag_db()
+    try:
+        assert session.query(TagHistory).filter_by(old_slug="slow_burn").count() == 1
+    finally:
+        session.close()
 
 
 def test_ensure_uncategorized_tag_reuses_existing_uncategorized_tag(tag_db):
@@ -896,6 +1011,7 @@ def test_ensure_tags_exist_for_dataset_writes_import_archived_history(tag_db):
         assert history.old_slug == "slow_burn"
         assert history.old_display_name == "Slow Burn"
         metadata = json.loads(history.metadata_json)
+        assert metadata["lifecycle_state"] == "archived"
         assert metadata["archive_origin"] == "imported"
         assert metadata["visible_badge"] == "Imported"
     finally:
