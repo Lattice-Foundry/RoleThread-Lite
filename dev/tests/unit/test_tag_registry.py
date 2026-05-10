@@ -342,6 +342,178 @@ def test_resolve_tag_lifecycle_returns_unknown_for_truly_unknown_tag(tag_db):
     assert result.should_skip_creation is False
 
 
+def test_active_registry_helpers_exclude_lifecycle_inactive_tags(tag_db):
+    session = tag_db()
+    try:
+        active_category = _add_category(session, name="Behavior", slug="behavior")
+        inactive_category = _add_category(
+            session,
+            name="Retired Category",
+            slug="retired_category",
+            active=False,
+        )
+        _add_tag(session, slug="active_tag", category=active_category)
+        _add_tag(
+            session,
+            slug="uncategorized_tag",
+            status=TAG_STATUS_UNCATEGORIZED,
+            active=False,
+        )
+        _add_tag(
+            session,
+            slug="archived_tag",
+            category=active_category,
+            status=TAG_STATUS_ARCHIVED,
+            active=False,
+        )
+        _add_tag(
+            session,
+            slug="hidden_tag",
+            category=active_category,
+            status=TAG_STATUS_HIDDEN,
+            active=False,
+        )
+        _add_tag(session, slug="no_category_active_tag", category=None)
+        _add_tag(
+            session,
+            slug="inactive_category_tag",
+            category=inactive_category,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    assert tag_registry.get_tag_registry_dict() == {"Behavior": ["active_tag"]}
+    assert tag_registry.get_all_tag_slugs() == ["active_tag"]
+    assert tag_registry.get_tag_category_map() == {"active_tag": "Behavior"}
+
+    label_map = tag_registry.get_tag_label_map(include_untagged=False)
+    assert label_map == {"active_tag": "Behavior / Active Tag"}
+
+    full_registry = tag_registry.get_full_tag_registry()
+    assert len(full_registry) == 1
+    assert full_registry[0]["name"] == "Behavior"
+    assert [tag["slug"] for tag in full_registry[0]["tags"]] == ["active_tag"]
+
+    session = tag_db()
+    try:
+        active_category = session.query(TagCategory).filter_by(slug="behavior").one()
+        inactive_category = (
+            session.query(TagCategory).filter_by(slug="retired_category").one()
+        )
+    finally:
+        session.close()
+    assert [tag.slug for tag in tag_registry.get_active_tags(active_category.id)] == [
+        "active_tag"
+    ]
+    assert tag_registry.get_active_tags(inactive_category.id) == []
+
+
+def test_active_registry_helpers_keep_empty_active_categories(tag_db):
+    session = tag_db()
+    try:
+        _add_category(session, name="Empty", slug="empty")
+        session.commit()
+    finally:
+        session.close()
+
+    assert tag_registry.get_tag_registry_dict() == {"Empty": []}
+    full_registry = tag_registry.get_full_tag_registry()
+    assert full_registry == [
+        {
+            "id": full_registry[0]["id"],
+            "name": "Empty",
+            "slug": "empty",
+            "sort_order": 0,
+            "tags": [],
+        }
+    ]
+
+
+def test_lifecycle_specific_helpers_return_status_scoped_tags(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="active_tag", category=category)
+        _add_tag(
+            session,
+            slug="uncategorized_tag",
+            status=TAG_STATUS_UNCATEGORIZED,
+            active=False,
+        )
+        _add_tag(
+            session,
+            slug="archived_tag",
+            category=category,
+            status=TAG_STATUS_ARCHIVED,
+            active=False,
+        )
+        _add_tag(
+            session,
+            slug="hidden_tag",
+            category=category,
+            status=TAG_STATUS_HIDDEN,
+            active=False,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
+        "uncategorized_tag"
+    ]
+    assert [tag["slug"] for tag in tag_registry.get_archived_tags()] == ["archived_tag"]
+    assert [tag["slug"] for tag in tag_registry.get_hidden_tags()] == ["hidden_tag"]
+    assert [tag["slug"] for tag in tag_registry.get_tags_by_status(TAG_STATUS_ACTIVE)] == [
+        "active_tag"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("slug", "status"),
+    [
+        ("active_tag", TAG_STATUS_ACTIVE),
+        ("uncategorized_tag", TAG_STATUS_UNCATEGORIZED),
+        ("archived_tag", TAG_STATUS_ARCHIVED),
+        ("hidden_tag", TAG_STATUS_HIDDEN),
+    ],
+)
+def test_get_tag_by_slug_any_status_finds_lifecycle_tags(tag_db, slug, status):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="active_tag", category=category)
+        _add_tag(
+            session,
+            slug="uncategorized_tag",
+            status=TAG_STATUS_UNCATEGORIZED,
+            active=False,
+        )
+        _add_tag(
+            session,
+            slug="archived_tag",
+            category=category,
+            status=TAG_STATUS_ARCHIVED,
+            active=False,
+        )
+        _add_tag(
+            session,
+            slug="hidden_tag",
+            category=category,
+            status=TAG_STATUS_HIDDEN,
+            active=False,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    tag = tag_registry.get_tag_by_slug_any_status(slug.replace("_", " "))
+
+    assert tag is not None
+    assert tag.slug == slug
+    assert tag.status == status
+
+
 def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_under_unsorted(tag_db):
     tag_registry.ensure_unsorted_category()
     session = tag_db()

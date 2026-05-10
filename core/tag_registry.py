@@ -235,6 +235,20 @@ def _get_active_tag(session, slug: str) -> Tag | None:
     )
 
 
+def _query_active_tags(session):
+    """Return a query for active tags with active category membership."""
+    return (
+        session.query(Tag)
+        .join(TagCategory, Tag.category_id == TagCategory.id)
+        .filter(
+            Tag.status == TAG_STATUS_ACTIVE,
+            Tag.is_active.is_(True),
+            Tag.category_id.isnot(None),
+            TagCategory.is_active.is_(True),
+        )
+    )
+
+
 def _resolve_alias_mapping(session, slug: str) -> tuple[str, str] | None:
     """Follow rename/merge history to an active target slug."""
     seen: set[str] = set()
@@ -567,8 +581,8 @@ def get_active_tags(category_id: int) -> list[Tag]:
     session = SessionLocal()
     try:
         return (
-            session.query(Tag)
-            .filter_by(category_id=category_id, is_active=True)
+            _query_active_tags(session)
+            .filter(Tag.category_id == category_id)
             .order_by(Tag.sort_order, Tag.slug)
             .all()
         )
@@ -597,8 +611,8 @@ def get_tag_registry_dict() -> dict[str, list[str]]:
         result: dict[str, list[str]] = {}
         for cat in categories:
             tags = (
-                session.query(Tag)
-                .filter_by(category_id=cat.id, is_active=True)
+                _query_active_tags(session)
+                .filter(Tag.category_id == cat.id)
                 .order_by(Tag.sort_order, Tag.slug)
                 .all()
             )
@@ -634,8 +648,8 @@ def get_tag_label_map(
             result[untagged_key] = "Untagged"
         for cat in categories:
             tags = (
-                session.query(Tag)
-                .filter_by(category_id=cat.id, is_active=True)
+                _query_active_tags(session)
+                .filter(Tag.category_id == cat.id)
                 .order_by(Tag.sort_order, Tag.slug)
                 .all()
             )
@@ -664,8 +678,8 @@ def get_all_tag_slugs() -> list[str]:
         result: list[str] = []
         for cat in categories:
             tags = (
-                session.query(Tag)
-                .filter_by(category_id=cat.id, is_active=True)
+                _query_active_tags(session)
+                .filter(Tag.category_id == cat.id)
                 .order_by(Tag.sort_order, Tag.slug)
                 .all()
             )
@@ -692,13 +706,77 @@ def get_tag_category_map() -> dict[str, str]:
         result: dict[str, str] = {}
         for cat in categories:
             tags = (
-                session.query(Tag)
-                .filter_by(category_id=cat.id, is_active=True)
+                _query_active_tags(session)
+                .filter(Tag.category_id == cat.id)
                 .all()
             )
             for t in tags:
                 result[t.slug] = cat.name
         return result
+    finally:
+        session.close()
+
+
+def _tag_to_dict(tag: Tag) -> dict:
+    """Return a plain lifecycle tag shape for non-picker registry views."""
+    category = tag.category
+    return {
+        "id": tag.id,
+        "name": tag.name,
+        "slug": tag.slug,
+        "sort_order": tag.sort_order,
+        "is_active": tag.is_active,
+        "is_builtin": tag.is_builtin,
+        "status": tag.status,
+        "category_id": tag.category_id,
+        "category_name": category.name if category is not None else None,
+        "category_slug": category.slug if category is not None else None,
+    }
+
+
+def get_tags_by_status(status: str) -> list[dict]:
+    """Return tags with one lifecycle status as plain dicts."""
+    session = SessionLocal()
+    try:
+        tags = (
+            session.query(Tag)
+            .filter_by(status=status)
+            .order_by(Tag.sort_order, Tag.name, Tag.slug)
+            .all()
+        )
+        return [_tag_to_dict(tag) for tag in tags]
+    finally:
+        session.close()
+
+
+def get_uncategorized_tags() -> list[dict]:
+    """Return known-but-untrusted imported tags."""
+    return get_tags_by_status(TAG_STATUS_UNCATEGORIZED)
+
+
+def get_archived_tags() -> list[dict]:
+    """Return archived/deleted tags for future restore surfaces."""
+    return get_tags_by_status(TAG_STATUS_ARCHIVED)
+
+
+def get_hidden_tags() -> list[dict]:
+    """Return internal history-only tags."""
+    return get_tags_by_status(TAG_STATUS_HIDDEN)
+
+
+def get_tag_by_slug_any_status(slug: str) -> Tag | None:
+    """Return a tag row by canonical slug regardless of lifecycle status."""
+    normalized = normalize_tag(slug)
+    if not normalized.slug:
+        return None
+    session = SessionLocal()
+    try:
+        return (
+            session.query(Tag)
+            .filter_by(slug=normalized.slug)
+            .order_by(Tag.id)
+            .first()
+        )
     finally:
         session.close()
 
@@ -722,8 +800,8 @@ def get_full_tag_registry() -> list[dict]:
         result: list[dict] = []
         for cat in categories:
             tags = (
-                session.query(Tag)
-                .filter_by(category_id=cat.id, is_active=True)
+                _query_active_tags(session)
+                .filter(Tag.category_id == cat.id)
                 .order_by(Tag.sort_order, Tag.name)
                 .all()
             )
