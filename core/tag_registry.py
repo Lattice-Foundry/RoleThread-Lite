@@ -52,6 +52,16 @@ class TagAdoptionSummary:
     created_slugs: list[str] = field(default_factory=list)
 
 
+@dataclass
+class UncategorizedTagSummary:
+    """Result of ensuring imported tags exist as uncategorized records."""
+
+    created_count: int = 0
+    created_slugs: list[str] = field(default_factory=list)
+    existing_slugs: list[str] = field(default_factory=list)
+    skipped_slugs: list[str] = field(default_factory=list)
+
+
 @dataclass(frozen=True)
 class TagResolutionResult:
     """Lifecycle resolution result for one imported tag value."""
@@ -389,6 +399,94 @@ def resolve_tag_lifecycle(raw_tag: str) -> TagResolutionResult:
         )
     finally:
         session.close()
+
+
+def ensure_uncategorized_tag(raw_tag: str) -> TagResolutionResult:
+    """Create an uncategorized tag for a truly unknown imported tag."""
+    resolution = resolve_tag_lifecycle(raw_tag)
+    if not resolution.should_create_uncategorized or not resolution.normalized_slug:
+        return resolution
+
+    session = SessionLocal()
+    try:
+        existing_tag = (
+            session.query(Tag)
+            .filter_by(slug=resolution.normalized_slug)
+            .order_by(Tag.id)
+            .first()
+        )
+        if existing_tag is not None:
+            return TagResolutionResult(
+                raw=resolution.raw,
+                normalized_slug=resolution.normalized_slug,
+                normalized_display_name=resolution.normalized_display_name,
+                resolved_slug=resolution.resolved_slug,
+                result_type=resolution.result_type,
+                should_rewrite_slug=resolution.should_rewrite_slug,
+                should_create_uncategorized=False,
+                should_skip_creation=True,
+                target_slug=resolution.target_slug,
+                reason=f"existing_{existing_tag.status}",
+            )
+
+        tag = Tag(
+            category_id=None,
+            name=resolution.normalized_display_name,
+            slug=resolution.normalized_slug,
+            sort_order=0,
+            is_active=True,
+            is_builtin=False,
+            status=TAG_STATUS_UNCATEGORIZED,
+        )
+        session.add(tag)
+        session.add(
+            TagHistory(
+                action=TAG_HISTORY_IMPORT_UNCATEGORIZED,
+                old_slug=resolution.normalized_slug,
+                old_display_name=resolution.normalized_display_name,
+                old_category_slug=None,
+                new_slug=resolution.normalized_slug,
+                new_display_name=resolution.normalized_display_name,
+                new_category_slug=None,
+            )
+        )
+        session.commit()
+        return TagResolutionResult(
+            raw=resolution.raw,
+            normalized_slug=resolution.normalized_slug,
+            normalized_display_name=resolution.normalized_display_name,
+            resolved_slug=resolution.resolved_slug,
+            result_type=TAG_RESOLUTION_UNCATEGORIZED,
+            should_create_uncategorized=False,
+            should_skip_creation=True,
+            reason=TAG_HISTORY_IMPORT_UNCATEGORIZED,
+        )
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def ensure_uncategorized_tags_for_dataset(entries: list[dict]) -> UncategorizedTagSummary:
+    """Ensure used dataset tags are known as inactive uncategorized records."""
+    used_slugs: set[str] = set()
+    for tag in get_used_tags(entries):
+        normalized = normalize_tag(tag)
+        if normalized.slug:
+            used_slugs.add(normalized.slug)
+
+    summary = UncategorizedTagSummary()
+    for slug in sorted(used_slugs):
+        result = ensure_uncategorized_tag(slug)
+        if result.reason == TAG_HISTORY_IMPORT_UNCATEGORIZED:
+            summary.created_count += 1
+            summary.created_slugs.append(result.normalized_slug)
+        elif result.result_type == TAG_RESOLUTION_UNKNOWN:
+            summary.skipped_slugs.append(result.normalized_slug)
+        else:
+            summary.existing_slugs.append(result.resolved_slug)
+    return summary
 
 
 # ── Seeding ────────────────────────────────────────────────────────────────────

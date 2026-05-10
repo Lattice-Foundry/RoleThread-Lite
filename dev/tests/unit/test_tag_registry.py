@@ -514,6 +514,217 @@ def test_get_tag_by_slug_any_status_finds_lifecycle_tags(tag_db, slug, status):
     assert tag.status == status
 
 
+def test_ensure_uncategorized_tag_creates_inactive_uncategorized_with_history(tag_db):
+    result = tag_registry.ensure_uncategorized_tag("Slow Burn")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_UNCATEGORIZED
+    assert result.normalized_slug == "slow_burn"
+    assert result.should_create_uncategorized is False
+    assert result.should_skip_creation is True
+    assert result.reason == tag_registry.TAG_HISTORY_IMPORT_UNCATEGORIZED
+
+    session = tag_db()
+    try:
+        tag = session.query(Tag).filter_by(slug="slow_burn").one()
+        assert tag.name == "Slow Burn"
+        assert tag.status == TAG_STATUS_UNCATEGORIZED
+        assert tag.category_id is None
+        assert tag.is_builtin is False
+
+        history = session.query(TagHistory).one()
+        assert history.action == tag_registry.TAG_HISTORY_IMPORT_UNCATEGORIZED
+        assert history.old_slug == "slow_burn"
+        assert history.old_display_name == "Slow Burn"
+        assert history.old_category_slug is None
+        assert history.new_slug == "slow_burn"
+        assert history.new_display_name == "Slow Burn"
+        assert history.new_category_slug is None
+    finally:
+        session.close()
+
+    assert tag_registry.get_tag_registry_dict() == {}
+    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
+        "slow_burn"
+    ]
+
+
+def test_ensure_uncategorized_tag_reuses_existing_uncategorized_tag(tag_db):
+    session = tag_db()
+    try:
+        _add_tag(
+            session,
+            slug="slow_burn",
+            status=TAG_STATUS_UNCATEGORIZED,
+            active=False,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.ensure_uncategorized_tag("Slow Burn")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_UNCATEGORIZED
+    assert result.should_skip_creation is True
+
+    session = tag_db()
+    try:
+        assert session.query(Tag).filter_by(slug="slow_burn").count() == 1
+        assert session.query(TagHistory).count() == 0
+    finally:
+        session.close()
+
+
+def test_ensure_uncategorized_tag_does_not_duplicate_active_tag(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="slow_burn", category=category)
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.ensure_uncategorized_tag("Slow Burn")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_ACTIVE
+    assert result.should_create_uncategorized is False
+
+    session = tag_db()
+    try:
+        assert session.query(Tag).filter_by(slug="slow_burn").count() == 1
+        assert session.query(TagHistory).count() == 0
+    finally:
+        session.close()
+
+
+@pytest.mark.parametrize(
+    ("status", "result_type"),
+    [
+        (TAG_STATUS_ARCHIVED, tag_registry.TAG_RESOLUTION_ARCHIVED),
+        (TAG_STATUS_HIDDEN, tag_registry.TAG_RESOLUTION_HIDDEN),
+    ],
+)
+def test_ensure_uncategorized_tag_does_not_reactivate_archived_or_hidden(
+    tag_db, status, result_type
+):
+    session = tag_db()
+    try:
+        _add_tag(session, slug="legacy_tag", status=status, active=False)
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.ensure_uncategorized_tag("Legacy Tag")
+
+    assert result.result_type == result_type
+    assert result.should_skip_creation is True
+
+    session = tag_db()
+    try:
+        tag = session.query(Tag).filter_by(slug="legacy_tag").one()
+        assert tag.status == status
+        assert tag.is_active is False
+        assert session.query(TagHistory).count() == 0
+    finally:
+        session.close()
+
+
+def test_ensure_uncategorized_tag_does_not_create_for_alias_mapped_slug(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="new_tag", category=category)
+        session.add(
+            TagHistory(
+                action=tag_registry.TAG_HISTORY_RENAME,
+                old_slug="old_tag",
+                new_slug="new_tag",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.ensure_uncategorized_tag("Old Tag")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_ALIAS_MAPPED
+    assert result.resolved_slug == "new_tag"
+    assert result.should_rewrite_slug is True
+
+    session = tag_db()
+    try:
+        assert session.query(Tag).filter_by(slug="old_tag").count() == 0
+        assert session.query(Tag).filter_by(slug="new_tag").count() == 1
+        assert session.query(TagHistory).count() == 1
+    finally:
+        session.close()
+
+
+def test_ensure_uncategorized_tag_does_not_create_for_retired_history(tag_db):
+    session = tag_db()
+    try:
+        session.add(
+            TagHistory(
+                action=tag_registry.TAG_HISTORY_HIDE,
+                old_slug="retired_tag",
+                old_display_name="Retired Tag",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.ensure_uncategorized_tag("Retired Tag")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_RETIRED
+    assert result.should_skip_creation is True
+
+    session = tag_db()
+    try:
+        assert session.query(Tag).filter_by(slug="retired_tag").count() == 0
+        assert session.query(TagHistory).count() == 1
+    finally:
+        session.close()
+
+
+def test_ensure_uncategorized_tags_for_dataset_creates_only_unknown_tags(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="known_tag", category=category)
+        _add_tag(
+            session,
+            slug="old_uncategorized",
+            status=TAG_STATUS_UNCATEGORIZED,
+            active=False,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    summary = tag_registry.ensure_uncategorized_tags_for_dataset(
+        [
+            {"tags": ["known_tag", "new tag"]},
+            {"tags": ["old_uncategorized", "new-tag"]},
+        ]
+    )
+
+    assert summary.created_count == 1
+    assert summary.created_slugs == ["new_tag"]
+    assert summary.existing_slugs == ["known_tag", "old_uncategorized"]
+    assert summary.skipped_slugs == []
+
+    session = tag_db()
+    try:
+        assert session.query(Tag).filter_by(slug="new_tag").one().status == (
+            TAG_STATUS_UNCATEGORIZED
+        )
+        assert session.query(TagHistory).filter_by(
+            action=tag_registry.TAG_HISTORY_IMPORT_UNCATEGORIZED
+        ).count() == 1
+    finally:
+        session.close()
+
+
 def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_under_unsorted(tag_db):
     tag_registry.ensure_unsorted_category()
     session = tag_db()
