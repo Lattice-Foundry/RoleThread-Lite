@@ -19,26 +19,24 @@ from core.models import (
     TAG_STATUS_UNCATEGORIZED,
     Tag,
     TagCategory,
-    TagHistory,
+    TagLifecycleMetadata,
 )
 from core.tag_normalization import normalize_tag
 
 
 # Legacy category from earlier archived-import handling. New unknown imports do
 # not use it; seed_default_tags deactivates an empty legacy row.
-UNSORTED_CATEGORY_NAME = "Unsorted"
-UNSORTED_CATEGORY_SLUG = "unsorted"
-UNSORTED_SORT_ORDER = -1000
+_UNSORTED_CATEGORY_SLUG = "unsorted"
 
-TAG_HISTORY_RENAME = "rename"
-TAG_HISTORY_MERGE = "merge"
-TAG_HISTORY_ARCHIVE = "archive"
-TAG_HISTORY_RESTORE = "restore"
-TAG_HISTORY_ASSIGN_CATEGORY = "assign_category"
-TAG_HISTORY_HIDE = "hide"
-TAG_HISTORY_DELETE = "delete"
-TAG_HISTORY_IMPORT_ARCHIVED = "import_archived"
-TAG_HISTORY_IMPORT_UNCATEGORIZED = "import_uncategorized"
+TAG_LIFECYCLE_METADATA_RENAME = "rename"
+TAG_LIFECYCLE_METADATA_MERGE = "merge"
+TAG_LIFECYCLE_METADATA_ARCHIVE = "archive"
+TAG_LIFECYCLE_METADATA_RESTORE = "restore"
+TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY = "assign_category"
+TAG_LIFECYCLE_METADATA_HIDE = "hide"
+TAG_LIFECYCLE_METADATA_DELETE = "delete"
+TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED = "import_archived"
+TAG_LIFECYCLE_METADATA_IMPORT_UNCATEGORIZED = "import_uncategorized"
 
 LIFECYCLE_STATE_ACTIVE = "active"
 LIFECYCLE_STATE_ARCHIVED = "archived"
@@ -54,22 +52,21 @@ HIDE_REASON_HIDDEN_FROM_ARCHIVE = "hidden_from_archive"
 RESOLVER_BEHAVIOR_MAP_TO_TARGET = "map_to_target"
 
 TAG_CURRENT_METADATA_ACTIONS = [
-    TAG_HISTORY_IMPORT_ARCHIVED,
-    TAG_HISTORY_IMPORT_UNCATEGORIZED,
-    TAG_HISTORY_ARCHIVE,
-    TAG_HISTORY_RESTORE,
-    TAG_HISTORY_ASSIGN_CATEGORY,
-    TAG_HISTORY_HIDE,
-    TAG_HISTORY_DELETE,
+    TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
+    TAG_LIFECYCLE_METADATA_IMPORT_UNCATEGORIZED,
+    TAG_LIFECYCLE_METADATA_ARCHIVE,
+    TAG_LIFECYCLE_METADATA_RESTORE,
+    TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
+    TAG_LIFECYCLE_METADATA_HIDE,
+    TAG_LIFECYCLE_METADATA_DELETE,
 ]
 TAG_ALIAS_METADATA_ACTIONS = [
-    TAG_HISTORY_RENAME,
-    TAG_HISTORY_MERGE,
+    TAG_LIFECYCLE_METADATA_RENAME,
+    TAG_LIFECYCLE_METADATA_MERGE,
 ]
 
 TAG_RESOLUTION_ACTIVE = "active"
 TAG_RESOLUTION_ALIAS_MAPPED = "alias_mapped"
-TAG_RESOLUTION_UNCATEGORIZED = "uncategorized"
 TAG_RESOLUTION_ARCHIVED = "archived"
 TAG_RESOLUTION_HIDDEN = "hidden"
 TAG_RESOLUTION_RETIRED = "retired"
@@ -94,9 +91,6 @@ class ArchivedTagImportSummary:
     skipped_slugs: list[str] = field(default_factory=list)
 
 
-UncategorizedTagSummary = ArchivedTagImportSummary
-
-
 @dataclass(frozen=True)
 class TagResolutionResult:
     """Lifecycle resolution result for one imported tag value."""
@@ -107,7 +101,6 @@ class TagResolutionResult:
     resolved_slug: str
     result_type: str
     should_rewrite_slug: bool = False
-    should_create_uncategorized: bool = False
     should_create_archived: bool = False
     should_skip_creation: bool = False
     target_slug: str | None = None
@@ -177,6 +170,7 @@ def _migrate_tag_lifecycle_schema() -> None:
     """Add lifecycle columns/tables while preserving existing registry rows."""
     _migrate_tags_slug_column()
     Base.metadata.create_all(bind=engine)
+    _migrate_tag_history_table()
 
     inspector = sa_inspect(engine)
     if "tags" not in inspector.get_table_names():
@@ -204,6 +198,8 @@ def _migrate_tag_lifecycle_schema() -> None:
                 {"status": TAG_STATUS_ACTIVE},
             )
             conn.commit()
+
+    _migrate_uncategorized_tags_to_archived()
 
     inspector = sa_inspect(engine)
     category_column = next(
@@ -266,6 +262,76 @@ def _migrate_tag_lifecycle_schema() -> None:
         conn.commit()
 
 
+def _migrate_uncategorized_tags_to_archived() -> None:
+    """Convert recent dev uncategorized imports to archived/imported tags."""
+    inspector = sa_inspect(engine)
+    if "tags" not in inspector.get_table_names():
+        return
+    existing_cols = {c["name"] for c in inspector.get_columns("tags")}
+    if "status" not in existing_cols:
+        return
+
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                "UPDATE tags "
+                "SET status = :archived, is_active = 0 "
+                "WHERE status = :uncategorized"
+            ),
+            {
+                "archived": TAG_STATUS_ARCHIVED,
+                "uncategorized": TAG_STATUS_UNCATEGORIZED,
+            },
+        )
+        conn.commit()
+
+
+def _migrate_tag_history_table() -> None:
+    """Copy old tag_history rows into tag_lifecycle_metadata if needed."""
+    inspector = sa_inspect(engine)
+    tables = set(inspector.get_table_names())
+    if "tag_history" not in tables or "tag_lifecycle_metadata" not in tables:
+        return
+
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO tag_lifecycle_metadata (
+                    id,
+                    action,
+                    old_slug,
+                    old_display_name,
+                    old_category_slug,
+                    new_slug,
+                    new_display_name,
+                    new_category_slug,
+                    created_at,
+                    metadata_json
+                )
+                SELECT
+                    old.id,
+                    old.action,
+                    old.old_slug,
+                    old.old_display_name,
+                    old.old_category_slug,
+                    old.new_slug,
+                    old.new_display_name,
+                    old.new_category_slug,
+                    old.created_at,
+                    old.metadata_json
+                FROM tag_history AS old
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM tag_lifecycle_metadata AS current
+                    WHERE current.id = old.id
+                )
+                """
+            )
+        )
+        conn.commit()
+
+
 def _get_active_tag(session, slug: str) -> Tag | None:
     """Return an active tag only when it belongs to an active category."""
     return (
@@ -306,14 +372,14 @@ def _resolve_alias_mapping(session, slug: str) -> tuple[str, str] | None:
         seen.add(current_slug)
 
         history = (
-            session.query(TagHistory)
+            session.query(TagLifecycleMetadata)
             .filter(
-                TagHistory.old_slug == current_slug,
-                TagHistory.action.in_([TAG_HISTORY_RENAME, TAG_HISTORY_MERGE]),
-                TagHistory.new_slug.isnot(None),
-                TagHistory.new_slug != "",
+                TagLifecycleMetadata.old_slug == current_slug,
+                TagLifecycleMetadata.action.in_([TAG_LIFECYCLE_METADATA_RENAME, TAG_LIFECYCLE_METADATA_MERGE]),
+                TagLifecycleMetadata.new_slug.isnot(None),
+                TagLifecycleMetadata.new_slug != "",
             )
-            .order_by(TagHistory.id.desc())
+            .order_by(TagLifecycleMetadata.id.desc())
             .first()
         )
         if history is None:
@@ -331,14 +397,14 @@ def _resolve_alias_mapping(session, slug: str) -> tuple[str, str] | None:
 
 def _has_retired_history(session, slug: str) -> bool:
     """Return True when history says a slug should not be recreated."""
-    retired_actions = [TAG_HISTORY_ARCHIVE, TAG_HISTORY_HIDE, TAG_HISTORY_DELETE]
+    retired_actions = [TAG_LIFECYCLE_METADATA_ARCHIVE, TAG_LIFECYCLE_METADATA_HIDE, TAG_LIFECYCLE_METADATA_DELETE]
     histories = (
-        session.query(TagHistory)
+        session.query(TagLifecycleMetadata)
         .filter(
-            TagHistory.old_slug == slug,
-            TagHistory.action.in_(retired_actions),
+            TagLifecycleMetadata.old_slug == slug,
+            TagLifecycleMetadata.action.in_(retired_actions),
         )
-        .order_by(TagHistory.id.desc())
+        .order_by(TagLifecycleMetadata.id.desc())
         .all()
     )
     for history in histories:
@@ -397,7 +463,7 @@ def resolve_tag_lifecycle(raw_tag: str) -> TagResolutionResult:
         )
         if existing_tag is not None:
             status_to_result = {
-                TAG_STATUS_UNCATEGORIZED: TAG_RESOLUTION_UNCATEGORIZED,
+                TAG_STATUS_UNCATEGORIZED: TAG_RESOLUTION_ARCHIVED,
                 TAG_STATUS_ARCHIVED: TAG_RESOLUTION_ARCHIVED,
                 TAG_STATUS_HIDDEN: TAG_RESOLUTION_HIDDEN,
             }
@@ -486,7 +552,7 @@ def build_rename_alias_metadata() -> dict:
     """Return resolver metadata for a hidden rename alias."""
     return {
         "lifecycle_state": LIFECYCLE_STATE_HIDDEN,
-        "alias_type": TAG_HISTORY_RENAME,
+        "alias_type": TAG_LIFECYCLE_METADATA_RENAME,
         "resolver_behavior": RESOLVER_BEHAVIOR_MAP_TO_TARGET,
     }
 
@@ -495,7 +561,7 @@ def build_merge_alias_metadata() -> dict:
     """Return resolver metadata for a hidden merge alias."""
     return {
         "lifecycle_state": LIFECYCLE_STATE_HIDDEN,
-        "alias_type": TAG_HISTORY_MERGE,
+        "alias_type": TAG_LIFECYCLE_METADATA_MERGE,
         "resolver_behavior": RESOLVER_BEHAVIOR_MAP_TO_TARGET,
     }
 
@@ -511,7 +577,7 @@ def upsert_tag_lifecycle_metadata(
     new_category_slug: str | None = None,
     metadata: dict | None = None,
     session=None,
-) -> TagHistory:
+) -> TagLifecycleMetadata:
     """Create or replace the current lifecycle metadata row for a slug."""
     normalized_old = normalize_tag(old_slug).slug
     if not normalized_old:
@@ -526,16 +592,16 @@ def upsert_tag_lifecycle_metadata(
     active_session = session or SessionLocal()
     try:
         history = (
-            active_session.query(TagHistory)
+            active_session.query(TagLifecycleMetadata)
             .filter(
-                TagHistory.old_slug == normalized_old,
-                TagHistory.action.in_(actions),
+                TagLifecycleMetadata.old_slug == normalized_old,
+                TagLifecycleMetadata.action.in_(actions),
             )
-            .order_by(TagHistory.id.desc())
+            .order_by(TagLifecycleMetadata.id.desc())
             .first()
         )
         if history is None:
-            history = TagHistory(old_slug=normalized_old)
+            history = TagLifecycleMetadata(old_slug=normalized_old)
             active_session.add(history)
 
         history.action = action
@@ -570,12 +636,12 @@ def get_current_tag_lifecycle_metadata(slug: str) -> dict:
     session = SessionLocal()
     try:
         history = (
-            session.query(TagHistory)
+            session.query(TagLifecycleMetadata)
             .filter(
-                TagHistory.old_slug == normalized,
-                TagHistory.action.in_(TAG_CURRENT_METADATA_ACTIONS),
+                TagLifecycleMetadata.old_slug == normalized,
+                TagLifecycleMetadata.action.in_(TAG_CURRENT_METADATA_ACTIONS),
             )
-            .order_by(TagHistory.id.desc())
+            .order_by(TagLifecycleMetadata.id.desc())
             .first()
         )
         if history is None or not history.metadata_json:
@@ -600,7 +666,7 @@ def clear_or_replace_tag_lifecycle_metadata(
     new_display_name: str | None = None,
     new_category_slug: str | None = None,
     session=None,
-) -> TagHistory:
+) -> TagLifecycleMetadata:
     """Replace the current lifecycle metadata for a slug."""
     return upsert_tag_lifecycle_metadata(
         action=action,
@@ -664,7 +730,6 @@ def _create_archived_import_tag_from_resolution(
                 resolved_slug=resolution.resolved_slug,
                 result_type=resolution.result_type,
                 should_rewrite_slug=resolution.should_rewrite_slug,
-                should_create_uncategorized=False,
                 should_create_archived=False,
                 should_skip_creation=True,
                 target_slug=resolution.target_slug,
@@ -682,7 +747,7 @@ def _create_archived_import_tag_from_resolution(
         )
         session.add(tag)
         upsert_tag_lifecycle_metadata(
-            action=TAG_HISTORY_IMPORT_ARCHIVED,
+            action=TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
             old_slug=resolution.normalized_slug,
             old_display_name=resolution.normalized_display_name,
             old_category_slug=None,
@@ -699,21 +764,15 @@ def _create_archived_import_tag_from_resolution(
             normalized_display_name=resolution.normalized_display_name,
             resolved_slug=resolution.resolved_slug,
             result_type=TAG_RESOLUTION_ARCHIVED,
-            should_create_uncategorized=False,
             should_create_archived=False,
             should_skip_creation=True,
-            reason=TAG_HISTORY_IMPORT_ARCHIVED,
+            reason=TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
         )
     except Exception:
         session.rollback()
         raise
     finally:
         session.close()
-
-
-def ensure_uncategorized_tag(raw_tag: str) -> TagResolutionResult:
-    """Compatibility wrapper for archived/imported tag adoption."""
-    return ensure_archived_import_tag(raw_tag)
 
 
 def ensure_archived_import_tags_for_dataset(entries: list[dict]) -> ArchivedTagImportSummary:
@@ -730,7 +789,7 @@ def ensure_archived_import_tags_for_dataset(entries: list[dict]) -> ArchivedTagI
         create_db_backup(engine=engine)
     for resolution in resolutions:
         result = _create_archived_import_tag_from_resolution(resolution)
-        if result.reason == TAG_HISTORY_IMPORT_ARCHIVED:
+        if result.reason == TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED:
             summary.created_count += 1
             summary.created_slugs.append(result.normalized_slug)
         elif result.result_type == TAG_RESOLUTION_UNKNOWN:
@@ -738,11 +797,6 @@ def ensure_archived_import_tags_for_dataset(entries: list[dict]) -> ArchivedTagI
         else:
             summary.existing_slugs.append(result.resolved_slug)
     return summary
-
-
-def ensure_uncategorized_tags_for_dataset(entries: list[dict]) -> ArchivedTagImportSummary:
-    """Compatibility wrapper for archived/imported dataset adoption."""
-    return ensure_archived_import_tags_for_dataset(entries)
 
 
 # ── Seeding ────────────────────────────────────────────────────────────────────
@@ -915,7 +969,7 @@ def _migrate_legacy_source_status_category(session) -> None:
 
 def _deactivate_empty_unsorted_category(session) -> None:
     """Deactivate legacy Unsorted only when no tags depend on it."""
-    category = session.query(TagCategory).filter_by(slug=UNSORTED_CATEGORY_SLUG).first()
+    category = session.query(TagCategory).filter_by(slug=_UNSORTED_CATEGORY_SLUG).first()
     if category is None:
         return
     has_tags = session.query(Tag).filter_by(category_id=category.id).first() is not None
@@ -940,36 +994,6 @@ def _order_custom_categories_after_defaults(
     )
     for offset, category in enumerate(custom_categories, start=len(default_category_slugs)):
         category.sort_order = offset
-
-
-def ensure_unsorted_category() -> TagCategory:
-    """Ensure legacy Unsorted exists for compatibility-only tests/migrations."""
-    session = SessionLocal()
-    try:
-        category = (
-            session.query(TagCategory)
-            .filter_by(slug=UNSORTED_CATEGORY_SLUG)
-            .first()
-        )
-        if category is None:
-            category = TagCategory(
-                name=UNSORTED_CATEGORY_NAME,
-                slug=UNSORTED_CATEGORY_SLUG,
-                sort_order=UNSORTED_SORT_ORDER,
-                is_active=True,
-            )
-            session.add(category)
-            session.commit()
-            session.refresh(category)
-        else:
-            category.name = UNSORTED_CATEGORY_NAME
-            category.sort_order = UNSORTED_SORT_ORDER
-            category.is_active = True
-            session.commit()
-            session.refresh(category)
-        return category
-    finally:
-        session.close()
 
 
 def ensure_tags_exist_for_dataset(entries: list[dict]) -> TagAdoptionSummary:
@@ -1168,21 +1192,16 @@ def get_tags_by_status(status: str) -> list[dict]:
         session.close()
 
 
-def get_uncategorized_tags() -> list[dict]:
-    """Return known-but-untrusted imported tags."""
-    return get_tags_by_status(TAG_STATUS_UNCATEGORIZED)
-
-
 def get_archived_tags() -> list[dict]:
     """Return archived/deleted tags for future restore surfaces."""
     return get_tags_by_status(TAG_STATUS_ARCHIVED)
 
 
 def get_imported_archived_tags() -> list[dict]:
-    """Return visible imported archived tags, including recent uncategorized rows."""
+    """Return visible imported archived tags."""
     tags = [
         tag
-        for tag in get_archived_tags() + get_uncategorized_tags()
+        for tag in get_archived_tags()
         if tag.get("category_id") is None
     ]
     result = []

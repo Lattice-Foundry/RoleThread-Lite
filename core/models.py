@@ -12,7 +12,7 @@ TAG_STATUS_HIDDEN = "hidden"
 
 
 def _utc_timestamp() -> str:
-    """Return an ISO timestamp for registry history rows."""
+    """Return an ISO timestamp for registry metadata rows."""
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -73,9 +73,9 @@ class Tag(Base):
         return f"<Tag id={self.id} slug={self.slug!r} category_id={self.category_id}>"
 
 
-class TagHistory(Base):
-    """Append-only lifecycle history for tag slug changes and retirement."""
-    __tablename__ = "tag_history"
+class TagLifecycleMetadata(Base):
+    """Current lifecycle metadata and resolver intelligence for one tag slug."""
+    __tablename__ = "tag_lifecycle_metadata"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     action: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -91,7 +91,7 @@ class TagHistory(Base):
     metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     def __repr__(self) -> str:
-        return f"<TagHistory id={self.id} action={self.action!r}>"
+        return f"<TagLifecycleMetadata id={self.id} action={self.action!r}>"
 
 
 class CategoryHistory(Base):

@@ -7,10 +7,9 @@ import core.tag_registry as tag_registry
 from core.models import (
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
-    TAG_STATUS_UNCATEGORIZED,
     Tag,
     TagCategory,
-    TagHistory,
+    TagLifecycleMetadata,
 )
 from core.tag_normalization import normalize_tag
 
@@ -49,12 +48,12 @@ def _normalized_unique_slugs(tag_slugs: list[str]) -> tuple[list[str], list[str]
 
 def _current_metadata(session, slug: str) -> dict:
     history = (
-        session.query(TagHistory)
+        session.query(TagLifecycleMetadata)
         .filter(
-            TagHistory.old_slug == slug,
-            TagHistory.action.in_(tag_registry.TAG_CURRENT_METADATA_ACTIONS),
+            TagLifecycleMetadata.old_slug == slug,
+            TagLifecycleMetadata.action.in_(tag_registry.TAG_CURRENT_METADATA_ACTIONS),
         )
-        .order_by(TagHistory.id.desc())
+        .order_by(TagLifecycleMetadata.id.desc())
         .first()
     )
     if history is None or not history.metadata_json:
@@ -142,7 +141,7 @@ def assign_archived_imported_tags_to_category(
                 )
                 continue
 
-            if tag.status not in {TAG_STATUS_ARCHIVED, TAG_STATUS_UNCATEGORIZED}:
+            if tag.status != TAG_STATUS_ARCHIVED:
                 validation_errors.append(f"Tag is not archived: {tag_label}")
                 continue
             if not _is_imported_archived_tag(session, tag):
@@ -186,7 +185,7 @@ def assign_archived_imported_tags_to_category(
             tag.category_id = category.id
             tag.sort_order = next_sort_order + offset
             tag_registry.clear_or_replace_tag_lifecycle_metadata(
-                action=tag_registry.TAG_HISTORY_ASSIGN_CATEGORY,
+                action=tag_registry.TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
                 old_slug=tag.slug,
                 old_display_name=tag.name,
                 old_category_slug=None,

@@ -10,10 +10,9 @@ from core.models import (
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
     TAG_STATUS_HIDDEN,
-    TAG_STATUS_UNCATEGORIZED,
     Tag,
     TagCategory,
-    TagHistory,
+    TagLifecycleMetadata,
 )
 from services.tag_lifecycle_service import assign_archived_imported_tags_to_category
 
@@ -79,7 +78,7 @@ def _add_imported_archived_tag(session, slug):
         active=False,
     )
     tag_registry.upsert_tag_lifecycle_metadata(
-        action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED,
+        action=tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
         old_slug=slug,
         old_display_name=tag.name,
         new_slug=slug,
@@ -91,7 +90,7 @@ def _add_imported_archived_tag(session, slug):
 
 
 def _metadata_for(session, slug):
-    history = session.query(TagHistory).filter_by(old_slug=slug).one()
+    history = session.query(TagLifecycleMetadata).filter_by(old_slug=slug).one()
     return json.loads(history.metadata_json)
 
 
@@ -163,50 +162,6 @@ def test_assign_multiple_archived_imported_tags_to_active_category(tag_lifecycle
         session.close()
 
 
-def test_assign_accepts_legacy_uncategorized_imported_row(tag_lifecycle_db):
-    session = tag_lifecycle_db()
-    try:
-        category = _add_category(session)
-        category_id = category.id
-        tag = _add_tag(
-            session,
-            slug="anal_plugs",
-            status=TAG_STATUS_UNCATEGORIZED,
-            active=False,
-        )
-        tag_registry.upsert_tag_lifecycle_metadata(
-            action=tag_registry.TAG_HISTORY_IMPORT_UNCATEGORIZED,
-            old_slug=tag.slug,
-            old_display_name=tag.name,
-            new_slug=tag.slug,
-            new_display_name=tag.name,
-            metadata=tag_registry.build_imported_archive_metadata(),
-            session=session,
-        )
-        session.commit()
-    finally:
-        session.close()
-
-    result = assign_archived_imported_tags_to_category(
-        tag_slugs=["anal_plugs"],
-        category_slug="behavior",
-    )
-
-    assert result.ok is True
-    assert result.affected_count == 1
-
-    session = tag_lifecycle_db()
-    try:
-        tag = session.query(Tag).filter_by(slug="anal_plugs").one()
-        assert tag.status == TAG_STATUS_ACTIVE
-        assert tag.is_active is True
-        assert tag.category_id == category_id
-        metadata = _metadata_for(session, "anal_plugs")
-        assert metadata == tag_registry.build_active_assigned_metadata("behavior")
-    finally:
-        session.close()
-
-
 def test_assign_rejects_no_selected_tags(tag_lifecycle_db):
     result = assign_archived_imported_tags_to_category(
         tag_slugs=[],
@@ -259,7 +214,7 @@ def test_assign_rejects_missing_active_hidden_and_deleted_tags(tag_lifecycle_db)
             active=False,
         )
         tag_registry.upsert_tag_lifecycle_metadata(
-            action=tag_registry.TAG_HISTORY_ARCHIVE,
+            action=tag_registry.TAG_LIFECYCLE_METADATA_ARCHIVE,
             old_slug=deleted.slug,
             old_display_name=deleted.name,
             old_category_slug="behavior",

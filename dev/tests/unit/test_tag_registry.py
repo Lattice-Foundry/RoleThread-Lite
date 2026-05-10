@@ -12,10 +12,9 @@ from core.models import (
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
     TAG_STATUS_HIDDEN,
-    TAG_STATUS_UNCATEGORIZED,
     Tag,
     TagCategory,
-    TagHistory,
+    TagLifecycleMetadata,
 )
 
 
@@ -79,6 +78,7 @@ def test_seed_default_tags_uses_current_category_order_without_unsorted(tag_db):
 
     registry = tag_registry.get_full_tag_registry()
 
+    assert not hasattr(tag_registry, "ensure_unsorted_category")
     assert [category["name"] for category in registry] == [
         "Behavior",
         "Scene",
@@ -154,7 +154,8 @@ def test_seed_default_tags_migrates_source_status_and_reviewed(tag_db):
 def test_tag_lifecycle_schema_exists_for_fresh_database(tag_db):
     inspector = sa_inspect(tag_registry.engine)
 
-    assert "tag_history" in inspector.get_table_names()
+    assert "tag_lifecycle_metadata" in inspector.get_table_names()
+    assert "tag_history" not in inspector.get_table_names()
     assert "category_history" in inspector.get_table_names()
 
     tag_columns = {column["name"]: column for column in inspector.get_columns("tags")}
@@ -162,7 +163,7 @@ def test_tag_lifecycle_schema_exists_for_fresh_database(tag_db):
     assert tag_columns["category_id"]["nullable"] is True
 
 
-def test_tags_default_to_active_and_can_have_no_category(tag_db):
+def test_schema_allows_archived_tags_without_category(tag_db):
     session = tag_db()
     try:
         tag = Tag(
@@ -170,15 +171,128 @@ def test_tags_default_to_active_and_can_have_no_category(tag_db):
             name="Loose Tag",
             slug="loose_tag",
             sort_order=0,
-            is_active=True,
+            is_active=False,
             is_builtin=False,
+            status=TAG_STATUS_ARCHIVED,
         )
         session.add(tag)
         session.commit()
         session.refresh(tag)
 
-        assert tag.status == TAG_STATUS_ACTIVE
+        assert tag.status == TAG_STATUS_ARCHIVED
         assert tag.category_id is None
+        assert tag.is_active is False
+    finally:
+        session.close()
+
+
+def test_old_tag_history_rows_migrate_to_lifecycle_metadata(tmp_path, monkeypatch):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'legacy_history.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    monkeypatch.setattr(tag_registry, "engine", engine)
+    monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE tag_history (
+                    id INTEGER NOT NULL,
+                    action VARCHAR(40) NOT NULL,
+                    old_slug VARCHAR(120),
+                    old_display_name VARCHAR(120),
+                    old_category_slug VARCHAR(120),
+                    new_slug VARCHAR(120),
+                    new_display_name VARCHAR(120),
+                    new_category_slug VARCHAR(120),
+                    created_at VARCHAR(40) NOT NULL,
+                    metadata_json TEXT,
+                    PRIMARY KEY (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO tag_history (
+                    id,
+                    action,
+                    old_slug,
+                    old_display_name,
+                    old_category_slug,
+                    new_slug,
+                    new_display_name,
+                    new_category_slug,
+                    created_at,
+                    metadata_json
+                )
+                VALUES (
+                    1,
+                    'rename',
+                    'old_tag',
+                    'Old Tag',
+                    NULL,
+                    'new_tag',
+                    'New Tag',
+                    NULL,
+                    '2026-01-01T00:00:00+00:00',
+                    '{"resolver_behavior":"map_to_target"}'
+                )
+                """
+            )
+        )
+
+    session = session_factory()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="new_tag", category=category)
+        session.commit()
+    finally:
+        session.close()
+
+    tag_registry._migrate_tag_lifecycle_schema()
+    tag_registry._migrate_tag_lifecycle_schema()
+
+    session = session_factory()
+    try:
+        row = session.query(TagLifecycleMetadata).one()
+        assert row.action == tag_registry.TAG_LIFECYCLE_METADATA_RENAME
+        assert row.old_slug == "old_tag"
+        assert row.new_slug == "new_tag"
+        assert session.query(TagLifecycleMetadata).count() == 1
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+    assert result.result_type == tag_registry.TAG_RESOLUTION_ALIAS_MAPPED
+    assert result.resolved_slug == "new_tag"
+
+
+def test_uncategorized_tags_migrate_to_archived(tag_db):
+    session = tag_db()
+    try:
+        _add_tag(
+            session,
+            slug="legacy_import",
+            status="uncategorized",
+            active=True,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    tag_registry._migrate_tag_lifecycle_schema()
+
+    session = tag_db()
+    try:
+        tag = session.query(Tag).filter_by(slug="legacy_import").one()
+        assert tag.status == TAG_STATUS_ARCHIVED
+        assert tag.is_active is False
     finally:
         session.close()
 
@@ -186,7 +300,7 @@ def test_tags_default_to_active_and_can_have_no_category(tag_db):
 def test_history_models_can_be_inserted(tag_db):
     session = tag_db()
     try:
-        tag_history = TagHistory(
+        tag_lifecycle_metadata = TagLifecycleMetadata(
             action="rename",
             old_slug="old_tag",
             old_display_name="Old Tag",
@@ -200,10 +314,10 @@ def test_history_models_can_be_inserted(tag_db):
             new_slug="new_category",
             new_display_name="New Category",
         )
-        session.add_all([tag_history, category_history])
+        session.add_all([tag_lifecycle_metadata, category_history])
         session.commit()
 
-        assert session.query(TagHistory).count() == 1
+        assert session.query(TagLifecycleMetadata).count() == 1
         assert session.query(CategoryHistory).count() == 1
     finally:
         session.close()
@@ -211,7 +325,7 @@ def test_history_models_can_be_inserted(tag_db):
 
 def test_current_lifecycle_metadata_upserts_one_current_row(tag_db):
     tag_registry.upsert_tag_lifecycle_metadata(
-        action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED,
+        action=tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
         old_slug="slow_burn",
         old_display_name="Slow Burn",
         new_slug="slow_burn",
@@ -219,7 +333,7 @@ def test_current_lifecycle_metadata_upserts_one_current_row(tag_db):
         metadata=tag_registry.build_imported_archive_metadata(),
     )
     tag_registry.upsert_tag_lifecycle_metadata(
-        action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED,
+        action=tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
         old_slug="slow-burn",
         old_display_name="Slow Burn",
         new_slug="slow_burn",
@@ -229,21 +343,21 @@ def test_current_lifecycle_metadata_upserts_one_current_row(tag_db):
 
     session = tag_db()
     try:
-        histories = session.query(TagHistory).all()
+        histories = session.query(TagLifecycleMetadata).all()
         assert len(histories) == 1
-        assert histories[0].action == tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
+        assert histories[0].action == tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED
     finally:
         session.close()
 
 
 def test_current_lifecycle_metadata_replaces_imported_with_active_deleted_and_hidden(tag_db):
     tag_registry.upsert_tag_lifecycle_metadata(
-        action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED,
+        action=tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
         old_slug="slow_burn",
         metadata=tag_registry.build_imported_archive_metadata(),
     )
     tag_registry.clear_or_replace_tag_lifecycle_metadata(
-        action=tag_registry.TAG_HISTORY_ASSIGN_CATEGORY,
+        action=tag_registry.TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
         old_slug="slow_burn",
         new_slug="slow_burn",
         new_category_slug="pacing",
@@ -256,7 +370,7 @@ def test_current_lifecycle_metadata_replaces_imported_with_active_deleted_and_hi
     assert active_metadata["assigned_category_slug"] == "pacing"
 
     tag_registry.clear_or_replace_tag_lifecycle_metadata(
-        action=tag_registry.TAG_HISTORY_ARCHIVE,
+        action=tag_registry.TAG_LIFECYCLE_METADATA_ARCHIVE,
         old_slug="slow_burn",
         old_category_slug="pacing",
         metadata=tag_registry.build_deleted_archive_metadata("pacing"),
@@ -267,7 +381,7 @@ def test_current_lifecycle_metadata_replaces_imported_with_active_deleted_and_hi
     assert deleted_metadata["previous_category_slug"] == "pacing"
 
     tag_registry.clear_or_replace_tag_lifecycle_metadata(
-        action=tag_registry.TAG_HISTORY_HIDE,
+        action=tag_registry.TAG_LIFECYCLE_METADATA_HIDE,
         old_slug="slow_burn",
         metadata=tag_registry.build_hidden_metadata(),
     )
@@ -277,9 +391,9 @@ def test_current_lifecycle_metadata_replaces_imported_with_active_deleted_and_hi
 
     session = tag_db()
     try:
-        histories = session.query(TagHistory).all()
+        histories = session.query(TagLifecycleMetadata).all()
         assert len(histories) == 1
-        assert histories[0].action == tag_registry.TAG_HISTORY_HIDE
+        assert histories[0].action == tag_registry.TAG_LIFECYCLE_METADATA_HIDE
     finally:
         session.close()
 
@@ -287,8 +401,8 @@ def test_current_lifecycle_metadata_replaces_imported_with_active_deleted_and_hi
 @pytest.mark.parametrize(
     ("action", "metadata_builder"),
     [
-        (tag_registry.TAG_HISTORY_RENAME, tag_registry.build_rename_alias_metadata),
-        (tag_registry.TAG_HISTORY_MERGE, tag_registry.build_merge_alias_metadata),
+        (tag_registry.TAG_LIFECYCLE_METADATA_RENAME, tag_registry.build_rename_alias_metadata),
+        (tag_registry.TAG_LIFECYCLE_METADATA_MERGE, tag_registry.build_merge_alias_metadata),
     ],
 )
 def test_alias_metadata_remains_resolver_usable(tag_db, action, metadata_builder):
@@ -342,12 +456,11 @@ def test_resolve_tag_lifecycle_returns_active_for_active_categorized_tag(tag_db)
     assert result.result_type == tag_registry.TAG_RESOLUTION_ACTIVE
     assert result.resolved_slug == "slow_burn"
     assert result.should_rewrite_slug is False
-    assert result.should_create_uncategorized is False
 
 
 @pytest.mark.parametrize(
     "action",
-    [tag_registry.TAG_HISTORY_RENAME, tag_registry.TAG_HISTORY_MERGE],
+    [tag_registry.TAG_LIFECYCLE_METADATA_RENAME, tag_registry.TAG_LIFECYCLE_METADATA_MERGE],
 )
 def test_resolve_tag_lifecycle_maps_alias_history_to_active_target(tag_db, action):
     session = tag_db()
@@ -355,7 +468,7 @@ def test_resolve_tag_lifecycle_maps_alias_history_to_active_target(tag_db, actio
         category = _add_category(session)
         _add_tag(session, slug="new_tag", category=category)
         session.add(
-            TagHistory(
+            TagLifecycleMetadata(
                 action=action,
                 old_slug="old_tag",
                 old_display_name="Old Tag",
@@ -383,13 +496,13 @@ def test_resolve_tag_lifecycle_follows_alias_lineage_to_active_target(tag_db):
         _add_tag(session, slug="final_tag", category=category)
         session.add_all(
             [
-                TagHistory(
-                    action=tag_registry.TAG_HISTORY_RENAME,
+                TagLifecycleMetadata(
+                    action=tag_registry.TAG_LIFECYCLE_METADATA_RENAME,
                     old_slug="old_tag",
                     new_slug="middle_tag",
                 ),
-                TagHistory(
-                    action=tag_registry.TAG_HISTORY_MERGE,
+                TagLifecycleMetadata(
+                    action=tag_registry.TAG_LIFECYCLE_METADATA_MERGE,
                     old_slug="middle_tag",
                     new_slug="final_tag",
                 ),
@@ -410,8 +523,8 @@ def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_missing(tag_db)
     session = tag_db()
     try:
         session.add(
-            TagHistory(
-                action=tag_registry.TAG_HISTORY_RENAME,
+            TagLifecycleMetadata(
+                action=tag_registry.TAG_LIFECYCLE_METADATA_RENAME,
                 old_slug="old_tag",
                 new_slug="missing_tag",
             )
@@ -440,8 +553,8 @@ def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_not_active(tag_
             active=False,
         )
         session.add(
-            TagHistory(
-                action=tag_registry.TAG_HISTORY_MERGE,
+            TagLifecycleMetadata(
+                action=tag_registry.TAG_LIFECYCLE_METADATA_MERGE,
                 old_slug="old_tag",
                 new_slug="archived_target",
             )
@@ -460,7 +573,6 @@ def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_not_active(tag_
 @pytest.mark.parametrize(
     ("status", "result_type"),
     [
-        (TAG_STATUS_UNCATEGORIZED, tag_registry.TAG_RESOLUTION_UNCATEGORIZED),
         (TAG_STATUS_ARCHIVED, tag_registry.TAG_RESOLUTION_ARCHIVED),
         (TAG_STATUS_HIDDEN, tag_registry.TAG_RESOLUTION_HIDDEN),
     ],
@@ -480,22 +592,21 @@ def test_resolve_tag_lifecycle_recognizes_existing_inactive_states(
     assert result.result_type == result_type
     assert result.resolved_slug == "legacy_tag"
     assert result.should_skip_creation is True
-    assert result.should_create_uncategorized is False
 
 
 @pytest.mark.parametrize(
     "action",
     [
-        tag_registry.TAG_HISTORY_HIDE,
-        tag_registry.TAG_HISTORY_DELETE,
-        tag_registry.TAG_HISTORY_ARCHIVE,
+        tag_registry.TAG_LIFECYCLE_METADATA_HIDE,
+        tag_registry.TAG_LIFECYCLE_METADATA_DELETE,
+        tag_registry.TAG_LIFECYCLE_METADATA_ARCHIVE,
     ],
 )
 def test_resolve_tag_lifecycle_recognizes_retired_history_without_target(tag_db, action):
     session = tag_db()
     try:
         session.add(
-            TagHistory(
+            TagLifecycleMetadata(
                 action=action,
                 old_slug="retired_tag",
                 old_display_name="Retired Tag",
@@ -510,7 +621,6 @@ def test_resolve_tag_lifecycle_recognizes_retired_history_without_target(tag_db,
     assert result.result_type == tag_registry.TAG_RESOLUTION_RETIRED
     assert result.resolved_slug == "retired_tag"
     assert result.should_skip_creation is True
-    assert result.should_create_uncategorized is False
 
 
 def test_resolve_tag_lifecycle_returns_unknown_for_truly_unknown_tag(tag_db):
@@ -534,12 +644,6 @@ def test_active_registry_helpers_exclude_lifecycle_inactive_tags(tag_db):
             active=False,
         )
         _add_tag(session, slug="active_tag", category=active_category)
-        _add_tag(
-            session,
-            slug="uncategorized_tag",
-            status=TAG_STATUS_UNCATEGORIZED,
-            active=False,
-        )
         _add_tag(
             session,
             slug="archived_tag",
@@ -618,12 +722,6 @@ def test_lifecycle_specific_helpers_return_status_scoped_tags(tag_db):
         _add_tag(session, slug="active_tag", category=category)
         _add_tag(
             session,
-            slug="uncategorized_tag",
-            status=TAG_STATUS_UNCATEGORIZED,
-            active=False,
-        )
-        _add_tag(
-            session,
             slug="archived_tag",
             category=category,
             status=TAG_STATUS_ARCHIVED,
@@ -640,42 +738,27 @@ def test_lifecycle_specific_helpers_return_status_scoped_tags(tag_db):
     finally:
         session.close()
 
-    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
-        "uncategorized_tag"
-    ]
     assert [tag["slug"] for tag in tag_registry.get_archived_tags()] == ["archived_tag"]
     assert [tag["slug"] for tag in tag_registry.get_hidden_tags()] == ["hidden_tag"]
     assert [tag["slug"] for tag in tag_registry.get_tags_by_status(TAG_STATUS_ACTIVE)] == [
         "active_tag"
     ]
 
-    uncategorized = tag_registry.get_uncategorized_tags()[0]
     archived = tag_registry.get_archived_tags()[0]
-    assert uncategorized["category_id"] is None
-    assert uncategorized["status"] == TAG_STATUS_UNCATEGORIZED
     assert archived["category_name"] == "Behavior"
     assert archived["status"] == TAG_STATUS_ARCHIVED
 
     imported = tag_registry.get_imported_archived_tags()
     deleted = tag_registry.get_deleted_archived_tags()
-    assert [tag["slug"] for tag in imported] == ["uncategorized_tag"]
-    assert imported[0]["visible_badge"] == "Imported"
-    assert imported[0]["selectable"] is True
-    assert imported[0]["can_assign_to_category"] is True
+    assert imported == []
     assert [tag["slug"] for tag in deleted] == ["archived_tag"]
     assert deleted[0]["visible_badge"] == "Deleted"
     assert deleted[0]["selectable"] is False
     assert deleted[0]["can_assign_to_category"] is False
 
     visible_archived = tag_registry.get_visible_archived_tags()
-    assert [tag["name"] for tag in visible_archived] == [
-        "Archived Tag",
-        "Uncategorized Tag",
-    ]
-    assert [tag["visible_badge"] for tag in visible_archived] == [
-        "Deleted",
-        "Imported",
-    ]
+    assert [tag["name"] for tag in visible_archived] == ["Archived Tag"]
+    assert [tag["visible_badge"] for tag in visible_archived] == ["Deleted"]
     assert "hidden_tag" not in [tag["slug"] for tag in visible_archived]
 
 
@@ -683,7 +766,6 @@ def test_lifecycle_specific_helpers_return_status_scoped_tags(tag_db):
     ("slug", "status"),
     [
         ("active_tag", TAG_STATUS_ACTIVE),
-        ("uncategorized_tag", TAG_STATUS_UNCATEGORIZED),
         ("archived_tag", TAG_STATUS_ARCHIVED),
         ("hidden_tag", TAG_STATUS_HIDDEN),
     ],
@@ -693,12 +775,6 @@ def test_get_tag_by_slug_any_status_finds_lifecycle_tags(tag_db, slug, status):
     try:
         category = _add_category(session)
         _add_tag(session, slug="active_tag", category=category)
-        _add_tag(
-            session,
-            slug="uncategorized_tag",
-            status=TAG_STATUS_UNCATEGORIZED,
-            active=False,
-        )
         _add_tag(
             session,
             slug="archived_tag",
@@ -731,7 +807,7 @@ def test_ensure_archived_import_tag_creates_inactive_archived_with_history(tag_d
     assert result.normalized_slug == "slow_burn"
     assert result.should_create_archived is False
     assert result.should_skip_creation is True
-    assert result.reason == tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
+    assert result.reason == tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED
 
     session = tag_db()
     try:
@@ -742,8 +818,8 @@ def test_ensure_archived_import_tag_creates_inactive_archived_with_history(tag_d
         assert tag.is_active is False
         assert tag.is_builtin is False
 
-        history = session.query(TagHistory).one()
-        assert history.action == tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
+        history = session.query(TagLifecycleMetadata).one()
+        assert history.action == tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED
         assert history.old_slug == "slow_burn"
         assert history.old_display_name == "Slow Burn"
         assert history.old_category_slug is None
@@ -764,145 +840,7 @@ def test_ensure_archived_import_tag_creates_inactive_archived_with_history(tag_d
     ]
     session = tag_db()
     try:
-        assert session.query(TagHistory).filter_by(old_slug="slow_burn").count() == 1
-    finally:
-        session.close()
-
-
-def test_ensure_uncategorized_tag_reuses_existing_uncategorized_tag(tag_db):
-    session = tag_db()
-    try:
-        _add_tag(
-            session,
-            slug="slow_burn",
-            status=TAG_STATUS_UNCATEGORIZED,
-            active=False,
-        )
-        session.commit()
-    finally:
-        session.close()
-
-    result = tag_registry.ensure_uncategorized_tag("Slow Burn")
-
-    assert result.result_type == tag_registry.TAG_RESOLUTION_UNCATEGORIZED
-    assert result.should_skip_creation is True
-
-    session = tag_db()
-    try:
-        assert session.query(Tag).filter_by(slug="slow_burn").count() == 1
-        assert session.query(TagHistory).count() == 0
-    finally:
-        session.close()
-
-
-def test_ensure_uncategorized_tag_does_not_duplicate_active_tag(tag_db):
-    session = tag_db()
-    try:
-        category = _add_category(session)
-        _add_tag(session, slug="slow_burn", category=category)
-        session.commit()
-    finally:
-        session.close()
-
-    result = tag_registry.ensure_uncategorized_tag("Slow Burn")
-
-    assert result.result_type == tag_registry.TAG_RESOLUTION_ACTIVE
-    assert result.should_create_uncategorized is False
-
-    session = tag_db()
-    try:
-        assert session.query(Tag).filter_by(slug="slow_burn").count() == 1
-        assert session.query(TagHistory).count() == 0
-    finally:
-        session.close()
-
-
-@pytest.mark.parametrize(
-    ("status", "result_type"),
-    [
-        (TAG_STATUS_ARCHIVED, tag_registry.TAG_RESOLUTION_ARCHIVED),
-        (TAG_STATUS_HIDDEN, tag_registry.TAG_RESOLUTION_HIDDEN),
-    ],
-)
-def test_ensure_uncategorized_tag_does_not_reactivate_archived_or_hidden(
-    tag_db, status, result_type
-):
-    session = tag_db()
-    try:
-        _add_tag(session, slug="legacy_tag", status=status, active=False)
-        session.commit()
-    finally:
-        session.close()
-
-    result = tag_registry.ensure_uncategorized_tag("Legacy Tag")
-
-    assert result.result_type == result_type
-    assert result.should_skip_creation is True
-
-    session = tag_db()
-    try:
-        tag = session.query(Tag).filter_by(slug="legacy_tag").one()
-        assert tag.status == status
-        assert tag.is_active is False
-        assert session.query(TagHistory).count() == 0
-    finally:
-        session.close()
-
-
-def test_ensure_uncategorized_tag_does_not_create_for_alias_mapped_slug(tag_db):
-    session = tag_db()
-    try:
-        category = _add_category(session)
-        _add_tag(session, slug="new_tag", category=category)
-        session.add(
-            TagHistory(
-                action=tag_registry.TAG_HISTORY_RENAME,
-                old_slug="old_tag",
-                new_slug="new_tag",
-            )
-        )
-        session.commit()
-    finally:
-        session.close()
-
-    result = tag_registry.ensure_uncategorized_tag("Old Tag")
-
-    assert result.result_type == tag_registry.TAG_RESOLUTION_ALIAS_MAPPED
-    assert result.resolved_slug == "new_tag"
-    assert result.should_rewrite_slug is True
-
-    session = tag_db()
-    try:
-        assert session.query(Tag).filter_by(slug="old_tag").count() == 0
-        assert session.query(Tag).filter_by(slug="new_tag").count() == 1
-        assert session.query(TagHistory).count() == 1
-    finally:
-        session.close()
-
-
-def test_ensure_uncategorized_tag_does_not_create_for_retired_history(tag_db):
-    session = tag_db()
-    try:
-        session.add(
-            TagHistory(
-                action=tag_registry.TAG_HISTORY_HIDE,
-                old_slug="retired_tag",
-                old_display_name="Retired Tag",
-            )
-        )
-        session.commit()
-    finally:
-        session.close()
-
-    result = tag_registry.ensure_uncategorized_tag("Retired Tag")
-
-    assert result.result_type == tag_registry.TAG_RESOLUTION_RETIRED
-    assert result.should_skip_creation is True
-
-    session = tag_db()
-    try:
-        assert session.query(Tag).filter_by(slug="retired_tag").count() == 0
-        assert session.query(TagHistory).count() == 1
+        assert session.query(TagLifecycleMetadata).filter_by(old_slug="slow_burn").count() == 1
     finally:
         session.close()
 
@@ -914,8 +852,8 @@ def test_ensure_archived_import_tags_for_dataset_creates_only_unknown_tags(tag_d
         _add_tag(session, slug="known_tag", category=category)
         _add_tag(
             session,
-            slug="old_uncategorized",
-            status=TAG_STATUS_UNCATEGORIZED,
+            slug="old_archived",
+            status=TAG_STATUS_ARCHIVED,
             active=False,
         )
         session.commit()
@@ -925,13 +863,13 @@ def test_ensure_archived_import_tags_for_dataset_creates_only_unknown_tags(tag_d
     summary = tag_registry.ensure_archived_import_tags_for_dataset(
         [
             {"tags": ["known_tag", "new tag"]},
-            {"tags": ["old_uncategorized", "new-tag"]},
+            {"tags": ["old_archived", "new-tag"]},
         ]
     )
 
     assert summary.created_count == 1
     assert summary.created_slugs == ["new_tag"]
-    assert summary.existing_slugs == ["known_tag", "old_uncategorized"]
+    assert summary.existing_slugs == ["known_tag", "old_archived"]
     assert summary.skipped_slugs == []
 
     session = tag_db()
@@ -939,8 +877,8 @@ def test_ensure_archived_import_tags_for_dataset_creates_only_unknown_tags(tag_d
         assert session.query(Tag).filter_by(slug="new_tag").one().status == (
             TAG_STATUS_ARCHIVED
         )
-        assert session.query(TagHistory).filter_by(
-            action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
+        assert session.query(TagLifecycleMetadata).filter_by(
+            action=tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED
         ).count() == 1
     finally:
         session.close()
@@ -978,7 +916,7 @@ def test_archived_import_backup_failure_aborts_mutation(tag_db, monkeypatch):
     session = tag_db()
     try:
         assert session.query(Tag).filter_by(slug="slow_burn").count() == 0
-        assert session.query(TagHistory).count() == 0
+        assert session.query(TagLifecycleMetadata).count() == 0
     finally:
         session.close()
 
@@ -1071,8 +1009,8 @@ def test_ensure_tags_exist_for_dataset_writes_import_archived_history(tag_db):
 
     session = tag_db()
     try:
-        history = session.query(TagHistory).one()
-        assert history.action == tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
+        history = session.query(TagLifecycleMetadata).one()
+        assert history.action == tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED
         assert history.old_slug == "slow_burn"
         assert history.old_display_name == "Slow Burn"
         metadata = json.loads(history.metadata_json)
@@ -1099,8 +1037,8 @@ def test_ensure_tags_exist_for_dataset_does_not_reactivate_inactive_lifecycle_ta
             active=False,
         )
         session.add(
-            TagHistory(
-                action=tag_registry.TAG_HISTORY_HIDE,
+            TagLifecycleMetadata(
+                action=tag_registry.TAG_LIFECYCLE_METADATA_HIDE,
                 old_slug="retired_tag",
                 old_display_name="Retired Tag",
             )
@@ -1125,7 +1063,7 @@ def test_ensure_tags_exist_for_dataset_does_not_reactivate_inactive_lifecycle_ta
             TAG_STATUS_HIDDEN
         )
         assert session.query(Tag).filter_by(slug="retired_tag").count() == 0
-        assert session.query(TagHistory).count() == 1
+        assert session.query(TagLifecycleMetadata).count() == 1
     finally:
         session.close()
 
@@ -1157,9 +1095,16 @@ def test_ensure_tags_exist_preserves_normalized_entry_tag_slugs(tag_db):
 
 
 def test_seed_deactivates_empty_legacy_unsorted_category(tag_db):
-    unsorted = tag_registry.ensure_unsorted_category()
     session = tag_db()
     try:
+        unsorted = TagCategory(
+            name="Unsorted",
+            slug="unsorted",
+            sort_order=-1000,
+            is_active=True,
+        )
+        session.add(unsorted)
+        session.flush()
         assert unsorted.is_active is True
         session.commit()
     finally:
@@ -1249,7 +1194,7 @@ def test_lifecycle_migration_updates_legacy_tags_table(tmp_path, monkeypatch):
     tag_registry._migrate_tag_lifecycle_schema()
 
     inspector = sa_inspect(engine)
-    assert "tag_history" in inspector.get_table_names()
+    assert "tag_lifecycle_metadata" in inspector.get_table_names()
     assert "category_history" in inspector.get_table_names()
 
     tag_columns = {column["name"]: column for column in inspector.get_columns("tags")}
