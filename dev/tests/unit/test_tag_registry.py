@@ -57,6 +57,7 @@ def _add_tag(
     category=None,
     status=TAG_STATUS_ACTIVE,
     active=True,
+    builtin=False,
 ):
     tag = Tag(
         category_id=category.id if category is not None else None,
@@ -64,7 +65,7 @@ def _add_tag(
         slug=slug,
         sort_order=0,
         is_active=active,
-        is_builtin=False,
+        is_builtin=builtin,
         status=status,
     )
     session.add(tag)
@@ -72,15 +73,82 @@ def _add_tag(
     return tag
 
 
-def test_ensure_unsorted_category_creates_protected_first_category(tag_db):
-    category = tag_registry.ensure_unsorted_category()
-
-    assert category.name == "Unsorted"
-    assert category.slug == "unsorted"
-    assert category.sort_order == tag_registry.UNSORTED_SORT_ORDER
+def test_seed_default_tags_uses_current_category_order_without_unsorted(tag_db):
+    tag_registry.seed_default_tags()
+    tag_registry.seed_default_tags()
 
     registry = tag_registry.get_full_tag_registry()
-    assert registry[0]["name"] == "Unsorted"
+
+    assert [category["name"] for category in registry] == [
+        "Behavior",
+        "Scene",
+        "Style",
+        "Source",
+        "Status",
+    ]
+    assert [tag["slug"] for tag in registry[3]["tags"]] == [
+        "manual",
+        "ai_generated",
+    ]
+    assert [tag["slug"] for tag in registry[4]["tags"]] == [
+        "needs_review",
+        "needs_edit",
+    ]
+    assert "reviewed" not in tag_registry.get_all_tag_slugs()
+
+
+def test_seed_default_tags_migrates_source_status_and_reviewed(tag_db):
+    session = tag_db()
+    try:
+        legacy_category = _add_category(
+            session,
+            name="Source & Status",
+            slug="source_status",
+        )
+        _add_tag(session, slug="manual", category=legacy_category, builtin=True)
+        _add_tag(session, slug="ai_generated", category=legacy_category, builtin=True)
+        _add_tag(
+            session,
+            slug="reviewed",
+            name="Reviewed",
+            category=legacy_category,
+            builtin=True,
+        )
+        _add_tag(session, slug="needs_edit", category=legacy_category, builtin=True)
+        custom_category = _add_category(session, name="Custom", slug="custom")
+        custom_category.sort_order = 1
+        session.commit()
+    finally:
+        session.close()
+
+    tag_registry.seed_default_tags()
+
+    registry = tag_registry.get_full_tag_registry()
+    assert [category["name"] for category in registry] == [
+        "Behavior",
+        "Scene",
+        "Style",
+        "Source",
+        "Status",
+        "Custom",
+    ]
+
+    source = next(category for category in registry if category["name"] == "Source")
+    status = next(category for category in registry if category["name"] == "Status")
+    assert [tag["slug"] for tag in source["tags"]] == ["manual", "ai_generated"]
+    assert [tag["slug"] for tag in status["tags"]] == [
+        "needs_review",
+        "needs_edit",
+    ]
+    assert [tag["name"] for tag in status["tags"]] == ["Needs Review", "Needs Edit"]
+
+    session = tag_db()
+    try:
+        legacy = session.query(TagCategory).filter_by(slug="source_status").one()
+        assert legacy.is_active is False
+        assert session.query(Tag).filter_by(slug="reviewed", is_active=True).count() == 0
+    finally:
+        session.close()
 
 
 def test_tag_lifecycle_schema_exists_for_fresh_database(tag_db):
@@ -942,7 +1010,6 @@ def test_custom_tag_backup_failure_aborts_mutation(tag_db, monkeypatch):
 
 
 def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_archived_imported(tag_db):
-    tag_registry.ensure_unsorted_category()
     session = tag_db()
     try:
         known_category = TagCategory(
@@ -975,9 +1042,7 @@ def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_archived_imported(
     assert summary.created_slugs == ["slow_burn"]
 
     registry = tag_registry.get_full_tag_registry()
-    assert registry[0]["name"] == "Unsorted"
-    unsorted_tags = registry[0]["tags"]
-    assert unsorted_tags == []
+    assert "Unsorted" not in [category["name"] for category in registry]
 
     behavior = next(category for category in registry if category["name"] == "Behavior")
     assert [tag["slug"] for tag in behavior["tags"]] == ["reviewed"]
@@ -989,11 +1054,11 @@ def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_archived_imported(
     session = tag_db()
     try:
         adopted = session.query(Tag).filter_by(slug="slow_burn").one()
-        unsorted = session.query(TagCategory).filter_by(slug="unsorted").one()
+        unsorted = session.query(TagCategory).filter_by(slug="unsorted").first()
         assert adopted.status == TAG_STATUS_ARCHIVED
         assert adopted.category_id is None
         assert adopted.is_active is False
-        assert adopted.category_id != unsorted.id
+        assert unsorted is None
     finally:
         session.close()
 
@@ -1066,8 +1131,6 @@ def test_ensure_tags_exist_for_dataset_does_not_reactivate_inactive_lifecycle_ta
 
 
 def test_ensure_tags_exist_for_dataset_does_not_duplicate_imported_archived_tags(tag_db):
-    tag_registry.ensure_unsorted_category()
-
     first = tag_registry.ensure_tags_exist_for_dataset([{"tags": ["slow_burn"]}])
     second = tag_registry.ensure_tags_exist_for_dataset([{"tags": ["slow-burn"]}])
 
@@ -1075,8 +1138,7 @@ def test_ensure_tags_exist_for_dataset_does_not_duplicate_imported_archived_tags
     assert second.created_count == 0
 
     registry = tag_registry.get_full_tag_registry()
-    unsorted_tags = registry[0]["tags"]
-    assert unsorted_tags == []
+    assert "Unsorted" not in [category["name"] for category in registry]
     assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
         "slow_burn"
     ]
@@ -1094,22 +1156,26 @@ def test_ensure_tags_exist_preserves_normalized_entry_tag_slugs(tag_db):
     ]
 
 
-def test_existing_unsorted_active_tags_remain_active_until_migration(tag_db):
+def test_seed_deactivates_empty_legacy_unsorted_category(tag_db):
     unsorted = tag_registry.ensure_unsorted_category()
     session = tag_db()
     try:
-        _add_tag(session, slug="old_unsorted_tag", category=unsorted)
+        assert unsorted.is_active is True
         session.commit()
     finally:
         session.close()
 
-    registry = tag_registry.get_full_tag_registry()
+    tag_registry.seed_default_tags()
 
-    unsorted_category = next(
-        category for category in registry if category["name"] == "Unsorted"
-    )
-    assert [tag["slug"] for tag in unsorted_category["tags"]] == ["old_unsorted_tag"]
-    assert "old_unsorted_tag" in tag_registry.get_all_tag_slugs()
+    registry = tag_registry.get_full_tag_registry()
+    assert "Unsorted" not in [category["name"] for category in registry]
+
+    session = tag_db()
+    try:
+        unsorted = session.query(TagCategory).filter_by(slug="unsorted").one()
+        assert unsorted.is_active is False
+    finally:
+        session.close()
 
 
 def test_lifecycle_migration_updates_legacy_tags_table(tmp_path, monkeypatch):

@@ -41,9 +41,9 @@ def render_tag_management_page() -> None:
     registry = get_full_tag_registry()
     total_categories = len(registry)
 
-    # ── Section 1: Tag Registry Overview ──────────────────────────────────────
+    # ── Section 1: Tag Registry ───────────────────────────────────────────────
     st.divider()
-    st.subheader("Tag Registry Overview")
+    st.subheader("Tag Registry")
 
     if not registry:
         st.info("No tags found. The tag registry may not be seeded yet.")

@@ -24,7 +24,8 @@ from core.models import (
 from core.tag_normalization import normalize_tag
 
 
-# Protected system category for normalized tags without an existing home.
+# Legacy category from earlier archived-import handling. New unknown imports do
+# not use it; seed_default_tags deactivates an empty legacy row.
 UNSORTED_CATEGORY_NAME = "Unsorted"
 UNSORTED_CATEGORY_SLUG = "unsorted"
 UNSORTED_SORT_ORDER = -1000
@@ -751,10 +752,10 @@ def seed_default_tags() -> None:
     init_db()
     _migrate_tags_slug_column()
     _migrate_tag_lifecycle_schema()
-    ensure_unsorted_category()
 
     session = SessionLocal()
     try:
+        default_category_slugs = [slugify_tag_name(cat_name) for cat_name in TAGS]
         for cat_order, (cat_name, tag_raws) in enumerate(TAGS.items()):
             cat_slug = slugify_tag_name(cat_name)
 
@@ -773,16 +774,21 @@ def seed_default_tags() -> None:
                 # Update mutable fields so display-name fixes propagate
                 category.name = cat_name
                 category.sort_order = cat_order
+                category.is_active = True
 
             # ── Get or create each tag ─────────────────────────────────────────
             for tag_order, tag_raw in enumerate(tag_raws):
                 tag_slug = slugify_tag_name(tag_raw)
                 tag_name = prettify_tag_name(tag_slug)
+                lookup_slugs = [tag_slug]
+                if tag_slug == "needs_review":
+                    lookup_slugs.append("reviewed")
 
                 # Primary lookup: by slug (Phase 1.5+ rows)
                 tag = (
                     session.query(Tag)
-                    .filter_by(category_id=category.id, slug=tag_slug)
+                    .filter(Tag.category_id == category.id, Tag.slug.in_(lookup_slugs))
+                    .order_by(Tag.id)
                     .first()
                 )
 
@@ -812,6 +818,13 @@ def seed_default_tags() -> None:
                     tag.is_builtin = True
                     tag.sort_order = tag_order
                     tag.status = TAG_STATUS_ACTIVE
+                    tag.is_active = True
+                    tag.category_id = category.id
+
+        session.flush()
+        _migrate_legacy_source_status_category(session)
+        _deactivate_empty_unsorted_category(session)
+        _order_custom_categories_after_defaults(session, default_category_slugs)
 
         session.commit()
     except Exception:
@@ -823,8 +836,114 @@ def seed_default_tags() -> None:
 
 # ── Query helpers ──────────────────────────────────────────────────────────────
 
+def _migrate_legacy_source_status_category(session) -> None:
+    """Move old Source & Status built-ins into Source and Status categories."""
+    source = session.query(TagCategory).filter_by(slug="source").first()
+    status = session.query(TagCategory).filter_by(slug="status").first()
+    if source is None or status is None:
+        return
+
+    move_targets = {
+        "manual": (source, "manual", 0),
+        "ai_generated": (source, "ai_generated", 1),
+        "reviewed": (status, "needs_review", 0),
+        "needs_review": (status, "needs_review", 0),
+        "needs_edit": (status, "needs_edit", 1),
+    }
+    for old_slug, (category, new_slug, sort_order) in move_targets.items():
+        legacy_tag = (
+            session.query(Tag)
+            .filter(Tag.slug == old_slug, Tag.is_builtin.is_(True))
+            .order_by(Tag.id)
+            .first()
+        )
+        if legacy_tag is None:
+            continue
+
+        target_tag = (
+            session.query(Tag)
+            .filter(
+                Tag.slug == new_slug,
+                Tag.category_id == category.id,
+                Tag.id != legacy_tag.id,
+            )
+            .first()
+        )
+        if target_tag is not None:
+            legacy_tag.is_active = False
+            continue
+
+        legacy_tag.category_id = category.id
+        legacy_tag.slug = new_slug
+        legacy_tag.name = prettify_tag_name(new_slug)
+        legacy_tag.sort_order = sort_order
+        legacy_tag.is_builtin = True
+        legacy_tag.is_active = True
+        legacy_tag.status = TAG_STATUS_ACTIVE
+
+    legacy_category = session.query(TagCategory).filter_by(slug="source_status").first()
+    if legacy_category is not None:
+        legacy_category.is_active = False
+
+    legacy_reviewed_tags = (
+        session.query(Tag)
+        .filter(Tag.slug == "reviewed", Tag.is_builtin.is_(True))
+        .all()
+    )
+    for legacy_tag in legacy_reviewed_tags:
+        legacy_tag.is_active = False
+
+    for category, new_slug, _sort_order in {
+        (target_category, new_slug, sort_order)
+        for target_category, new_slug, sort_order in move_targets.values()
+    }:
+        duplicate_tags = (
+            session.query(Tag)
+            .filter(Tag.slug == new_slug, Tag.is_builtin.is_(True))
+            .order_by(Tag.id)
+            .all()
+        )
+        keeper = next(
+            (tag for tag in duplicate_tags if tag.category_id == category.id),
+            None,
+        )
+        for tag in duplicate_tags:
+            if keeper is not None and tag.id == keeper.id:
+                continue
+            tag.is_active = False
+
+
+def _deactivate_empty_unsorted_category(session) -> None:
+    """Deactivate legacy Unsorted only when no tags depend on it."""
+    category = session.query(TagCategory).filter_by(slug=UNSORTED_CATEGORY_SLUG).first()
+    if category is None:
+        return
+    has_tags = session.query(Tag).filter_by(category_id=category.id).first() is not None
+    if not has_tags:
+        category.is_active = False
+
+
+def _order_custom_categories_after_defaults(
+    session,
+    default_category_slugs: list[str],
+) -> None:
+    """Keep default categories first and active custom categories after them."""
+    default_slug_set = set(default_category_slugs)
+    custom_categories = (
+        session.query(TagCategory)
+        .filter(
+            TagCategory.is_active.is_(True),
+            TagCategory.slug.notin_(default_slug_set),
+        )
+        .order_by(TagCategory.sort_order, TagCategory.name)
+        .all()
+    )
+    for offset, category in enumerate(custom_categories, start=len(default_category_slugs)):
+        category.sort_order = offset
+
+
 def ensure_unsorted_category() -> TagCategory:
-    """Ensure the protected Unsorted category exists and sorts first."""
+    """Ensure legacy Unsorted exists for compatibility-only tests/migrations."""
     session = SessionLocal()
     try:
         category = (

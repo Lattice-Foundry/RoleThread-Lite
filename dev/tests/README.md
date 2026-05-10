@@ -17,7 +17,7 @@ Current tests cover:
 - service-layer mutation workflows in `services/dataset_service.py`
 - backup creation, naming, retention, and configured directories in `core/backups.py`
 - local preferences and storage path helpers in `core/preferences.py` and `core/storage.py`
-- canonical tag normalization and focused Unsorted/adoption behavior
+- canonical tag normalization and focused archived/imported adoption behavior
 
 ## What Is Deferred
 

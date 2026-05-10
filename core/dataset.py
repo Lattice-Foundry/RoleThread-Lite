@@ -23,7 +23,8 @@ TAGS: dict[str, list[str]] = {
     "Behavior": ["pacing", "boundaries", "no_user_control", "followup_question", "emotional_awareness"],
     "Scene": ["greeting", "medical", "comfort", "tension", "assessment", "aftercare"],
     "Style": ["dialogue", "narration", "descriptive", "subtle", "grounded"],
-    "Source & Status": ["manual", "ai_generated", "reviewed", "needs_edit"],
+    "Source": ["manual", "ai_generated"],
+    "Status": ["needs_review", "needs_edit"],
 }
 
 
