@@ -9,7 +9,16 @@ from sqlalchemy import func, inspect as sa_inspect, text
 
 from core.dataset import TAGS, get_used_tags
 from core.db import SessionLocal, engine, init_db
-from core.models import Base, TAG_STATUS_ACTIVE, Tag, TagCategory
+from core.models import (
+    Base,
+    TAG_STATUS_ACTIVE,
+    TAG_STATUS_ARCHIVED,
+    TAG_STATUS_HIDDEN,
+    TAG_STATUS_UNCATEGORIZED,
+    Tag,
+    TagCategory,
+    TagHistory,
+)
 from core.tag_normalization import normalize_tag
 
 
@@ -18,6 +27,22 @@ UNSORTED_CATEGORY_NAME = "Unsorted"
 UNSORTED_CATEGORY_SLUG = "unsorted"
 UNSORTED_SORT_ORDER = -1000
 
+TAG_HISTORY_RENAME = "rename"
+TAG_HISTORY_MERGE = "merge"
+TAG_HISTORY_ARCHIVE = "archive"
+TAG_HISTORY_RESTORE = "restore"
+TAG_HISTORY_HIDE = "hide"
+TAG_HISTORY_DELETE = "delete"
+TAG_HISTORY_IMPORT_UNCATEGORIZED = "import_uncategorized"
+
+TAG_RESOLUTION_ACTIVE = "active"
+TAG_RESOLUTION_ALIAS_MAPPED = "alias_mapped"
+TAG_RESOLUTION_UNCATEGORIZED = "uncategorized"
+TAG_RESOLUTION_ARCHIVED = "archived"
+TAG_RESOLUTION_HIDDEN = "hidden"
+TAG_RESOLUTION_RETIRED = "retired"
+TAG_RESOLUTION_UNKNOWN = "unknown"
+
 
 @dataclass
 class TagAdoptionSummary:
@@ -25,6 +50,22 @@ class TagAdoptionSummary:
 
     created_count: int = 0
     created_slugs: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class TagResolutionResult:
+    """Lifecycle resolution result for one imported tag value."""
+
+    raw: str
+    normalized_slug: str
+    normalized_display_name: str
+    resolved_slug: str
+    result_type: str
+    should_rewrite_slug: bool = False
+    should_create_uncategorized: bool = False
+    should_skip_creation: bool = False
+    target_slug: str | None = None
+    reason: str = ""
 
 
 # ── Slug helper ────────────────────────────────────────────────────────────────
@@ -177,6 +218,163 @@ def _migrate_tag_lifecycle_schema() -> None:
         conn.execute(text("ALTER TABLE tags__lifecycle_migration RENAME TO tags"))
         conn.execute(text("PRAGMA foreign_keys=ON"))
         conn.commit()
+
+
+def _get_active_tag(session, slug: str) -> Tag | None:
+    """Return an active tag only when it belongs to an active category."""
+    return (
+        session.query(Tag)
+        .join(TagCategory, Tag.category_id == TagCategory.id)
+        .filter(
+            Tag.slug == slug,
+            Tag.status == TAG_STATUS_ACTIVE,
+            Tag.is_active.is_(True),
+            TagCategory.is_active.is_(True),
+        )
+        .first()
+    )
+
+
+def _resolve_alias_mapping(session, slug: str) -> tuple[str, str] | None:
+    """Follow rename/merge history to an active target slug."""
+    seen: set[str] = set()
+    current_slug = slug
+
+    for _ in range(20):
+        if current_slug in seen:
+            return None
+        seen.add(current_slug)
+
+        history = (
+            session.query(TagHistory)
+            .filter(
+                TagHistory.old_slug == current_slug,
+                TagHistory.action.in_([TAG_HISTORY_RENAME, TAG_HISTORY_MERGE]),
+                TagHistory.new_slug.isnot(None),
+                TagHistory.new_slug != "",
+            )
+            .order_by(TagHistory.id.desc())
+            .first()
+        )
+        if history is None:
+            return None
+
+        target_slug = normalize_tag(history.new_slug).slug
+        if not target_slug:
+            return None
+        if _get_active_tag(session, target_slug) is not None:
+            return target_slug, history.action
+        current_slug = target_slug
+
+    return None
+
+
+def _has_retired_history(session, slug: str) -> bool:
+    """Return True when history says a slug should not be recreated."""
+    retired_actions = [TAG_HISTORY_ARCHIVE, TAG_HISTORY_HIDE, TAG_HISTORY_DELETE]
+    histories = (
+        session.query(TagHistory)
+        .filter(
+            TagHistory.old_slug == slug,
+            TagHistory.action.in_(retired_actions),
+        )
+        .order_by(TagHistory.id.desc())
+        .all()
+    )
+    for history in histories:
+        target_slug = normalize_tag(history.new_slug).slug if history.new_slug else ""
+        if not target_slug or _get_active_tag(session, target_slug) is None:
+            return True
+    return False
+
+
+def resolve_tag_lifecycle(raw_tag: str) -> TagResolutionResult:
+    """Resolve an imported tag against active tags, lifecycle rows, and history."""
+    normalized = normalize_tag(raw_tag)
+    if not normalized.slug:
+        return TagResolutionResult(
+            raw=normalized.raw,
+            normalized_slug="",
+            normalized_display_name="",
+            resolved_slug="",
+            result_type=TAG_RESOLUTION_UNKNOWN,
+            should_skip_creation=True,
+            reason="invalid_tag",
+        )
+
+    session = SessionLocal()
+    try:
+        active_tag = _get_active_tag(session, normalized.slug)
+        if active_tag is not None:
+            return TagResolutionResult(
+                raw=normalized.raw,
+                normalized_slug=normalized.slug,
+                normalized_display_name=normalized.display_name,
+                resolved_slug=normalized.slug,
+                result_type=TAG_RESOLUTION_ACTIVE,
+                reason="active_tag",
+            )
+
+        alias = _resolve_alias_mapping(session, normalized.slug)
+        if alias is not None:
+            target_slug, action = alias
+            return TagResolutionResult(
+                raw=normalized.raw,
+                normalized_slug=normalized.slug,
+                normalized_display_name=normalized.display_name,
+                resolved_slug=target_slug,
+                result_type=TAG_RESOLUTION_ALIAS_MAPPED,
+                should_rewrite_slug=target_slug != normalized.slug,
+                target_slug=target_slug,
+                reason=action,
+            )
+
+        existing_tag = (
+            session.query(Tag)
+            .filter_by(slug=normalized.slug)
+            .order_by(Tag.id)
+            .first()
+        )
+        if existing_tag is not None:
+            status_to_result = {
+                TAG_STATUS_UNCATEGORIZED: TAG_RESOLUTION_UNCATEGORIZED,
+                TAG_STATUS_ARCHIVED: TAG_RESOLUTION_ARCHIVED,
+                TAG_STATUS_HIDDEN: TAG_RESOLUTION_HIDDEN,
+            }
+            result_type = status_to_result.get(existing_tag.status)
+            if result_type is not None:
+                return TagResolutionResult(
+                    raw=normalized.raw,
+                    normalized_slug=normalized.slug,
+                    normalized_display_name=normalized.display_name,
+                    resolved_slug=normalized.slug,
+                    result_type=result_type,
+                    should_skip_creation=True,
+                    reason=f"existing_{existing_tag.status}",
+                )
+
+        if _has_retired_history(session, normalized.slug):
+            return TagResolutionResult(
+                raw=normalized.raw,
+                normalized_slug=normalized.slug,
+                normalized_display_name=normalized.display_name,
+                resolved_slug=normalized.slug,
+                result_type=TAG_RESOLUTION_RETIRED,
+                should_skip_creation=True,
+                reason="retired_history",
+            )
+
+        return TagResolutionResult(
+            raw=normalized.raw,
+            normalized_slug=normalized.slug,
+            normalized_display_name=normalized.display_name,
+            resolved_slug=normalized.slug,
+            result_type=TAG_RESOLUTION_UNKNOWN,
+            should_create_uncategorized=True,
+            reason="unknown_tag",
+        )
+    finally:
+        session.close()
 
 
 # ── Seeding ────────────────────────────────────────────────────────────────────

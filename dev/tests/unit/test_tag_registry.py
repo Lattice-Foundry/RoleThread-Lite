@@ -7,6 +7,9 @@ from core.models import (
     Base,
     CategoryHistory,
     TAG_STATUS_ACTIVE,
+    TAG_STATUS_ARCHIVED,
+    TAG_STATUS_HIDDEN,
+    TAG_STATUS_UNCATEGORIZED,
     Tag,
     TagCategory,
     TagHistory,
@@ -24,6 +27,41 @@ def tag_db(tmp_path, monkeypatch):
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
     return session_factory
+
+
+def _add_category(session, *, name="Behavior", slug="behavior", active=True):
+    category = TagCategory(
+        name=name,
+        slug=slug,
+        sort_order=0,
+        is_active=active,
+    )
+    session.add(category)
+    session.flush()
+    return category
+
+
+def _add_tag(
+    session,
+    *,
+    slug,
+    name=None,
+    category=None,
+    status=TAG_STATUS_ACTIVE,
+    active=True,
+):
+    tag = Tag(
+        category_id=category.id if category is not None else None,
+        name=name or tag_registry.prettify_tag_name(slug),
+        slug=slug,
+        sort_order=0,
+        is_active=active,
+        is_builtin=False,
+        status=status,
+    )
+    session.add(tag)
+    session.flush()
+    return tag
 
 
 def test_ensure_unsorted_category_creates_protected_first_category(tag_db):
@@ -93,6 +131,215 @@ def test_history_models_can_be_inserted(tag_db):
         assert session.query(CategoryHistory).count() == 1
     finally:
         session.close()
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["Slow Burn", "slow burn", "slow-burn", "SLOW BURN"],
+)
+def test_resolve_tag_lifecycle_normalizes_raw_values(tag_db, raw):
+    result = tag_registry.resolve_tag_lifecycle(raw)
+
+    assert result.normalized_slug == "slow_burn"
+    assert result.normalized_display_name == "Slow Burn"
+    assert result.resolved_slug == "slow_burn"
+    assert result.result_type == tag_registry.TAG_RESOLUTION_UNKNOWN
+    assert result.should_create_uncategorized is True
+
+
+def test_resolve_tag_lifecycle_returns_active_for_active_categorized_tag(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="slow_burn", category=category)
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Slow Burn")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_ACTIVE
+    assert result.resolved_slug == "slow_burn"
+    assert result.should_rewrite_slug is False
+    assert result.should_create_uncategorized is False
+
+
+@pytest.mark.parametrize(
+    "action",
+    [tag_registry.TAG_HISTORY_RENAME, tag_registry.TAG_HISTORY_MERGE],
+)
+def test_resolve_tag_lifecycle_maps_alias_history_to_active_target(tag_db, action):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="new_tag", category=category)
+        session.add(
+            TagHistory(
+                action=action,
+                old_slug="old_tag",
+                old_display_name="Old Tag",
+                new_slug="new_tag",
+                new_display_name="New Tag",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_ALIAS_MAPPED
+    assert result.resolved_slug == "new_tag"
+    assert result.target_slug == "new_tag"
+    assert result.should_rewrite_slug is True
+    assert result.reason == action
+
+
+def test_resolve_tag_lifecycle_follows_alias_lineage_to_active_target(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="final_tag", category=category)
+        session.add_all(
+            [
+                TagHistory(
+                    action=tag_registry.TAG_HISTORY_RENAME,
+                    old_slug="old_tag",
+                    new_slug="middle_tag",
+                ),
+                TagHistory(
+                    action=tag_registry.TAG_HISTORY_MERGE,
+                    old_slug="middle_tag",
+                    new_slug="final_tag",
+                ),
+            ]
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_ALIAS_MAPPED
+    assert result.resolved_slug == "final_tag"
+    assert result.should_rewrite_slug is True
+
+
+def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_missing(tag_db):
+    session = tag_db()
+    try:
+        session.add(
+            TagHistory(
+                action=tag_registry.TAG_HISTORY_RENAME,
+                old_slug="old_tag",
+                new_slug="missing_tag",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_UNKNOWN
+    assert result.resolved_slug == "old_tag"
+    assert result.should_rewrite_slug is False
+    assert result.should_create_uncategorized is True
+
+
+def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_not_active(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(
+            session,
+            slug="archived_target",
+            category=category,
+            status=TAG_STATUS_ARCHIVED,
+            active=False,
+        )
+        session.add(
+            TagHistory(
+                action=tag_registry.TAG_HISTORY_MERGE,
+                old_slug="old_tag",
+                new_slug="archived_target",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_UNKNOWN
+    assert result.should_rewrite_slug is False
+    assert result.should_create_uncategorized is True
+
+
+@pytest.mark.parametrize(
+    ("status", "result_type"),
+    [
+        (TAG_STATUS_UNCATEGORIZED, tag_registry.TAG_RESOLUTION_UNCATEGORIZED),
+        (TAG_STATUS_ARCHIVED, tag_registry.TAG_RESOLUTION_ARCHIVED),
+        (TAG_STATUS_HIDDEN, tag_registry.TAG_RESOLUTION_HIDDEN),
+    ],
+)
+def test_resolve_tag_lifecycle_recognizes_existing_inactive_states(
+    tag_db, status, result_type
+):
+    session = tag_db()
+    try:
+        _add_tag(session, slug="legacy_tag", status=status, active=False)
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Legacy Tag")
+
+    assert result.result_type == result_type
+    assert result.resolved_slug == "legacy_tag"
+    assert result.should_skip_creation is True
+    assert result.should_create_uncategorized is False
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        tag_registry.TAG_HISTORY_HIDE,
+        tag_registry.TAG_HISTORY_DELETE,
+        tag_registry.TAG_HISTORY_ARCHIVE,
+    ],
+)
+def test_resolve_tag_lifecycle_recognizes_retired_history_without_target(tag_db, action):
+    session = tag_db()
+    try:
+        session.add(
+            TagHistory(
+                action=action,
+                old_slug="retired_tag",
+                old_display_name="Retired Tag",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Retired Tag")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_RETIRED
+    assert result.resolved_slug == "retired_tag"
+    assert result.should_skip_creation is True
+    assert result.should_create_uncategorized is False
+
+
+def test_resolve_tag_lifecycle_returns_unknown_for_truly_unknown_tag(tag_db):
+    result = tag_registry.resolve_tag_lifecycle("Brand New")
+
+    assert result.result_type == tag_registry.TAG_RESOLUTION_UNKNOWN
+    assert result.normalized_slug == "brand_new"
+    assert result.resolved_slug == "brand_new"
+    assert result.should_create_uncategorized is True
+    assert result.should_skip_creation is False
 
 
 def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_under_unsorted(tag_db):
