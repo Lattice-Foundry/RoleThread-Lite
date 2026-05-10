@@ -6,6 +6,7 @@ from core.tag_registry import (
     create_custom_category,
     create_custom_tag,
     get_full_tag_registry,
+    get_visible_archived_tags,
     prettify_tag_name,
     slugify_tag_name,
 )
@@ -60,6 +61,33 @@ def render_tag_management_page() -> None:
                             f"font-size:0.82em'>{_badge_label}</span>",
                             unsafe_allow_html=True,
                         )
+
+    # ── Section 1b: Archived lifecycle tags ───────────────────────────────────
+    st.divider()
+    st.subheader("Archived Tags")
+    st.caption(
+        "These tags are known to LoreForge but are not active or trusted. "
+        "Imported tags need a category before they appear in normal tag pickers. "
+        "Deleted tags can be restored later."
+    )
+
+    _archived_tags = get_visible_archived_tags()
+
+    if not _archived_tags:
+        st.info("No archived tags.")
+    else:
+        for tag in _archived_tags:
+            _label_col, _action_col = st.columns([7, 3])
+            _badge = tag["visible_badge"]
+            with _label_col:
+                st.markdown(
+                    f"**{tag['name']}** &nbsp; "
+                    f"<span style='color:#777;font-size:0.82em'>"
+                    f"{_badge}</span>",
+                    unsafe_allow_html=True,
+                )
+            with _action_col:
+                st.empty()
 
     # ── Section 2: Create Custom Category ─────────────────────────────────────
     st.divider()

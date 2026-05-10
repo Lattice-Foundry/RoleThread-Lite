@@ -3,6 +3,7 @@
 JSONL entries store tag slugs; this module owns slug/display conversion,
 registry seeding, lookup helpers, and additive custom tag writes.
 """
+import json
 from dataclasses import dataclass, field
 
 from sqlalchemy import func, inspect as sa_inspect, text
@@ -33,7 +34,15 @@ TAG_HISTORY_ARCHIVE = "archive"
 TAG_HISTORY_RESTORE = "restore"
 TAG_HISTORY_HIDE = "hide"
 TAG_HISTORY_DELETE = "delete"
+TAG_HISTORY_IMPORT_ARCHIVED = "import_archived"
 TAG_HISTORY_IMPORT_UNCATEGORIZED = "import_uncategorized"
+
+ARCHIVE_ORIGIN_IMPORTED = "imported"
+ARCHIVE_ORIGIN_DELETED = "deleted"
+ARCHIVE_REASON_UNKNOWN_IMPORT = "unknown_import"
+ARCHIVE_REASON_USER_SOFT_DELETE = "user_soft_delete"
+ARCHIVE_BADGE_IMPORTED = "Imported"
+ARCHIVE_BADGE_DELETED = "Deleted"
 
 TAG_RESOLUTION_ACTIVE = "active"
 TAG_RESOLUTION_ALIAS_MAPPED = "alias_mapped"
@@ -53,13 +62,16 @@ class TagAdoptionSummary:
 
 
 @dataclass
-class UncategorizedTagSummary:
-    """Result of ensuring imported tags exist as uncategorized records."""
+class ArchivedTagImportSummary:
+    """Result of ensuring imported tags exist as archived records."""
 
     created_count: int = 0
     created_slugs: list[str] = field(default_factory=list)
     existing_slugs: list[str] = field(default_factory=list)
     skipped_slugs: list[str] = field(default_factory=list)
+
+
+UncategorizedTagSummary = ArchivedTagImportSummary
 
 
 @dataclass(frozen=True)
@@ -73,6 +85,7 @@ class TagResolutionResult:
     result_type: str
     should_rewrite_slug: bool = False
     should_create_uncategorized: bool = False
+    should_create_archived: bool = False
     should_skip_creation: bool = False
     target_slug: str | None = None
     reason: str = ""
@@ -394,17 +407,74 @@ def resolve_tag_lifecycle(raw_tag: str) -> TagResolutionResult:
             normalized_display_name=normalized.display_name,
             resolved_slug=normalized.slug,
             result_type=TAG_RESOLUTION_UNKNOWN,
-            should_create_uncategorized=True,
+            should_create_archived=True,
             reason="unknown_tag",
         )
     finally:
         session.close()
 
 
-def ensure_uncategorized_tag(raw_tag: str) -> TagResolutionResult:
-    """Create an uncategorized tag for a truly unknown imported tag."""
+def _import_archive_metadata() -> str:
+    """Return compact metadata for imported archived tags."""
+    return json.dumps(
+        {
+            "archive_origin": ARCHIVE_ORIGIN_IMPORTED,
+            "archive_reason": ARCHIVE_REASON_UNKNOWN_IMPORT,
+            "visible_badge": ARCHIVE_BADGE_IMPORTED,
+        },
+        separators=(",", ":"),
+    )
+
+
+def _archive_metadata_for_tag(tag: dict) -> dict:
+    """Return visible archive metadata for one lifecycle tag dict."""
+    default = {
+        "archive_origin": ARCHIVE_ORIGIN_IMPORTED
+        if tag.get("category_id") is None
+        else ARCHIVE_ORIGIN_DELETED,
+        "archive_reason": ARCHIVE_REASON_UNKNOWN_IMPORT
+        if tag.get("category_id") is None
+        else ARCHIVE_REASON_USER_SOFT_DELETE,
+        "visible_badge": ARCHIVE_BADGE_IMPORTED
+        if tag.get("category_id") is None
+        else ARCHIVE_BADGE_DELETED,
+    }
+
+    session = SessionLocal()
+    try:
+        history = (
+            session.query(TagHistory)
+            .filter(
+                TagHistory.action.in_(
+                    [
+                        TAG_HISTORY_IMPORT_ARCHIVED,
+                        TAG_HISTORY_IMPORT_UNCATEGORIZED,
+                        TAG_HISTORY_ARCHIVE,
+                        TAG_HISTORY_DELETE,
+                    ]
+                ),
+                TagHistory.old_slug == tag.get("slug"),
+            )
+            .order_by(TagHistory.id.desc())
+            .first()
+        )
+        if history is None or not history.metadata_json:
+            return default
+        try:
+            metadata = json.loads(history.metadata_json)
+        except json.JSONDecodeError:
+            return default
+        if not isinstance(metadata, dict):
+            return default
+        return {**default, **metadata}
+    finally:
+        session.close()
+
+
+def ensure_archived_import_tag(raw_tag: str) -> TagResolutionResult:
+    """Create an archived/imported tag for a truly unknown imported tag."""
     resolution = resolve_tag_lifecycle(raw_tag)
-    if not resolution.should_create_uncategorized or not resolution.normalized_slug:
+    if not resolution.should_create_archived or not resolution.normalized_slug:
         return resolution
 
     session = SessionLocal()
@@ -424,6 +494,7 @@ def ensure_uncategorized_tag(raw_tag: str) -> TagResolutionResult:
                 result_type=resolution.result_type,
                 should_rewrite_slug=resolution.should_rewrite_slug,
                 should_create_uncategorized=False,
+                should_create_archived=False,
                 should_skip_creation=True,
                 target_slug=resolution.target_slug,
                 reason=f"existing_{existing_tag.status}",
@@ -434,20 +505,21 @@ def ensure_uncategorized_tag(raw_tag: str) -> TagResolutionResult:
             name=resolution.normalized_display_name,
             slug=resolution.normalized_slug,
             sort_order=0,
-            is_active=True,
+            is_active=False,
             is_builtin=False,
-            status=TAG_STATUS_UNCATEGORIZED,
+            status=TAG_STATUS_ARCHIVED,
         )
         session.add(tag)
         session.add(
             TagHistory(
-                action=TAG_HISTORY_IMPORT_UNCATEGORIZED,
+                action=TAG_HISTORY_IMPORT_ARCHIVED,
                 old_slug=resolution.normalized_slug,
                 old_display_name=resolution.normalized_display_name,
                 old_category_slug=None,
                 new_slug=resolution.normalized_slug,
                 new_display_name=resolution.normalized_display_name,
                 new_category_slug=None,
+                metadata_json=_import_archive_metadata(),
             )
         )
         session.commit()
@@ -456,10 +528,11 @@ def ensure_uncategorized_tag(raw_tag: str) -> TagResolutionResult:
             normalized_slug=resolution.normalized_slug,
             normalized_display_name=resolution.normalized_display_name,
             resolved_slug=resolution.resolved_slug,
-            result_type=TAG_RESOLUTION_UNCATEGORIZED,
+            result_type=TAG_RESOLUTION_ARCHIVED,
             should_create_uncategorized=False,
+            should_create_archived=False,
             should_skip_creation=True,
-            reason=TAG_HISTORY_IMPORT_UNCATEGORIZED,
+            reason=TAG_HISTORY_IMPORT_ARCHIVED,
         )
     except Exception:
         session.rollback()
@@ -468,18 +541,23 @@ def ensure_uncategorized_tag(raw_tag: str) -> TagResolutionResult:
         session.close()
 
 
-def ensure_uncategorized_tags_for_dataset(entries: list[dict]) -> UncategorizedTagSummary:
-    """Ensure used dataset tags are known as inactive uncategorized records."""
+def ensure_uncategorized_tag(raw_tag: str) -> TagResolutionResult:
+    """Compatibility wrapper for archived/imported tag adoption."""
+    return ensure_archived_import_tag(raw_tag)
+
+
+def ensure_archived_import_tags_for_dataset(entries: list[dict]) -> ArchivedTagImportSummary:
+    """Ensure used dataset tags are known as archived imported records."""
     used_slugs: set[str] = set()
     for tag in get_used_tags(entries):
         normalized = normalize_tag(tag)
         if normalized.slug:
             used_slugs.add(normalized.slug)
 
-    summary = UncategorizedTagSummary()
+    summary = ArchivedTagImportSummary()
     for slug in sorted(used_slugs):
-        result = ensure_uncategorized_tag(slug)
-        if result.reason == TAG_HISTORY_IMPORT_UNCATEGORIZED:
+        result = ensure_archived_import_tag(slug)
+        if result.reason == TAG_HISTORY_IMPORT_ARCHIVED:
             summary.created_count += 1
             summary.created_slugs.append(result.normalized_slug)
         elif result.result_type == TAG_RESOLUTION_UNKNOWN:
@@ -487,6 +565,11 @@ def ensure_uncategorized_tags_for_dataset(entries: list[dict]) -> UncategorizedT
         else:
             summary.existing_slugs.append(result.resolved_slug)
     return summary
+
+
+def ensure_uncategorized_tags_for_dataset(entries: list[dict]) -> ArchivedTagImportSummary:
+    """Compatibility wrapper for archived/imported dataset adoption."""
+    return ensure_archived_import_tags_for_dataset(entries)
 
 
 # ── Seeding ────────────────────────────────────────────────────────────────────
@@ -599,8 +682,8 @@ def ensure_unsorted_category() -> TagCategory:
 
 
 def ensure_tags_exist_for_dataset(entries: list[dict]) -> TagAdoptionSummary:
-    """Adopt unknown dataset tag slugs as inactive uncategorized records."""
-    summary = ensure_uncategorized_tags_for_dataset(entries)
+    """Adopt unknown dataset tag slugs as inactive archived/imported records."""
+    summary = ensure_archived_import_tags_for_dataset(entries)
     return TagAdoptionSummary(
         created_count=summary.created_count,
         created_slugs=summary.created_slugs,
@@ -802,6 +885,55 @@ def get_uncategorized_tags() -> list[dict]:
 def get_archived_tags() -> list[dict]:
     """Return archived/deleted tags for future restore surfaces."""
     return get_tags_by_status(TAG_STATUS_ARCHIVED)
+
+
+def get_imported_archived_tags() -> list[dict]:
+    """Return visible imported archived tags, including recent uncategorized rows."""
+    tags = [
+        tag
+        for tag in get_archived_tags() + get_uncategorized_tags()
+        if tag.get("category_id") is None
+    ]
+    result = []
+    for tag in tags:
+        metadata = _archive_metadata_for_tag(tag)
+        result.append(
+            {
+                **tag,
+                "archive_origin": metadata.get("archive_origin", ARCHIVE_ORIGIN_IMPORTED),
+                "archive_reason": metadata.get(
+                    "archive_reason", ARCHIVE_REASON_UNKNOWN_IMPORT
+                ),
+                "visible_badge": metadata.get("visible_badge", ARCHIVE_BADGE_IMPORTED),
+            }
+        )
+    return result
+
+
+def get_deleted_archived_tags() -> list[dict]:
+    """Return visible deleted archived tags for future restore surfaces."""
+    result = []
+    for tag in get_archived_tags():
+        metadata = _archive_metadata_for_tag(tag)
+        if metadata.get("archive_origin") != ARCHIVE_ORIGIN_DELETED:
+            continue
+        result.append(
+            {
+                **tag,
+                "archive_origin": metadata.get("archive_origin", ARCHIVE_ORIGIN_DELETED),
+                "archive_reason": metadata.get(
+                    "archive_reason", ARCHIVE_REASON_USER_SOFT_DELETE
+                ),
+                "visible_badge": metadata.get("visible_badge", ARCHIVE_BADGE_DELETED),
+            }
+        )
+    return result
+
+
+def get_visible_archived_tags() -> list[dict]:
+    """Return visible archived tags with origin metadata for Tag Management."""
+    tags = get_imported_archived_tags() + get_deleted_archived_tags()
+    return sorted(tags, key=lambda tag: (tag.get("name") or "", tag.get("slug") or ""))
 
 
 def get_hidden_tags() -> list[dict]:

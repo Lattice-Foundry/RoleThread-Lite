@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from sqlalchemy import create_engine, inspect as sa_inspect, text
 from sqlalchemy.orm import sessionmaker
@@ -145,7 +147,7 @@ def test_resolve_tag_lifecycle_normalizes_raw_values(tag_db, raw):
     assert result.normalized_display_name == "Slow Burn"
     assert result.resolved_slug == "slow_burn"
     assert result.result_type == tag_registry.TAG_RESOLUTION_UNKNOWN
-    assert result.should_create_uncategorized is True
+    assert result.should_create_archived is True
 
 
 def test_resolve_tag_lifecycle_returns_active_for_active_categorized_tag(tag_db):
@@ -245,7 +247,7 @@ def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_missing(tag_db)
     assert result.result_type == tag_registry.TAG_RESOLUTION_UNKNOWN
     assert result.resolved_slug == "old_tag"
     assert result.should_rewrite_slug is False
-    assert result.should_create_uncategorized is True
+    assert result.should_create_archived is True
 
 
 def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_not_active(tag_db):
@@ -274,7 +276,7 @@ def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_not_active(tag_
 
     assert result.result_type == tag_registry.TAG_RESOLUTION_UNKNOWN
     assert result.should_rewrite_slug is False
-    assert result.should_create_uncategorized is True
+    assert result.should_create_archived is True
 
 
 @pytest.mark.parametrize(
@@ -339,7 +341,7 @@ def test_resolve_tag_lifecycle_returns_unknown_for_truly_unknown_tag(tag_db):
     assert result.result_type == tag_registry.TAG_RESOLUTION_UNKNOWN
     assert result.normalized_slug == "brand_new"
     assert result.resolved_slug == "brand_new"
-    assert result.should_create_uncategorized is True
+    assert result.should_create_archived is True
     assert result.should_skip_creation is False
 
 
@@ -469,6 +471,31 @@ def test_lifecycle_specific_helpers_return_status_scoped_tags(tag_db):
         "active_tag"
     ]
 
+    uncategorized = tag_registry.get_uncategorized_tags()[0]
+    archived = tag_registry.get_archived_tags()[0]
+    assert uncategorized["category_id"] is None
+    assert uncategorized["status"] == TAG_STATUS_UNCATEGORIZED
+    assert archived["category_name"] == "Behavior"
+    assert archived["status"] == TAG_STATUS_ARCHIVED
+
+    imported = tag_registry.get_imported_archived_tags()
+    deleted = tag_registry.get_deleted_archived_tags()
+    assert [tag["slug"] for tag in imported] == ["uncategorized_tag"]
+    assert imported[0]["visible_badge"] == "Imported"
+    assert [tag["slug"] for tag in deleted] == ["archived_tag"]
+    assert deleted[0]["visible_badge"] == "Deleted"
+
+    visible_archived = tag_registry.get_visible_archived_tags()
+    assert [tag["name"] for tag in visible_archived] == [
+        "Archived Tag",
+        "Uncategorized Tag",
+    ]
+    assert [tag["visible_badge"] for tag in visible_archived] == [
+        "Deleted",
+        "Imported",
+    ]
+    assert "hidden_tag" not in [tag["slug"] for tag in visible_archived]
+
 
 @pytest.mark.parametrize(
     ("slug", "status"),
@@ -515,36 +542,41 @@ def test_get_tag_by_slug_any_status_finds_lifecycle_tags(tag_db, slug, status):
     assert tag.status == status
 
 
-def test_ensure_uncategorized_tag_creates_inactive_uncategorized_with_history(tag_db):
-    result = tag_registry.ensure_uncategorized_tag("Slow Burn")
+def test_ensure_archived_import_tag_creates_inactive_archived_with_history(tag_db):
+    result = tag_registry.ensure_archived_import_tag("Slow Burn")
 
-    assert result.result_type == tag_registry.TAG_RESOLUTION_UNCATEGORIZED
+    assert result.result_type == tag_registry.TAG_RESOLUTION_ARCHIVED
     assert result.normalized_slug == "slow_burn"
-    assert result.should_create_uncategorized is False
+    assert result.should_create_archived is False
     assert result.should_skip_creation is True
-    assert result.reason == tag_registry.TAG_HISTORY_IMPORT_UNCATEGORIZED
+    assert result.reason == tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
 
     session = tag_db()
     try:
         tag = session.query(Tag).filter_by(slug="slow_burn").one()
         assert tag.name == "Slow Burn"
-        assert tag.status == TAG_STATUS_UNCATEGORIZED
+        assert tag.status == TAG_STATUS_ARCHIVED
         assert tag.category_id is None
+        assert tag.is_active is False
         assert tag.is_builtin is False
 
         history = session.query(TagHistory).one()
-        assert history.action == tag_registry.TAG_HISTORY_IMPORT_UNCATEGORIZED
+        assert history.action == tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
         assert history.old_slug == "slow_burn"
         assert history.old_display_name == "Slow Burn"
         assert history.old_category_slug is None
         assert history.new_slug == "slow_burn"
         assert history.new_display_name == "Slow Burn"
         assert history.new_category_slug is None
+        metadata = json.loads(history.metadata_json)
+        assert metadata["archive_origin"] == "imported"
+        assert metadata["archive_reason"] == "unknown_import"
+        assert metadata["visible_badge"] == "Imported"
     finally:
         session.close()
 
     assert tag_registry.get_tag_registry_dict() == {}
-    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
+    assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
         "slow_burn"
     ]
 
@@ -687,7 +719,7 @@ def test_ensure_uncategorized_tag_does_not_create_for_retired_history(tag_db):
         session.close()
 
 
-def test_ensure_uncategorized_tags_for_dataset_creates_only_unknown_tags(tag_db):
+def test_ensure_archived_import_tags_for_dataset_creates_only_unknown_tags(tag_db):
     session = tag_db()
     try:
         category = _add_category(session)
@@ -702,7 +734,7 @@ def test_ensure_uncategorized_tags_for_dataset_creates_only_unknown_tags(tag_db)
     finally:
         session.close()
 
-    summary = tag_registry.ensure_uncategorized_tags_for_dataset(
+    summary = tag_registry.ensure_archived_import_tags_for_dataset(
         [
             {"tags": ["known_tag", "new tag"]},
             {"tags": ["old_uncategorized", "new-tag"]},
@@ -717,16 +749,16 @@ def test_ensure_uncategorized_tags_for_dataset_creates_only_unknown_tags(tag_db)
     session = tag_db()
     try:
         assert session.query(Tag).filter_by(slug="new_tag").one().status == (
-            TAG_STATUS_UNCATEGORIZED
+            TAG_STATUS_ARCHIVED
         )
         assert session.query(TagHistory).filter_by(
-            action=tag_registry.TAG_HISTORY_IMPORT_UNCATEGORIZED
+            action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
         ).count() == 1
     finally:
         session.close()
 
 
-def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_uncategorized(tag_db):
+def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_archived_imported(tag_db):
     tag_registry.ensure_unsorted_category()
     session = tag_db()
     try:
@@ -767,7 +799,7 @@ def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_uncategorized(tag_
     behavior = next(category for category in registry if category["name"] == "Behavior")
     assert [tag["slug"] for tag in behavior["tags"]] == ["reviewed"]
     assert "slow_burn" not in tag_registry.get_all_tag_slugs()
-    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
+    assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
         "slow_burn"
     ]
 
@@ -775,14 +807,15 @@ def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_uncategorized(tag_
     try:
         adopted = session.query(Tag).filter_by(slug="slow_burn").one()
         unsorted = session.query(TagCategory).filter_by(slug="unsorted").one()
-        assert adopted.status == TAG_STATUS_UNCATEGORIZED
+        assert adopted.status == TAG_STATUS_ARCHIVED
         assert adopted.category_id is None
+        assert adopted.is_active is False
         assert adopted.category_id != unsorted.id
     finally:
         session.close()
 
 
-def test_ensure_tags_exist_for_dataset_writes_import_uncategorized_history(tag_db):
+def test_ensure_tags_exist_for_dataset_writes_import_archived_history(tag_db):
     summary = tag_registry.ensure_tags_exist_for_dataset([{"tags": ["slow-burn"]}])
 
     assert summary.created_count == 1
@@ -791,9 +824,12 @@ def test_ensure_tags_exist_for_dataset_writes_import_uncategorized_history(tag_d
     session = tag_db()
     try:
         history = session.query(TagHistory).one()
-        assert history.action == tag_registry.TAG_HISTORY_IMPORT_UNCATEGORIZED
+        assert history.action == tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
         assert history.old_slug == "slow_burn"
         assert history.old_display_name == "Slow Burn"
+        metadata = json.loads(history.metadata_json)
+        assert metadata["archive_origin"] == "imported"
+        assert metadata["visible_badge"] == "Imported"
     finally:
         session.close()
 
@@ -845,7 +881,7 @@ def test_ensure_tags_exist_for_dataset_does_not_reactivate_inactive_lifecycle_ta
         session.close()
 
 
-def test_ensure_tags_exist_for_dataset_does_not_duplicate_known_uncategorized_tags(tag_db):
+def test_ensure_tags_exist_for_dataset_does_not_duplicate_imported_archived_tags(tag_db):
     tag_registry.ensure_unsorted_category()
 
     first = tag_registry.ensure_tags_exist_for_dataset([{"tags": ["slow_burn"]}])
@@ -857,7 +893,7 @@ def test_ensure_tags_exist_for_dataset_does_not_duplicate_known_uncategorized_ta
     registry = tag_registry.get_full_tag_registry()
     unsorted_tags = registry[0]["tags"]
     assert unsorted_tags == []
-    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
+    assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
         "slow_burn"
     ]
 
@@ -869,7 +905,7 @@ def test_ensure_tags_exist_preserves_normalized_entry_tag_slugs(tag_db):
 
     assert summary.entries[0]["tags"] == ["slow_burn"]
     assert adoption.created_slugs == ["slow_burn"]
-    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
+    assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
         "slow_burn"
     ]
 
