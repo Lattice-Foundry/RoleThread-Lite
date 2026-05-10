@@ -97,7 +97,7 @@ def test_get_backups_per_dataset_clamps_to_minimum_and_maximum():
     assert backups.get_backups_per_dataset({"backups_per_dataset": 999}) == 500
 
 
-def test_create_dataset_backup_copies_existing_dataset_to_configured_root(tmp_path, monkeypatch):
+def test_create_dataset_backup_copies_existing_dataset_to_datasets_root(tmp_path, monkeypatch):
     _use_prefs(monkeypatch, _prefs(tmp_path))
     monkeypatch.setattr(
         backups,
@@ -111,7 +111,7 @@ def test_create_dataset_backup_copies_existing_dataset_to_configured_root(tmp_pa
     assert backup_path is not None
     assert backup_path.exists()
     assert backup_path.read_bytes() == source.read_bytes()
-    assert backup_path.parent == (tmp_path / "backups" / "My_Dataset").resolve()
+    assert backup_path.parent == (tmp_path / "backups" / "datasets" / "My_Dataset").resolve()
     assert backup_path.name == "2026-01-01_120000_before_edit.jsonl"
 
 
@@ -147,7 +147,7 @@ def test_create_dataset_backup_uses_suffix_when_timestamp_collides(tmp_path, mon
 
 
 def test_prune_dataset_backups_keeps_newest_jsonl_and_ignores_other_files(tmp_path):
-    backup_dir = tmp_path / "backups" / "dataset"
+    backup_dir = tmp_path / "backups" / "datasets" / "dataset"
     backup_dir.mkdir(parents=True)
     old = _write_dataset(backup_dir / "2026-01-01_120000_before_edit.jsonl", b"old")
     middle = _write_dataset(backup_dir / "2026-01-01_120001_before_edit.jsonl", b"middle")
@@ -164,7 +164,7 @@ def test_prune_dataset_backups_keeps_newest_jsonl_and_ignores_other_files(tmp_pa
 
 
 def test_prune_dataset_backups_treats_keep_count_below_one_as_one(tmp_path):
-    backup_dir = tmp_path / "backups" / "dataset"
+    backup_dir = tmp_path / "backups" / "datasets" / "dataset"
     backup_dir.mkdir(parents=True)
     old = _write_dataset(backup_dir / "2026-01-01_120000_before_edit.jsonl", b"old")
     newest = _write_dataset(backup_dir / "2026-01-01_120001_before_edit.jsonl", b"new")
@@ -180,7 +180,7 @@ def test_prune_dataset_backups_continues_after_one_unlink_failure(
     monkeypatch,
     capsys,
 ):
-    backup_dir = tmp_path / "backups" / "dataset"
+    backup_dir = tmp_path / "backups" / "datasets" / "dataset"
     backup_dir.mkdir(parents=True)
     locked = _write_dataset(backup_dir / "2026-01-01_120000_before_edit.jsonl", b"locked")
     deletable = _write_dataset(backup_dir / "2026-01-01_120001_before_edit.jsonl", b"delete")
@@ -225,7 +225,7 @@ def test_create_dataset_backup_prunes_to_configured_retention(tmp_path, monkeypa
     backups.create_dataset_backup(source, "second")
     backups.create_dataset_backup(source, "third")
 
-    backup_dir = tmp_path / "backups" / "dataset"
+    backup_dir = tmp_path / "backups" / "datasets" / "dataset"
     backup_names = sorted(path.name for path in backup_dir.glob("*.jsonl"))
     assert backup_names == [
         "2026-01-01_120001_second.jsonl",

@@ -10,6 +10,7 @@ from sqlalchemy import func, inspect as sa_inspect, text
 
 from core.dataset import TAGS, get_used_tags
 from core.db import SessionLocal, engine, init_db
+from core.db_backups import create_db_backup
 from core.models import (
     Base,
     TAG_STATUS_ACTIVE,
@@ -477,6 +478,17 @@ def ensure_archived_import_tag(raw_tag: str) -> TagResolutionResult:
     if not resolution.should_create_archived or not resolution.normalized_slug:
         return resolution
 
+    create_db_backup(engine=engine)
+    return _create_archived_import_tag_from_resolution(resolution)
+
+
+def _create_archived_import_tag_from_resolution(
+    resolution: TagResolutionResult,
+) -> TagResolutionResult:
+    """Create an archived/imported tag after caller-owned backup handling."""
+    if not resolution.should_create_archived or not resolution.normalized_slug:
+        return resolution
+
     session = SessionLocal()
     try:
         existing_tag = (
@@ -555,8 +567,11 @@ def ensure_archived_import_tags_for_dataset(entries: list[dict]) -> ArchivedTagI
             used_slugs.add(normalized.slug)
 
     summary = ArchivedTagImportSummary()
-    for slug in sorted(used_slugs):
-        result = ensure_archived_import_tag(slug)
+    resolutions = [resolve_tag_lifecycle(slug) for slug in sorted(used_slugs)]
+    if any(result.should_create_archived for result in resolutions):
+        create_db_backup(engine=engine)
+    for resolution in resolutions:
+        result = _create_archived_import_tag_from_resolution(resolution)
         if result.reason == TAG_HISTORY_IMPORT_ARCHIVED:
             summary.created_count += 1
             summary.created_slugs.append(result.normalized_slug)
@@ -1033,6 +1048,11 @@ def create_custom_category(name: str) -> tuple[bool, str]:
         # ── sort_order: one after the current maximum ──────────────────────────
         max_order: int = session.query(func.max(TagCategory.sort_order)).scalar() or 0
 
+        try:
+            create_db_backup(engine=engine)
+        except Exception as exc:
+            return False, f"Could not create database backup: {exc}"
+
         category = TagCategory(
             name=display_name,
             slug=slug,
@@ -1082,6 +1102,11 @@ def create_custom_tag(category_id: int, name: str) -> tuple[bool, str]:
             .filter_by(category_id=category_id)
             .scalar()
         ) or 0
+
+        try:
+            create_db_backup(engine=engine)
+        except Exception as exc:
+            return False, f"Could not create database backup: {exc}"
 
         tag = Tag(
             category_id=category_id,

@@ -29,6 +29,11 @@ def tag_db(tmp_path, monkeypatch):
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(
+        tag_registry,
+        "create_db_backup",
+        lambda *, engine: tmp_path / "db_backup.sqlite",
+    )
     return session_factory
 
 
@@ -754,6 +759,69 @@ def test_ensure_archived_import_tags_for_dataset_creates_only_unknown_tags(tag_d
         assert session.query(TagHistory).filter_by(
             action=tag_registry.TAG_HISTORY_IMPORT_ARCHIVED
         ).count() == 1
+    finally:
+        session.close()
+
+
+def test_archived_import_dataset_adoption_creates_one_db_backup(tag_db, monkeypatch):
+    backup_calls = []
+
+    def fake_backup(*, engine):
+        backup_calls.append(engine.url.database)
+        return "backup.sqlite"
+
+    monkeypatch.setattr(tag_registry, "create_db_backup", fake_backup)
+
+    summary = tag_registry.ensure_archived_import_tags_for_dataset(
+        [
+            {"tags": ["new tag", "another tag"]},
+            {"tags": ["new-tag"]},
+        ]
+    )
+
+    assert summary.created_count == 2
+    assert backup_calls == [tag_registry.engine.url.database]
+
+
+def test_archived_import_backup_failure_aborts_mutation(tag_db, monkeypatch):
+    def fail_backup(*, engine):
+        raise OSError("backup failed")
+
+    monkeypatch.setattr(tag_registry, "create_db_backup", fail_backup)
+
+    with pytest.raises(OSError, match="backup failed"):
+        tag_registry.ensure_archived_import_tag("Slow Burn")
+
+    session = tag_db()
+    try:
+        assert session.query(Tag).filter_by(slug="slow_burn").count() == 0
+        assert session.query(TagHistory).count() == 0
+    finally:
+        session.close()
+
+
+def test_custom_tag_backup_failure_aborts_mutation(tag_db, monkeypatch):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        category_id = category.id
+        session.commit()
+    finally:
+        session.close()
+
+    def fail_backup(*, engine):
+        raise OSError("backup failed")
+
+    monkeypatch.setattr(tag_registry, "create_db_backup", fail_backup)
+
+    ok, message = tag_registry.create_custom_tag(category_id, "Slow Burn")
+
+    assert ok is False
+    assert "Could not create database backup" in message
+
+    session = tag_db()
+    try:
+        assert session.query(Tag).filter_by(slug="slow_burn").count() == 0
     finally:
         session.close()
 

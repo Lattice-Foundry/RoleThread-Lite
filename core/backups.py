@@ -86,7 +86,7 @@ def create_dataset_backup(dataset_path: str | Path, reason: str) -> Path | None:
         return None
 
     prefs = load_preferences()
-    backup_dir = get_backup_root(prefs) / _safe_name(source.stem)
+    backup_dir = get_backup_root(prefs) / "datasets" / _safe_name(source.stem)
     backup_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp_dt = datetime.now()
