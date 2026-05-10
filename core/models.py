@@ -1,6 +1,19 @@
 """SQLAlchemy ORM models for LoreForge metadata."""
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from datetime import datetime, timezone
+
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+TAG_STATUS_ACTIVE = "active"
+TAG_STATUS_UNCATEGORIZED = "uncategorized"
+TAG_STATUS_ARCHIVED = "archived"
+TAG_STATUS_HIDDEN = "hidden"
+
+
+def _utc_timestamp() -> str:
+    """Return an ISO timestamp for registry history rows."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ── Base ───────────────────────────────────────────────────────────────────────
@@ -39,17 +52,62 @@ class Tag(Base):
     __tablename__ = "tags"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    category_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("tag_categories.id", ondelete="CASCADE"), nullable=False
+    category_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("tag_categories.id", ondelete="CASCADE"), nullable=True
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     slug: Mapped[str] = mapped_column(String(120), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_builtin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=TAG_STATUS_ACTIVE
+    )
 
     # Many-to-one back-reference
-    category: Mapped["TagCategory"] = relationship("TagCategory", back_populates="tags")
+    category: Mapped["TagCategory | None"] = relationship(
+        "TagCategory", back_populates="tags"
+    )
 
     def __repr__(self) -> str:
         return f"<Tag id={self.id} slug={self.slug!r} category_id={self.category_id}>"
+
+
+class TagHistory(Base):
+    """Append-only lifecycle history for tag slug changes and retirement."""
+    __tablename__ = "tag_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    old_slug: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    old_display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    old_category_slug: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    new_slug: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    new_display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    new_category_slug: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[str] = mapped_column(
+        String(40), nullable=False, default=_utc_timestamp
+    )
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<TagHistory id={self.id} action={self.action!r}>"
+
+
+class CategoryHistory(Base):
+    """Append-only lifecycle history for category slug changes and retirement."""
+    __tablename__ = "category_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    old_slug: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    old_display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    new_slug: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    new_display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[str] = mapped_column(
+        String(40), nullable=False, default=_utc_timestamp
+    )
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<CategoryHistory id={self.id} action={self.action!r}>"

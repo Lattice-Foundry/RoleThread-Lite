@@ -9,7 +9,7 @@ from sqlalchemy import func, inspect as sa_inspect, text
 
 from core.dataset import TAGS, get_used_tags
 from core.db import SessionLocal, engine, init_db
-from core.models import Tag, TagCategory
+from core.models import Base, TAG_STATUS_ACTIVE, Tag, TagCategory
 from core.tag_normalization import normalize_tag
 
 
@@ -86,12 +86,106 @@ def _migrate_tags_slug_column() -> None:
             conn.commit()
 
 
+def _migrate_tag_lifecycle_schema() -> None:
+    """Add lifecycle columns/tables while preserving existing registry rows."""
+    _migrate_tags_slug_column()
+    Base.metadata.create_all(bind=engine)
+
+    inspector = sa_inspect(engine)
+    if "tags" not in inspector.get_table_names():
+        return
+
+    columns = inspector.get_columns("tags")
+    existing_cols = {c["name"] for c in columns}
+
+    with engine.connect() as conn:
+        if "status" not in existing_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE tags "
+                    "ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'active'"
+                )
+            )
+            conn.commit()
+        else:
+            conn.execute(
+                text(
+                    "UPDATE tags "
+                    "SET status = :status "
+                    "WHERE status IS NULL OR status = ''"
+                ),
+                {"status": TAG_STATUS_ACTIVE},
+            )
+            conn.commit()
+
+    inspector = sa_inspect(engine)
+    category_column = next(
+        (c for c in inspector.get_columns("tags") if c["name"] == "category_id"),
+        None,
+    )
+    if category_column is None or category_column.get("nullable", True):
+        return
+
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA foreign_keys=OFF"))
+        conn.execute(text("DROP TABLE IF EXISTS tags__lifecycle_migration"))
+        conn.execute(
+            text(
+                """
+                CREATE TABLE tags__lifecycle_migration (
+                    id INTEGER NOT NULL,
+                    category_id INTEGER,
+                    name VARCHAR(120) NOT NULL,
+                    slug VARCHAR(120) NOT NULL,
+                    sort_order INTEGER NOT NULL,
+                    is_active BOOLEAN NOT NULL,
+                    is_builtin BOOLEAN NOT NULL,
+                    status VARCHAR(32) NOT NULL,
+                    PRIMARY KEY (id),
+                    FOREIGN KEY(category_id) REFERENCES tag_categories (id) ON DELETE CASCADE
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO tags__lifecycle_migration (
+                    id,
+                    category_id,
+                    name,
+                    slug,
+                    sort_order,
+                    is_active,
+                    is_builtin,
+                    status
+                )
+                SELECT
+                    id,
+                    category_id,
+                    name,
+                    slug,
+                    sort_order,
+                    is_active,
+                    is_builtin,
+                    COALESCE(NULLIF(status, ''), 'active')
+                FROM tags
+                """
+            )
+        )
+        conn.execute(text("DROP TABLE tags"))
+        conn.execute(text("ALTER TABLE tags__lifecycle_migration RENAME TO tags"))
+        conn.execute(text("PRAGMA foreign_keys=ON"))
+        conn.commit()
+
+
 # ── Seeding ────────────────────────────────────────────────────────────────────
 
 def seed_default_tags() -> None:
     """Idempotently seed built-in tags without deleting user data."""
     init_db()
     _migrate_tags_slug_column()
+    _migrate_tag_lifecycle_schema()
     ensure_unsorted_category()
 
     session = SessionLocal()
@@ -143,6 +237,7 @@ def seed_default_tags() -> None:
                         sort_order=tag_order,
                         is_active=True,
                         is_builtin=True,
+                        status=TAG_STATUS_ACTIVE,
                     )
                     session.add(tag)
                 else:
@@ -151,6 +246,7 @@ def seed_default_tags() -> None:
                     tag.name = tag_name
                     tag.is_builtin = True
                     tag.sort_order = tag_order
+                    tag.status = TAG_STATUS_ACTIVE
 
         session.commit()
     except Exception:
@@ -238,6 +334,7 @@ def ensure_tags_exist_for_dataset(entries: list[dict]) -> TagAdoptionSummary:
                     sort_order=max_order + offset,
                     is_active=True,
                     is_builtin=False,
+                    status=TAG_STATUS_ACTIVE,
                 )
             )
             created_slugs.append(slug)
@@ -540,6 +637,7 @@ def create_custom_tag(category_id: int, name: str) -> tuple[bool, str]:
             sort_order=max_order + 1,
             is_active=True,
             is_builtin=False,
+            status=TAG_STATUS_ACTIVE,
         )
         session.add(tag)
         session.commit()
