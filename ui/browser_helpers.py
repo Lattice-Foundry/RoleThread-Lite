@@ -6,6 +6,7 @@ importing Streamlit or owning page-specific selection/edit behavior.
 from dataclasses import dataclass
 
 from core.dataset import count_exchanges, get_available_filter_tags, get_entry_tags
+from core.tag_normalization import normalize_tag
 
 SHOW_ALL = "Show All"
 DEFAULT_PAGE_SIZE = 25
@@ -102,10 +103,15 @@ def format_entry_summary_label(
     entry: dict,
     dataset_format: str,
     errors: list[str] | None = None,
+    tag_label_map: dict[str, str] | None = None,
 ) -> str:
     """Format the browser expander label for one entry."""
     entry_tags = get_entry_tags(entry)
-    tag_part = ", ".join(entry_tags) if entry_tags else "untagged"
+    tag_part = (
+        ", ".join(_format_tag_display_name(tag, tag_label_map) for tag in entry_tags)
+        if entry_tags
+        else "Untagged"
+    )
     exchange_count = count_exchanges(entry)
     label = (
         f"Entry {display_index + 1} | FORMAT: {dataset_format} | "
@@ -114,6 +120,19 @@ def format_entry_summary_label(
     if errors:
         label += " \u26a0\ufe0f"
     return label
+
+
+def _format_tag_display_name(
+    tag_slug: str,
+    tag_label_map: dict[str, str] | None,
+) -> str:
+    """Return a human-readable tag label for browser summaries."""
+    if tag_label_map and tag_slug in tag_label_map:
+        mapped = tag_label_map[tag_slug]
+        if " / " in mapped:
+            return mapped.rsplit(" / ", 1)[-1]
+        return mapped
+    return normalize_tag(tag_slug).display_name
 
 
 def format_browser_status_caption(

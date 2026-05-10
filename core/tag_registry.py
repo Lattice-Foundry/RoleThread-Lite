@@ -599,65 +599,12 @@ def ensure_unsorted_category() -> TagCategory:
 
 
 def ensure_tags_exist_for_dataset(entries: list[dict]) -> TagAdoptionSummary:
-    """Adopt unknown dataset tag slugs into the Unsorted category."""
-    used_slugs: set[str] = set()
-    for tag in get_used_tags(entries):
-        normalized = normalize_tag(tag)
-        if normalized.slug:
-            used_slugs.add(normalized.slug)
-    if not used_slugs:
-        return TagAdoptionSummary()
-
-    ensure_unsorted_category()
-    session = SessionLocal()
-    created_slugs: list[str] = []
-    try:
-        unsorted = (
-            session.query(TagCategory)
-            .filter_by(slug=UNSORTED_CATEGORY_SLUG)
-            .first()
-        )
-        if unsorted is None:
-            return TagAdoptionSummary()
-
-        existing_slugs = {
-            slug
-            for (slug,) in session.query(Tag.slug)
-            .filter(Tag.slug.in_(used_slugs))
-            .all()
-        }
-        missing_slugs = sorted(used_slugs - existing_slugs)
-        if not missing_slugs:
-            return TagAdoptionSummary()
-
-        max_order: int = (
-            session.query(func.max(Tag.sort_order))
-            .filter_by(category_id=unsorted.id)
-            .scalar()
-        ) or 0
-        for offset, slug in enumerate(missing_slugs, 1):
-            session.add(
-                Tag(
-                    category_id=unsorted.id,
-                    name=prettify_tag_name(slug),
-                    slug=slug,
-                    sort_order=max_order + offset,
-                    is_active=True,
-                    is_builtin=False,
-                    status=TAG_STATUS_ACTIVE,
-                )
-            )
-            created_slugs.append(slug)
-        session.commit()
-        return TagAdoptionSummary(
-            created_count=len(created_slugs),
-            created_slugs=created_slugs,
-        )
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+    """Adopt unknown dataset tag slugs as inactive uncategorized records."""
+    summary = ensure_uncategorized_tags_for_dataset(entries)
+    return TagAdoptionSummary(
+        created_count=summary.created_count,
+        created_slugs=summary.created_slugs,
+    )
 
 
 def get_active_tag_categories() -> list[TagCategory]:

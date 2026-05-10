@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, inspect as sa_inspect, text
 from sqlalchemy.orm import sessionmaker
 
 import core.tag_registry as tag_registry
+from core.dataset import normalize_dataset_tags
 from core.models import (
     Base,
     CategoryHistory,
@@ -725,7 +726,7 @@ def test_ensure_uncategorized_tags_for_dataset_creates_only_unknown_tags(tag_db)
         session.close()
 
 
-def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_under_unsorted(tag_db):
+def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_uncategorized(tag_db):
     tag_registry.ensure_unsorted_category()
     session = tag_db()
     try:
@@ -761,23 +762,90 @@ def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_under_unsorted(tag_db
     registry = tag_registry.get_full_tag_registry()
     assert registry[0]["name"] == "Unsorted"
     unsorted_tags = registry[0]["tags"]
-    assert [tag["slug"] for tag in unsorted_tags] == ["slow_burn"]
-    assert unsorted_tags[0]["name"] == "Slow Burn"
+    assert unsorted_tags == []
 
     behavior = next(category for category in registry if category["name"] == "Behavior")
     assert [tag["slug"] for tag in behavior["tags"]] == ["reviewed"]
+    assert "slow_burn" not in tag_registry.get_all_tag_slugs()
+    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
+        "slow_burn"
+    ]
 
     session = tag_db()
     try:
         adopted = session.query(Tag).filter_by(slug="slow_burn").one()
         unsorted = session.query(TagCategory).filter_by(slug="unsorted").one()
-        assert adopted.status == TAG_STATUS_ACTIVE
-        assert adopted.category_id == unsorted.id
+        assert adopted.status == TAG_STATUS_UNCATEGORIZED
+        assert adopted.category_id is None
+        assert adopted.category_id != unsorted.id
     finally:
         session.close()
 
 
-def test_ensure_tags_exist_for_dataset_does_not_duplicate_known_tags(tag_db):
+def test_ensure_tags_exist_for_dataset_writes_import_uncategorized_history(tag_db):
+    summary = tag_registry.ensure_tags_exist_for_dataset([{"tags": ["slow-burn"]}])
+
+    assert summary.created_count == 1
+    assert summary.created_slugs == ["slow_burn"]
+
+    session = tag_db()
+    try:
+        history = session.query(TagHistory).one()
+        assert history.action == tag_registry.TAG_HISTORY_IMPORT_UNCATEGORIZED
+        assert history.old_slug == "slow_burn"
+        assert history.old_display_name == "Slow Burn"
+    finally:
+        session.close()
+
+
+def test_ensure_tags_exist_for_dataset_does_not_reactivate_inactive_lifecycle_tags(tag_db):
+    session = tag_db()
+    try:
+        _add_tag(
+            session,
+            slug="archived_tag",
+            status=TAG_STATUS_ARCHIVED,
+            active=False,
+        )
+        _add_tag(
+            session,
+            slug="hidden_tag",
+            status=TAG_STATUS_HIDDEN,
+            active=False,
+        )
+        session.add(
+            TagHistory(
+                action=tag_registry.TAG_HISTORY_HIDE,
+                old_slug="retired_tag",
+                old_display_name="Retired Tag",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    summary = tag_registry.ensure_tags_exist_for_dataset(
+        [{"tags": ["archived_tag", "hidden_tag", "retired_tag"]}]
+    )
+
+    assert summary.created_count == 0
+    assert summary.created_slugs == []
+
+    session = tag_db()
+    try:
+        assert session.query(Tag).filter_by(slug="archived_tag").one().status == (
+            TAG_STATUS_ARCHIVED
+        )
+        assert session.query(Tag).filter_by(slug="hidden_tag").one().status == (
+            TAG_STATUS_HIDDEN
+        )
+        assert session.query(Tag).filter_by(slug="retired_tag").count() == 0
+        assert session.query(TagHistory).count() == 1
+    finally:
+        session.close()
+
+
+def test_ensure_tags_exist_for_dataset_does_not_duplicate_known_uncategorized_tags(tag_db):
     tag_registry.ensure_unsorted_category()
 
     first = tag_registry.ensure_tags_exist_for_dataset([{"tags": ["slow_burn"]}])
@@ -788,7 +856,40 @@ def test_ensure_tags_exist_for_dataset_does_not_duplicate_known_tags(tag_db):
 
     registry = tag_registry.get_full_tag_registry()
     unsorted_tags = registry[0]["tags"]
-    assert [tag["slug"] for tag in unsorted_tags] == ["slow_burn"]
+    assert unsorted_tags == []
+    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
+        "slow_burn"
+    ]
+
+
+def test_ensure_tags_exist_preserves_normalized_entry_tag_slugs(tag_db):
+    summary = normalize_dataset_tags([{"messages": [], "tags": ["sLow burn"]}])
+
+    adoption = tag_registry.ensure_tags_exist_for_dataset(summary.entries)
+
+    assert summary.entries[0]["tags"] == ["slow_burn"]
+    assert adoption.created_slugs == ["slow_burn"]
+    assert [tag["slug"] for tag in tag_registry.get_uncategorized_tags()] == [
+        "slow_burn"
+    ]
+
+
+def test_existing_unsorted_active_tags_remain_active_until_migration(tag_db):
+    unsorted = tag_registry.ensure_unsorted_category()
+    session = tag_db()
+    try:
+        _add_tag(session, slug="old_unsorted_tag", category=unsorted)
+        session.commit()
+    finally:
+        session.close()
+
+    registry = tag_registry.get_full_tag_registry()
+
+    unsorted_category = next(
+        category for category in registry if category["name"] == "Unsorted"
+    )
+    assert [tag["slug"] for tag in unsorted_category["tags"]] == ["old_unsorted_tag"]
+    assert "old_unsorted_tag" in tag_registry.get_all_tag_slugs()
 
 
 def test_lifecycle_migration_updates_legacy_tags_table(tmp_path, monkeypatch):

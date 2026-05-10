@@ -109,6 +109,10 @@ def render_manage_page() -> None:
                 prefs=st.session_state.get("prefs", {}),
                 parse_errors=errors,
                 normalization_pending=st.session_state.get("normalization_pending", False),
+                auto_normalize_on_load=st.session_state.get(
+                    "auto_normalize_on_load",
+                    st.session_state.get("prefs", {}).get("auto_normalize_on_load", True),
+                ),
             ):
                 _normalize_result = persist_loaded_normalization(p)
                 if _normalize_result.ok:
@@ -658,6 +662,7 @@ def render_manage_page() -> None:
                     entry=entry,
                     dataset_format=st.session_state.dataset_format,
                     errors=errs,
+                    tag_label_map=_label_map,
                 )
                 _col_cb, _col_entry = st.columns([1, 20])
                 with _col_cb:

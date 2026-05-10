@@ -210,3 +210,18 @@ def test_should_auto_normalize_loaded_dataset_respects_setting_errors_and_pendin
         parse_errors=[],
         normalization_pending=False,
     ) is False
+
+
+def test_should_auto_normalize_loaded_dataset_prefers_live_session_value():
+    assert session_state.should_auto_normalize_loaded_dataset(
+        prefs={"auto_normalize_on_load": False},
+        parse_errors=[],
+        normalization_pending=True,
+        auto_normalize_on_load=True,
+    ) is True
+    assert session_state.should_auto_normalize_loaded_dataset(
+        prefs={"auto_normalize_on_load": True},
+        parse_errors=[],
+        normalization_pending=True,
+        auto_normalize_on_load=False,
+    ) is False

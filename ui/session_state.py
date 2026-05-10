@@ -82,10 +82,16 @@ def should_auto_normalize_loaded_dataset(
     prefs: dict,
     parse_errors: list[str],
     normalization_pending: bool,
+    auto_normalize_on_load: bool | None = None,
 ) -> bool:
     """Return True when an explicit load should persist normalized structure."""
+    enabled = (
+        prefs.get("auto_normalize_on_load", True)
+        if auto_normalize_on_load is None
+        else auto_normalize_on_load
+    )
     return (
-        bool(prefs.get("auto_normalize_on_load", True))
+        bool(enabled)
         and not parse_errors
         and normalization_pending
     )

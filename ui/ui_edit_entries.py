@@ -527,6 +527,7 @@ def render_edit_entries_page() -> None:
             entry=_ee_entry,
             dataset_format=st.session_state.dataset_format,
             errors=_ee_errs,
+            tag_label_map=_ee_label_map,
         )
         with st.expander(_ee_label):
             st.caption(f"Temp ID: {_ee_entry_id}")
