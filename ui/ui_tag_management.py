@@ -10,6 +10,11 @@ from core.tag_registry import (
     prettify_tag_name,
     slugify_tag_name,
 )
+from ui.tag_management_helpers import (
+    selected_assignable_archived_slugs,
+    validate_pending_archived_assignment,
+)
+from services.tag_lifecycle_service import assign_archived_imported_tags_to_category
 
 
 def render_tag_management_page() -> None:
@@ -72,10 +77,17 @@ def render_tag_management_page() -> None:
     )
 
     _archived_tags = get_visible_archived_tags()
+    if st.session_state.pop("_tm_clear_archived_selection", False):
+        for tag in _archived_tags:
+            st.session_state[f"tm_archived_select_{tag['slug']}"] = False
 
     if not _archived_tags:
         st.info("No archived tags.")
     else:
+        _assignable_archived_tags = [
+            tag for tag in _archived_tags if tag.get("can_assign_to_category")
+        ]
+
         for tag in _archived_tags:
             _select_col, _label_col, _action_col = st.columns(
                 [0.35, 7.65, 3],
@@ -101,6 +113,100 @@ def render_tag_management_page() -> None:
                 )
             with _action_col:
                 st.empty()
+
+        if _assignable_archived_tags:
+            _category_name_to_slug: dict[str, str] = {
+                cat["name"]: cat["slug"] for cat in registry
+            }
+            if not _category_name_to_slug:
+                st.info("Create an active category before assigning archived tags.")
+            else:
+                _selected_assign_category: str | None = st.selectbox(
+                    "Assign selected archived tags to",
+                    options=list(_category_name_to_slug.keys()),
+                    key="tm_archived_assign_category",
+                )
+                _selected_archived_slugs = selected_assignable_archived_slugs(
+                    archived_tags=_archived_tags,
+                    selected_by_slug={
+                        tag["slug"]: st.session_state.get(
+                            f"tm_archived_select_{tag['slug']}",
+                            False,
+                        )
+                        for tag in _archived_tags
+                    },
+                )
+
+                if st.button(
+                    "Assign Selected",
+                    key="btn_tm_assign_archived",
+                    disabled=not _selected_archived_slugs
+                    or _selected_assign_category is None,
+                ):
+                    st.session_state["tm_pending_archived_assignment"] = {
+                        "tag_slugs": _selected_archived_slugs,
+                        "category_slug": _category_name_to_slug[
+                            _selected_assign_category
+                        ],
+                        "category_name": _selected_assign_category,
+                    }
+                    st.rerun()
+
+        _pending_assignment = st.session_state.get("tm_pending_archived_assignment")
+        _selected_archived_slugs = selected_assignable_archived_slugs(
+            archived_tags=_archived_tags,
+            selected_by_slug={
+                tag["slug"]: st.session_state.get(
+                    f"tm_archived_select_{tag['slug']}",
+                    False,
+                )
+                for tag in _archived_tags
+            },
+        )
+        _category_slugs = {cat["slug"] for cat in registry}
+        _validated_pending_assignment = validate_pending_archived_assignment(
+            pending_assignment=_pending_assignment,
+            selected_slugs=_selected_archived_slugs,
+            category_slugs=_category_slugs,
+        )
+        if _pending_assignment and not _validated_pending_assignment:
+            st.session_state.pop("tm_pending_archived_assignment", None)
+            st.warning(
+                "Archived tag assignment was refreshed because the selection changed."
+            )
+        _pending_assignment = _validated_pending_assignment
+        if _pending_assignment:
+            _pending_count = len(_pending_assignment["tag_slugs"])
+            _pending_category = _pending_assignment["category_name"]
+            st.warning(
+                f"Assign {_pending_count} archived tag(s) to {_pending_category}? "
+                "These tags will become active and appear in normal tag pickers."
+            )
+            _confirm_col, _cancel_col = st.columns(2)
+            with _confirm_col:
+                if st.button(
+                    "Confirm Assignment",
+                    key="btn_tm_confirm_archived_assignment",
+                    type="primary",
+                ):
+                    _result = assign_archived_imported_tags_to_category(
+                        tag_slugs=_pending_assignment["tag_slugs"],
+                        category_slug=_pending_assignment["category_slug"],
+                    )
+                    if _result.ok:
+                        st.session_state["tm_success"] = _result.message
+                        st.session_state.pop("tm_pending_archived_assignment", None)
+                        st.session_state["_tm_clear_archived_selection"] = True
+                        st.rerun()
+                    else:
+                        st.error(_result.message)
+                        for _error in _result.errors:
+                            st.caption(_error)
+                        st.session_state.pop("tm_pending_archived_assignment", None)
+            with _cancel_col:
+                if st.button("Cancel", key="btn_tm_cancel_archived_assignment"):
+                    st.session_state.pop("tm_pending_archived_assignment", None)
+                    st.rerun()
 
     # ── Section 2: Create Custom Category ─────────────────────────────────────
     st.divider()
