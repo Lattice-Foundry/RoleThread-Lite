@@ -16,6 +16,7 @@ EXPECTED_DEFAULT_KEYS = {
     "auto_backups_enabled",
     "backup_directory",
     "backups_per_dataset",
+    "auto_normalize_on_load",
 }
 
 

@@ -10,7 +10,7 @@ from sqlalchemy import func, inspect as sa_inspect, text
 from core.dataset import TAGS, get_used_tags
 from core.db import SessionLocal, engine, init_db
 from core.models import Tag, TagCategory
-from core.tag_normalization import NormalizedTag, normalize_tag
+from core.tag_normalization import normalize_tag
 
 
 # Protected system category for normalized tags without an existing home.

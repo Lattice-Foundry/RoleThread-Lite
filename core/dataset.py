@@ -34,6 +34,8 @@ class TagNormalizationSummary:
     entries: list[dict]
     changed_entries: int = 0
     changed_tags: int = 0
+    structural_changed_entries: int = 0
+    tag_metadata_added_count: int = 0
     normalized_slugs: set[str] = field(default_factory=set)
     dropped_tags: list[str] = field(default_factory=list)
 
@@ -100,11 +102,17 @@ def validate_entry(entry: dict) -> list[str]:
 
 def load_dataset(path: str) -> tuple[list[dict], list[str]]:
     """Load JSONL entries and return parse errors without raising."""
+    summary, parse_errors = load_dataset_with_summary(path)
+    return summary.entries, parse_errors
+
+
+def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[str]]:
+    """Load JSONL entries and return normalization details plus parse errors."""
 
     entries, parse_errors = [], []
     p = Path(path)
     if not p.exists():
-        return [], [f"File not found: {path}"]
+        return TagNormalizationSummary(entries=[]), [f"File not found: {path}"]
     with p.open("r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
             line = line.strip()
@@ -112,13 +120,10 @@ def load_dataset(path: str) -> tuple[list[dict], list[str]]:
                 continue
             try:
                 entry = json.loads(line)
-                if "tags" not in entry:
-                    entry["tags"] = []
-                entry, _ = normalize_entry_tags(entry)
                 entries.append(entry)
             except json.JSONDecodeError as e:
                 parse_errors.append(f"Line {line_num}: {e}")
-    return entries, parse_errors
+    return normalize_dataset_tags(entries), parse_errors
 
 
 def save_dataset(path: str, entries: list[dict]) -> None:
@@ -297,12 +302,15 @@ def normalize_dataset_tags(entries: list[dict]) -> TagNormalizationSummary:
     normalized_entries: list[dict] = []
     changed_entries = 0
     changed_tags = 0
+    structural_changed_entries = 0
+    tag_metadata_added_count = 0
     normalized_slugs: set[str] = set()
     dropped_tags: list[str] = []
 
     for entry in entries:
         original_tags = entry.get("tags") if isinstance(entry, dict) else []
         original_list = original_tags if isinstance(original_tags, list) else []
+        tag_metadata_missing = not isinstance(original_tags, list)
         normalized_entry, changed = normalize_entry_tags(entry)
         clean_tags = get_entry_tags(normalized_entry)
         normalized_entries.append(normalized_entry)
@@ -310,6 +318,9 @@ def normalize_dataset_tags(entries: list[dict]) -> TagNormalizationSummary:
 
         if changed:
             changed_entries += 1
+        if tag_metadata_missing:
+            structural_changed_entries += 1
+            tag_metadata_added_count += 1
 
         seen_for_count: set[str] = set()
         for raw_tag in original_list:
@@ -329,6 +340,8 @@ def normalize_dataset_tags(entries: list[dict]) -> TagNormalizationSummary:
         entries=normalized_entries,
         changed_entries=changed_entries,
         changed_tags=changed_tags,
+        structural_changed_entries=structural_changed_entries,
+        tag_metadata_added_count=tag_metadata_added_count,
         normalized_slugs=normalized_slugs,
         dropped_tags=dropped_tags,
     )

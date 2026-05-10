@@ -7,7 +7,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset
+from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset_with_summary
 from core.preferences import load_preferences
 from ui.session_state import set_loaded_entries
 from core.storage import ensure_app_directories
@@ -105,13 +105,17 @@ if "prefs" not in st.session_state:
     st.session_state.auto_backups_enabled = prefs.get("auto_backups_enabled", True)
     st.session_state.backup_directory = prefs.get("backup_directory", "")
     st.session_state.backups_per_dataset = prefs.get("backups_per_dataset", 25)
+    st.session_state.auto_normalize_on_load = prefs.get("auto_normalize_on_load", True)
     st.session_state.page = "Create Entry"
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
         if Path(last).exists():
-            entries, errors = load_dataset(last)
-            set_loaded_entries(entries)
+            normalization, errors = load_dataset_with_summary(last)
+            set_loaded_entries(
+                normalization.entries,
+                normalization_summary=normalization,
+            )
             st.session_state.loaded_path = last
         else:
             st.session_state.stale_last_path = last

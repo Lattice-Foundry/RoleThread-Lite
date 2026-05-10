@@ -23,6 +23,7 @@ from core.dataset import (
     get_used_tags,
     has_untagged_entries,
     load_dataset,
+    load_dataset_with_summary,
     make_entry,
     make_temp_entry_id,
     merge_datasets,
@@ -309,7 +310,23 @@ def test_normalize_dataset_tags_reports_changed_entries_and_slugs():
     ]
     assert summary.changed_entries == 1
     assert summary.changed_tags == 2
+    assert summary.structural_changed_entries == 0
+    assert summary.tag_metadata_added_count == 0
     assert summary.normalized_slugs == {"slow_burn", "reviewed"}
+
+
+def test_normalize_dataset_tags_reports_missing_tag_metadata():
+    entries = [
+        {"messages": _entry()["messages"]},
+        _entry(tags=["reviewed"]),
+    ]
+
+    summary = normalize_dataset_tags(entries)
+
+    assert summary.entries[0]["tags"] == []
+    assert summary.structural_changed_entries == 1
+    assert summary.tag_metadata_added_count == 1
+    assert summary.changed_entries == 1
 
 
 def test_set_entry_tags_deduplicates_while_preserving_order():
@@ -605,6 +622,26 @@ def test_load_dataset_normalizes_missing_tags_to_empty_list(tmp_path):
 
     assert errors == []
     assert loaded[0]["tags"] == []
+
+
+def test_load_dataset_with_summary_reports_missing_tag_metadata(tmp_path):
+    path = tmp_path / "missing_tags.jsonl"
+    entries = [
+        {"messages": _entry()["messages"]},
+        {"messages": _entry()["messages"]},
+        {"messages": _entry()["messages"]},
+    ]
+    path.write_text(
+        "\n".join(json.dumps(entry) for entry in entries) + "\n",
+        encoding="utf-8",
+    )
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert [entry["tags"] for entry in summary.entries] == [[], [], []]
+    assert summary.structural_changed_entries == 3
+    assert summary.tag_metadata_added_count == 3
 
 
 def test_load_dataset_normalizes_funky_tags_in_memory(tmp_path):

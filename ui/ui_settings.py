@@ -103,6 +103,27 @@ def render_settings_page() -> None:
     )
 
     st.divider()
+    st.subheader("Data Normalization")
+
+    def _persist_auto_normalize_on_load():
+        st.session_state.auto_normalize_on_load = st.session_state[
+            "_auto_normalize_on_load_checkbox"
+        ]
+        update_prefs({"auto_normalize_on_load": st.session_state.auto_normalize_on_load})
+
+    st.checkbox(
+        "Auto-normalize data on load",
+        value=st.session_state.get("auto_normalize_on_load", True),
+        key="_auto_normalize_on_load_checkbox",
+        on_change=_persist_auto_normalize_on_load,
+        help=(
+            "When enabled, explicit dataset loads persist deterministic metadata "
+            "cleanup to disk after creating a backup. Canonical tag normalization "
+            "always remains enabled."
+        ),
+    )
+
+    st.divider()
     st.subheader("Dataset Format")
 
     def _persist_dataset_format():

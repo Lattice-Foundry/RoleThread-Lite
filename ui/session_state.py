@@ -7,6 +7,7 @@ import streamlit as st
 
 from core.backups import auto_backups_enabled
 from core.dataset import (
+    TagNormalizationSummary,
     build_entry_registry,
     get_entry_pairs,
     get_index_for_entry_id,
@@ -19,6 +20,7 @@ from core.tag_registry import ensure_tags_exist_for_dataset
 from services.dataset_service import (
     DatasetOperationResult,
     delete_entries_service,
+    normalize_dataset_service,
     save_quick_edit_service,
 )
 
@@ -43,19 +45,63 @@ def ensure_entry_registry() -> None:
         st.session_state.entry_registry = build_entry_registry(entries)
 
 
-def set_loaded_entries(entries: list[dict]) -> None:
+def set_loaded_entries(
+    entries: list[dict],
+    normalization_summary: TagNormalizationSummary | None = None,
+) -> None:
     """Replace loaded_entries and rebuild the registry from scratch."""
-    normalization = normalize_dataset_tags(entries)
+    normalization = normalization_summary or normalize_dataset_tags(entries)
     adoption = ensure_tags_exist_for_dataset(normalization.entries)
     st.session_state.loaded_entries = normalization.entries
     st.session_state.entry_registry = build_entry_registry(normalization.entries)
     st.session_state.tag_normalization_summary = {
         "changed_entries": normalization.changed_entries,
         "changed_tags": normalization.changed_tags,
+        "structural_changed_entries": normalization.structural_changed_entries,
+        "tag_metadata_added_count": normalization.tag_metadata_added_count,
         "dropped_tags": normalization.dropped_tags,
         "adopted_count": adoption.created_count,
         "adopted_slugs": adoption.created_slugs or [],
     }
+    st.session_state.normalization_pending = normalization.structural_changed_entries > 0
+
+
+def clear_normalization_pending() -> None:
+    """Clear pending structural-normalization state after disk persistence."""
+    st.session_state.normalization_pending = False
+    summary = st.session_state.get("tag_normalization_summary", {})
+    st.session_state.tag_normalization_summary = {
+        **summary,
+        "structural_changed_entries": 0,
+        "tag_metadata_added_count": 0,
+    }
+
+
+def should_auto_normalize_loaded_dataset(
+    *,
+    prefs: dict,
+    parse_errors: list[str],
+    normalization_pending: bool,
+) -> bool:
+    """Return True when an explicit load should persist normalized structure."""
+    return (
+        bool(prefs.get("auto_normalize_on_load", True))
+        and not parse_errors
+        and normalization_pending
+    )
+
+
+def persist_loaded_normalization(dataset_path: str) -> DatasetOperationResult:
+    """Persist normalized loaded entries and clear pending state on success."""
+    result = normalize_dataset_service(
+        dataset_path=dataset_path,
+        entries=st.session_state.loaded_entries,
+    )
+    if result.ok and result.entries is not None:
+        st.session_state.loaded_entries = result.entries
+        st.session_state.entry_registry = build_entry_registry(result.entries)
+        clear_normalization_pending()
+    return result
 
 
 def get_loaded_entry_by_id(entry_id: str) -> dict | None:

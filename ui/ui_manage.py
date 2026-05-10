@@ -12,7 +12,7 @@ from core.backups import auto_backups_enabled
 from core.dataset import (
     filter_entry_pairs_by_tags,
     get_entry_tags,
-    load_dataset,
+    load_dataset_with_summary,
     save_dataset,
     validate_entry,
 )
@@ -33,10 +33,12 @@ from ui.session_state import (
     get_loaded_entry_index_by_id,
     get_loaded_entry_by_id,
     get_selected_entry_ids,
+    persist_loaded_normalization,
     prune_selection_to_loaded_entries,
     save_quick_edit,
     select_visible_entries,
     set_loaded_entries,
+    should_auto_normalize_loaded_dataset,
     start_quick_edit,
     toggle_entry_selection,
     update_prefs,
@@ -90,21 +92,42 @@ def render_manage_page() -> None:
     with col_load:
         if st.button("Load", width="stretch", disabled=not load_path.strip()):
             p = load_path.strip()
-            entries, errors = load_dataset(p)
+            normalization, errors = load_dataset_with_summary(p)
+            entries = normalization.entries
             if errors:
                 for e in errors:
                     st.error(e)
-            set_loaded_entries(entries)
+            set_loaded_entries(entries, normalization_summary=normalization)
             st.session_state.loaded_path = p
             st.session_state.stale_last_path = ""
             st.session_state.entry_page = 0
             st.session_state["manage_select_all_mode"] = False
             clear_selected_entries()
+            _auto_normalized = False
+            _auto_normalize_failed = False
+            if should_auto_normalize_loaded_dataset(
+                prefs=st.session_state.get("prefs", {}),
+                parse_errors=errors,
+                normalization_pending=st.session_state.get("normalization_pending", False),
+            ):
+                _normalize_result = persist_loaded_normalization(p)
+                if _normalize_result.ok:
+                    _auto_normalized = True
+                else:
+                    _auto_normalize_failed = True
+                    st.error(_normalize_result.message)
+                    for _err in _normalize_result.errors:
+                        st.error(_err)
             update_prefs({
                 "last_loaded_dataset_path": p,
                 "last_open_directory": str(Path(p).parent),
             })
-            st.success(f"Loaded {len(entries)} entries from `{p}`.")
+            if _auto_normalized:
+                st.success(f"Loaded {len(entries)} entries from `{p}`. Normalized data saved.")
+            elif _auto_normalize_failed:
+                st.warning(f"Loaded {len(entries)} entries from `{p}`, but normalization was not saved.")
+            else:
+                st.success(f"Loaded {len(entries)} entries from `{p}`.")
 
     with col_new:
         if st.button("New Dataset", width="stretch"):
@@ -149,6 +172,27 @@ def render_manage_page() -> None:
                     st.rerun()
                 except Exception as exc:
                     st.error(f"Failed to create dataset: {exc}")
+
+    if st.session_state.get("normalization_pending") and st.session_state.get("loaded_path"):
+        _norm_summary = st.session_state.get("tag_normalization_summary", {})
+        _metadata_count = int(_norm_summary.get("tag_metadata_added_count", 0) or 0)
+        st.info(
+            "This dataset contains legacy/un-normalized metadata. "
+            "LoreForge cleaned the dataset in memory. Normalize Data will persist "
+            "the cleaned structure to disk."
+        )
+        if _metadata_count:
+            st.caption(f"Pending cleanup: tag metadata added for {_metadata_count} entries.")
+        if st.button("Normalize Data", width="stretch"):
+            _normalize_result = persist_loaded_normalization(st.session_state.loaded_path)
+            if _normalize_result.ok:
+                _backup_note = " Backup created." if _normalize_result.backup_path else ""
+                st.success(f"Dataset normalized.{_backup_note}")
+                st.rerun()
+            else:
+                st.error(_normalize_result.message)
+                for _err in _normalize_result.errors:
+                    st.error(_err)
 
     entries = st.session_state.loaded_entries
     all_pairs = get_all_entry_pairs()

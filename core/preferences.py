@@ -29,6 +29,7 @@ DEFAULTS: dict = {
     "auto_backups_enabled": True,
     "backup_directory": str(get_backups_dir()),
     "backups_per_dataset": 25,
+    "auto_normalize_on_load": True,
 }
 
 
