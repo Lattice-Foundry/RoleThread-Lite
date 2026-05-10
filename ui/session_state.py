@@ -10,10 +10,12 @@ from core.dataset import (
     build_entry_registry,
     get_entry_pairs,
     get_index_for_entry_id,
+    normalize_dataset_tags,
     rebuild_id_to_index,
     registry_is_valid,
 )
 from core.preferences import save_preferences
+from core.tag_registry import ensure_tags_exist_for_dataset
 from services.dataset_service import (
     DatasetOperationResult,
     delete_entries_service,
@@ -43,8 +45,17 @@ def ensure_entry_registry() -> None:
 
 def set_loaded_entries(entries: list[dict]) -> None:
     """Replace loaded_entries and rebuild the registry from scratch."""
-    st.session_state.loaded_entries = entries
-    st.session_state.entry_registry = build_entry_registry(entries)
+    normalization = normalize_dataset_tags(entries)
+    adoption = ensure_tags_exist_for_dataset(normalization.entries)
+    st.session_state.loaded_entries = normalization.entries
+    st.session_state.entry_registry = build_entry_registry(normalization.entries)
+    st.session_state.tag_normalization_summary = {
+        "changed_entries": normalization.changed_entries,
+        "changed_tags": normalization.changed_tags,
+        "dropped_tags": normalization.dropped_tags,
+        "adopted_count": adoption.created_count,
+        "adopted_slugs": adoption.created_slugs or [],
+    }
 
 
 def get_loaded_entry_by_id(entry_id: str) -> dict | None:

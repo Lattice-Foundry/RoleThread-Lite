@@ -12,6 +12,8 @@ from pathlib import Path
 from core.backups import create_dataset_backup
 from core.dataset import (
     append_to_dataset,
+    normalize_dataset_tags,
+    normalize_entry_tags,
     replace_entry_tags,
     save_dataset,
     set_entry_system_prompt,
@@ -33,6 +35,10 @@ class DatasetOperationResult:
 
 def _copy_entries(entries: list[dict]) -> list[dict]:
     return copy.deepcopy(entries)
+
+
+def _normalize_entries(entries: list[dict]) -> list[dict]:
+    return normalize_dataset_tags(entries).entries
 
 
 def _valid_index(entries: list[dict], index: int) -> bool:
@@ -123,7 +129,9 @@ def save_quick_edit_service(
             errors=errors,
         )
 
-    proposed_entries = _replace_entry_at_index(entries, entry_index, edited_entry)
+    proposed_entries = _normalize_entries(
+        _replace_entry_at_index(entries, entry_index, edited_entry)
+    )
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
@@ -179,7 +187,9 @@ def save_full_edit_service(
             errors=errors,
         )
 
-    proposed_entries = _replace_entry_at_index(entries, entry_index, edited_entry)
+    proposed_entries = _normalize_entries(
+        _replace_entry_at_index(entries, entry_index, edited_entry)
+    )
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
@@ -236,7 +246,9 @@ def replace_single_entry_tags_service(
     edited_entry = copy.deepcopy(entries[entry_index])
     replace_entry_tags(edited_entry, tags)
 
-    proposed_entries = _replace_entry_at_index(entries, entry_index, edited_entry)
+    proposed_entries = _normalize_entries(
+        _replace_entry_at_index(entries, entry_index, edited_entry)
+    )
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
@@ -287,6 +299,7 @@ def replace_tags_bulk_service(
     proposed_entries = _copy_entries(entries)
     for index in normalized_indices:
         replace_entry_tags(proposed_entries[index], tags)
+    proposed_entries = _normalize_entries(proposed_entries)
 
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
@@ -335,6 +348,7 @@ def clear_tags_bulk_service(
     proposed_entries = _copy_entries(entries)
     for index in normalized_indices:
         replace_entry_tags(proposed_entries[index], [])
+    proposed_entries = _normalize_entries(proposed_entries)
 
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
@@ -386,6 +400,7 @@ def replace_system_prompt_bulk_service(
     proposed_entries = _copy_entries(entries)
     for index in normalized_indices:
         set_entry_system_prompt(proposed_entries[index], system_prompt)
+    proposed_entries = _normalize_entries(proposed_entries)
 
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
@@ -437,6 +452,7 @@ def delete_entries_service(
         for index, entry in enumerate(entries)
         if index not in delete_indices
     ]
+    proposed_entries = _normalize_entries(proposed_entries)
 
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
@@ -482,7 +498,7 @@ def save_merged_entries_service(
             message="Merged entries must be a list.",
         )
 
-    proposed_entries = _copy_entries(entries)
+    proposed_entries = _normalize_entries(entries)
     backup_path: str | None = None
     target = Path(dataset_path)
 
@@ -550,7 +566,7 @@ def create_entry_service(
             errors=errors,
         )
 
-    entry_to_append = copy.deepcopy(new_entry)
+    entry_to_append, _ = normalize_entry_tags(new_entry)
     try:
         append_to_dataset(dataset_path, entry_to_append)
     except Exception as exc:
@@ -561,6 +577,7 @@ def create_entry_service(
 
     proposed_entries = _copy_entries(entries)
     proposed_entries.append(entry_to_append)
+    proposed_entries = _normalize_entries(proposed_entries)
     return DatasetOperationResult(
         ok=True,
         message="Entry appended.",

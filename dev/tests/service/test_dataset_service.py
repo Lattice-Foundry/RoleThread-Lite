@@ -530,7 +530,7 @@ def test_replace_system_prompt_bulk_service_replaces_or_inserts_system_prompt(tm
     assert result.entries[1]["messages"][0] == {"role": "system", "content": "New system"}
     assert result.entries[1]["messages"][1:] == no_system["messages"]
     assert result.entries[0]["tags"] == ["selected"]
-    assert result.entries[1]["tags"] == ["no-system"]
+    assert result.entries[1]["tags"] == ["no_system"]
     assert result.entries[2] == entries[2]
     assert entries == original_entries
     assert _read_entries(path) == result.entries
@@ -630,8 +630,8 @@ def test_delete_entries_service_can_delete_malformed_selected_entries(tmp_path):
     )
 
     assert result.ok is True
-    assert result.entries == [entries[0], entries[2]]
-    assert _read_entries(path) == [entries[0], entries[2]]
+    assert result.entries == [entries[0], _entry(tags=["also_good"])]
+    assert _read_entries(path) == [entries[0], _entry(tags=["also_good"])]
 
 
 def test_delete_entries_service_backup_enabled_disabled_and_failure_paths(tmp_path, monkeypatch):

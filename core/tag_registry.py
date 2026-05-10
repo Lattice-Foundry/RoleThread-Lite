@@ -3,42 +3,42 @@
 JSONL entries store tag slugs; this module owns slug/display conversion,
 registry seeding, lookup helpers, and additive custom tag writes.
 """
-import re
+from dataclasses import dataclass, field
 
 from sqlalchemy import func, inspect as sa_inspect, text
 
-from core.dataset import TAGS
+from core.dataset import TAGS, get_used_tags
 from core.db import SessionLocal, engine, init_db
 from core.models import Tag, TagCategory
+from core.tag_normalization import NormalizedTag, normalize_tag
 
 
-# ── Known abbreviations that should stay fully uppercase in display names ──────
-_UPPERCASE_WORDS: frozenset[str] = frozenset({"ai", "id"})
+# Protected system category for normalized tags without an existing home.
+UNSORTED_CATEGORY_NAME = "Unsorted"
+UNSORTED_CATEGORY_SLUG = "unsorted"
+UNSORTED_SORT_ORDER = -1000
+
+
+@dataclass
+class TagAdoptionSummary:
+    """Result of adopting dataset tags into the registry."""
+
+    created_count: int = 0
+    created_slugs: list[str] = field(default_factory=list)
 
 
 # ── Slug helper ────────────────────────────────────────────────────────────────
 
 def slugify_tag_name(name: str) -> str:
     """Convert a display name to a lowercase_snake_case slug."""
-    slug = name.strip().lower()
-    slug = slug.replace("&", " ")
-    slug = re.sub(r"[^a-z0-9]+", "_", slug)
-    slug = re.sub(r"_+", "_", slug)
-    slug = slug.strip("_")
-    return slug
+    return normalize_tag(name).slug
 
 
 # ── Display-name helper ────────────────────────────────────────────────────────
 
 def prettify_tag_name(slug: str) -> str:
     """Convert a tag slug to a display label."""
-    words = re.split(r"[_\-]+", slug.strip())
-    titled = [
-        w.upper() if w.lower() in _UPPERCASE_WORDS else w.capitalize()
-        for w in words
-        if w
-    ]
-    return " ".join(titled)
+    return normalize_tag(slug).display_name
 
 
 # ── Schema migration ───────────────────────────────────────────────────────────
@@ -92,6 +92,7 @@ def seed_default_tags() -> None:
     """Idempotently seed built-in tags without deleting user data."""
     init_db()
     _migrate_tags_slug_column()
+    ensure_unsorted_category()
 
     session = SessionLocal()
     try:
@@ -160,6 +161,97 @@ def seed_default_tags() -> None:
 
 
 # ── Query helpers ──────────────────────────────────────────────────────────────
+
+def ensure_unsorted_category() -> TagCategory:
+    """Ensure the protected Unsorted category exists and sorts first."""
+    session = SessionLocal()
+    try:
+        category = (
+            session.query(TagCategory)
+            .filter_by(slug=UNSORTED_CATEGORY_SLUG)
+            .first()
+        )
+        if category is None:
+            category = TagCategory(
+                name=UNSORTED_CATEGORY_NAME,
+                slug=UNSORTED_CATEGORY_SLUG,
+                sort_order=UNSORTED_SORT_ORDER,
+                is_active=True,
+            )
+            session.add(category)
+            session.commit()
+            session.refresh(category)
+        else:
+            category.name = UNSORTED_CATEGORY_NAME
+            category.sort_order = UNSORTED_SORT_ORDER
+            category.is_active = True
+            session.commit()
+            session.refresh(category)
+        return category
+    finally:
+        session.close()
+
+
+def ensure_tags_exist_for_dataset(entries: list[dict]) -> TagAdoptionSummary:
+    """Adopt unknown dataset tag slugs into the Unsorted category."""
+    used_slugs: set[str] = set()
+    for tag in get_used_tags(entries):
+        normalized = normalize_tag(tag)
+        if normalized.slug:
+            used_slugs.add(normalized.slug)
+    if not used_slugs:
+        return TagAdoptionSummary()
+
+    ensure_unsorted_category()
+    session = SessionLocal()
+    created_slugs: list[str] = []
+    try:
+        unsorted = (
+            session.query(TagCategory)
+            .filter_by(slug=UNSORTED_CATEGORY_SLUG)
+            .first()
+        )
+        if unsorted is None:
+            return TagAdoptionSummary()
+
+        existing_slugs = {
+            slug
+            for (slug,) in session.query(Tag.slug)
+            .filter(Tag.slug.in_(used_slugs))
+            .all()
+        }
+        missing_slugs = sorted(used_slugs - existing_slugs)
+        if not missing_slugs:
+            return TagAdoptionSummary()
+
+        max_order: int = (
+            session.query(func.max(Tag.sort_order))
+            .filter_by(category_id=unsorted.id)
+            .scalar()
+        ) or 0
+        for offset, slug in enumerate(missing_slugs, 1):
+            session.add(
+                Tag(
+                    category_id=unsorted.id,
+                    name=prettify_tag_name(slug),
+                    slug=slug,
+                    sort_order=max_order + offset,
+                    is_active=True,
+                    is_builtin=False,
+                )
+            )
+            created_slugs.append(slug)
+        session.commit()
+        return TagAdoptionSummary(
+            created_count=len(created_slugs),
+            created_slugs=created_slugs,
+        )
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
 
 def get_active_tag_categories() -> list[TagCategory]:
     """Return all active TagCategory rows, ordered by sort_order then name."""

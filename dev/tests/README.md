@@ -17,6 +17,7 @@ Current tests cover:
 - service-layer mutation workflows in `services/dataset_service.py`
 - backup creation, naming, retention, and configured directories in `core/backups.py`
 - local preferences and storage path helpers in `core/preferences.py` and `core/storage.py`
+- canonical tag normalization and focused Unsorted/adoption behavior
 
 ## What Is Deferred
 
@@ -25,10 +26,11 @@ and brittle widget-level tests would slow down useful product iteration.
 Prefer pure helper and service tests until a UI flow is stable enough to merit
 automation.
 
-Database and tag-registry tests are also intentionally deferred for now. The
-tag system is expected to evolve with soft delete, archives, migration/rename
-workflows, unknown-tag repair, validation tooling, and future metadata
-integrity work. Add DB/tag tests after those contracts are more mature.
+Broad database and tag-registry tests are still intentionally deferred for now.
+The tag system is expected to evolve with soft delete, archives,
+migration/rename workflows, unknown-tag repair, validation tooling, and future
+metadata integrity work. Keep DB/tag tests focused on contracts that are stable
+enough to protect.
 
 ## Setup
 

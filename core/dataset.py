@@ -7,7 +7,11 @@ import json
 import os
 import random
 import tempfile
+from copy import deepcopy
+from dataclasses import dataclass, field
 from pathlib import Path
+
+from core.tag_normalization import normalize_tag
 
 
 DEFAULT_SYSTEM_PROMPT = (
@@ -21,6 +25,17 @@ TAGS: dict[str, list[str]] = {
     "Style": ["dialogue", "narration", "descriptive", "subtle", "grounded"],
     "Source & Status": ["manual", "ai_generated", "reviewed", "needs_edit"],
 }
+
+
+@dataclass
+class TagNormalizationSummary:
+    """Result of normalizing dataset entry tags."""
+
+    entries: list[dict]
+    changed_entries: int = 0
+    changed_tags: int = 0
+    normalized_slugs: set[str] = field(default_factory=set)
+    dropped_tags: list[str] = field(default_factory=list)
 
 
 def make_entry(turns: list[dict], system_prompt: str, tags: list[str] | None = None) -> dict:
@@ -99,6 +114,7 @@ def load_dataset(path: str) -> tuple[list[dict], list[str]]:
                 entry = json.loads(line)
                 if "tags" not in entry:
                     entry["tags"] = []
+                entry, _ = normalize_entry_tags(entry)
                 entries.append(entry)
             except json.JSONDecodeError as e:
                 parse_errors.append(f"Line {line_num}: {e}")
@@ -247,6 +263,75 @@ def get_entry_tags(entry: dict) -> list[str]:
         return []
     except Exception:
         return []
+
+
+def normalize_entry_tags(entry: dict) -> tuple[dict, bool]:
+    """Return a copy of entry with canonical, deduplicated tag slugs."""
+    normalized_entry = deepcopy(entry)
+    original_tags = normalized_entry.get("tags")
+    if not isinstance(original_tags, list):
+        normalized_entry["tags"] = []
+        return normalized_entry, original_tags != []
+
+    seen: set[str] = set()
+    clean_tags: list[str] = []
+    dropped_or_duplicate = False
+    for raw_tag in original_tags:
+        normalized = normalize_tag(raw_tag)
+        if not normalized.slug:
+            dropped_or_duplicate = True
+            continue
+        if normalized.slug in seen:
+            dropped_or_duplicate = True
+            continue
+        seen.add(normalized.slug)
+        clean_tags.append(normalized.slug)
+
+    changed = clean_tags != original_tags or dropped_or_duplicate
+    normalized_entry["tags"] = clean_tags
+    return normalized_entry, changed
+
+
+def normalize_dataset_tags(entries: list[dict]) -> TagNormalizationSummary:
+    """Normalize tags across a dataset without mutating the input entries."""
+    normalized_entries: list[dict] = []
+    changed_entries = 0
+    changed_tags = 0
+    normalized_slugs: set[str] = set()
+    dropped_tags: list[str] = []
+
+    for entry in entries:
+        original_tags = entry.get("tags") if isinstance(entry, dict) else []
+        original_list = original_tags if isinstance(original_tags, list) else []
+        normalized_entry, changed = normalize_entry_tags(entry)
+        clean_tags = get_entry_tags(normalized_entry)
+        normalized_entries.append(normalized_entry)
+        normalized_slugs.update(clean_tags)
+
+        if changed:
+            changed_entries += 1
+
+        seen_for_count: set[str] = set()
+        for raw_tag in original_list:
+            normalized = normalize_tag(raw_tag)
+            if not normalized.slug:
+                dropped_tags.append(raw_tag if isinstance(raw_tag, str) else repr(raw_tag))
+                changed_tags += 1
+                continue
+            if normalized.slug in seen_for_count:
+                changed_tags += 1
+                continue
+            seen_for_count.add(normalized.slug)
+            if normalized.slug != raw_tag:
+                changed_tags += 1
+
+    return TagNormalizationSummary(
+        entries=normalized_entries,
+        changed_entries=changed_entries,
+        changed_tags=changed_tags,
+        normalized_slugs=normalized_slugs,
+        dropped_tags=dropped_tags,
+    )
 
 
 def set_entry_tags(entry: dict, tags: list[str]) -> dict:

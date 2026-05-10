@@ -26,6 +26,8 @@ from core.dataset import (
     make_entry,
     make_temp_entry_id,
     merge_datasets,
+    normalize_dataset_tags,
+    normalize_entry_tags,
     rebuild_id_to_index,
     registry_is_valid,
     remove_registry_id,
@@ -279,6 +281,35 @@ def test_get_entry_tags_returns_empty_list_for_missing_or_malformed_tags():
     assert get_entry_tags({}) == []
     assert get_entry_tags({"tags": "greeting"}) == []
     assert get_entry_tags({"tags": ["greeting", 7]}) == []
+
+
+def test_normalize_entry_tags_canonicalizes_deduplicates_and_drops_invalid_tags():
+    entry = _entry(tags=["sLow burn", "slow-burn", "  ", "AI Focus", "ai_focus"])
+    entry["metadata"] = {"source": "import"}
+
+    normalized, changed = normalize_entry_tags(entry)
+
+    assert changed is True
+    assert normalized["tags"] == ["slow_burn", "ai_focus"]
+    assert normalized["metadata"] == {"source": "import"}
+    assert entry["tags"] == ["sLow burn", "slow-burn", "  ", "AI Focus", "ai_focus"]
+
+
+def test_normalize_dataset_tags_reports_changed_entries_and_slugs():
+    entries = [
+        _entry(tags=["slow burn", "slow-burn"]),
+        _entry(tags=["reviewed"]),
+    ]
+
+    summary = normalize_dataset_tags(entries)
+
+    assert [entry["tags"] for entry in summary.entries] == [
+        ["slow_burn"],
+        ["reviewed"],
+    ]
+    assert summary.changed_entries == 1
+    assert summary.changed_tags == 2
+    assert summary.normalized_slugs == {"slow_burn", "reviewed"}
 
 
 def test_set_entry_tags_deduplicates_while_preserving_order():
@@ -574,6 +605,19 @@ def test_load_dataset_normalizes_missing_tags_to_empty_list(tmp_path):
 
     assert errors == []
     assert loaded[0]["tags"] == []
+
+
+def test_load_dataset_normalizes_funky_tags_in_memory(tmp_path):
+    path = tmp_path / "funky_tags.jsonl"
+    path.write_text(
+        json.dumps(_entry(tags=["sLow burn", "slow-burn", "!!!"])) + "\n",
+        encoding="utf-8",
+    )
+
+    loaded, errors = load_dataset(str(path))
+
+    assert errors == []
+    assert loaded[0]["tags"] == ["slow_burn"]
 
 
 def test_append_to_dataset_writes_one_entry_after_existing_entries(tmp_path):
