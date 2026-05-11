@@ -1,4 +1,5 @@
 import json
+from dataclasses import FrozenInstanceError
 
 import pytest
 from sqlalchemy import create_engine, inspect as sa_inspect, text
@@ -916,6 +917,79 @@ def test_active_registry_helpers_keep_empty_active_categories(tag_db):
             "tags": [],
         }
     ]
+
+
+def test_tag_registry_snapshot_matches_existing_read_helpers(tag_db):
+    session = tag_db()
+    try:
+        behavior = _add_category(session, name="Behavior", slug="behavior")
+        scene = _add_category(session, name="Scene", slug="scene")
+        scene.sort_order = 1
+        _add_tag(session, slug="active_tag", name="Active Tag", category=behavior)
+        second = _add_tag(session, slug="second_tag", name="Second Tag", category=scene)
+        second.sort_order = 2
+        imported = _add_tag(
+            session,
+            slug="imported_tag",
+            name="Imported Tag",
+            category=None,
+            status=TAG_STATUS_ARCHIVED,
+            active=False,
+        )
+        deleted = _add_tag(
+            session,
+            slug="deleted_tag",
+            name="Deleted Tag",
+            category=None,
+            status=TAG_STATUS_ARCHIVED,
+            active=False,
+        )
+        tag_registry.upsert_tag_lifecycle_metadata(
+            action=TAG_LIFECYCLE_METADATA_ARCHIVE,
+            old_slug=imported.slug,
+            old_display_name=imported.name,
+            metadata=tag_registry.build_imported_archive_metadata(),
+            session=session,
+        )
+        tag_registry.upsert_tag_lifecycle_metadata(
+            action=TAG_LIFECYCLE_METADATA_ARCHIVE,
+            old_slug=deleted.slug,
+            old_display_name=deleted.name,
+            old_category_slug="behavior",
+            metadata=tag_registry.build_deleted_archive_metadata("behavior"),
+            session=session,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    snapshot = tag_registry.get_tag_registry_snapshot(
+        untagged_key="__custom_untagged__"
+    )
+
+    assert snapshot.active_registry == tag_registry.get_tag_registry_dict()
+    assert snapshot.active_categories == tag_registry.get_full_tag_registry()
+    assert snapshot.active_tag_slugs == tag_registry.get_all_tag_slugs()
+    assert snapshot.active_tag_slug_set == set(tag_registry.get_all_tag_slugs())
+    assert snapshot.tag_label_map == tag_registry.get_tag_label_map(
+        include_untagged=False
+    )
+    assert snapshot.tag_label_map_with_untagged == tag_registry.get_tag_label_map(
+        untagged_key="__custom_untagged__"
+    )
+    assert snapshot.tag_category_map == tag_registry.get_tag_category_map()
+    assert snapshot.visible_archived_tags == tag_registry.get_visible_archived_tags()
+    assert snapshot.default_category_slugs == {
+        tag_registry.slugify_tag_name(name) for name in tag_registry.TAGS
+    }
+    assert snapshot.max_active_categories == tag_registry._MAX_ACTIVE_CATEGORIES
+
+
+def test_tag_registry_snapshot_is_frozen(tag_db):
+    snapshot = tag_registry.get_tag_registry_snapshot()
+
+    with pytest.raises(FrozenInstanceError):
+        snapshot.max_active_categories = 11
 
 
 def test_lifecycle_specific_helpers_return_status_scoped_tags(tag_db):

@@ -7,6 +7,7 @@ import json
 from dataclasses import dataclass, field
 
 from sqlalchemy import func
+from sqlalchemy.orm import selectinload
 
 from core.dataset import TAGS, get_used_tags
 from core.db import SessionLocal, engine, init_db
@@ -78,6 +79,22 @@ class ArchivedTagImportSummary:
 
 
 # ── Slug helper ────────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class TagRegistrySnapshot:
+    """Point-in-time read model for UI tag registry rendering."""
+
+    active_registry: dict[str, list[str]]
+    active_categories: list[dict]
+    active_tag_slugs: list[str]
+    active_tag_slug_set: set[str]
+    tag_label_map: dict[str, str]
+    tag_label_map_with_untagged: dict[str, str]
+    tag_category_map: dict[str, str]
+    visible_archived_tags: list[dict]
+    default_category_slugs: set[str]
+    max_active_categories: int
+
 
 def slugify_tag_name(name: str) -> str:
     """Convert a display name to a lowercase_snake_case slug."""
@@ -1030,6 +1047,192 @@ def get_tag_by_slug_any_status(slug: str) -> Tag | None:
 
 # Hard ceiling on active categories to keep the UI manageable.
 _MAX_ACTIVE_CATEGORIES = 10
+
+
+def _parse_metadata_json(metadata_json: str | None) -> dict:
+    """Return lifecycle metadata dict from stored JSON."""
+    if not metadata_json:
+        return {}
+    try:
+        metadata = json.loads(metadata_json)
+    except json.JSONDecodeError:
+        return {}
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _current_metadata_by_slug(session, slugs: list[str]) -> dict[str, dict]:
+    """Return latest current-state lifecycle metadata for each slug."""
+    if not slugs:
+        return {}
+
+    rows = (
+        session.query(TagLifecycleMetadata)
+        .filter(
+            TagLifecycleMetadata.old_slug.in_(slugs),
+            TagLifecycleMetadata.action.in_(TAG_CURRENT_METADATA_ACTIONS),
+        )
+        .order_by(TagLifecycleMetadata.id.desc())
+        .all()
+    )
+
+    metadata_by_slug: dict[str, dict] = {}
+    for row in rows:
+        if row.old_slug in metadata_by_slug:
+            continue
+        metadata_by_slug[row.old_slug] = _parse_metadata_json(row.metadata_json)
+    return metadata_by_slug
+
+
+def _archive_metadata_for_tag_dict(tag: dict, metadata_by_slug: dict[str, dict]) -> dict:
+    """Return visible archive metadata for one lifecycle tag dict."""
+    default = {
+        "archive_origin": ARCHIVE_ORIGIN_IMPORTED
+        if tag.get("category_id") is None
+        else ARCHIVE_ORIGIN_DELETED,
+        "archive_reason": ARCHIVE_REASON_UNKNOWN_IMPORT
+        if tag.get("category_id") is None
+        else ARCHIVE_REASON_USER_SOFT_DELETE,
+        "visible_badge": ARCHIVE_BADGE_IMPORTED
+        if tag.get("category_id") is None
+        else ARCHIVE_BADGE_DELETED,
+    }
+    return {**default, **metadata_by_slug.get(tag.get("slug", ""), {})}
+
+
+def get_tag_registry_snapshot(
+    untagged_key: str = "__untagged__",
+) -> TagRegistrySnapshot:
+    """Return all UI-facing registry read shapes from one database session."""
+    session = SessionLocal()
+    try:
+        categories = (
+            session.query(TagCategory)
+            .options(selectinload(TagCategory.tags))
+            .filter_by(is_active=True)
+            .order_by(TagCategory.sort_order, TagCategory.name)
+            .all()
+        )
+
+        active_registry: dict[str, list[str]] = {}
+        active_categories: list[dict] = []
+        active_tag_slugs: list[str] = []
+        tag_label_map: dict[str, str] = {}
+        tag_category_map: dict[str, str] = {}
+
+        for category in categories:
+            active_tags = [
+                tag
+                for tag in category.tags
+                if tag.status == TAG_STATUS_ACTIVE
+                and tag.is_active
+                and tag.category_id is not None
+            ]
+            registry_tags = sorted(active_tags, key=lambda tag: (tag.sort_order, tag.slug))
+            full_registry_tags = sorted(active_tags, key=lambda tag: (tag.sort_order, tag.name))
+
+            active_registry[category.name] = [tag.slug for tag in registry_tags]
+            active_tag_slugs.extend(tag.slug for tag in registry_tags)
+            for tag in registry_tags:
+                tag_label_map[tag.slug] = f"{category.name} / {tag.name}"
+                tag_category_map[tag.slug] = category.name
+
+            active_categories.append(
+                {
+                    "id": category.id,
+                    "name": category.name,
+                    "slug": category.slug,
+                    "sort_order": category.sort_order,
+                    "tags": [
+                        {
+                            "id": tag.id,
+                            "name": tag.name,
+                            "slug": tag.slug,
+                            "sort_order": tag.sort_order,
+                            "is_builtin": tag.is_builtin,
+                        }
+                        for tag in full_registry_tags
+                    ],
+                }
+            )
+
+        tag_label_map_with_untagged = {untagged_key: "Untagged", **tag_label_map}
+
+        archived_tags = (
+            session.query(Tag)
+            .options(selectinload(Tag.category))
+            .filter_by(status=TAG_STATUS_ARCHIVED)
+            .order_by(Tag.sort_order, Tag.name, Tag.slug)
+            .all()
+        )
+        archived_tag_dicts = [_tag_to_dict(tag) for tag in archived_tags]
+        metadata_by_slug = _current_metadata_by_slug(
+            session,
+            [tag["slug"] for tag in archived_tag_dicts],
+        )
+
+        imported_archived_tags = []
+        for tag in archived_tag_dicts:
+            if tag.get("category_id") is not None:
+                continue
+            metadata = _archive_metadata_for_tag_dict(tag, metadata_by_slug)
+            if metadata.get("archive_origin") != ARCHIVE_ORIGIN_IMPORTED:
+                continue
+            imported_archived_tags.append(
+                {
+                    **tag,
+                    "display_name": tag["name"],
+                    "archive_origin": metadata.get("archive_origin", ARCHIVE_ORIGIN_IMPORTED),
+                    "archive_reason": metadata.get(
+                        "archive_reason", ARCHIVE_REASON_UNKNOWN_IMPORT
+                    ),
+                    "visible_badge": metadata.get("visible_badge", ARCHIVE_BADGE_IMPORTED),
+                    "selectable": True,
+                    "has_selection_slot": True,
+                    "can_assign_to_category": True,
+                    "disabled_reason": None,
+                }
+            )
+
+        deleted_archived_tags = []
+        for tag in archived_tag_dicts:
+            metadata = _archive_metadata_for_tag_dict(tag, metadata_by_slug)
+            if metadata.get("archive_origin") != ARCHIVE_ORIGIN_DELETED:
+                continue
+            deleted_archived_tags.append(
+                {
+                    **tag,
+                    "display_name": tag["name"],
+                    "archive_origin": metadata.get("archive_origin", ARCHIVE_ORIGIN_DELETED),
+                    "archive_reason": metadata.get(
+                        "archive_reason", ARCHIVE_REASON_USER_SOFT_DELETE
+                    ),
+                    "visible_badge": metadata.get("visible_badge", ARCHIVE_BADGE_DELETED),
+                    "selectable": False,
+                    "has_selection_slot": True,
+                    "can_assign_to_category": False,
+                    "disabled_reason": "Restore flow is separate.",
+                }
+            )
+
+        visible_archived_tags = sorted(
+            imported_archived_tags + deleted_archived_tags,
+            key=lambda tag: (tag.get("name") or "", tag.get("slug") or ""),
+        )
+
+        return TagRegistrySnapshot(
+            active_registry=active_registry,
+            active_categories=active_categories,
+            active_tag_slugs=active_tag_slugs,
+            active_tag_slug_set=set(active_tag_slugs),
+            tag_label_map=tag_label_map,
+            tag_label_map_with_untagged=tag_label_map_with_untagged,
+            tag_category_map=tag_category_map,
+            visible_archived_tags=visible_archived_tags,
+            default_category_slugs={slugify_tag_name(name) for name in TAGS},
+            max_active_categories=_MAX_ACTIVE_CATEGORIES,
+        )
+    finally:
+        session.close()
 
 
 def get_full_tag_registry() -> list[dict]:
