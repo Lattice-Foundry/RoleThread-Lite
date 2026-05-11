@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import copy
 import json
 from pathlib import Path
+import traceback
 
 from sqlalchemy import func
 
@@ -90,6 +91,7 @@ class LifecyclePipeline:
                     "Could not create dataset backup because the dataset file was not found."
                 )
         except Exception as exc:
+            traceback.print_exc()
             return self.result(
                 ok=False,
                 message=f"Failed to create dataset backup: {exc}",
@@ -104,6 +106,7 @@ class LifecyclePipeline:
                 engine=tag_registry.engine
             )
         except Exception as exc:
+            traceback.print_exc()
             return self.result(
                 ok=False,
                 message=f"Could not create database backup: {exc}",
@@ -115,6 +118,7 @@ class LifecyclePipeline:
         try:
             save_dataset(self.dataset_path, entries)
         except Exception as exc:
+            traceback.print_exc()
             self.session.rollback()
             return self.result(
                 ok=False,
@@ -127,6 +131,7 @@ class LifecyclePipeline:
         try:
             self.session.commit()
         except Exception as exc:
+            traceback.print_exc()
             self.session.rollback()
             return self.result(
                 ok=False,
@@ -317,6 +322,7 @@ def create_custom_category(name: str) -> tuple[bool, str]:
             )
             return result.ok, result.message
         except Exception as exc:
+            traceback.print_exc()
             result = pipeline.database_error(exc, fields={})
             return result.ok, result.message
 
@@ -374,6 +380,7 @@ def create_custom_tag(category_id: int, name: str) -> tuple[bool, str]:
             )
             return result.ok, result.message
         except Exception as exc:
+            traceback.print_exc()
             result = pipeline.database_error(exc, fields={})
             return result.ok, result.message
 
@@ -509,6 +516,7 @@ def assign_archived_imported_tags_to_category(
                 },
             )
         except Exception as exc:
+            traceback.print_exc()
             return pipeline.database_error(
                 exc,
                 fields={
@@ -676,6 +684,7 @@ def rename_custom_category(
                 },
             )
         except Exception as exc:
+            traceback.print_exc()
             return pipeline.database_error(
                 exc,
                 fields={
@@ -784,6 +793,7 @@ def delete_empty_custom_category(
                 error_fields={"category_slug": normalized_slug},
             )
         except Exception as exc:
+            traceback.print_exc()
             return pipeline.database_error(
                 exc,
                 fields={"category_slug": normalized_slug},
@@ -1058,6 +1068,7 @@ def edit_active_tag(
                 },
             )
         except Exception as exc:
+            traceback.print_exc()
             return pipeline.database_error(
                 exc,
                 fields={
@@ -1067,28 +1078,6 @@ def edit_active_tag(
                     "new_display_name": normalized_new.display_name,
                 },
             )
-
-
-def rename_active_tag(
-    *,
-    old_slug: str,
-    new_display_name: str,
-    dataset_path: str,
-    entries: list[dict],
-) -> TagLifecycleOperationResult:
-    """Compatibility wrapper for name-only active tag edits."""
-    normalized_old = normalize_tag(old_slug).slug
-    with LifecyclePipeline() as pipeline:
-        session = pipeline.session
-        tag = session.query(Tag).filter_by(slug=normalized_old).order_by(Tag.id).first()
-        category_slug = tag.category.slug if tag is not None and tag.category is not None else ""
-    return edit_active_tag(
-        old_slug=old_slug,
-        new_display_name=new_display_name,
-        category_slug=category_slug,
-        dataset_path=dataset_path,
-        entries=entries,
-    )
 
 
 def delete_active_tag(
@@ -1212,6 +1201,7 @@ def delete_active_tag(
                 error_fields={"old_slug": normalized_slug},
             )
         except Exception as exc:
+            traceback.print_exc()
             return pipeline.database_error(
                 exc,
                 fields={"old_slug": normalized_slug},

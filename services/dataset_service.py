@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass, field
 from pathlib import Path
+import traceback
 
 from core.backups import create_dataset_backup
 from core.dataset import (
@@ -135,6 +136,7 @@ def save_quick_edit_service(
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to create dataset backup: {exc}",
@@ -142,6 +144,7 @@ def save_quick_edit_service(
     try:
         save_dataset(dataset_path, proposed_entries)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save dataset: {exc}",
@@ -193,6 +196,7 @@ def save_full_edit_service(
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to create dataset backup: {exc}",
@@ -200,6 +204,7 @@ def save_full_edit_service(
     try:
         save_dataset(dataset_path, proposed_entries)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save dataset: {exc}",
@@ -252,6 +257,7 @@ def replace_single_entry_tags_service(
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to create dataset backup: {exc}",
@@ -259,6 +265,7 @@ def replace_single_entry_tags_service(
     try:
         save_dataset(dataset_path, proposed_entries)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save dataset: {exc}",
@@ -304,6 +311,7 @@ def replace_tags_bulk_service(
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to create dataset backup: {exc}",
@@ -311,6 +319,7 @@ def replace_tags_bulk_service(
     try:
         save_dataset(dataset_path, proposed_entries)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save dataset: {exc}",
@@ -353,6 +362,7 @@ def clear_tags_bulk_service(
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to create dataset backup: {exc}",
@@ -360,6 +370,7 @@ def clear_tags_bulk_service(
     try:
         save_dataset(dataset_path, proposed_entries)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save dataset: {exc}",
@@ -405,6 +416,7 @@ def replace_system_prompt_bulk_service(
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to create dataset backup: {exc}",
@@ -412,6 +424,7 @@ def replace_system_prompt_bulk_service(
     try:
         save_dataset(dataset_path, proposed_entries)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save dataset: {exc}",
@@ -457,6 +470,7 @@ def delete_entries_service(
     try:
         backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to create dataset backup: {exc}",
@@ -464,6 +478,7 @@ def delete_entries_service(
     try:
         save_dataset(dataset_path, proposed_entries)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save dataset: {exc}",
@@ -506,6 +521,7 @@ def save_merged_entries_service(
         try:
             created_backup = create_dataset_backup(dataset_path, backup_reason)
         except Exception as exc:
+            traceback.print_exc()
             return DatasetOperationResult(
                 ok=False,
                 message=f"Failed to create merge output backup: {exc}",
@@ -520,6 +536,7 @@ def save_merged_entries_service(
     try:
         save_dataset(dataset_path, proposed_entries)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save merged dataset: {exc}",
@@ -556,6 +573,7 @@ def normalize_dataset_service(
     try:
         backup_path = _create_backup_if_enabled(dataset_path, True, backup_reason)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to create dataset backup: {exc}",
@@ -563,6 +581,7 @@ def normalize_dataset_service(
     try:
         save_dataset(dataset_path, proposed_entries)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save normalized dataset: {exc}",
@@ -613,6 +632,7 @@ def create_entry_service(
     try:
         append_to_dataset(dataset_path, entry_to_append)
     except Exception as exc:
+        traceback.print_exc()
         return DatasetOperationResult(
             ok=False,
             message=f"Failed to save: {exc}",

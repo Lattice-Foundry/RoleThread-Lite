@@ -9,6 +9,7 @@ from core.dataset import count_exchanges, get_available_filter_tags, get_entry_t
 from core.tag_normalization import normalize_tag
 
 SHOW_ALL = "Show All"
+SHOW_ALL_MAX_ENTRIES = 1000
 DEFAULT_PAGE_SIZE = 25
 PAGE_SIZE_OPTIONS = [10, DEFAULT_PAGE_SIZE, 50, 100, 500, SHOW_ALL]
 MATCH_MODE_ANY = "Any selected tags"
@@ -38,6 +39,11 @@ class PaginationResult:
         """Return the zero-based final page index."""
         return max(0, self.total_pages - 1)
 
+    @property
+    def is_show_all_capped(self) -> bool:
+        """Return True when Show All is capped below the filtered total."""
+        return self.is_show_all and self.end < self.total_items
+
 
 @dataclass(frozen=True)
 class FilterTagState:
@@ -59,7 +65,7 @@ def calculate_pagination(
     is_show_all = per_page_setting == SHOW_ALL
 
     if is_show_all:
-        per_page = total_items
+        per_page = min(total_items, SHOW_ALL_MAX_ENTRIES)
         total_pages = 1
         page = 0
         return PaginationResult(
@@ -68,7 +74,7 @@ def calculate_pagination(
             total_pages=total_pages,
             per_page=per_page,
             start=0,
-            end=total_items,
+            end=per_page,
             is_show_all=True,
         )
 

@@ -30,7 +30,6 @@ from services.tag_lifecycle_service import (
     delete_active_tag,
     delete_empty_custom_category,
     edit_active_tag,
-    rename_active_tag,
     rename_custom_category,
 )
 
@@ -650,9 +649,10 @@ def test_rename_custom_active_tag_rewrites_dataset_and_aliases_old_slug(
     finally:
         session.close()
 
-    result = rename_active_tag(
+    result = edit_active_tag(
         old_slug="followup_question",
         new_display_name="Follow Up Question",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=entries,
     )
@@ -730,9 +730,10 @@ def test_rename_custom_active_tag_deduplicates_rewritten_entry_tags(
     finally:
         session.close()
 
-    result = rename_active_tag(
+    result = edit_active_tag(
         old_slug="old_tag",
         new_display_name="New Tag",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=entries,
     )
@@ -1186,9 +1187,10 @@ def test_rename_rejects_non_custom_active_tags(
     finally:
         session.close()
 
-    result = rename_active_tag(
+    result = edit_active_tag(
         old_slug=slug,
         new_display_name="Renamed Tag",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=[_entry([slug])],
     )
@@ -1224,27 +1226,31 @@ def test_rename_rejects_duplicate_empty_same_and_alias_reserved_names(
     finally:
         session.close()
 
-    duplicate = rename_active_tag(
+    duplicate = edit_active_tag(
         old_slug="source_tag",
         new_display_name="Duplicate Tag",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=[_entry(["source_tag"])],
     )
-    empty = rename_active_tag(
+    empty = edit_active_tag(
         old_slug="source_tag",
         new_display_name="!!!",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=[_entry(["source_tag"])],
     )
-    same = rename_active_tag(
+    same = edit_active_tag(
         old_slug="source_tag",
         new_display_name="Source Tag",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=[_entry(["source_tag"])],
     )
-    reserved = rename_active_tag(
+    reserved = edit_active_tag(
         old_slug="source_tag",
         new_display_name="Reserved Tag",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=[_entry(["source_tag"])],
     )
@@ -1322,9 +1328,10 @@ def test_rename_backup_failures_fail_closed(tag_lifecycle_db, tmp_path, monkeypa
         fail_dataset_backup,
     )
 
-    dataset_failure = rename_active_tag(
+    dataset_failure = edit_active_tag(
         old_slug="source_tag",
         new_display_name="Renamed Tag",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=entries,
     )
@@ -1338,9 +1345,10 @@ def test_rename_backup_failures_fail_closed(tag_lifecycle_db, tmp_path, monkeypa
 
     monkeypatch.setattr(tag_registry, "create_db_backup", fail_db_backup)
 
-    db_failure = rename_active_tag(
+    db_failure = edit_active_tag(
         old_slug="source_tag",
         new_display_name="Renamed Tag",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=entries,
     )
@@ -1380,9 +1388,10 @@ def test_rename_dataset_save_failure_rolls_back_db(
 
     monkeypatch.setattr(tag_lifecycle_service, "save_dataset", fail_save)
 
-    result = rename_active_tag(
+    result = edit_active_tag(
         old_slug="source_tag",
         new_display_name="Renamed Tag",
+        category_slug="behavior",
         dataset_path=str(path),
         entries=entries,
     )

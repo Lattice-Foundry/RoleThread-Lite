@@ -6,8 +6,6 @@ from core.models import Base, Tag, TagCategory
 from core.tag_constants import (
     _UNSORTED_CATEGORY_SLUG,
     TAG_STATUS_ACTIVE,
-    TAG_STATUS_ARCHIVED,
-    TAG_STATUS_UNCATEGORIZED,
 )
 from core.tag_normalization import normalize_tag
 
@@ -89,8 +87,6 @@ def _migrate_tag_lifecycle_schema() -> None:
             )
             conn.commit()
 
-    _migrate_uncategorized_tags_to_archived()
-
     inspector = sa_inspect(engine)
     category_column = next(
         (c for c in inspector.get_columns("tags") if c["name"] == "category_id"),
@@ -150,31 +146,6 @@ def _migrate_tag_lifecycle_schema() -> None:
         conn.execute(text("ALTER TABLE tags__lifecycle_migration RENAME TO tags"))
         conn.execute(text("PRAGMA foreign_keys=ON"))
         conn.commit()
-
-
-def _migrate_uncategorized_tags_to_archived() -> None:
-    """Convert recent dev uncategorized imports to archived/imported tags."""
-    inspector = sa_inspect(engine)
-    if "tags" not in inspector.get_table_names():
-        return
-    existing_cols = {c["name"] for c in inspector.get_columns("tags")}
-    if "status" not in existing_cols:
-        return
-
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                "UPDATE tags "
-                "SET status = :archived, is_active = 0 "
-                "WHERE status = :uncategorized"
-            ),
-            {
-                "archived": TAG_STATUS_ARCHIVED,
-                "uncategorized": TAG_STATUS_UNCATEGORIZED,
-            },
-        )
-        conn.commit()
-
 
 def _migrate_tag_history_table() -> None:
     """Copy old tag_history rows into tag_lifecycle_metadata if needed."""

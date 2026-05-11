@@ -6,6 +6,7 @@ from ui.browser_helpers import (
     MATCH_MODE_OPTIONS,
     PAGE_SIZE_OPTIONS,
     SHOW_ALL,
+    SHOW_ALL_MAX_ENTRIES,
     build_filter_tag_state,
     calculate_pagination,
     format_browser_status_caption,
@@ -29,6 +30,7 @@ def _entry(*, tags=None, messages=None):
 
 def test_browser_constants_preserve_ui_values():
     assert DEFAULT_PAGE_SIZE == 25
+    assert SHOW_ALL_MAX_ENTRIES == 1000
     assert PAGE_SIZE_OPTIONS == [10, 25, 50, 100, 500, SHOW_ALL]
     assert MATCH_MODE_OPTIONS == [
         MATCH_MODE_ANY,
@@ -94,6 +96,23 @@ def test_calculate_pagination_show_all_returns_full_range():
     assert result.start == 0
     assert result.end == 55
     assert result.is_show_all is True
+    assert result.is_show_all_capped is False
+
+
+def test_calculate_pagination_show_all_caps_large_result_sets():
+    result = calculate_pagination(
+        total_items=1500,
+        requested_page=3,
+        per_page_setting=SHOW_ALL,
+    )
+
+    assert result.page == 0
+    assert result.total_pages == 1
+    assert result.per_page == SHOW_ALL_MAX_ENTRIES
+    assert result.start == 0
+    assert result.end == SHOW_ALL_MAX_ENTRIES
+    assert result.is_show_all is True
+    assert result.is_show_all_capped is True
 
 
 def test_calculate_pagination_zero_items_is_safe():

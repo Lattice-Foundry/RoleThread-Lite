@@ -18,7 +18,6 @@ from core.tag_migrations import (
     _migrate_tag_history_table,
     _migrate_tag_lifecycle_schema,
     _migrate_tags_slug_column,
-    _migrate_uncategorized_tags_to_archived,
 )
 from core.tag_constants import (
     ACTIVATION_ORIGIN_IMPORTED_ASSIGNMENT,

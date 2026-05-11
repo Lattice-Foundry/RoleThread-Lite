@@ -319,6 +319,11 @@ def render_manage_page() -> None:
             start = _pagination.start
             end = _pagination.end
             visible_pairs = slice_visible_pairs(filtered_pairs, _pagination)
+            if _pagination.is_show_all_capped:
+                st.warning(
+                    f"Showing first 1,000 of {_pagination.total_items} entries. "
+                    "Use pagination or filters to narrow results."
+                )
 
             # ── Select-all-mode fingerprint guard ─────────────────────────────
             # Captures (filter, match-mode, per-page, page) when "Select all

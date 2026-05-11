@@ -510,6 +510,11 @@ def render_edit_entries_page() -> None:
     _ee_start = _ee_pagination.start
     _ee_end = _ee_pagination.end
     _ee_visible_pairs = slice_visible_pairs(_ee_filtered_pairs, _ee_pagination)
+    if _ee_pagination.is_show_all_capped:
+        st.warning(
+            f"Showing first 1,000 of {_ee_pagination.total_items} entries. "
+            "Use pagination or filters to narrow results."
+        )
 
     # ── Status line ────────────────────────────────────────────────────────────
     st.caption(

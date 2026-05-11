@@ -356,30 +356,6 @@ def test_old_tag_history_rows_migrate_to_lifecycle_metadata(tmp_path, monkeypatc
     assert result.resolved_slug == "new_tag"
 
 
-def test_uncategorized_tags_migrate_to_archived(tag_db):
-    session = tag_db()
-    try:
-        _add_tag(
-            session,
-            slug="legacy_import",
-            status="uncategorized",
-            active=True,
-        )
-        session.commit()
-    finally:
-        session.close()
-
-    tag_migrations._migrate_tag_lifecycle_schema()
-
-    session = tag_db()
-    try:
-        tag = session.query(Tag).filter_by(slug="legacy_import").one()
-        assert tag.status == TAG_STATUS_ARCHIVED
-        assert tag.is_active is False
-    finally:
-        session.close()
-
-
 def test_history_models_can_be_inserted(tag_db):
     session = tag_db()
     try:
