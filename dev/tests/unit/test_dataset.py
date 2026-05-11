@@ -5,6 +5,7 @@ import pytest
 import core.dataset as dataset
 from core.dataset import (
     add_tags_to_entry,
+    analyze_entry,
     append_registry_id,
     append_to_dataset,
     build_dataset_stats,
@@ -40,6 +41,7 @@ from core.dataset import (
     set_entry_tags,
     validate_entry,
 )
+from core.entry_analysis import AnalysisSeverity, EntryAnalysisResult, EntryDiagnostic
 from core.format_conversion import (
     FORMAT_CHATML,
     FORMAT_SHAREGPT,
@@ -203,11 +205,22 @@ def test_validate_entry_memoizes_by_content(monkeypatch):
     clear_validate_entry_cache()
     calls = []
 
-    def fake_validate(entry):
+    def fake_analyze(entry):
         calls.append(entry)
-        return ["cached error"]
+        return EntryAnalysisResult(
+            format="chatml",
+            entry_index=None,
+            is_valid=False,
+            diagnostics=(
+                EntryDiagnostic(
+                    code="test.cached",
+                    severity=AnalysisSeverity.ERROR,
+                    message="cached error",
+                ),
+            ),
+        )
 
-    monkeypatch.setattr(dataset, "_validate_entry_uncached", fake_validate)
+    monkeypatch.setattr(dataset, "_analyze_entry_uncached", fake_analyze)
 
     entry = _entry(tags=["greeting"])
 
@@ -224,17 +237,57 @@ def test_validate_entry_memoizes_by_content(monkeypatch):
 def test_validate_entry_returns_fresh_error_list_from_cache(monkeypatch):
     clear_validate_entry_cache()
 
-    monkeypatch.setattr(
-        dataset,
-        "_validate_entry_uncached",
-        lambda entry: ["cached error"],
+    result = EntryAnalysisResult(
+        format="chatml",
+        entry_index=None,
+        is_valid=False,
+        diagnostics=(
+            EntryDiagnostic(
+                code="test.cached",
+                severity=AnalysisSeverity.ERROR,
+                message="cached error",
+            ),
+        ),
     )
+    monkeypatch.setattr(dataset, "_analyze_entry_uncached", lambda entry: result)
 
     entry = _entry(tags=["greeting"])
     errors = validate_entry(entry)
     errors.append("mutated")
 
     assert validate_entry(entry) == ["cached error"]
+    clear_validate_entry_cache()
+
+
+def test_analyze_entry_returns_cached_typed_result(monkeypatch):
+    clear_validate_entry_cache()
+    calls = []
+
+    def fake_analyze(entry):
+        calls.append(entry)
+        return EntryAnalysisResult(
+            format="chatml",
+            entry_index=None,
+            is_valid=False,
+            diagnostics=(
+                EntryDiagnostic(
+                    code="test.cached",
+                    severity=AnalysisSeverity.ERROR,
+                    message="typed cached error",
+                ),
+            ),
+        )
+
+    monkeypatch.setattr(dataset, "_analyze_entry_uncached", fake_analyze)
+
+    entry = _entry(tags=["greeting"])
+
+    first = analyze_entry(entry)
+    second = analyze_entry({**entry, "tags": ["greeting"]})
+
+    assert first is second
+    assert first.diagnostics[0].message == "typed cached error"
+    assert len(calls) == 1
     clear_validate_entry_cache()
 
 

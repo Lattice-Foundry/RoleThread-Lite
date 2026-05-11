@@ -19,6 +19,7 @@ from core.format_conversion import (
     convert_records_to_chatml,
     detect_records_format,
 )
+from core.entry_analysis import AnalysisSeverity, ChatMLAnalyzer, EntryAnalysisResult
 from core.tag_normalization import normalize_tag
 
 
@@ -55,7 +56,8 @@ class TagNormalizationSummary:
     format_warnings: list[str] = field(default_factory=list)
 
 
-_VALIDATE_ENTRY_CACHE: dict[str, tuple[str, ...]] = {}
+_CHATML_ANALYZER = ChatMLAnalyzer()
+_VALIDATE_ENTRY_CACHE: dict[str, EntryAnalysisResult] = {}
 
 
 def clear_validate_entry_cache() -> None:
@@ -81,12 +83,23 @@ def make_entry(turns: list[dict], system_prompt: str, tags: list[str] | None = N
 def validate_entry(entry: dict) -> list[str]:
     """Return validation errors for one ChatML-style dataset entry."""
 
+    result = analyze_entry(entry)
+    return [
+        diagnostic.message
+        for diagnostic in result.diagnostics
+        if diagnostic.severity == AnalysisSeverity.ERROR
+    ]
+
+
+def analyze_entry(entry: dict) -> EntryAnalysisResult:
+    """Return typed ChatML analysis diagnostics for one dataset entry."""
+
     cache_key = _entry_validation_cache_key(entry)
     if cache_key is None:
-        return _validate_entry_uncached(entry)
+        return _analyze_entry_uncached(entry)
     if cache_key not in _VALIDATE_ENTRY_CACHE:
-        _VALIDATE_ENTRY_CACHE[cache_key] = tuple(_validate_entry_uncached(entry))
-    return list(_VALIDATE_ENTRY_CACHE[cache_key])
+        _VALIDATE_ENTRY_CACHE[cache_key] = _analyze_entry_uncached(entry)
+    return _VALIDATE_ENTRY_CACHE[cache_key]
 
 
 def _entry_validation_cache_key(entry: dict) -> str | None:
@@ -102,50 +115,10 @@ def _entry_validation_cache_key(entry: dict) -> str | None:
     return hashlib.blake2b(payload.encode("utf-8"), digest_size=16).hexdigest()
 
 
-def _validate_entry_uncached(entry: dict) -> list[str]:
-    """Return validation errors without consulting the memoization cache."""
+def _analyze_entry_uncached(entry: dict) -> EntryAnalysisResult:
+    """Return typed diagnostics without consulting the memoization cache."""
 
-    errors = []
-    if "messages" not in entry:
-        errors.append("Missing 'messages' key")
-        return errors
-    msgs = entry["messages"]
-    if not isinstance(msgs, list):
-        errors.append("'messages' must be a list")
-        return errors
-    if len(msgs) < 3:
-        errors.append("'messages' must have at least 3 items (system + one user/assistant exchange)")
-        return errors
-    if (len(msgs) - 1) % 2 != 0:
-        errors.append("Messages must contain complete user/assistant exchanges")
-        return errors
-    # System message
-    if not isinstance(msgs[0], dict):
-        errors.append("Message 0 is not a dict")
-        return errors
-    if msgs[0].get("role") != "system":
-        errors.append(f"Message 0: expected role 'system', got '{msgs[0].get('role')}'")
-    if not msgs[0].get("content", "").strip():
-        errors.append("Message 0 (system) has empty content")
-    # Alternating user / assistant after system
-    expected = "user"
-    for i, msg in enumerate(msgs[1:], 1):
-        if not isinstance(msg, dict):
-            errors.append(f"Message {i} is not a dict")
-            expected = "assistant" if expected == "user" else "user"
-            continue
-        if msg.get("role") != expected:
-            errors.append(f"Message {i}: expected role '{expected}', got '{msg.get('role')}'")
-        if not msg.get("content", "").strip():
-            errors.append(f"Message {i} ({expected}) has empty content")
-        expected = "assistant" if expected == "user" else "user"
-    if "tags" not in entry:
-        errors.append("Missing 'tags' key")
-    elif not isinstance(entry["tags"], list):
-        errors.append("'tags' must be a list")
-    elif not all(isinstance(t, str) for t in entry["tags"]):
-        errors.append("Each tag must be a string")
-    return errors
+    return _CHATML_ANALYZER.analyze(entry)
 
 
 def load_dataset(path: str) -> tuple[list[dict], list[str]]:
