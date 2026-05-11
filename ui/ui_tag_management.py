@@ -1,11 +1,9 @@
 """Tag Management page — additive-only custom tag and category creation."""
 import streamlit as st
 
-from core.dataset import TAGS, build_entry_registry, get_entry_tags
+from core.dataset import build_entry_registry, get_entry_tags
 from core.tag_registry import (
-    _MAX_ACTIVE_CATEGORIES,
-    get_full_tag_registry,
-    get_visible_archived_tags,
+    get_tag_registry_snapshot,
     prettify_tag_name,
     slugify_tag_name,
 )
@@ -71,7 +69,8 @@ def render_tag_management_page() -> None:
     if "tm_success" in st.session_state:
         st.success(st.session_state.pop("tm_success"))
 
-    registry = get_full_tag_registry()
+    _tag_snapshot = get_tag_registry_snapshot()
+    registry = _tag_snapshot.active_categories
     total_categories = len(registry)
 
     # ── Section 1: Tag Registry ───────────────────────────────────────────────
@@ -93,7 +92,7 @@ def render_tag_management_page() -> None:
         _category_slug_to_name: dict[str, str] = {
             category["slug"]: category["name"] for category in registry
         }
-        _default_category_slugs = {slugify_tag_name(name) for name in TAGS}
+        _default_category_slugs = _tag_snapshot.default_category_slugs
         _active_custom_category_slugs = {
             category["slug"]
             for category in registry
@@ -568,7 +567,7 @@ def render_tag_management_page() -> None:
         "Deleted tags can be restored later."
     )
 
-    _archived_tags = get_visible_archived_tags()
+    _archived_tags = _tag_snapshot.visible_archived_tags
     if st.session_state.pop("_tm_clear_archived_selection", False):
         for tag in _archived_tags:
             st.session_state[f"tm_archived_select_{tag['slug']}"] = False
@@ -710,12 +709,12 @@ def render_tag_management_page() -> None:
     st.divider()
     st.subheader("Create Custom Category")
 
-    _at_limit = total_categories >= _MAX_ACTIVE_CATEGORIES
+    _at_limit = total_categories >= _tag_snapshot.max_active_categories
 
     if _at_limit:
         st.info(
             f"Category limit reached. "
-            f"This version supports {_MAX_ACTIVE_CATEGORIES} active categories."
+            f"This version supports {_tag_snapshot.max_active_categories} active categories."
         )
 
     _new_cat_name: str = st.text_input(

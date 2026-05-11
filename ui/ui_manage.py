@@ -17,8 +17,7 @@ from core.dataset import (
     validate_entry,
 )
 from core.tag_registry import (
-    get_all_tag_slugs,
-    get_tag_label_map,
+    get_tag_registry_snapshot,
     prettify_tag_name,
 )
 from ui.file_dialogs import JSONL_TYPES, _tk_root, browse_open_file, path_input
@@ -69,6 +68,7 @@ def render_manage_page() -> None:
     """Render the Manage Dataset page."""
     ensure_entry_registry()
     ensure_selection_state()
+    _tag_snapshot = get_tag_registry_snapshot(untagged_key=_UNTAGGED)
     if st.session_state.stale_last_path and not st.session_state.loaded_path:
         st.warning(
             f"Last dataset `{st.session_state.stale_last_path}` no longer exists. "
@@ -212,8 +212,8 @@ def render_manage_page() -> None:
 
         # ── Filter controls ────────────────────────────────────────────────────
         # DB-backed label map: {slug: "Category / Pretty Name", __untagged__: "Untagged"}
-        _label_map = get_tag_label_map(untagged_key=_UNTAGGED)
-        _all_known_slugs = get_all_tag_slugs()
+        _label_map = _tag_snapshot.tag_label_map_with_untagged
+        _all_known_slugs = _tag_snapshot.active_tag_slugs
 
         def _reset_page() -> None:
             st.session_state.entry_page = 0
@@ -504,8 +504,8 @@ def render_manage_page() -> None:
             _selected_count = len(_selected_ids)
             if _selected_count >= 1:
                 # DB-backed label map for tag selectors (no untagged sentinel)
-                _tag_label_map = get_tag_label_map(include_untagged=False)
-                _all_slugs = get_all_tag_slugs()
+                _tag_label_map = _tag_snapshot.tag_label_map
+                _all_slugs = _tag_snapshot.active_tag_slugs
                 _all_slugs_set = set(_all_slugs)
 
             if _selected_count == 1:

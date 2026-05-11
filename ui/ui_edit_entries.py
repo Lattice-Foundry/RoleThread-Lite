@@ -14,9 +14,7 @@ from core.dataset import (
     validate_entry,
 )
 from core.tag_registry import (
-    get_all_tag_slugs,
-    get_tag_label_map,
-    get_tag_registry_dict,
+    get_tag_registry_snapshot,
     prettify_tag_name,
 )
 from ui.session_state import (
@@ -91,7 +89,10 @@ def entry_to_edit_buffer(entry: dict) -> dict:
     }
 
 
-def load_full_edit_buffer(entry_id: str) -> bool:
+def load_full_edit_buffer(
+    entry_id: str,
+    active_registry: dict[str, list[str]],
+) -> bool:
     """Load entry data into full_edit_* session-state keys.
 
     Returns True on success, False if the entry cannot be found.
@@ -115,7 +116,7 @@ def load_full_edit_buffer(entry_id: str) -> bool:
         st.session_state[f"full_edit_turn_{i}"] = turn["content"]
 
     # ── Tag category keys (DB-backed registry) ─────────────────────────────────
-    _registry = get_tag_registry_dict()
+    _registry = active_registry
     all_known: set[str] = set()
     for category, options in _registry.items():
         cat_tags = [t for t in buf["tags"] if t in options]
@@ -131,13 +132,16 @@ def load_full_edit_buffer(entry_id: str) -> bool:
 
 # ── Full-edit mode helpers ─────────────────────────────────────────────────────
 
-def start_full_edit(entry_id: str) -> None:
+def start_full_edit(
+    entry_id: str,
+    active_registry: dict[str, list[str]],
+) -> None:
     """Load edit buffer, snapshot browser state, enter workspace, and rerun.
 
     If the entry cannot be loaded, shows an inline error and does not enter
     workspace mode — the browser continues rendering normally below.
     """
-    if not load_full_edit_buffer(entry_id):
+    if not load_full_edit_buffer(entry_id, active_registry):
         st.error(f"Could not load entry `{entry_id}` for editing.")
         return
 
@@ -180,7 +184,7 @@ def cancel_full_edit() -> None:
     st.rerun()
 
 
-def save_full_edit() -> bool:
+def save_full_edit(active_registry: dict[str, list[str]]) -> bool:
     """Build the edited entry from the workspace buffer, validate, replace, and save.
 
     On success: sets flash message, clears buffer, returns to browser via
@@ -208,7 +212,7 @@ def save_full_edit() -> bool:
     system_prompt: str = st.session_state.get("full_edit_system_prompt", "")
 
     selected_tags: list[str] = []
-    for _cat in get_tag_registry_dict():
+    for _cat in active_registry:
         selected_tags.extend(st.session_state.get(f"full_edit_tags_{_cat}", []))
     unknown_tags: list[str] = st.session_state.get("full_edit_unknown_tags", [])
 
@@ -258,7 +262,7 @@ def save_full_edit() -> bool:
 
 # ── Full edit workspace ────────────────────────────────────────────────────────
 
-def render_full_edit_workspace() -> None:
+def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
     """Full-edit workspace rendered when edit_entries_mode == 'workspace'.
 
     Renders the system prompt, turn builder, conversation preview, tag
@@ -298,7 +302,7 @@ def render_full_edit_workspace() -> None:
 
     # ── Turn builder (includes planned exchanges input + turn text areas) ───────
     st.divider()
-    turns_now = render_turn_builder("full_edit")
+    turns_now = render_turn_builder("full_edit", active_registry)
 
     # ── Conversation preview ───────────────────────────────────────────────────
     st.subheader("Conversation Preview")
@@ -307,7 +311,7 @@ def render_full_edit_workspace() -> None:
     # ── Tags ───────────────────────────────────────────────────────────────────
     st.divider()
     st.subheader("Tag & Complete Exchange")
-    selected_tags = render_tag_multiselects("full_edit")
+    selected_tags = render_tag_multiselects("full_edit", active_registry)
 
     _unknown_tags: list[str] = st.session_state.get("full_edit_unknown_tags", [])
     if _unknown_tags:
@@ -364,7 +368,7 @@ def render_full_edit_workspace() -> None:
             disabled=not _entry_valid or _current_exchanges < _planned_exchanges,
             width="stretch",
         ):
-            save_full_edit()
+            save_full_edit(active_registry)
     with _col_cancel:
         if st.button("Cancel / Back to Edit Entries", key="btn_cancel_full_edit",
                      width="stretch"):
@@ -378,9 +382,10 @@ def render_edit_entries_page() -> None:
     otherwise renders the existing browser view.
     """
     ensure_entry_registry()
+    _tag_snapshot = get_tag_registry_snapshot(untagged_key=_UNTAGGED)
 
     if st.session_state.get("edit_entries_mode") == "workspace":
-        render_full_edit_workspace()
+        render_full_edit_workspace(_tag_snapshot.active_registry)
         return
 
     _ee_entries = st.session_state.loaded_entries
@@ -397,8 +402,8 @@ def render_edit_entries_page() -> None:
 
     # ── Filter controls ────────────────────────────────────────────────────────
     # DB-backed label map and known-slug list for filter multiselect
-    _ee_label_map = get_tag_label_map(untagged_key=_UNTAGGED)
-    _ee_all_known_slugs = get_all_tag_slugs()
+    _ee_label_map = _tag_snapshot.tag_label_map_with_untagged
+    _ee_all_known_slugs = _tag_snapshot.active_tag_slugs
 
     def _ee_reset_page() -> None:
         st.session_state.edit_entry_page = 0
@@ -532,7 +537,7 @@ def render_edit_entries_page() -> None:
         with st.expander(_ee_label):
             st.caption(f"Temp ID: {_ee_entry_id}")
             if st.button("Edit Entry", key=f"btn_full_edit_{_ee_entry_id}"):
-                start_full_edit(_ee_entry_id)
+                start_full_edit(_ee_entry_id, _tag_snapshot.active_registry)
             if _ee_errs:
                 for _ee_err in _ee_errs:
                     st.error(_ee_err)

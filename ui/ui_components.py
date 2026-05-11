@@ -9,7 +9,7 @@ import re
 
 import streamlit as st
 
-from core.tag_registry import get_tag_registry_dict, prettify_tag_name
+from core.tag_registry import prettify_tag_name
 
 _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
 
@@ -119,9 +119,12 @@ def calculate_exchange_metrics(turns_now: list[dict], planned_exchanges: int) ->
     }
 
 
-def render_tag_multiselects(prefix: str) -> list[str]:
+def render_tag_multiselects(
+    prefix: str,
+    active_registry: dict[str, list[str]],
+) -> list[str]:
     """Render tag multiselects and return the combined selected slugs."""
-    _registry = get_tag_registry_dict()
+    _registry = active_registry
     if not _registry:
         # Graceful fallback: DB not seeded yet — use hardcoded TAGS
         from core.dataset import TAGS as _TAGS  # local import avoids circular dep

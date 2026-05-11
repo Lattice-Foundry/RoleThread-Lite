@@ -8,7 +8,7 @@ from pathlib import Path
 import streamlit as st
 
 from core.dataset import make_entry, validate_entry
-from core.tag_registry import get_tag_registry_dict
+from core.tag_registry import get_tag_registry_snapshot
 from ui.session_state import update_prefs, ensure_entry_registry
 from services.dataset_service import create_entry_service
 from ui.ui_components import (
@@ -44,7 +44,10 @@ def init_editor_state(prefix: str) -> None:
 
 # ── Turn builder ───────────────────────────────────────────────────────────────
 
-def render_turn_builder(prefix: str) -> list[dict]:
+def render_turn_builder(
+    prefix: str,
+    active_registry: dict[str, list[str]],
+) -> list[dict]:
     """Render the multi-turn conversation builder for an editor instance.
 
     Handles the pending-clear logic, tag-backup restore, planned-exchanges
@@ -54,7 +57,7 @@ def render_turn_builder(prefix: str) -> list[dict]:
     """
     # ── DB-backed category names (used for tag backup/restore/clear loops) ───────
     # Fetched once per render; falls back to hardcoded TAGS if DB not seeded.
-    _tag_registry = get_tag_registry_dict()
+    _tag_registry = active_registry
     if not _tag_registry:
         from core.dataset import TAGS as _TAGS_FB
         _tag_registry = _TAGS_FB
@@ -174,6 +177,7 @@ def render_turn_builder(prefix: str) -> list[dict]:
 def render_entry_actions(
     turns_now: list[dict],
     prefix: str,
+    active_registry: dict[str, list[str]],
 ) -> None:
     """Render the tag selector, JSON preview, validation, planning warnings,
     and save button for a create-entry editor instance.
@@ -182,7 +186,7 @@ def render_entry_actions(
     st.subheader("Tag & Complete Exchange")
 
     # ── Tag selectors ──────────────────────────────────────────────────────────
-    selected_tags = render_tag_multiselects(prefix)
+    selected_tags = render_tag_multiselects(prefix, active_registry)
 
     # ── Entry preview & validation ─────────────────────────────────────────────
     _has_content = any(t["content"].strip() for t in turns_now)
@@ -262,6 +266,8 @@ def render_entry_actions(
 
 def render_create_page() -> None:
     """Render the Create Entry page."""
+    _tag_snapshot = get_tag_registry_snapshot()
+
     st.subheader("System Prompt")
 
     def _persist_system_prompt():
@@ -277,10 +283,10 @@ def render_create_page() -> None:
 
     st.divider()
     st.subheader("New Entry")
-    turns_now = render_turn_builder("create")
+    turns_now = render_turn_builder("create", _tag_snapshot.active_registry)
 
     # ── Conversation preview (full width, below Add/Remove buttons) ────────────
     st.subheader("Conversation Preview")
     render_conversation_preview(turns_now, "create")
 
-    render_entry_actions(turns_now, "create")
+    render_entry_actions(turns_now, "create", _tag_snapshot.active_registry)
