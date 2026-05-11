@@ -27,6 +27,7 @@ from core.tag_registry import (
     get_tag_by_slug_any_status,
     prettify_tag_name,
 )
+from core.working_copy import create_dataset_working_copy
 from services.dataset_service import (
     DatasetOperationResult,
     delete_entries_service,
@@ -60,11 +61,15 @@ def set_loaded_entries(
     entries: list[dict],
     normalization_summary: TagNormalizationSummary | None = None,
     dataset_path: str | None = None,
-) -> None:
+) -> str | None:
     """Replace loaded_entries and rebuild the registry from scratch."""
     normalization = normalization_summary or normalize_dataset_tags(entries)
+    working_copy_summary, effective_dataset_path = _prepare_foreign_working_copy(
+        dataset_path,
+        dataset_is_native=normalization.dataset_is_native,
+    )
     sidecar_summary, sidecar_tags, sidecar_categories = _import_sibling_sidecar(
-        dataset_path
+        effective_dataset_path
     )
     adoption = ensure_tags_exist_for_dataset(normalization.entries)
     pending_trust = _build_pending_tag_trust(
@@ -102,10 +107,15 @@ def set_loaded_entries(
         "adopted_slugs": adoption.created_slugs or [],
         "sidecar_import": sidecar_summary,
         "pending_trust_count": len(pending_trust),
+        "dataset_is_native": normalization.dataset_is_native,
+        "working_copy": working_copy_summary,
     }
+    st.session_state.dataset_is_native = normalization.dataset_is_native
     st.session_state.normalization_pending = normalization.structural_changed_entries > 0
+    _replace_optional_session_value("working_copy_summary", working_copy_summary)
     _replace_optional_session_value("sidecar_import_summary", sidecar_summary)
     _replace_optional_session_value("pending_tag_trust", pending_trust or None)
+    return effective_dataset_path
 
 
 def _replace_optional_session_value(key: str, value) -> None:
@@ -113,6 +123,32 @@ def _replace_optional_session_value(key: str, value) -> None:
         st.session_state[key] = value
     else:
         st.session_state.pop(key, None)
+
+
+def _prepare_foreign_working_copy(
+    dataset_path: str | None,
+    *,
+    dataset_is_native: bool,
+) -> tuple[dict | None, str | None]:
+    if not dataset_path:
+        return None, dataset_path
+    if dataset_is_native:
+        return None, dataset_path
+    if not Path(dataset_path).exists():
+        return None, dataset_path
+
+    result = create_dataset_working_copy(dataset_path)
+    if not result.created:
+        return None, result.working_path
+    return (
+        {
+            "original_path": result.original_path,
+            "working_path": result.working_path,
+            "sidecar_copied": result.sidecar_copied,
+            "sidecar_path": result.sidecar_path,
+        },
+        result.working_path,
+    )
 
 
 def _import_sibling_sidecar(dataset_path: str | None):

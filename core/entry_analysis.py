@@ -4,6 +4,8 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any, ClassVar
 
+from core.loreforge_meta import LOREFORGE_META_KEY
+
 
 class AnalysisSeverity(StrEnum):
     """Diagnostic severity levels."""
@@ -100,6 +102,7 @@ class BaseEntryAnalyzer:
         "metadata",
         "source",
         "id",
+        LOREFORGE_META_KEY,
     })
 
     def __init__(self, *, format_name: str | None = None):

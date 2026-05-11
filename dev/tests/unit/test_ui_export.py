@@ -3,6 +3,7 @@ from core.format_conversion import (
     FORMAT_SHAREGPT,
     SHAREGPT_INTERNAL_SYSTEM_PROMPT,
 )
+from core.loreforge_meta import LOREFORGE_META_KEY
 from ui.ui_export import _prepare_export_entries
 
 
@@ -39,6 +40,31 @@ def test_prepare_export_entries_cleans_chatml_metadata():
     )
 
     assert exported == [{"messages": _entry()["messages"]}]
+
+
+def test_prepare_export_entries_clean_export_strips_loreforge_metadata():
+    entry = {
+        **_entry(),
+        LOREFORGE_META_KEY: {
+            "version": "0.1.0",
+            "native": True,
+            "validated_at": "2026-05-11T12:00:00Z",
+        },
+    }
+
+    chatml = _prepare_export_entries(
+        [entry],
+        export_format=FORMAT_CHATML,
+        clean_export=True,
+    )
+    sharegpt = _prepare_export_entries(
+        [entry],
+        export_format=FORMAT_SHAREGPT,
+        clean_export=True,
+    )
+
+    assert LOREFORGE_META_KEY not in chatml[0]
+    assert LOREFORGE_META_KEY not in sharegpt[0]
 
 
 def test_prepare_export_entries_converts_sharegpt_with_metadata():

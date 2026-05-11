@@ -98,6 +98,13 @@ def _render_load_format_summary(normalization) -> None:
     if len(warnings) > 3:
         st.caption(f"{len(warnings) - 3} additional conversion warning(s) hidden.")
 
+    working_copy = st.session_state.get("working_copy_summary")
+    if working_copy:
+        st.info(
+            "Original file preserved. "
+            f"Working copy created at `{working_copy.get('working_path')}`."
+        )
+
     diagnostics = normalization.diagnostics
     if (
         diagnostics.entries_with_errors
@@ -187,12 +194,12 @@ def render_manage_page() -> None:
             if errors and not entries:
                 st.error("No dataset was loaded.")
                 return
-            set_loaded_entries(
+            loaded_dataset_path = set_loaded_entries(
                 entries,
                 normalization_summary=normalization,
                 dataset_path=p,
-            )
-            st.session_state.loaded_path = p
+            ) or p
+            st.session_state.loaded_path = loaded_dataset_path
             st.session_state.stale_last_path = ""
             st.session_state.entry_page = 0
             st.session_state["manage_select_all_mode"] = False
@@ -208,7 +215,7 @@ def render_manage_page() -> None:
                     st.session_state.get("prefs", {}).get("auto_normalize_on_load", True),
                 ),
             ):
-                _normalize_result = persist_loaded_normalization(p)
+                _normalize_result = persist_loaded_normalization(loaded_dataset_path)
                 if _normalize_result.ok:
                     _auto_normalized = True
                 else:
@@ -217,15 +224,15 @@ def render_manage_page() -> None:
                     for _err in _normalize_result.errors:
                         st.error(_err)
             update_prefs({
-                "last_loaded_dataset_path": p,
-                "last_open_directory": str(Path(p).parent),
+                "last_loaded_dataset_path": loaded_dataset_path,
+                "last_open_directory": str(Path(loaded_dataset_path).parent),
             })
             if _auto_normalized:
-                st.success(f"Loaded {len(entries)} entries from `{p}`. Normalized data saved.")
+                st.success(f"Loaded {len(entries)} entries from `{loaded_dataset_path}`. Normalized data saved.")
             elif _auto_normalize_failed:
-                st.warning(f"Loaded {len(entries)} entries from `{p}`, but normalization was not saved.")
+                st.warning(f"Loaded {len(entries)} entries from `{loaded_dataset_path}`, but normalization was not saved.")
             else:
-                st.success(f"Loaded {len(entries)} entries from `{p}`.")
+                st.success(f"Loaded {len(entries)} entries from `{loaded_dataset_path}`.")
             _render_load_format_summary(normalization)
 
     with col_new:

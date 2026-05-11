@@ -6,6 +6,7 @@ from services import dataset_service
 import ui.session_state as session_state
 from core.dataset import load_dataset_with_summary
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT
+from core.loreforge_meta import LOREFORGE_META_KEY
 from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
 from services.dataset_service import DatasetOperationResult
 
@@ -101,6 +102,70 @@ def test_set_loaded_entries_tracks_dataset_source_format(monkeypatch):
     assert state.dataset_source_format == FORMAT_SHAREGPT
     assert state.tag_normalization_summary["source_format"] == FORMAT_SHAREGPT
     assert state.tag_normalization_summary["format_converted_count"] == 1
+
+
+def test_set_loaded_entries_creates_working_copy_for_foreign_dataset(tmp_path, monkeypatch):
+    state = _patch_state(monkeypatch)
+    path = tmp_path / "foreign.jsonl"
+    path.write_text(json.dumps(_entry_without_tags()) + "\n", encoding="utf-8")
+    normalization, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    working_path = tmp_path / "working" / "foreign.jsonl"
+    monkeypatch.setattr(
+        session_state,
+        "create_dataset_working_copy",
+        lambda dataset_path: SimpleNamespace(
+            original_path=str(path),
+            working_path=str(working_path),
+            created=True,
+            sidecar_copied=True,
+            sidecar_path=str(tmp_path / "working" / "foreign.registry.json"),
+        ),
+    )
+
+    effective_path = session_state.set_loaded_entries(
+        normalization.entries,
+        normalization_summary=normalization,
+        dataset_path=str(path),
+    )
+
+    assert effective_path == str(working_path)
+    assert state.dataset_is_native is False
+    assert state.working_copy_summary["original_path"] == str(path)
+    assert state.working_copy_summary["working_path"] == str(working_path)
+    assert state.tag_normalization_summary["working_copy"] == state.working_copy_summary
+
+
+def test_set_loaded_entries_does_not_copy_native_dataset(tmp_path, monkeypatch):
+    state = _patch_state(monkeypatch)
+    path = tmp_path / "native.jsonl"
+    entry = {
+        **_entry_without_tags(),
+        LOREFORGE_META_KEY: {"native": True},
+    }
+    path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    normalization, errors = load_dataset_with_summary(str(path))
+    copy_calls = []
+
+    assert errors == []
+    assert normalization.dataset_is_native is True
+    monkeypatch.setattr(
+        session_state,
+        "create_dataset_working_copy",
+        lambda dataset_path: copy_calls.append(dataset_path),
+    )
+
+    effective_path = session_state.set_loaded_entries(
+        normalization.entries,
+        normalization_summary=normalization,
+        dataset_path=str(path),
+    )
+
+    assert effective_path == str(path)
+    assert copy_calls == []
+    assert state.dataset_is_native is True
+    assert "working_copy_summary" not in state
 
 
 def test_set_loaded_entries_imports_sibling_sidecar_before_tag_adoption(tmp_path, monkeypatch):

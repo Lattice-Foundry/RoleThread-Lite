@@ -19,6 +19,7 @@ from core.format_conversion import (
     convert_records_to_chatml,
     detect_records_format,
 )
+from core.loreforge_meta import is_native_dataset
 from core.entry_analysis import (
     AnalysisSeverity,
     ChatMLAnalyzer,
@@ -80,6 +81,7 @@ class TagNormalizationSummary:
     source_line_count: int = 0
     parsed_entry_count: int = 0
     parse_error_count: int = 0
+    dataset_is_native: bool = False
     diagnostics: DatasetDiagnosticSummary = field(default_factory=DatasetDiagnosticSummary)
 
 
@@ -188,6 +190,7 @@ def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[
     )
 
     detection = detect_records_format(entries)
+    dataset_is_native = is_native_dataset(entries)
     conversion_entries = entries
     converted_count = 0
     already_target_count = len(entries) if detection.format == FORMAT_CHATML else 0
@@ -212,6 +215,7 @@ def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[
     summary.source_line_count = source_line_count
     summary.parsed_entry_count = len(entries)
     summary.parse_error_count = parse_error_count
+    summary.dataset_is_native = dataset_is_native
     summary.diagnostics = summarize_entry_analysis(summary.entries)
     return summary, parse_errors
 

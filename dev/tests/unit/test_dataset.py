@@ -42,6 +42,7 @@ from core.dataset import (
     summarize_entry_analysis,
     validate_entry,
 )
+from core.loreforge_meta import LOREFORGE_META_KEY
 from core.entry_analysis import AnalysisSeverity, EntryAnalysisResult, EntryDiagnostic
 from core.format_conversion import (
     FORMAT_CHATML,
@@ -862,6 +863,42 @@ def test_load_dataset_with_summary_reports_chatml_source_format(tmp_path):
     assert summary.diagnostics.entries_analyzed == 1
     assert summary.diagnostics.valid_entries == 1
     assert summary.diagnostics.entries_with_errors == 0
+
+
+def test_load_dataset_with_summary_reports_native_dataset_signature(tmp_path):
+    path = tmp_path / "native.jsonl"
+    entry = {
+        **_entry(tags=["greeting"]),
+        LOREFORGE_META_KEY: {
+            "version": "0.1.0",
+            "native": True,
+            "validated_at": "2026-05-11T12:00:00Z",
+        },
+    }
+    path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert summary.dataset_is_native is True
+    assert summary.entries[0][LOREFORGE_META_KEY]["native"] is True
+
+
+def test_load_dataset_with_summary_reports_foreign_dataset_when_partially_stamped(tmp_path):
+    path = tmp_path / "partial.jsonl"
+    native_entry = {
+        **_entry(tags=["greeting"]),
+        LOREFORGE_META_KEY: {"native": True},
+    }
+    path.write_text(
+        json.dumps(native_entry) + "\n" + json.dumps(_entry(tags=["slow burn"])) + "\n",
+        encoding="utf-8",
+    )
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert summary.dataset_is_native is False
 
 
 def test_load_dataset_with_summary_converts_sharegpt_to_chatml(tmp_path):

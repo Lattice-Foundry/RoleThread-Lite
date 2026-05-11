@@ -40,6 +40,7 @@ from core.entry_analysis import (
     RepairResult,
     ShareGPTAnalyzer,
 )
+from core.loreforge_meta import LOREFORGE_META_KEY
 
 
 def _diagnostic_by_code(result: EntryAnalysisResult, code: str) -> EntryDiagnostic:
@@ -81,6 +82,7 @@ def test_base_analyzer_accepts_known_top_level_keys_without_diagnostics():
         "metadata": {},
         "source": "fixture",
         "id": "entry-1",
+        LOREFORGE_META_KEY: {"native": True},
     }
 
     result = analyzer.analyze(entry, entry_index=7)
