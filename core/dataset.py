@@ -3,6 +3,7 @@
 This module owns entry validation, JSONL persistence, tag helpers, temporary
 entry registries, statistics, and merge logic. It must stay Streamlit-free.
 """
+import hashlib
 import json
 import os
 import random
@@ -41,6 +42,15 @@ class TagNormalizationSummary:
     dropped_tags: list[str] = field(default_factory=list)
 
 
+_VALIDATE_ENTRY_CACHE: dict[str, tuple[str, ...]] = {}
+
+
+def clear_validate_entry_cache() -> None:
+    """Clear per-render entry validation memoization."""
+
+    _VALIDATE_ENTRY_CACHE.clear()
+
+
 def make_entry(turns: list[dict], system_prompt: str, tags: list[str] | None = None) -> dict:
     """Build a dataset entry from a list of {role, content} turn dicts.
 
@@ -57,6 +67,30 @@ def make_entry(turns: list[dict], system_prompt: str, tags: list[str] | None = N
 
 def validate_entry(entry: dict) -> list[str]:
     """Return validation errors for one ChatML-style dataset entry."""
+
+    cache_key = _entry_validation_cache_key(entry)
+    if cache_key is None:
+        return _validate_entry_uncached(entry)
+    if cache_key not in _VALIDATE_ENTRY_CACHE:
+        _VALIDATE_ENTRY_CACHE[cache_key] = tuple(_validate_entry_uncached(entry))
+    return list(_VALIDATE_ENTRY_CACHE[cache_key])
+
+
+def _entry_validation_cache_key(entry: dict) -> str | None:
+    try:
+        payload = json.dumps(
+            entry,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError):
+        return None
+    return hashlib.blake2b(payload.encode("utf-8"), digest_size=16).hexdigest()
+
+
+def _validate_entry_uncached(entry: dict) -> list[str]:
+    """Return validation errors without consulting the memoization cache."""
 
     errors = []
     if "messages" not in entry:

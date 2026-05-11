@@ -7,6 +7,7 @@ import streamlit as st
 
 from core.backups import auto_backups_enabled
 from core.dataset import (
+    clear_validate_entry_cache,
     count_exchanges,
     filter_entry_pairs_by_tags,
     get_entry_tags,
@@ -381,6 +382,7 @@ def render_edit_entries_page() -> None:
     Routes to the full-edit workspace when edit_entries_mode == 'workspace',
     otherwise renders the existing browser view.
     """
+    clear_validate_entry_cache()
     ensure_entry_registry()
     _tag_snapshot = get_tag_registry_snapshot(untagged_key=_UNTAGGED)
 

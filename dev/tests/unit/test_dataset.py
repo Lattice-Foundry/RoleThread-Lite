@@ -2,12 +2,14 @@ import json
 
 import pytest
 
+import core.dataset as dataset
 from core.dataset import (
     add_tags_to_entry,
     append_registry_id,
     append_to_dataset,
     build_dataset_stats,
     build_entry_registry,
+    clear_validate_entry_cache,
     count_exchanges,
     entry_is_untagged,
     entry_matches_tags,
@@ -189,6 +191,45 @@ def test_validate_entry_reports_non_string_tag():
 
 def test_validate_entry_accepts_valid_multi_turn_entry():
     assert validate_entry(_multi_turn_entry(tags=["greeting"])) == []
+
+
+def test_validate_entry_memoizes_by_content(monkeypatch):
+    clear_validate_entry_cache()
+    calls = []
+
+    def fake_validate(entry):
+        calls.append(entry)
+        return ["cached error"]
+
+    monkeypatch.setattr(dataset, "_validate_entry_uncached", fake_validate)
+
+    entry = _entry(tags=["greeting"])
+
+    assert validate_entry(entry) == ["cached error"]
+    assert validate_entry({**entry, "tags": ["greeting"]}) == ["cached error"]
+    assert len(calls) == 1
+
+    clear_validate_entry_cache()
+    assert validate_entry(entry) == ["cached error"]
+    assert len(calls) == 2
+    clear_validate_entry_cache()
+
+
+def test_validate_entry_returns_fresh_error_list_from_cache(monkeypatch):
+    clear_validate_entry_cache()
+
+    monkeypatch.setattr(
+        dataset,
+        "_validate_entry_uncached",
+        lambda entry: ["cached error"],
+    )
+
+    entry = _entry(tags=["greeting"])
+    errors = validate_entry(entry)
+    errors.append("mutated")
+
+    assert validate_entry(entry) == ["cached error"]
+    clear_validate_entry_cache()
 
 
 def test_make_entry_creates_system_and_user_assistant_messages():

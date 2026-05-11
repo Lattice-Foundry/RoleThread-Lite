@@ -10,6 +10,7 @@ import streamlit as st
 
 from core.backups import auto_backups_enabled
 from core.dataset import (
+    clear_validate_entry_cache,
     filter_entry_pairs_by_tags,
     get_entry_tags,
     load_dataset_with_summary,
@@ -66,6 +67,7 @@ _UNTAGGED = "__untagged__"
 
 def render_manage_page() -> None:
     """Render the Manage Dataset page."""
+    clear_validate_entry_cache()
     ensure_entry_registry()
     ensure_selection_state()
     _tag_snapshot = get_tag_registry_snapshot(untagged_key=_UNTAGGED)

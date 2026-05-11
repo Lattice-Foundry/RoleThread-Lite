@@ -7,7 +7,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.dataset import make_entry, validate_entry
+from core.dataset import clear_validate_entry_cache, make_entry, validate_entry
 from core.tag_registry import get_tag_registry_snapshot
 from ui.session_state import update_prefs, ensure_entry_registry
 from services.dataset_service import create_entry_service
@@ -266,6 +266,7 @@ def render_entry_actions(
 
 def render_create_page() -> None:
     """Render the Create Entry page."""
+    clear_validate_entry_cache()
     _tag_snapshot = get_tag_registry_snapshot()
 
     st.subheader("System Prompt")
