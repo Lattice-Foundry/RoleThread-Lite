@@ -46,6 +46,104 @@ class TagLifecycleOperationResult:
     new_display_name: str | None = None
 
 
+class LifecyclePipeline:
+    """Context manager for protected lifecycle persistence operations."""
+
+    def __init__(self, *, dataset_path: str | None = None):
+        self.dataset_path = dataset_path
+        self.session = None
+        self.dataset_backup_path: Path | str | None = None
+        self.db_backup_path: Path | str | None = None
+
+    def __enter__(self):
+        self.session = tag_registry.SessionLocal()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        try:
+            if exc_type is not None and self.session is not None:
+                self.session.rollback()
+        finally:
+            if self.session is not None:
+                self.session.close()
+        return False
+
+    def result(self, *, ok: bool, message: str, include_backups: bool = True, **fields):
+        if include_backups:
+            fields.setdefault(
+                "dataset_backup_path",
+                str(Path(self.dataset_backup_path)) if self.dataset_backup_path else None,
+            )
+            fields.setdefault(
+                "db_backup_path",
+                str(Path(self.db_backup_path)) if self.db_backup_path else None,
+            )
+        return TagLifecycleOperationResult(ok=ok, message=message, **fields)
+
+    def create_dataset_backup(self, *, reason: str, failure_fields: dict):
+        try:
+            self.dataset_backup_path = create_dataset_backup(self.dataset_path, reason)
+            if self.dataset_backup_path is None:
+                raise FileNotFoundError(
+                    "Could not create dataset backup because the dataset file was not found."
+                )
+        except Exception as exc:
+            return self.result(
+                ok=False,
+                message=f"Failed to create dataset backup: {exc}",
+                include_backups=False,
+                **failure_fields,
+            )
+        return None
+
+    def create_db_backup(self, *, failure_fields: dict):
+        try:
+            self.db_backup_path = tag_registry.create_db_backup(
+                engine=tag_registry.engine
+            )
+        except Exception as exc:
+            return self.result(
+                ok=False,
+                message=f"Could not create database backup: {exc}",
+                **failure_fields,
+            )
+        return None
+
+    def save_jsonl(self, entries: list[dict], *, failure_fields: dict):
+        try:
+            save_dataset(self.dataset_path, entries)
+        except Exception as exc:
+            self.session.rollback()
+            return self.result(
+                ok=False,
+                message=f"Failed to save dataset: {exc}",
+                **failure_fields,
+            )
+        return None
+
+    def commit_success(self, *, message: str, success_fields: dict, error_fields: dict):
+        try:
+            self.session.commit()
+        except Exception as exc:
+            self.session.rollback()
+            return self.result(
+                ok=False,
+                message=f"Database error: {exc}",
+                include_backups=False,
+                **error_fields,
+            )
+        return self.result(ok=True, message=message, **success_fields)
+
+    def database_error(self, exc: Exception, *, fields: dict) -> TagLifecycleOperationResult:
+        self.session.rollback()
+        return self.result(
+            ok=False,
+            message=f"Database error: {exc}",
+            include_backups=False,
+            **fields,
+        )
+
+
 def _default_category_slugs() -> set[str]:
     """Return immutable built-in category slugs."""
     return {normalize_tag(name).slug for name in TAGS}
@@ -346,8 +444,8 @@ def rename_custom_category(
             new_display_name=normalized_new.display_name or None,
         )
 
-    session = tag_registry.SessionLocal()
-    try:
+    with LifecyclePipeline() as pipeline:
+        session = pipeline.session
         category = (
             session.query(TagCategory)
             .filter_by(slug=normalized_old)
@@ -413,67 +511,69 @@ def rename_custom_category(
                 new_display_name=normalized_new.display_name,
             )
 
-        try:
-            db_backup = tag_registry.create_db_backup(engine=tag_registry.engine)
-        except Exception as exc:
-            return TagLifecycleOperationResult(
-                ok=False,
-                message=f"Could not create database backup: {exc}",
-                category_slug=category.slug,
-                old_slug=category.slug,
-                new_slug=normalized_new.slug,
-                old_display_name=old_display_name,
-                new_display_name=normalized_new.display_name,
-            )
+        backup_error = pipeline.create_db_backup(
+            failure_fields={
+                "category_slug": category.slug,
+                "old_slug": category.slug,
+                "new_slug": normalized_new.slug,
+                "old_display_name": old_display_name,
+                "new_display_name": normalized_new.display_name,
+            }
+        )
+        if backup_error is not None:
+            return backup_error
 
-        old_slug = category.slug
-        category.name = normalized_new.display_name
-        category.slug = normalized_new.slug
-        session.add(
-            CategoryHistory(
-                action="rename",
-                old_slug=old_slug,
-                old_display_name=old_display_name,
-                new_slug=normalized_new.slug,
-                new_display_name=normalized_new.display_name,
-                metadata_json=json.dumps(
-                    {
-                        "lifecycle_state": "active",
-                        "action": "rename",
-                        "old_slug": old_slug,
-                        "new_slug": normalized_new.slug,
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
-                ),
+        try:
+            old_slug = category.slug
+            category.name = normalized_new.display_name
+            category.slug = normalized_new.slug
+            session.add(
+                CategoryHistory(
+                    action="rename",
+                    old_slug=old_slug,
+                    old_display_name=old_display_name,
+                    new_slug=normalized_new.slug,
+                    new_display_name=normalized_new.display_name,
+                    metadata_json=json.dumps(
+                        {
+                            "lifecycle_state": "active",
+                            "action": "rename",
+                            "old_slug": old_slug,
+                            "new_slug": normalized_new.slug,
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                )
             )
-        )
-        session.commit()
-        return TagLifecycleOperationResult(
-            ok=True,
-            message=(
-                f'Renamed category "{old_display_name}" to '
-                f'"{normalized_new.display_name}".'
-            ),
-            affected_count=1,
-            category_slug=normalized_new.slug,
-            db_backup_path=str(Path(db_backup)),
-            old_slug=old_slug,
-            new_slug=normalized_new.slug,
-            old_display_name=old_display_name,
-            new_display_name=normalized_new.display_name,
-        )
-    except Exception as exc:
-        session.rollback()
-        return TagLifecycleOperationResult(
-            ok=False,
-            message=f"Database error: {exc}",
-            category_slug=normalized_old,
-            new_slug=normalized_new.slug,
-            new_display_name=normalized_new.display_name,
-        )
-    finally:
-        session.close()
+            return pipeline.commit_success(
+                message=(
+                    f'Renamed category "{old_display_name}" to '
+                    f'"{normalized_new.display_name}".'
+                ),
+                success_fields={
+                    "affected_count": 1,
+                    "category_slug": normalized_new.slug,
+                    "old_slug": old_slug,
+                    "new_slug": normalized_new.slug,
+                    "old_display_name": old_display_name,
+                    "new_display_name": normalized_new.display_name,
+                },
+                error_fields={
+                    "category_slug": normalized_old,
+                    "new_slug": normalized_new.slug,
+                    "new_display_name": normalized_new.display_name,
+                },
+            )
+        except Exception as exc:
+            return pipeline.database_error(
+                exc,
+                fields={
+                    "category_slug": normalized_old,
+                    "new_slug": normalized_new.slug,
+                    "new_display_name": normalized_new.display_name,
+                },
+            )
 
 
 def delete_empty_custom_category(
@@ -618,8 +718,8 @@ def edit_active_tag(
             new_display_name=normalized_new.display_name or None,
         )
 
-    session = tag_registry.SessionLocal()
-    try:
+    with LifecyclePipeline(dataset_path=dataset_path) as pipeline:
+        session = pipeline.session
         tag = session.query(Tag).filter_by(slug=normalized_old).order_by(Tag.id).first()
         if tag is None:
             return TagLifecycleOperationResult(
@@ -710,7 +810,6 @@ def edit_active_tag(
 
         proposed_entries = copy.deepcopy(entries)
         changed_entries = 0
-        dataset_backup: Path | str | None = None
         if slug_changed:
             path_errors = _validate_dataset_path(dataset_path)
             if path_errors:
@@ -730,142 +829,138 @@ def edit_active_tag(
                 new_slug=normalized_new.slug,
             )
 
-            try:
-                dataset_backup = create_dataset_backup(dataset_path, "before_tag_edit")
-                if dataset_backup is None:
-                    raise FileNotFoundError(
-                        "Could not create dataset backup because the dataset file was not found."
-                    )
-            except Exception as exc:
-                return TagLifecycleOperationResult(
-                    ok=False,
-                    message=f"Failed to create dataset backup: {exc}",
-                    old_slug=tag.slug,
-                    new_slug=normalized_new.slug,
-                    category_slug=normalized_category,
-                    old_display_name=old_display_name,
-                    new_display_name=normalized_new.display_name,
-                )
+            backup_error = pipeline.create_dataset_backup(
+                reason="before_tag_edit",
+                failure_fields={
+                    "old_slug": tag.slug,
+                    "new_slug": normalized_new.slug,
+                    "category_slug": normalized_category,
+                    "old_display_name": old_display_name,
+                    "new_display_name": normalized_new.display_name,
+                },
+            )
+            if backup_error is not None:
+                return backup_error
+
+        backup_error = pipeline.create_db_backup(
+            failure_fields={
+                "old_slug": tag.slug,
+                "new_slug": normalized_new.slug,
+                "category_slug": normalized_category,
+                "old_display_name": old_display_name,
+                "new_display_name": normalized_new.display_name,
+            }
+        )
+        if backup_error is not None:
+            return backup_error
 
         try:
-            db_backup = tag_registry.create_db_backup(engine=tag_registry.engine)
-        except Exception as exc:
-            return TagLifecycleOperationResult(
-                ok=False,
-                message=f"Could not create database backup: {exc}",
-                dataset_backup_path=str(Path(dataset_backup)) if dataset_backup else None,
-                old_slug=tag.slug,
-                new_slug=normalized_new.slug,
-                category_slug=normalized_category,
-                old_display_name=old_display_name,
-                new_display_name=normalized_new.display_name,
-            )
+            old_category_slug = old_category.slug
+            new_category_slug = new_category.slug
+            tag.slug = normalized_new.slug
+            tag.name = normalized_new.display_name
+            if category_changed:
+                max_order = (
+                    session.query(Tag)
+                    .filter_by(category_id=new_category.id)
+                    .order_by(Tag.sort_order.desc())
+                    .first()
+                )
+                tag.sort_order = (max_order.sort_order if max_order is not None else 0) + 1
+            tag.category_id = new_category.id
+            tag.status = TAG_STATUS_ACTIVE
+            tag.is_active = True
 
-        old_category_slug = old_category.slug
-        new_category_slug = new_category.slug
-        tag.slug = normalized_new.slug
-        tag.name = normalized_new.display_name
-        if category_changed:
-            max_order = (
-                session.query(Tag)
-                .filter_by(category_id=new_category.id)
-                .order_by(Tag.sort_order.desc())
-                .first()
-            )
-            tag.sort_order = (max_order.sort_order if max_order is not None else 0) + 1
-        tag.category_id = new_category.id
-        tag.status = TAG_STATUS_ACTIVE
-        tag.is_active = True
-
-        if slug_changed:
-            tag_registry.clear_current_tag_lifecycle_metadata(normalized_old, session=session)
-        tag_registry.clear_or_replace_tag_lifecycle_metadata(
-            action=TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
-            old_slug=normalized_new.slug,
-            old_display_name=normalized_new.display_name,
-            old_category_slug=new_category_slug,
-            new_slug=normalized_new.slug,
-            new_display_name=normalized_new.display_name,
-            new_category_slug=new_category_slug,
-            metadata={
-                "lifecycle_state": LIFECYCLE_STATE_ACTIVE,
-                "activation_origin": "tag_edit",
-                "assigned_category_slug": new_category_slug,
-                "visible_badge": None,
-            },
-            session=session,
-        )
-        if slug_changed:
-            tag_registry.upsert_tag_lifecycle_metadata(
-                action=TAG_LIFECYCLE_METADATA_RENAME,
-                old_slug=normalized_old,
-                old_display_name=old_display_name,
-                old_category_slug=old_category_slug,
+            if slug_changed:
+                tag_registry.clear_current_tag_lifecycle_metadata(
+                    normalized_old, session=session
+                )
+            tag_registry.clear_or_replace_tag_lifecycle_metadata(
+                action=TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
+                old_slug=normalized_new.slug,
+                old_display_name=normalized_new.display_name,
+                old_category_slug=new_category_slug,
                 new_slug=normalized_new.slug,
                 new_display_name=normalized_new.display_name,
                 new_category_slug=new_category_slug,
-                metadata=tag_registry.build_rename_alias_metadata(
-                    old_slug=normalized_old,
-                    new_slug=normalized_new.slug,
-                ),
+                metadata={
+                    "lifecycle_state": LIFECYCLE_STATE_ACTIVE,
+                    "activation_origin": "tag_edit",
+                    "assigned_category_slug": new_category_slug,
+                    "visible_badge": None,
+                },
                 session=session,
             )
-
-            try:
-                save_dataset(dataset_path, proposed_entries)
-            except Exception as exc:
-                session.rollback()
-                return TagLifecycleOperationResult(
-                    ok=False,
-                    message=f"Failed to save dataset: {exc}",
-                    dataset_backup_path=str(Path(dataset_backup)) if dataset_backup else None,
-                    db_backup_path=str(Path(db_backup)),
+            if slug_changed:
+                tag_registry.upsert_tag_lifecycle_metadata(
+                    action=TAG_LIFECYCLE_METADATA_RENAME,
                     old_slug=normalized_old,
-                    new_slug=normalized_new.slug,
-                    category_slug=new_category_slug,
                     old_display_name=old_display_name,
+                    old_category_slug=old_category_slug,
+                    new_slug=normalized_new.slug,
                     new_display_name=normalized_new.display_name,
+                    new_category_slug=new_category_slug,
+                    metadata=tag_registry.build_rename_alias_metadata(
+                        old_slug=normalized_old,
+                        new_slug=normalized_new.slug,
+                    ),
+                    session=session,
                 )
 
-        session.commit()
-        if slug_changed and category_changed:
-            message = (
-                f'Edited tag "{old_display_name}" to '
-                f'"{normalized_new.display_name}" and moved it to {new_category.name}.'
+                save_error = pipeline.save_jsonl(
+                    proposed_entries,
+                    failure_fields={
+                        "old_slug": normalized_old,
+                        "new_slug": normalized_new.slug,
+                        "category_slug": new_category_slug,
+                        "old_display_name": old_display_name,
+                        "new_display_name": normalized_new.display_name,
+                    },
+                )
+                if save_error is not None:
+                    return save_error
+
+            if slug_changed and category_changed:
+                message = (
+                    f'Edited tag "{old_display_name}" to '
+                    f'"{normalized_new.display_name}" and moved it to {new_category.name}.'
+                )
+            elif slug_changed:
+                message = (
+                    f'Renamed tag "{old_display_name}" to '
+                    f'"{normalized_new.display_name}".'
+                )
+            else:
+                message = f'Moved tag "{old_display_name}" to {new_category.name}.'
+            return pipeline.commit_success(
+                message=message,
+                success_fields={
+                    "affected_count": changed_entries,
+                    "tag_slugs": [normalized_new.slug],
+                    "category_slug": new_category_slug,
+                    "entries": proposed_entries if slug_changed else copy.deepcopy(entries),
+                    "old_slug": normalized_old,
+                    "new_slug": normalized_new.slug,
+                    "old_display_name": old_display_name,
+                    "new_display_name": normalized_new.display_name,
+                },
+                error_fields={
+                    "old_slug": normalized_old,
+                    "new_slug": normalized_new.slug,
+                    "category_slug": normalized_category,
+                    "new_display_name": normalized_new.display_name,
+                },
             )
-        elif slug_changed:
-            message = (
-                f'Renamed tag "{old_display_name}" to '
-                f'"{normalized_new.display_name}".'
+        except Exception as exc:
+            return pipeline.database_error(
+                exc,
+                fields={
+                    "old_slug": normalized_old,
+                    "new_slug": normalized_new.slug,
+                    "category_slug": normalized_category,
+                    "new_display_name": normalized_new.display_name,
+                },
             )
-        else:
-            message = f'Moved tag "{old_display_name}" to {new_category.name}.'
-        return TagLifecycleOperationResult(
-            ok=True,
-            message=message,
-            affected_count=changed_entries,
-            tag_slugs=[normalized_new.slug],
-            category_slug=new_category_slug,
-            db_backup_path=str(Path(db_backup)),
-            dataset_backup_path=str(Path(dataset_backup)) if dataset_backup else None,
-            entries=proposed_entries if slug_changed else copy.deepcopy(entries),
-            old_slug=normalized_old,
-            new_slug=normalized_new.slug,
-            old_display_name=old_display_name,
-            new_display_name=normalized_new.display_name,
-        )
-    except Exception as exc:
-        session.rollback()
-        return TagLifecycleOperationResult(
-            ok=False,
-            message=f"Database error: {exc}",
-            old_slug=normalized_old,
-            new_slug=normalized_new.slug,
-            category_slug=normalized_category,
-            new_display_name=normalized_new.display_name,
-        )
-    finally:
-        session.close()
 
 
 def rename_active_tag(
