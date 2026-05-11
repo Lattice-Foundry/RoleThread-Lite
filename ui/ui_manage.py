@@ -175,6 +175,9 @@ def render_manage_page() -> None:
             if errors:
                 for e in errors:
                     st.error(e)
+            if errors and not entries:
+                st.error("No dataset was loaded.")
+                return
             set_loaded_entries(
                 entries,
                 normalization_summary=normalization,

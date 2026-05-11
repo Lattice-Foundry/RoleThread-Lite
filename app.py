@@ -111,12 +111,15 @@ if "prefs" not in st.session_state:
     if last:
         if Path(last).exists():
             normalization, errors = load_dataset_with_summary(last)
-            set_loaded_entries(
-                normalization.entries,
-                normalization_summary=normalization,
-                dataset_path=last,
-            )
-            st.session_state.loaded_path = last
+            if errors and not normalization.entries:
+                st.warning(f"Could not reload last dataset: {errors[0]}")
+            else:
+                set_loaded_entries(
+                    normalization.entries,
+                    normalization_summary=normalization,
+                    dataset_path=last,
+                )
+                st.session_state.loaded_path = last
         else:
             st.session_state.stale_last_path = last
 

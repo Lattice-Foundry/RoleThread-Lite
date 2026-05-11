@@ -41,6 +41,9 @@ TAGS: dict[str, list[str]] = {
     "Status": ["needs_review", "needs_edit"],
 }
 
+SUPPORTED_DATASET_EXTENSIONS = {".jsonl", ".json", ".txt"}
+_TRAINING_OBJECT_KEYS = {"messages", "conversations", "instruction", "output"}
+
 
 @dataclass
 class DatasetDiagnosticSummary:
@@ -151,23 +154,32 @@ def load_dataset(path: str) -> tuple[list[dict], list[str]]:
 def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[str]]:
     """Load JSONL entries and return normalization details plus parse errors."""
 
-    entries, parse_errors = [], []
     p = Path(path)
     if not p.exists():
         return TagNormalizationSummary(
             entries=[],
             source_format=FORMAT_UNKNOWN,
         ), [f"File not found: {path}"]
-    with p.open("r", encoding="utf-8") as f:
-        for line_num, line in enumerate(f, 1):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entry = json.loads(line)
-                entries.append(entry)
-            except json.JSONDecodeError as e:
-                parse_errors.append(f"Line {line_num}: {e}")
+
+    extension = p.suffix.lower()
+    if extension not in SUPPORTED_DATASET_EXTENSIONS:
+        return TagNormalizationSummary(
+            entries=[],
+            source_format=FORMAT_UNKNOWN,
+        ), [
+            f"Unsupported file type: {extension or '<none>'}. "
+            "LoreForge supports .jsonl, .json, and .txt files."
+        ]
+
+    try:
+        content = p.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return TagNormalizationSummary(
+            entries=[],
+            source_format=FORMAT_UNKNOWN,
+        ), ["File is not valid UTF-8 text and cannot be loaded as a dataset."]
+
+    entries, parse_errors = _parse_dataset_entries(content, extension)
 
     detection = detect_records_format(entries)
     conversion_entries = entries
@@ -193,6 +205,57 @@ def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[
     summary.format_warnings = format_warnings
     summary.diagnostics = summarize_entry_analysis(summary.entries)
     return summary, parse_errors
+
+
+def _parse_dataset_entries(content: str, extension: str) -> tuple[list[dict], list[str]]:
+    stripped = content.strip()
+    if not stripped:
+        return [], []
+
+    if stripped.startswith("["):
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            pass
+        else:
+            if not isinstance(parsed, list):
+                return [], ["JSON array file detected but root value is not a list."]
+            if not all(isinstance(item, dict) for item in parsed):
+                return [], ["JSON array file detected but contains non-object items."]
+            return list(parsed), []
+
+    if extension == ".json" and stripped.startswith("{"):
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            pass
+        else:
+            if not isinstance(parsed, dict):
+                return [], ["JSON file root value must be an object or array."]
+            if not (_TRAINING_OBJECT_KEYS & set(parsed)):
+                return [], [
+                    "File contains a valid JSON object but it does not appear "
+                    "to be a training dataset entry."
+                ]
+            return [parsed], []
+
+    entries: list[dict] = []
+    parse_errors: list[str] = []
+    for line_num, line in enumerate(content.splitlines(), 1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+            entries.append(entry)
+        except json.JSONDecodeError as e:
+            parse_errors.append(f"Line {line_num}: {e}")
+
+    if not entries and parse_errors:
+        parse_errors.append(
+            f"No valid entries could be loaded. {len(parse_errors)} line(s) had parse errors."
+        )
+    return entries, parse_errors
 
 
 def summarize_entry_analysis(entries: list[dict]) -> DatasetDiagnosticSummary:

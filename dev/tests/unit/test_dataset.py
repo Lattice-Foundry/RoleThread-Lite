@@ -714,6 +714,89 @@ def test_load_dataset_records_parse_errors_but_keeps_valid_lines(tmp_path):
     assert "Line 2" in errors[0]
 
 
+def test_load_dataset_rejects_unsupported_file_extension(tmp_path):
+    path = tmp_path / "image.png"
+    path.write_text(json.dumps(_entry()) + "\n", encoding="utf-8")
+
+    loaded, errors = load_dataset(str(path))
+
+    assert loaded == []
+    assert errors == [
+        "Unsupported file type: .png. LoreForge supports .jsonl, .json, and .txt files."
+    ]
+
+
+def test_load_dataset_rejects_non_utf8_text(tmp_path):
+    path = tmp_path / "binary.jsonl"
+    path.write_bytes(b"\xff\xfe\x00\x00not-json")
+
+    loaded, errors = load_dataset(str(path))
+
+    assert loaded == []
+    assert errors == ["File is not valid UTF-8 text and cannot be loaded as a dataset."]
+
+
+def test_load_dataset_expands_json_array_file(tmp_path):
+    path = tmp_path / "dataset.json"
+    entries = [_entry(tags=["greeting"]), _entry(tags=["slow burn"])]
+    path.write_text(json.dumps(entries), encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert len(summary.entries) == 2
+    assert summary.entries[0]["tags"] == ["greeting"]
+    assert summary.entries[1]["tags"] == ["slow_burn"]
+    assert summary.source_format == FORMAT_CHATML
+
+
+def test_load_dataset_rejects_json_array_with_non_object_items(tmp_path):
+    path = tmp_path / "dataset.json"
+    path.write_text(json.dumps([_entry(), "not an entry"]), encoding="utf-8")
+
+    loaded, errors = load_dataset(str(path))
+
+    assert loaded == []
+    assert errors == ["JSON array file detected but contains non-object items."]
+
+
+def test_load_dataset_rejects_single_non_training_json_object(tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps({"editor.fontSize": 14}), encoding="utf-8")
+
+    loaded, errors = load_dataset(str(path))
+
+    assert loaded == []
+    assert errors == [
+        "File contains a valid JSON object but it does not appear to be a training dataset entry."
+    ]
+
+
+def test_load_dataset_loads_single_training_json_object(tmp_path):
+    path = tmp_path / "entry.json"
+    entry = _entry(tags=["slow burn"])
+    path.write_text(json.dumps(entry), encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert summary.entries == [_entry(tags=["slow_burn"])]
+    assert summary.source_format == FORMAT_CHATML
+
+
+def test_load_dataset_reports_zero_entries_when_all_lines_fail(tmp_path):
+    path = tmp_path / "plain.jsonl"
+    path.write_text("hello world\nstill not json\n", encoding="utf-8")
+
+    loaded, errors = load_dataset(str(path))
+
+    assert loaded == []
+    assert len(errors) == 3
+    assert "Line 1" in errors[0]
+    assert "Line 2" in errors[1]
+    assert errors[2] == "No valid entries could be loaded. 2 line(s) had parse errors."
+
+
 def test_load_dataset_normalizes_missing_tags_to_empty_list(tmp_path):
     path = tmp_path / "missing_tags.jsonl"
     entry = {"messages": _entry()["messages"]}
@@ -941,8 +1024,9 @@ def test_merge_datasets_collects_parse_errors_from_bad_input_files(tmp_path):
 
     assert merged == [entry]
     assert stats["total_loaded"] == 1
-    assert len(stats["parse_errors"]) == 1
+    assert len(stats["parse_errors"]) == 2
     assert "Line 1" in stats["parse_errors"][0]
+    assert stats["parse_errors"][1] == "No valid entries could be loaded. 1 line(s) had parse errors."
 
 
 def test_merge_datasets_with_shuffle_false_preserves_deterministic_order(tmp_path):
