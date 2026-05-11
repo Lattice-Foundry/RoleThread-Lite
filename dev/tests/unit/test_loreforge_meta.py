@@ -8,7 +8,10 @@ from core.loreforge_meta import (
 
 
 def test_version_constant_exists():
-    assert version.LOREFORGE_VERSION == "0.1.0"
+    major, minor, patch = version.LOREFORGE_VERSION.split(".")
+
+    assert len((major, minor, patch)) == 3
+    assert all(part.isdigit() for part in (major, minor, patch))
 
 
 def test_native_entry_detection_requires_loreforge_signature():

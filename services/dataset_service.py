@@ -597,6 +597,51 @@ def normalize_dataset_service(
     )
 
 
+def save_repaired_entries_service(
+    *,
+    dataset_path: str,
+    repaired_entries: list[dict],
+    backup_reason: str = "before_validation_repair",
+) -> DatasetOperationResult:
+    """Persist exact validation-repaired entries with a dataset backup."""
+
+    errors = _validate_dataset_path(dataset_path)
+    if not isinstance(repaired_entries, list):
+        errors.append("Repaired entries must be a list.")
+    if errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not save repaired entries.",
+            errors=errors,
+        )
+
+    proposed_entries = copy.deepcopy(repaired_entries)
+    try:
+        backup_path = _create_backup_if_enabled(dataset_path, True, backup_reason)
+    except Exception as exc:
+        traceback.print_exc()
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+    try:
+        save_dataset(dataset_path, proposed_entries)
+    except Exception as exc:
+        traceback.print_exc()
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save repaired entries: {exc}",
+        )
+
+    return DatasetOperationResult(
+        ok=True,
+        message="Repaired entries saved.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=len(proposed_entries),
+    )
+
+
 def create_entry_service(
     *,
     dataset_path: str,

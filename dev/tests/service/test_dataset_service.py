@@ -1,5 +1,6 @@
 import copy
 import inspect
+import json
 import shutil
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from services.dataset_service import (
     replace_single_entry_tags_service,
     replace_system_prompt_bulk_service,
     replace_tags_bulk_service,
+    save_repaired_entries_service,
     save_full_edit_service,
     save_merged_entries_service,
     save_quick_edit_service,
@@ -777,3 +779,67 @@ def test_normalize_dataset_service_backup_failure_aborts_save(tmp_path, monkeypa
     assert result.ok is False
     assert "backup" in result.message.lower()
     assert path.read_text(encoding="utf-8") == before
+
+
+def test_save_repaired_entries_service_persists_exact_entries_with_backup(
+    tmp_path,
+    monkeypatch,
+):
+    original = [_entry(tags=["original"])]
+    path = _write_dataset(tmp_path, original)
+    backups = _backup_recorder(monkeypatch, tmp_path)
+    repaired_entries = [
+        {
+            "messages": [
+                {"role": "SYSTEM", "content": " System "},
+                {"role": "Human", "content": " Hi "},
+                {"role": "GPT", "content": " Hello "},
+            ],
+            "tags": ["slow burn", 7],
+        }
+    ]
+
+    result = save_repaired_entries_service(
+        dataset_path=str(path),
+        repaired_entries=repaired_entries,
+        backup_reason="before_validation_test",
+    )
+    written = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+    assert result.ok is True
+    assert result.message == "Repaired entries saved."
+    assert result.backup_path == str(backups[0])
+    assert result.affected_count == 1
+    assert result.entries == repaired_entries
+    assert result.entries is not repaired_entries
+    assert written == repaired_entries
+    assert _read_entries(backups[0]) == original
+
+
+def test_save_repaired_entries_service_backup_failure_aborts_save(tmp_path, monkeypatch):
+    original = [_entry(tags=["original"])]
+    path = _write_dataset(tmp_path, original)
+    before = path.read_text(encoding="utf-8")
+    _force_backup_failure(monkeypatch)
+
+    result = save_repaired_entries_service(
+        dataset_path=str(path),
+        repaired_entries=[_entry(tags=["replacement"])],
+    )
+
+    assert result.ok is False
+    assert "backup" in result.message.lower()
+    assert path.read_text(encoding="utf-8") == before
+
+
+def test_save_repaired_entries_service_rejects_invalid_inputs(tmp_path):
+    missing_path = tmp_path / "missing.jsonl"
+
+    result = save_repaired_entries_service(
+        dataset_path=str(missing_path),
+        repaired_entries=[],
+    )
+
+    assert result.ok is False
+    assert result.entries is None
+    assert "Dataset file was not found." in result.errors
