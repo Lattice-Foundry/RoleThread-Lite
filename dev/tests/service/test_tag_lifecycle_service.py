@@ -7,12 +7,19 @@ from sqlalchemy.orm import sessionmaker
 
 import core.tag_registry as tag_registry
 from core.dataset import load_dataset, save_dataset
-from core.models import (
-    Base,
-    CategoryHistory,
+from core.tag_constants import (
+    TAG_LIFECYCLE_METADATA_ARCHIVE,
+    TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
+    TAG_LIFECYCLE_METADATA_RENAME,
+    TAG_RESOLUTION_ALIAS_MAPPED,
+    TAG_RESOLUTION_ARCHIVED,
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
     TAG_STATUS_HIDDEN,
+)
+from core.models import (
+    Base,
+    CategoryHistory,
     Tag,
     TagCategory,
     TagLifecycleMetadata,
@@ -89,7 +96,7 @@ def _add_imported_archived_tag(session, slug):
         active=False,
     )
     tag_registry.upsert_tag_lifecycle_metadata(
-        action=tag_registry.TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
+        action=TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
         old_slug=slug,
         old_display_name=tag.name,
         new_slug=slug,
@@ -259,7 +266,7 @@ def test_assign_rejects_missing_active_hidden_and_deleted_tags(tag_lifecycle_db)
             active=False,
         )
         tag_registry.upsert_tag_lifecycle_metadata(
-            action=tag_registry.TAG_LIFECYCLE_METADATA_ARCHIVE,
+            action=TAG_LIFECYCLE_METADATA_ARCHIVE,
             old_slug=deleted.slug,
             old_display_name=deleted.name,
             old_category_slug="behavior",
@@ -677,7 +684,7 @@ def test_rename_custom_active_tag_rewrites_dataset_and_aliases_old_slug(
             session.query(TagLifecycleMetadata)
             .filter_by(
                 old_slug="followup_question",
-                action=tag_registry.TAG_LIFECYCLE_METADATA_RENAME,
+                action=TAG_LIFECYCLE_METADATA_RENAME,
             )
             .one()
         )
@@ -697,7 +704,7 @@ def test_rename_custom_active_tag_rewrites_dataset_and_aliases_old_slug(
     assert "followup_question" not in tag_registry.get_all_tag_slugs()
 
     resolved = tag_registry.resolve_tag_lifecycle("Followup Question")
-    assert resolved.result_type == tag_registry.TAG_RESOLUTION_ALIAS_MAPPED
+    assert resolved.result_type == TAG_RESOLUTION_ALIAS_MAPPED
     assert resolved.resolved_slug == "follow_up_question"
 
 
@@ -777,7 +784,7 @@ def test_edit_active_tag_moves_category_without_dataset_rewrite(
         assert metadata["assigned_category_slug"] == "scene"
         assert metadata["activation_origin"] == "tag_edit"
         assert session.query(TagLifecycleMetadata).filter_by(
-            action=tag_registry.TAG_LIFECYCLE_METADATA_RENAME
+            action=TAG_LIFECYCLE_METADATA_RENAME
         ).count() == 0
     finally:
         session.close()
@@ -834,7 +841,7 @@ def test_edit_active_tag_changes_name_and_category_together(
         assert tag.category_id == scene_id
         alias = session.query(TagLifecycleMetadata).filter_by(
             old_slug="followup_question",
-            action=tag_registry.TAG_LIFECYCLE_METADATA_RENAME,
+            action=TAG_LIFECYCLE_METADATA_RENAME,
         ).one()
         assert alias.new_slug == "follow_up_question"
         current_metadata = _metadata_for(session, "follow_up_question")
@@ -903,7 +910,7 @@ def test_delete_custom_active_tag_archives_tag_and_removes_from_entries(
     assert deleted[0]["visible_badge"] == "Deleted"
     assert deleted[0]["can_assign_to_category"] is False
     resolved = tag_registry.resolve_tag_lifecycle("Slow Burn")
-    assert resolved.result_type == tag_registry.TAG_RESOLUTION_ARCHIVED
+    assert resolved.result_type == TAG_RESOLUTION_ARCHIVED
 
 
 def test_delete_custom_active_tag_handles_no_loaded_entries(
@@ -1199,7 +1206,7 @@ def test_rename_rejects_duplicate_empty_same_and_alias_reserved_names(
         _add_tag(session, slug="source_tag", name="Source Tag", category=category)
         _add_tag(session, slug="duplicate_tag", name="Duplicate Tag", category=category)
         tag_registry.upsert_tag_lifecycle_metadata(
-            action=tag_registry.TAG_LIFECYCLE_METADATA_RENAME,
+            action=TAG_LIFECYCLE_METADATA_RENAME,
             old_slug="reserved_tag",
             new_slug="duplicate_tag",
             metadata=tag_registry.build_rename_alias_metadata(

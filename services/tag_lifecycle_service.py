@@ -7,10 +7,19 @@ from pathlib import Path
 from core.backups import create_dataset_backup
 from core.dataset import TAGS, get_entry_tags, normalize_dataset_tags, save_dataset, set_entry_tags
 import core.tag_registry as tag_registry
-from core.models import (
-    CategoryHistory,
+from core.tag_constants import (
+    ARCHIVE_ORIGIN_IMPORTED,
+    LIFECYCLE_STATE_ACTIVE,
+    TAG_ALIAS_METADATA_ACTIONS,
+    TAG_CURRENT_METADATA_ACTIONS,
+    TAG_LIFECYCLE_METADATA_ARCHIVE,
+    TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
+    TAG_LIFECYCLE_METADATA_RENAME,
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
+)
+from core.models import (
+    CategoryHistory,
     Tag,
     TagCategory,
     TagLifecycleMetadata,
@@ -66,7 +75,7 @@ def _current_metadata(session, slug: str) -> dict:
         session.query(TagLifecycleMetadata)
         .filter(
             TagLifecycleMetadata.old_slug == slug,
-            TagLifecycleMetadata.action.in_(tag_registry.TAG_CURRENT_METADATA_ACTIONS),
+            TagLifecycleMetadata.action.in_(TAG_CURRENT_METADATA_ACTIONS),
         )
         .order_by(TagLifecycleMetadata.id.desc())
         .first()
@@ -84,8 +93,8 @@ def _is_imported_archived_tag(session, tag: Tag) -> bool:
     metadata = _current_metadata(session, tag.slug)
     archive_origin = metadata.get("archive_origin")
     if archive_origin is None and tag.category_id is None:
-        archive_origin = tag_registry.ARCHIVE_ORIGIN_IMPORTED
-    return archive_origin == tag_registry.ARCHIVE_ORIGIN_IMPORTED
+        archive_origin = ARCHIVE_ORIGIN_IMPORTED
+    return archive_origin == ARCHIVE_ORIGIN_IMPORTED
 
 
 def _tag_label(tag: Tag | None, slug: str) -> str:
@@ -155,7 +164,7 @@ def _alias_slug_is_reserved(session, slug: str, *, old_slug: str) -> bool:
         session.query(TagLifecycleMetadata)
         .filter(
             TagLifecycleMetadata.old_slug == slug,
-            TagLifecycleMetadata.action.in_(tag_registry.TAG_ALIAS_METADATA_ACTIONS),
+            TagLifecycleMetadata.action.in_(TAG_ALIAS_METADATA_ACTIONS),
         )
         .first()
         is not None
@@ -269,7 +278,7 @@ def assign_archived_imported_tags_to_category(
             tag.category_id = category.id
             tag.sort_order = next_sort_order + offset
             tag_registry.clear_or_replace_tag_lifecycle_metadata(
-                action=tag_registry.TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
+                action=TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
                 old_slug=tag.slug,
                 old_display_name=tag.name,
                 old_category_slug=None,
@@ -771,7 +780,7 @@ def edit_active_tag(
         if slug_changed:
             tag_registry.clear_current_tag_lifecycle_metadata(normalized_old, session=session)
         tag_registry.clear_or_replace_tag_lifecycle_metadata(
-            action=tag_registry.TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
+            action=TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
             old_slug=normalized_new.slug,
             old_display_name=normalized_new.display_name,
             old_category_slug=new_category_slug,
@@ -779,7 +788,7 @@ def edit_active_tag(
             new_display_name=normalized_new.display_name,
             new_category_slug=new_category_slug,
             metadata={
-                "lifecycle_state": tag_registry.LIFECYCLE_STATE_ACTIVE,
+                "lifecycle_state": LIFECYCLE_STATE_ACTIVE,
                 "activation_origin": "tag_edit",
                 "assigned_category_slug": new_category_slug,
                 "visible_badge": None,
@@ -788,7 +797,7 @@ def edit_active_tag(
         )
         if slug_changed:
             tag_registry.upsert_tag_lifecycle_metadata(
-                action=tag_registry.TAG_LIFECYCLE_METADATA_RENAME,
+                action=TAG_LIFECYCLE_METADATA_RENAME,
                 old_slug=normalized_old,
                 old_display_name=old_display_name,
                 old_category_slug=old_category_slug,
@@ -972,7 +981,7 @@ def delete_active_tag(
         tag.is_active = False
         tag.category_id = None
         tag_registry.clear_or_replace_tag_lifecycle_metadata(
-            action=tag_registry.TAG_LIFECYCLE_METADATA_ARCHIVE,
+            action=TAG_LIFECYCLE_METADATA_ARCHIVE,
             old_slug=tag.slug,
             old_display_name=tag.name,
             old_category_slug=old_category_slug,

@@ -11,66 +11,50 @@ from sqlalchemy import func, inspect as sa_inspect, text
 from core.dataset import TAGS, get_used_tags
 from core.db import SessionLocal, engine, init_db
 from core.db_backups import create_db_backup
-from core.models import (
-    Base,
+from core.tag_constants import (
+    _UNSORTED_CATEGORY_SLUG,
+    ACTIVATION_ORIGIN_IMPORTED_ASSIGNMENT,
+    ARCHIVE_BADGE_DELETED,
+    ARCHIVE_BADGE_IMPORTED,
+    ARCHIVE_ORIGIN_DELETED,
+    ARCHIVE_ORIGIN_IMPORTED,
+    ARCHIVE_REASON_UNKNOWN_IMPORT,
+    ARCHIVE_REASON_USER_SOFT_DELETE,
+    HIDE_REASON_HIDDEN_FROM_ARCHIVE,
+    LIFECYCLE_STATE_ACTIVE,
+    LIFECYCLE_STATE_ARCHIVED,
+    LIFECYCLE_STATE_HIDDEN,
+    RESOLVER_BEHAVIOR_MAP_TO_TARGET,
+    TAG_ALIAS_METADATA_ACTIONS,
+    TAG_CURRENT_METADATA_ACTIONS,
+    TAG_LIFECYCLE_METADATA_ARCHIVE,
+    TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
+    TAG_LIFECYCLE_METADATA_DELETE,
+    TAG_LIFECYCLE_METADATA_HIDE,
+    TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
+    TAG_LIFECYCLE_METADATA_IMPORT_UNCATEGORIZED,
+    TAG_LIFECYCLE_METADATA_MERGE,
+    TAG_LIFECYCLE_METADATA_RENAME,
+    TAG_LIFECYCLE_METADATA_RESTORE,
+    TAG_RESOLUTION_ACTIVE,
+    TAG_RESOLUTION_ALIAS_MAPPED,
+    TAG_RESOLUTION_ARCHIVED,
+    TAG_RESOLUTION_HIDDEN,
+    TAG_RESOLUTION_RETIRED,
+    TAG_RESOLUTION_UNKNOWN,
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
     TAG_STATUS_HIDDEN,
     TAG_STATUS_UNCATEGORIZED,
+    TagResolutionResult,
+)
+from core.models import (
+    Base,
     Tag,
     TagCategory,
     TagLifecycleMetadata,
 )
 from core.tag_normalization import normalize_tag
-
-
-# Legacy category from earlier archived-import handling. New unknown imports do
-# not use it; seed_default_tags deactivates an empty legacy row.
-_UNSORTED_CATEGORY_SLUG = "unsorted"
-
-TAG_LIFECYCLE_METADATA_RENAME = "rename"
-TAG_LIFECYCLE_METADATA_MERGE = "merge"
-TAG_LIFECYCLE_METADATA_ARCHIVE = "archive"
-TAG_LIFECYCLE_METADATA_RESTORE = "restore"
-TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY = "assign_category"
-TAG_LIFECYCLE_METADATA_HIDE = "hide"
-TAG_LIFECYCLE_METADATA_DELETE = "delete"
-TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED = "import_archived"
-TAG_LIFECYCLE_METADATA_IMPORT_UNCATEGORIZED = "import_uncategorized"
-
-LIFECYCLE_STATE_ACTIVE = "active"
-LIFECYCLE_STATE_ARCHIVED = "archived"
-LIFECYCLE_STATE_HIDDEN = "hidden"
-ARCHIVE_ORIGIN_IMPORTED = "imported"
-ARCHIVE_ORIGIN_DELETED = "deleted"
-ARCHIVE_REASON_UNKNOWN_IMPORT = "unknown_import"
-ARCHIVE_REASON_USER_SOFT_DELETE = "user_soft_delete"
-ARCHIVE_BADGE_IMPORTED = "Imported"
-ARCHIVE_BADGE_DELETED = "Deleted"
-ACTIVATION_ORIGIN_IMPORTED_ASSIGNMENT = "imported_assignment"
-HIDE_REASON_HIDDEN_FROM_ARCHIVE = "hidden_from_archive"
-RESOLVER_BEHAVIOR_MAP_TO_TARGET = "map_to_target"
-
-TAG_CURRENT_METADATA_ACTIONS = [
-    TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
-    TAG_LIFECYCLE_METADATA_IMPORT_UNCATEGORIZED,
-    TAG_LIFECYCLE_METADATA_ARCHIVE,
-    TAG_LIFECYCLE_METADATA_RESTORE,
-    TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
-    TAG_LIFECYCLE_METADATA_HIDE,
-    TAG_LIFECYCLE_METADATA_DELETE,
-]
-TAG_ALIAS_METADATA_ACTIONS = [
-    TAG_LIFECYCLE_METADATA_RENAME,
-    TAG_LIFECYCLE_METADATA_MERGE,
-]
-
-TAG_RESOLUTION_ACTIVE = "active"
-TAG_RESOLUTION_ALIAS_MAPPED = "alias_mapped"
-TAG_RESOLUTION_ARCHIVED = "archived"
-TAG_RESOLUTION_HIDDEN = "hidden"
-TAG_RESOLUTION_RETIRED = "retired"
-TAG_RESOLUTION_UNKNOWN = "unknown"
 
 
 @dataclass
@@ -89,22 +73,6 @@ class ArchivedTagImportSummary:
     created_slugs: list[str] = field(default_factory=list)
     existing_slugs: list[str] = field(default_factory=list)
     skipped_slugs: list[str] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class TagResolutionResult:
-    """Lifecycle resolution result for one imported tag value."""
-
-    raw: str
-    normalized_slug: str
-    normalized_display_name: str
-    resolved_slug: str
-    result_type: str
-    should_rewrite_slug: bool = False
-    should_create_archived: bool = False
-    should_skip_creation: bool = False
-    target_slug: str | None = None
-    reason: str = ""
 
 
 # ── Slug helper ────────────────────────────────────────────────────────────────

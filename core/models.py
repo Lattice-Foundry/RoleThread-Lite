@@ -4,11 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-
-TAG_STATUS_ACTIVE = "active"
-TAG_STATUS_UNCATEGORIZED = "uncategorized"
-TAG_STATUS_ARCHIVED = "archived"
-TAG_STATUS_HIDDEN = "hidden"
+from core.tag_constants import TAG_STATUS_ACTIVE
 
 
 def _utc_timestamp() -> str:
