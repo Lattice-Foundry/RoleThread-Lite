@@ -91,6 +91,23 @@ def _render_load_format_summary(normalization) -> None:
     if len(warnings) > 3:
         st.caption(f"{len(warnings) - 3} additional conversion warning(s) hidden.")
 
+    diagnostics = normalization.diagnostics
+    if (
+        diagnostics.entries_with_errors
+        or diagnostics.entries_with_warnings
+        or diagnostics.auto_repairable_count
+    ):
+        parts = [
+            f"{diagnostics.valid_entries} valid",
+            f"{diagnostics.entries_with_warnings} with warnings",
+            f"{diagnostics.entries_with_errors} with errors",
+        ]
+        st.info(f"Dataset diagnostics: {', '.join(parts)}.")
+        if diagnostics.auto_repairable_count:
+            st.caption(
+                f"{diagnostics.auto_repairable_count} auto-fixable issue(s) detected."
+            )
+
 
 def render_manage_page() -> None:
     """Render the Manage Dataset page."""

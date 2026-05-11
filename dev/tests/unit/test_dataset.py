@@ -39,6 +39,7 @@ from core.dataset import (
     replace_entry_tags,
     save_dataset,
     set_entry_tags,
+    summarize_entry_analysis,
     validate_entry,
 )
 from core.entry_analysis import AnalysisSeverity, EntryAnalysisResult, EntryDiagnostic
@@ -758,6 +759,9 @@ def test_load_dataset_with_summary_reports_chatml_source_format(tmp_path):
     assert summary.format_converted_count == 0
     assert summary.format_already_target_count == 1
     assert summary.format_warnings == []
+    assert summary.diagnostics.entries_analyzed == 1
+    assert summary.diagnostics.valid_entries == 1
+    assert summary.diagnostics.entries_with_errors == 0
 
 
 def test_load_dataset_with_summary_converts_sharegpt_to_chatml(tmp_path):
@@ -790,6 +794,9 @@ def test_load_dataset_with_summary_converts_sharegpt_to_chatml(tmp_path):
         }
     ]
     assert any("default system prompt" in warning for warning in summary.format_warnings)
+    assert summary.diagnostics.entries_analyzed == 1
+    assert summary.diagnostics.valid_entries == 1
+    assert summary.diagnostics.error_count == 0
 
 
 def test_load_dataset_with_summary_keeps_unknown_format_loadable(tmp_path):
@@ -804,6 +811,53 @@ def test_load_dataset_with_summary_keeps_unknown_format_loadable(tmp_path):
     assert summary.entries == [{"prompt": "Hi", "completion": "Hello", "tags": []}]
     assert summary.format_converted_count == 0
     assert summary.format_warnings == []
+    assert summary.diagnostics.entries_analyzed == 1
+    assert summary.diagnostics.valid_entries == 0
+    assert summary.diagnostics.entries_with_errors == 1
+    assert summary.diagnostics.error_count == 1
+
+
+def test_summarize_entry_analysis_counts_severity_and_auto_repairs():
+    entries = [
+        _entry(tags=["greeting"]),
+        _entry(tags=["greeting", 7]),
+        {"prompt": "Hi", "tags": []},
+    ]
+
+    summary = summarize_entry_analysis(entries)
+
+    assert summary.entries_analyzed == 3
+    assert summary.valid_entries == 1
+    assert summary.entries_with_errors == 2
+    assert summary.entries_with_warnings == 0
+    assert summary.error_count == 2
+    assert summary.warning_count == 0
+    assert summary.auto_repairable_count == 1
+
+
+def test_load_dataset_with_summary_collects_diagnostics_after_tag_normalization(tmp_path):
+    path = tmp_path / "diagnostics.jsonl"
+    records = [
+        _entry(tags=["greeting"]),
+        {"messages": "bad", "tags": ["slow burn"]},
+        {"messages": _entry()["messages"], "tags": "slow burn"},
+    ]
+    path.write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert summary.entries[1]["tags"] == ["slow_burn"]
+    assert summary.entries[2]["tags"] == []
+    assert summary.diagnostics.entries_analyzed == 3
+    assert summary.diagnostics.valid_entries == 2
+    assert summary.diagnostics.entries_with_errors == 1
+    assert summary.diagnostics.error_count == 1
+    assert summary.diagnostics.warning_count == 0
+    assert summary.diagnostics.auto_repairable_count == 0
 
 
 def test_load_dataset_normalizes_funky_tags_in_memory(tmp_path):

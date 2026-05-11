@@ -67,6 +67,17 @@ def set_loaded_entries(
         "format_converted_count": normalization.format_converted_count,
         "format_already_target_count": normalization.format_already_target_count,
         "format_warnings": normalization.format_warnings,
+        "diagnostics": {
+            "entries_analyzed": normalization.diagnostics.entries_analyzed,
+            "valid_entries": normalization.diagnostics.valid_entries,
+            "entries_with_errors": normalization.diagnostics.entries_with_errors,
+            "entries_with_warnings": normalization.diagnostics.entries_with_warnings,
+            "entries_with_info": normalization.diagnostics.entries_with_info,
+            "error_count": normalization.diagnostics.error_count,
+            "warning_count": normalization.diagnostics.warning_count,
+            "info_count": normalization.diagnostics.info_count,
+            "auto_repairable_count": normalization.diagnostics.auto_repairable_count,
+        },
         "adopted_count": adoption.created_count,
         "adopted_slugs": adoption.created_slugs or [],
     }

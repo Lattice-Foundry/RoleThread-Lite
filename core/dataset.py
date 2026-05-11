@@ -19,7 +19,12 @@ from core.format_conversion import (
     convert_records_to_chatml,
     detect_records_format,
 )
-from core.entry_analysis import AnalysisSeverity, ChatMLAnalyzer, EntryAnalysisResult
+from core.entry_analysis import (
+    AnalysisSeverity,
+    ChatMLAnalyzer,
+    EntryAnalysisResult,
+    RepairKind,
+)
 from core.tag_normalization import normalize_tag
 
 
@@ -35,6 +40,21 @@ TAGS: dict[str, list[str]] = {
     "Source": ["manual", "ai_generated"],
     "Status": ["needs_review", "needs_edit"],
 }
+
+
+@dataclass
+class DatasetDiagnosticSummary:
+    """Aggregate entry diagnostics collected during dataset load."""
+
+    entries_analyzed: int = 0
+    valid_entries: int = 0
+    entries_with_errors: int = 0
+    entries_with_warnings: int = 0
+    entries_with_info: int = 0
+    error_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+    auto_repairable_count: int = 0
 
 
 @dataclass
@@ -54,6 +74,7 @@ class TagNormalizationSummary:
     format_converted_count: int = 0
     format_already_target_count: int = 0
     format_warnings: list[str] = field(default_factory=list)
+    diagnostics: DatasetDiagnosticSummary = field(default_factory=DatasetDiagnosticSummary)
 
 
 _CHATML_ANALYZER = ChatMLAnalyzer()
@@ -170,7 +191,38 @@ def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[
     summary.format_converted_count = converted_count
     summary.format_already_target_count = already_target_count
     summary.format_warnings = format_warnings
+    summary.diagnostics = summarize_entry_analysis(summary.entries)
     return summary, parse_errors
+
+
+def summarize_entry_analysis(entries: list[dict]) -> DatasetDiagnosticSummary:
+    """Analyze loaded entries and return aggregate typed diagnostic counts."""
+
+    summary = DatasetDiagnosticSummary(entries_analyzed=len(entries))
+    for entry in entries:
+        result = analyze_entry(entry)
+        severities = {diagnostic.severity for diagnostic in result.diagnostics}
+        if result.is_valid:
+            summary.valid_entries += 1
+        if AnalysisSeverity.ERROR in severities:
+            summary.entries_with_errors += 1
+        if AnalysisSeverity.WARNING in severities:
+            summary.entries_with_warnings += 1
+        if AnalysisSeverity.INFO in severities:
+            summary.entries_with_info += 1
+
+        for diagnostic in result.diagnostics:
+            if diagnostic.severity == AnalysisSeverity.ERROR:
+                summary.error_count += 1
+            elif diagnostic.severity == AnalysisSeverity.WARNING:
+                summary.warning_count += 1
+            elif diagnostic.severity == AnalysisSeverity.INFO:
+                summary.info_count += 1
+
+            if diagnostic.fixable and diagnostic.repair_kind == RepairKind.AUTOMATIC:
+                summary.auto_repairable_count += 1
+
+    return summary
 
 
 def save_dataset(path: str, entries: list[dict]) -> None:
