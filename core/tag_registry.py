@@ -595,6 +595,30 @@ def ensure_archived_import_tags_for_dataset(entries: list[dict]) -> ArchivedTagI
     return summary
 
 
+def _warn_duplicate_tag_slugs(session) -> None:
+    """Warn about legacy duplicate tag slugs before relying on DB uniqueness."""
+    duplicates = (
+        session.query(Tag.slug, func.count(Tag.id).label("cnt"))
+        .group_by(Tag.slug)
+        .having(func.count(Tag.id) > 1)
+        .all()
+    )
+    if not duplicates:
+        return
+
+    duplicate_text = ", ".join(
+        f"{slug or '<empty>'} ({count})" for slug, count in duplicates
+    )
+    # SQLite cannot add this constraint to an existing table without rebuilding.
+    # New databases get uq_tag_slug from the ORM model; legacy duplicates must be
+    # resolved manually before any future table rebuild can enforce it safely.
+    print(
+        "WARNING: Duplicate tag slugs found: "
+        f"{duplicate_text}. UniqueConstraint on Tag.slug cannot be enforced. "
+        "Resolve duplicates manually before restarting."
+    )
+
+
 # ── Seeding ────────────────────────────────────────────────────────────────────
 
 def seed_default_tags() -> None:
@@ -605,6 +629,7 @@ def seed_default_tags() -> None:
 
     session = SessionLocal()
     try:
+        _warn_duplicate_tag_slugs(session)
         default_category_slugs = [slugify_tag_name(cat_name) for cat_name in TAGS]
         for cat_order, (cat_name, tag_raws) in enumerate(TAGS.items()):
             cat_slug = slugify_tag_name(cat_name)
@@ -647,6 +672,20 @@ def seed_default_tags() -> None:
                     tag = (
                         session.query(Tag)
                         .filter_by(category_id=category.id, name=tag_raw)
+                        .first()
+                    )
+
+                # Legacy built-ins may live under an old category. Reuse them
+                # before inserting so fresh schemas can keep global slug
+                # uniqueness while seed maintenance moves the row in place.
+                if tag is None:
+                    tag = (
+                        session.query(Tag)
+                        .filter(
+                            Tag.slug.in_(lookup_slugs),
+                            Tag.is_builtin.is_(True),
+                        )
+                        .order_by(Tag.id)
                         .first()
                     )
 

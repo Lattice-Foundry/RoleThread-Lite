@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for LoreForge metadata."""
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from core.tag_constants import TAG_STATUS_ACTIVE
@@ -46,6 +46,9 @@ class TagCategory(Base):
 class Tag(Base):
     """A single tag that can be applied to a dataset entry."""
     __tablename__ = "tags"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_tag_slug"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     category_id: Mapped[int | None] = mapped_column(

@@ -179,6 +179,69 @@ def test_tag_lifecycle_schema_exists_for_fresh_database(tag_db):
     assert tag_columns["status"]["nullable"] is False
     assert tag_columns["category_id"]["nullable"] is True
 
+    tag_constraints = inspector.get_unique_constraints("tags")
+    assert any(
+        constraint["name"] == "uq_tag_slug"
+        and constraint["column_names"] == ["slug"]
+        for constraint in tag_constraints
+    )
+
+
+def test_duplicate_slug_preflight_warns_without_crashing(tmp_path, capsys):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'legacy_duplicates.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE tags (
+                    id INTEGER NOT NULL,
+                    category_id INTEGER,
+                    name VARCHAR(120) NOT NULL,
+                    slug VARCHAR(120) NOT NULL,
+                    sort_order INTEGER NOT NULL,
+                    is_active BOOLEAN NOT NULL,
+                    is_builtin BOOLEAN NOT NULL,
+                    status VARCHAR(32) NOT NULL,
+                    PRIMARY KEY (id)
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                INSERT INTO tags (
+                    id,
+                    category_id,
+                    name,
+                    slug,
+                    sort_order,
+                    is_active,
+                    is_builtin,
+                    status
+                )
+                VALUES
+                    (1, NULL, 'Slow Burn', 'slow_burn', 0, 0, 0, 'archived'),
+                    (2, 1, 'Slow Burn', 'slow_burn', 1, 1, 0, 'active')
+                """
+            )
+        )
+
+    session = session_factory()
+    try:
+        tag_registry._warn_duplicate_tag_slugs(session)
+    finally:
+        session.close()
+
+    output = capsys.readouterr().out
+    assert "WARNING: Duplicate tag slugs found:" in output
+    assert "slow_burn (2)" in output
+    assert "UniqueConstraint on Tag.slug cannot be enforced" in output
+
 
 def test_schema_allows_archived_tags_without_category(tag_db):
     session = tag_db()

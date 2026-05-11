@@ -313,11 +313,10 @@ def test_assign_rejects_non_imported_archived_tag(tag_lifecycle_db):
     assert result.errors == ["Tag is not an imported archived tag: Non Imported"]
 
 
-def test_assign_rejects_conflicting_active_tag_with_same_slug(tag_lifecycle_db):
+def test_assign_rejects_active_tag_without_creating_duplicate_slug(tag_lifecycle_db):
     session = tag_lifecycle_db()
     try:
         category = _add_category(session)
-        _add_imported_archived_tag(session, "slow_burn")
         _add_tag(session, slug="slow_burn", category=category)
         session.commit()
     finally:
@@ -329,7 +328,13 @@ def test_assign_rejects_conflicting_active_tag_with_same_slug(tag_lifecycle_db):
     )
 
     assert result.ok is False
-    assert result.errors == ["An active tag already exists for: Slow Burn"]
+    assert result.errors == ["Tag is not archived: Slow Burn"]
+
+    session = tag_lifecycle_db()
+    try:
+        assert session.query(Tag).filter_by(slug="slow_burn").count() == 1
+    finally:
+        session.close()
 
 
 def test_assign_backup_failure_fails_closed(tag_lifecycle_db, monkeypatch):
