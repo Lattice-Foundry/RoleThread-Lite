@@ -14,6 +14,7 @@ from core.tag_registry import (
 from ui.tag_management_helpers import (
     selected_assignable_archived_slugs,
     validate_pending_archived_assignment,
+    validate_pending_category_delete,
     validate_pending_category_rename,
     validate_pending_tag_delete,
     validate_pending_tag_edit,
@@ -21,6 +22,7 @@ from ui.tag_management_helpers import (
 from services.tag_lifecycle_service import (
     assign_archived_imported_tags_to_category,
     delete_active_tag,
+    delete_empty_custom_category,
     edit_active_tag,
     rename_custom_category,
 )
@@ -97,6 +99,12 @@ def render_tag_management_page() -> None:
             for category in registry
             if category["slug"] not in _default_category_slugs
         }
+        _active_empty_custom_category_slugs = {
+            category["slug"]
+            for category in registry
+            if category["slug"] in _active_custom_category_slugs
+            and not category["tags"]
+        }
         for cat in registry:
             tag_count = len(cat["tags"])
             _plural = "s" if tag_count != 1 else ""
@@ -126,12 +134,27 @@ def render_tag_management_page() -> None:
                             st.session_state.pop("tm_pending_category_rename", None)
                             st.rerun()
                     with _cat_action_delete_col:
-                        st.button(
+                        if st.button(
                             "Delete Category",
                             key=f"btn_tm_delete_category_{cat['slug']}",
-                            disabled=True,
-                            help="Category delete is not implemented yet.",
-                        )
+                        ):
+                            if cat["tags"]:
+                                st.warning(
+                                    "Move or delete all tags in this category "
+                                    "before deleting it."
+                                )
+                            else:
+                                st.session_state["tm_pending_category_delete"] = {
+                                    "category_slug": cat["slug"],
+                                    "display_name": cat["name"],
+                                }
+                                st.session_state.pop(
+                                    "tm_pending_category_rename", None
+                                )
+                                st.session_state.pop(
+                                    "tm_renaming_category_slug", None
+                                )
+                                st.rerun()
                     with _cat_action_spacer:
                         st.empty()
                 if _is_category_renaming:
@@ -495,6 +518,45 @@ def render_tag_management_page() -> None:
             with _cat_cancel_col:
                 if st.button("Cancel", key="btn_tm_cancel_category_confirm_rename"):
                     st.session_state.pop("tm_pending_category_rename", None)
+                    st.rerun()
+
+    if registry:
+        _pending_category_delete = st.session_state.get("tm_pending_category_delete")
+        _validated_pending_category_delete = validate_pending_category_delete(
+            pending_delete=_pending_category_delete,
+            active_empty_custom_category_slugs=_active_empty_custom_category_slugs,
+        )
+        if _pending_category_delete and not _validated_pending_category_delete:
+            st.session_state.pop("tm_pending_category_delete", None)
+            st.warning("Category delete was refreshed because the category changed.")
+        _pending_category_delete = _validated_pending_category_delete
+        if _pending_category_delete:
+            st.warning(
+                f"Delete category \"{_pending_category_delete['display_name']}\"?\n\n"
+                "This category is empty and will be removed from the active registry."
+            )
+            _cat_delete_confirm_col, _cat_delete_cancel_col = st.columns(2)
+            with _cat_delete_confirm_col:
+                if st.button(
+                    "Confirm Delete",
+                    key="btn_tm_confirm_category_delete",
+                    type="primary",
+                ):
+                    _result = delete_empty_custom_category(
+                        category_slug=_pending_category_delete["category_slug"],
+                    )
+                    if _result.ok:
+                        st.session_state["tm_success"] = _result.message
+                        st.session_state.pop("tm_pending_category_delete", None)
+                        st.rerun()
+                    else:
+                        st.error(_result.message)
+                        for _error in _result.errors:
+                            st.caption(_error)
+                        st.session_state.pop("tm_pending_category_delete", None)
+            with _cat_delete_cancel_col:
+                if st.button("Cancel", key="btn_tm_cancel_category_delete"):
+                    st.session_state.pop("tm_pending_category_delete", None)
                     st.rerun()
 
     # ── Section 1b: Archived lifecycle tags ───────────────────────────────────

@@ -113,3 +113,24 @@ def validate_pending_category_rename(
         return None
 
     return pending_rename
+
+
+def validate_pending_category_delete(
+    *,
+    pending_delete: dict | None,
+    active_empty_custom_category_slugs: set[str],
+) -> dict | None:
+    """Return pending category delete only while its custom category is empty."""
+    if not pending_delete:
+        return None
+
+    category_slug = pending_delete.get("category_slug")
+    display_name = pending_delete.get("display_name")
+    if not isinstance(category_slug, str) or not category_slug:
+        return None
+    if not isinstance(display_name, str) or not display_name:
+        return None
+    if category_slug not in active_empty_custom_category_slugs:
+        return None
+
+    return pending_delete

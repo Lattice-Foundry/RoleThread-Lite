@@ -467,6 +467,114 @@ def rename_custom_category(
         session.close()
 
 
+def delete_empty_custom_category(
+    *,
+    category_slug: str,
+) -> TagLifecycleOperationResult:
+    """Delete one empty custom active category without touching dataset JSONL."""
+    normalized_slug = normalize_tag(category_slug).slug
+    if not normalized_slug:
+        return TagLifecycleOperationResult(
+            ok=False,
+            message="Could not delete category.",
+            errors=["Selected category is invalid."],
+            category_slug=None,
+        )
+
+    session = tag_registry.SessionLocal()
+    try:
+        category = (
+            session.query(TagCategory)
+            .filter_by(slug=normalized_slug)
+            .order_by(TagCategory.id)
+            .first()
+        )
+        if category is None:
+            return TagLifecycleOperationResult(
+                ok=False,
+                message="Could not delete category.",
+                errors=[
+                    f"Category not found: {tag_registry.prettify_tag_name(normalized_slug)}"
+                ],
+                category_slug=normalized_slug,
+            )
+
+        category_name = category.name
+        validation_errors: list[str] = []
+        if not category.is_active:
+            validation_errors.append(f"Category is inactive: {category_name}")
+        if category.slug in _default_category_slugs():
+            validation_errors.append(
+                f"Built-in categories cannot be deleted: {category_name}"
+            )
+
+        attached_count = session.query(Tag).filter_by(category_id=category.id).count()
+        if attached_count:
+            validation_errors.append(
+                "Move or delete all tags in this category before deleting it."
+            )
+
+        if validation_errors:
+            return TagLifecycleOperationResult(
+                ok=False,
+                message="Could not delete category.",
+                errors=validation_errors,
+                category_slug=category.slug,
+                old_slug=category.slug,
+                old_display_name=category_name,
+            )
+
+        try:
+            db_backup = tag_registry.create_db_backup(engine=tag_registry.engine)
+        except Exception as exc:
+            return TagLifecycleOperationResult(
+                ok=False,
+                message=f"Could not create database backup: {exc}",
+                category_slug=category.slug,
+                old_slug=category.slug,
+                old_display_name=category_name,
+            )
+
+        old_slug = category.slug
+        session.add(
+            CategoryHistory(
+                action="delete",
+                old_slug=old_slug,
+                old_display_name=category_name,
+                new_slug=None,
+                new_display_name=None,
+                metadata_json=json.dumps(
+                    {
+                        "lifecycle_state": "deleted",
+                        "delete_reason": "user_deleted_empty_category",
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+            )
+        )
+        session.delete(category)
+        session.commit()
+        return TagLifecycleOperationResult(
+            ok=True,
+            message=f'Deleted category "{category_name}".',
+            affected_count=1,
+            category_slug=old_slug,
+            db_backup_path=str(Path(db_backup)),
+            old_slug=old_slug,
+            old_display_name=category_name,
+        )
+    except Exception as exc:
+        session.rollback()
+        return TagLifecycleOperationResult(
+            ok=False,
+            message=f"Database error: {exc}",
+            category_slug=normalized_slug,
+        )
+    finally:
+        session.close()
+
+
 def edit_active_tag(
     *,
     old_slug: str,
