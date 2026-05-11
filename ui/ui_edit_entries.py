@@ -14,6 +14,7 @@ from core.dataset import (
     make_entry,
     validate_entry,
 )
+from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
 from core.tag_registry import (
     get_tag_registry_snapshot,
     prettify_tag_name,
@@ -335,7 +336,10 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
             system_prompt=st.session_state.get("full_edit_system_prompt", ""),
             tags=selected_tags + _unknown_tags,
         )
-        render_json_preview(_entry_preview, expanded=False)
+        _json_preview = _entry_preview
+        if st.session_state.get("dataset_source_format") == FORMAT_SHAREGPT:
+            _json_preview = chatml_to_sharegpt_entry(_entry_preview).entry
+        render_json_preview(_json_preview, expanded=False)
         _errors = validate_entry(_entry_preview)
         if _errors:
             for _err in _errors:
@@ -548,8 +552,11 @@ def render_edit_entries_page() -> None:
             if _ee_errs:
                 for _ee_err in _ee_errs:
                     st.error(_ee_err)
+            _include_system = True
+            if st.session_state.get("dataset_source_format") == FORMAT_SHAREGPT:
+                _include_system = False
             render_message_preview(
-                _ee_entry.get("messages", []), include_system=True
+                _ee_entry.get("messages", []), include_system=_include_system
             )
 
     # ── Pagination buttons ─────────────────────────────────────────────────────

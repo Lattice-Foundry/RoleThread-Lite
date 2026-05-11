@@ -776,8 +776,14 @@ def render_manage_page() -> None:
                             if errs:
                                 for err in errs:
                                     st.error(err)
+                            _include_system = True
+                            if (
+                                st.session_state.get("dataset_source_format")
+                                == FORMAT_SHAREGPT
+                            ):
+                                _include_system = False
                             render_message_preview(
-                                entry.get("messages", []), include_system=True
+                                entry.get("messages", []), include_system=_include_system
                             )
 
             # ── Pagination buttons ─────────────────────────────────────────────

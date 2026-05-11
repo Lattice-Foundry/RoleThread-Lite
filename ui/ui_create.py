@@ -8,6 +8,7 @@ from pathlib import Path
 import streamlit as st
 
 from core.dataset import clear_validate_entry_cache, make_entry, validate_entry
+from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
 from core.tag_registry import get_tag_registry_snapshot
 from ui.session_state import update_prefs, ensure_entry_registry
 from services.dataset_service import create_entry_service
@@ -201,7 +202,10 @@ def render_entry_actions(
         )
         errors = validate_entry(entry_preview)
 
-        render_json_preview(entry_preview, expanded=False)
+        _json_preview = entry_preview
+        if st.session_state.get("dataset_source_format") == FORMAT_SHAREGPT:
+            _json_preview = chatml_to_sharegpt_entry(entry_preview).entry
+        render_json_preview(_json_preview, expanded=False)
 
         if errors:
             for err in errors:
