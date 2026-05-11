@@ -9,6 +9,7 @@ from core.format_conversion import (
     FORMAT_SHAREGPT,
     convert_chatml_to_format,
 )
+from services.registry_sidecar_service import export_registry_sidecar
 from ui.file_dialogs import browse_export_file, path_input
 from ui.session_state import ensure_entry_registry
 
@@ -43,6 +44,8 @@ def render_export_page() -> None:
 
     if "export_success_msg" in st.session_state:
         st.success(st.session_state.pop("export_success_msg"))
+    if "export_warning_msg" in st.session_state:
+        st.warning(st.session_state.pop("export_warning_msg"))
 
     _export_entries = st.session_state.loaded_entries
     if not _export_entries:
@@ -62,6 +65,11 @@ def render_export_page() -> None:
     _export_format = _EXPORT_FORMAT_OPTIONS[_format_label]
 
     clean_export = st.checkbox("Clean — Tag data removed", value=False, key="export_clean")
+    include_sidecar = st.checkbox(
+        "Include registry sidecar",
+        value=True,
+        key="export_include_registry_sidecar",
+    )
 
     # Browse button opens save dialog (pure Tkinter → rerun, no save work done here).
     # Export button only calls save_dataset — no Tkinter, no threading risk.
@@ -85,9 +93,17 @@ def render_export_page() -> None:
                     clean_export=clean_export,
                 )
                 save_dataset(_p, _out)
-                st.session_state["export_success_msg"] = (
-                    f"Exported {len(_out)} entries to `{Path(_p).resolve()}`."
-                )
+                success_message = f"Exported {len(_out)} entries to `{Path(_p).resolve()}`."
+                if include_sidecar:
+                    sidecar_result = export_registry_sidecar(
+                        dataset_path=_p,
+                        entries=_export_entries,
+                    )
+                    if sidecar_result.ok:
+                        success_message += f" {sidecar_result.message}"
+                    else:
+                        st.session_state["export_warning_msg"] = sidecar_result.message
+                st.session_state["export_success_msg"] = success_message
                 st.session_state["export_save_path_pending"] = ""
                 st.rerun()
             except Exception as exc:
