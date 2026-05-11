@@ -110,7 +110,10 @@ if "prefs" not in st.session_state:
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
         if Path(last).exists():
-            normalization, errors = load_dataset_with_summary(last)
+            normalization, errors = load_dataset_with_summary(
+                last,
+                auto_normalize=st.session_state.get("auto_normalize_on_load", True),
+            )
             if errors and not normalization.entries:
                 st.warning(f"Could not reload last dataset: {errors[0]}")
             else:

@@ -70,6 +70,8 @@ class TagNormalizationSummary:
     changed_tags: int = 0
     structural_changed_entries: int = 0
     tag_metadata_added_count: int = 0
+    role_values_normalized: int = 0
+    message_content_trimmed: int = 0
     normalized_slugs: set[str] = field(default_factory=set)
     dropped_tags: list[str] = field(default_factory=list)
     source_format: str = FORMAT_CHATML
@@ -156,7 +158,11 @@ def load_dataset(path: str) -> tuple[list[dict], list[str]]:
     return summary.entries, parse_errors
 
 
-def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[str]]:
+def load_dataset_with_summary(
+    path: str,
+    *,
+    auto_normalize: bool = True,
+) -> tuple[TagNormalizationSummary, list[str]]:
     """Load JSONL entries and return normalization details plus parse errors."""
 
     p = Path(path)
@@ -205,7 +211,11 @@ def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[
         already_target_count = conversion.already_target_count
         format_warnings = conversion.warnings
 
-    summary = normalize_dataset_tags(conversion_entries)
+    summary = (
+        normalize_dataset_entries(conversion_entries)
+        if auto_normalize
+        else TagNormalizationSummary(entries=conversion_entries)
+    )
     summary.source_format = detection.format
     summary.format_counts = detection.counts
     summary.format_confidence = detection.confidence
@@ -529,6 +539,90 @@ def normalize_dataset_tags(entries: list[dict]) -> TagNormalizationSummary:
         normalized_slugs=normalized_slugs,
         dropped_tags=dropped_tags,
     )
+
+
+def normalize_dataset_entries(entries: list[dict]) -> TagNormalizationSummary:
+    """Run deterministic, no-judgment dataset normalization."""
+
+    tag_summary = normalize_dataset_tags(entries)
+    normalized_entries: list[dict] = []
+    message_changed_indices: set[int] = set()
+    role_values_normalized = 0
+    message_content_trimmed = 0
+
+    for index, entry in enumerate(tag_summary.entries):
+        normalized_entry, message_changed, role_count, content_count = (
+            normalize_entry_message_fields(entry)
+        )
+        normalized_entries.append(normalized_entry)
+        if message_changed:
+            message_changed_indices.add(index)
+        role_values_normalized += role_count
+        message_content_trimmed += content_count
+
+    tag_changed_indices = {
+        index
+        for index, (original, normalized) in enumerate(zip(entries, tag_summary.entries))
+        if original != normalized
+    }
+    return TagNormalizationSummary(
+        entries=normalized_entries,
+        changed_entries=len(tag_changed_indices | message_changed_indices),
+        changed_tags=tag_summary.changed_tags,
+        structural_changed_entries=tag_summary.structural_changed_entries,
+        tag_metadata_added_count=tag_summary.tag_metadata_added_count,
+        role_values_normalized=role_values_normalized,
+        message_content_trimmed=message_content_trimmed,
+        normalized_slugs=tag_summary.normalized_slugs,
+        dropped_tags=tag_summary.dropped_tags,
+    )
+
+
+def normalize_entry_message_fields(entry: dict) -> tuple[dict, bool, int, int]:
+    """Normalize known role synonyms and trim message content/role whitespace."""
+
+    normalized_entry = deepcopy(entry)
+    messages = normalized_entry.get("messages") if isinstance(normalized_entry, dict) else None
+    if not isinstance(messages, list):
+        return normalized_entry, False, 0, 0
+
+    changed = False
+    role_values_normalized = 0
+    message_content_trimmed = 0
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+
+        role = message.get("role")
+        if isinstance(role, str):
+            normalized_role = _canonical_chatml_role(role)
+            if normalized_role is None:
+                normalized_role = role.strip()
+            if normalized_role != role:
+                message["role"] = normalized_role
+                role_values_normalized += 1
+                changed = True
+
+        content = message.get("content")
+        if isinstance(content, str):
+            stripped_content = content.strip()
+            if stripped_content != content:
+                message["content"] = stripped_content
+                message_content_trimmed += 1
+                changed = True
+
+    return normalized_entry, changed, role_values_normalized, message_content_trimmed
+
+
+def _canonical_chatml_role(role: str) -> str | None:
+    normalized = role.strip().lower()
+    if normalized in {"human", "user"}:
+        return "user"
+    if normalized in {"gpt", "assistant", "bot", "model"}:
+        return "assistant"
+    if normalized == "system":
+        return "system"
+    return None
 
 
 def set_entry_tags(entry: dict, tags: list[str]) -> dict:

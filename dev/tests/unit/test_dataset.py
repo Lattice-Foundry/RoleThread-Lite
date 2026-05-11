@@ -30,7 +30,9 @@ from core.dataset import (
     make_entry,
     make_temp_entry_id,
     merge_datasets,
+    normalize_dataset_entries,
     normalize_dataset_tags,
+    normalize_entry_message_fields,
     normalize_entry_tags,
     rebuild_id_to_index,
     registry_is_valid,
@@ -429,6 +431,58 @@ def test_normalize_dataset_tags_reports_missing_tag_metadata():
     assert summary.structural_changed_entries == 1
     assert summary.tag_metadata_added_count == 1
     assert summary.changed_entries == 1
+
+
+def test_normalize_entry_message_fields_canonicalizes_roles_and_trims_content():
+    entry = {
+        "messages": [
+            {"role": " SYSTEM ", "content": " System "},
+            {"role": "Human", "content": "  Hi"},
+            {"role": "BOT", "content": "Hello  "},
+            {"role": " Scott ", "content": " custom "},
+        ],
+        "tags": [],
+    }
+
+    normalized, changed, role_count, content_count = normalize_entry_message_fields(entry)
+
+    assert changed is True
+    assert role_count == 4
+    assert content_count == 4
+    assert normalized["messages"] == [
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+        {"role": "Scott", "content": "custom"},
+    ]
+    assert entry["messages"][0]["role"] == " SYSTEM "
+
+
+def test_normalize_dataset_entries_combines_tag_and_message_normalization():
+    entries = [
+        {
+            "messages": [
+                {"role": "SYSTEM", "content": "System"},
+                {"role": "Human", "content": " Hi "},
+                {"role": "GPT", "content": "Hello"},
+            ],
+            "tags": ["slow burn", 7, ""],
+        }
+    ]
+
+    summary = normalize_dataset_entries(entries)
+
+    assert summary.entries[0]["messages"] == [
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ]
+    assert summary.entries[0]["tags"] == ["slow_burn"]
+    assert summary.changed_entries == 1
+    assert summary.changed_tags == 3
+    assert summary.role_values_normalized == 3
+    assert summary.message_content_trimmed == 1
+    assert summary.normalized_slugs == {"slow_burn"}
 
 
 def test_set_entry_tags_deduplicates_while_preserving_order():
@@ -844,6 +898,67 @@ def test_load_dataset_with_summary_reports_missing_tag_metadata(tmp_path):
     assert [entry["tags"] for entry in summary.entries] == [[], [], []]
     assert summary.structural_changed_entries == 3
     assert summary.tag_metadata_added_count == 3
+
+
+def test_load_dataset_with_summary_auto_normalize_on_cleans_deterministic_issues(
+    tmp_path,
+):
+    path = tmp_path / "normalize_on.jsonl"
+    entry = {
+        "messages": [
+            {"role": "SYSTEM", "content": " System "},
+            {"role": "Human", "content": " Hi "},
+            {"role": "GPT", "content": " Hello "},
+        ],
+        "tags": ["slow burn", 7, ""],
+    }
+    path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path), auto_normalize=True)
+
+    assert errors == []
+    assert summary.entries == [
+        {
+            "messages": [
+                {"role": "system", "content": "System"},
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+            ],
+            "tags": ["slow_burn"],
+        }
+    ]
+    assert summary.role_values_normalized == 3
+    assert summary.message_content_trimmed == 3
+    assert summary.diagnostics.valid_entries == 1
+    assert summary.diagnostics.auto_repairable_count == 0
+
+
+def test_load_dataset_with_summary_auto_normalize_off_preserves_issues_for_analysis(
+    tmp_path,
+):
+    path = tmp_path / "normalize_off.jsonl"
+    entry = {
+        "messages": [
+            {"role": "SYSTEM", "content": " System "},
+            {"role": "Human", "content": " Hi "},
+            {"role": "GPT", "content": " Hello "},
+        ],
+        "tags": ["slow burn", 7, ""],
+    }
+    path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path), auto_normalize=False)
+
+    assert errors == []
+    assert summary.entries == [entry]
+    assert summary.changed_entries == 0
+    assert summary.changed_tags == 0
+    assert summary.role_values_normalized == 0
+    assert summary.message_content_trimmed == 0
+    assert summary.diagnostics.valid_entries == 0
+    assert summary.diagnostics.entries_with_errors == 1
+    assert summary.diagnostics.entries_with_warnings == 1
+    assert summary.diagnostics.auto_repairable_count == 8
 
 
 def test_load_dataset_with_summary_reports_chatml_source_format(tmp_path):

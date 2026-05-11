@@ -91,6 +91,12 @@ def _render_load_format_summary(normalization) -> None:
             f"{normalization.source_line_count} non-empty line(s). "
             f"{normalization.parse_error_count} line(s) had parse errors."
         )
+    if normalization.role_values_normalized or normalization.message_content_trimmed:
+        st.caption(
+            "Auto-normalized "
+            f"{normalization.role_values_normalized} role value(s) and "
+            f"{normalization.message_content_trimmed} message content field(s)."
+        )
 
     warnings = list(normalization.format_warnings or [])
     for warning in warnings[:3]:
@@ -184,7 +190,14 @@ def render_manage_page() -> None:
     with col_load:
         if st.button("Load", width="stretch", disabled=not load_path.strip()):
             p = load_path.strip()
-            normalization, errors = load_dataset_with_summary(p)
+            _auto_normalize_enabled = st.session_state.get(
+                "auto_normalize_on_load",
+                st.session_state.get("prefs", {}).get("auto_normalize_on_load", True),
+            )
+            normalization, errors = load_dataset_with_summary(
+                p,
+                auto_normalize=_auto_normalize_enabled,
+            )
             entries = normalization.entries
             if errors:
                 for e in errors[:3]:
@@ -210,10 +223,7 @@ def render_manage_page() -> None:
                 prefs=st.session_state.get("prefs", {}),
                 parse_errors=errors,
                 normalization_pending=st.session_state.get("normalization_pending", False),
-                auto_normalize_on_load=st.session_state.get(
-                    "auto_normalize_on_load",
-                    st.session_state.get("prefs", {}).get("auto_normalize_on_load", True),
-                ),
+                auto_normalize_on_load=_auto_normalize_enabled,
             ):
                 _normalize_result = persist_loaded_normalization(loaded_dataset_path)
                 if _normalize_result.ok:

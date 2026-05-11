@@ -72,7 +72,7 @@ def test_set_loaded_entries_tracks_pending_structural_normalization(monkeypatch)
     assert state.tag_normalization_summary["structural_changed_entries"] == 1
 
 
-def test_set_loaded_entries_canonicalizes_tags_even_without_pending_structural_cleanup(monkeypatch):
+def test_set_loaded_entries_tracks_pending_tag_slug_normalization(monkeypatch):
     state = _patch_state(monkeypatch)
     entry = _entry_without_tags()
     entry["tags"] = ["sLow burn"]
@@ -80,7 +80,8 @@ def test_set_loaded_entries_canonicalizes_tags_even_without_pending_structural_c
     session_state.set_loaded_entries([entry])
 
     assert state.loaded_entries[0]["tags"] == ["slow_burn"]
-    assert state.normalization_pending is False
+    assert state.normalization_pending is True
+    assert state.tag_normalization_summary["changed_entries"] == 1
 
 
 def test_set_loaded_entries_tracks_dataset_source_format(monkeypatch):
@@ -408,6 +409,52 @@ def test_auto_normalize_enabled_explicit_load_can_persist_missing_tag_metadata(t
     assert result.ok is True
     assert state.normalization_pending is False
     assert '"tags": []' in saved_text
+
+
+def test_auto_normalize_enabled_explicit_load_can_persist_role_and_content_cleanup(
+    tmp_path,
+    monkeypatch,
+):
+    state = _patch_state(monkeypatch)
+    path = tmp_path / "role_cleanup.jsonl"
+    entry = {
+        "messages": [
+            {"role": "SYSTEM", "content": " System "},
+            {"role": "Human", "content": " Hi "},
+            {"role": "GPT", "content": " Hello "},
+        ],
+        "tags": [],
+    }
+    path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+    backup_path = tmp_path / "backup.jsonl"
+    monkeypatch.setattr(
+        dataset_service,
+        "create_dataset_backup",
+        lambda dataset_path, reason: shutil.copyfile(dataset_path, backup_path) or backup_path,
+    )
+
+    normalization, errors = load_dataset_with_summary(str(path))
+    session_state.set_loaded_entries(
+        normalization.entries,
+        normalization_summary=normalization,
+    )
+
+    assert session_state.should_auto_normalize_loaded_dataset(
+        prefs={"auto_normalize_on_load": True},
+        parse_errors=errors,
+        normalization_pending=state.normalization_pending,
+    ) is True
+
+    result = session_state.persist_loaded_normalization(str(path))
+    saved_entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+    assert result.ok is True
+    assert state.normalization_pending is False
+    assert saved_entries[0]["messages"] == [
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ]
 
 
 def test_auto_normalize_disabled_explicit_load_keeps_disk_unchanged_and_pending(tmp_path, monkeypatch):

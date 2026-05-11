@@ -14,7 +14,7 @@ from core.dataset import (
     get_entry_pairs,
     get_entry_tags,
     get_index_for_entry_id,
-    normalize_dataset_tags,
+    normalize_dataset_entries,
     rebuild_id_to_index,
     registry_is_valid,
 )
@@ -63,7 +63,7 @@ def set_loaded_entries(
     dataset_path: str | None = None,
 ) -> str | None:
     """Replace loaded_entries and rebuild the registry from scratch."""
-    normalization = normalization_summary or normalize_dataset_tags(entries)
+    normalization = normalization_summary or normalize_dataset_entries(entries)
     working_copy_summary, effective_dataset_path = _prepare_foreign_working_copy(
         dataset_path,
         dataset_is_native=normalization.dataset_is_native,
@@ -85,6 +85,8 @@ def set_loaded_entries(
         "changed_tags": normalization.changed_tags,
         "structural_changed_entries": normalization.structural_changed_entries,
         "tag_metadata_added_count": normalization.tag_metadata_added_count,
+        "role_values_normalized": normalization.role_values_normalized,
+        "message_content_trimmed": normalization.message_content_trimmed,
         "dropped_tags": normalization.dropped_tags,
         "source_format": normalization.source_format,
         "format_counts": normalization.format_counts,
@@ -111,7 +113,7 @@ def set_loaded_entries(
         "working_copy": working_copy_summary,
     }
     st.session_state.dataset_is_native = normalization.dataset_is_native
-    st.session_state.normalization_pending = normalization.structural_changed_entries > 0
+    st.session_state.normalization_pending = normalization.changed_entries > 0
     _replace_optional_session_value("working_copy_summary", working_copy_summary)
     _replace_optional_session_value("sidecar_import_summary", sidecar_summary)
     _replace_optional_session_value("pending_tag_trust", pending_trust or None)
@@ -266,13 +268,17 @@ def _build_pending_tag_trust(
 
 
 def clear_normalization_pending() -> None:
-    """Clear pending structural-normalization state after disk persistence."""
+    """Clear pending deterministic-normalization state after disk persistence."""
     st.session_state.normalization_pending = False
     summary = st.session_state.get("tag_normalization_summary", {})
     st.session_state.tag_normalization_summary = {
         **summary,
+        "changed_entries": 0,
+        "changed_tags": 0,
         "structural_changed_entries": 0,
         "tag_metadata_added_count": 0,
+        "role_values_normalized": 0,
+        "message_content_trimmed": 0,
     }
 
 

@@ -41,6 +41,8 @@ CHATML_EMPTY_SYSTEM_CONTENT = "chatml.empty_system_content"
 CHATML_MESSAGE_NOT_DICT = "chatml.message_not_dict"
 CHATML_WRONG_ROLE = "chatml.wrong_role"
 CHATML_EMPTY_CONTENT = "chatml.empty_content"
+CHATML_ROLE_CANONICALIZATION = "chatml.role_canonicalization"
+CHATML_CONTENT_WHITESPACE = "chatml.content_whitespace"
 
 SHAREGPT_MISSING_CONVERSATIONS = "sharegpt.missing_conversations"
 SHAREGPT_CONVERSATIONS_NOT_LIST = "sharegpt.conversations_not_list"
@@ -343,6 +345,15 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
     KNOWN_TOP_LEVEL_KEYS: ClassVar[frozenset[str]] = (
         BaseEntryAnalyzer.KNOWN_TOP_LEVEL_KEYS | frozenset({"messages"})
     )
+    ROLE_SYNONYMS: ClassVar[dict[str, str]] = {
+        "human": "user",
+        "user": "user",
+        "gpt": "assistant",
+        "assistant": "assistant",
+        "bot": "assistant",
+        "model": "assistant",
+        "system": "system",
+    }
 
     def analyze(self, entry: object, *, entry_index: int | None = None) -> EntryAnalysisResult:
         """Run base and ChatML-specific checks."""
@@ -446,7 +457,17 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             return tuple(diagnostics)
 
         system_role = system_message.get("role")
-        if system_role != "system":
+        normalized_system_role = self._canonical_role(system_role)
+        if normalized_system_role == "system" and system_role != "system":
+            diagnostics.append(
+                self._role_canonicalization_diagnostic(
+                    index=0,
+                    original_value=system_role,
+                    normalized_value="system",
+                )
+            )
+        elif system_role != "system":
+            diagnostics.extend(self._role_whitespace_diagnostic(system_role, 0))
             diagnostics.append(
                 EntryDiagnostic(
                     code=CHATML_MISSING_SYSTEM_ROLE,
@@ -458,6 +479,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     normalized_value="system",
                 )
             )
+        diagnostics.extend(self._content_whitespace_diagnostic(system_message, 0))
         if not system_message.get("content", "").strip():
             diagnostics.append(
                 EntryDiagnostic(
@@ -489,7 +511,17 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 continue
 
             actual_role = message.get("role")
-            if actual_role != expected_role:
+            normalized_role = self._canonical_role(actual_role)
+            if normalized_role == expected_role and actual_role != expected_role:
+                diagnostics.append(
+                    self._role_canonicalization_diagnostic(
+                        index=index,
+                        original_value=actual_role,
+                        normalized_value=expected_role,
+                )
+            )
+            elif actual_role != expected_role:
+                diagnostics.extend(self._role_whitespace_diagnostic(actual_role, index))
                 diagnostics.append(
                     EntryDiagnostic(
                         code=CHATML_WRONG_ROLE,
@@ -501,6 +533,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                         normalized_value=expected_role,
                     )
                 )
+            diagnostics.extend(self._content_whitespace_diagnostic(message, index))
             if not message.get("content", "").strip():
                 diagnostics.append(
                     EntryDiagnostic(
@@ -515,6 +548,124 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             expected_role = "assistant" if expected_role == "user" else "user"
 
         return tuple(diagnostics)
+
+    def _canonical_role(self, role: object) -> str | None:
+        if not isinstance(role, str):
+            return None
+        return self.ROLE_SYNONYMS.get(role.strip().lower())
+
+    def _role_whitespace_diagnostic(
+        self,
+        role: object,
+        index: int,
+    ) -> tuple[EntryDiagnostic, ...]:
+        if not isinstance(role, str):
+            return ()
+        stripped = role.strip()
+        if stripped == role:
+            return ()
+        return (
+            self._role_canonicalization_diagnostic(
+                index=index,
+                original_value=role,
+                normalized_value=stripped,
+            ),
+        )
+
+    def _apply_single_repair(
+        self,
+        entry: dict,
+        diagnostic: EntryDiagnostic,
+    ) -> bool:
+        if diagnostic.code == CHATML_ROLE_CANONICALIZATION:
+            return self._set_message_field_from_diagnostic(
+                entry,
+                diagnostic,
+                field="role",
+            )
+
+        if diagnostic.code == CHATML_CONTENT_WHITESPACE:
+            return self._set_message_field_from_diagnostic(
+                entry,
+                diagnostic,
+                field="content",
+            )
+
+        return super()._apply_single_repair(entry, diagnostic)
+
+    def _set_message_field_from_diagnostic(
+        self,
+        entry: dict,
+        diagnostic: EntryDiagnostic,
+        *,
+        field: str,
+    ) -> bool:
+        if (
+            len(diagnostic.path) != 3
+            or diagnostic.path[0] != "messages"
+            or diagnostic.path[2] != field
+        ):
+            return False
+        index = diagnostic.path[1]
+        messages = entry.get("messages")
+        if not isinstance(index, int) or not isinstance(messages, list):
+            return False
+        if index < 0 or index >= len(messages):
+            return False
+        message = messages[index]
+        if not isinstance(message, dict):
+            return False
+        if message.get(field) != diagnostic.original_value:
+            return False
+        message[field] = diagnostic.normalized_value
+        return True
+
+    def _role_canonicalization_diagnostic(
+        self,
+        *,
+        index: int,
+        original_value: object,
+        normalized_value: str,
+    ) -> EntryDiagnostic:
+        return EntryDiagnostic(
+            code=CHATML_ROLE_CANONICALIZATION,
+            severity=AnalysisSeverity.WARNING,
+            message=(
+                f"Message {index} role can be normalized from "
+                f"'{original_value}' to '{normalized_value}'."
+            ),
+            path=("messages", index, "role"),
+            fixable=True,
+            repair_kind=RepairKind.AUTOMATIC,
+            suggested_repair="Normalize role to canonical ChatML value.",
+            original_value=original_value,
+            normalized_value=normalized_value,
+        )
+
+    def _content_whitespace_diagnostic(
+        self,
+        message: dict,
+        index: int,
+    ) -> tuple[EntryDiagnostic, ...]:
+        content = message.get("content")
+        if not isinstance(content, str):
+            return ()
+        stripped = content.strip()
+        if stripped == content:
+            return ()
+        return (
+            EntryDiagnostic(
+                code=CHATML_CONTENT_WHITESPACE,
+                severity=AnalysisSeverity.WARNING,
+                message=f"Message {index} content has leading or trailing whitespace.",
+                path=("messages", index, "content"),
+                fixable=True,
+                repair_kind=RepairKind.AUTOMATIC,
+                suggested_repair="Trim leading and trailing whitespace.",
+                original_value=content,
+                normalized_value=stripped,
+            ),
+        )
 
 
 class ShareGPTAnalyzer(BaseEntryAnalyzer):

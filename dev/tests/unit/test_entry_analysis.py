@@ -18,6 +18,8 @@ from core.entry_analysis import (
     CHATML_MESSAGES_NOT_LIST,
     CHATML_MISSING_MESSAGES,
     CHATML_MISSING_SYSTEM_ROLE,
+    CHATML_CONTENT_WHITESPACE,
+    CHATML_ROLE_CANONICALIZATION,
     CHATML_SYSTEM_NOT_DICT,
     CHATML_WRONG_ROLE,
     SHAREGPT_CONVERSATIONS_NOT_LIST,
@@ -500,6 +502,115 @@ def test_chatml_suggested_repairs_are_not_in_automatic_repair_plan():
     assert diagnostic.fixable is True
     assert diagnostic.repair_kind == RepairKind.SUGGESTED
     assert analyzer.plan_repairs(result) == []
+
+
+def test_chatml_analyzer_reports_known_role_synonyms_as_automatic_repairs():
+    result = ChatMLAnalyzer().analyze(_entry(messages=[
+        {"role": "System", "content": "System"},
+        {"role": "Human", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ]))
+
+    diagnostics = [
+        diagnostic
+        for diagnostic in result.diagnostics
+        if diagnostic.code == CHATML_ROLE_CANONICALIZATION
+    ]
+
+    assert result.is_valid is True
+    assert [(diagnostic.path, diagnostic.original_value, diagnostic.normalized_value)
+            for diagnostic in diagnostics] == [
+        (("messages", 0, "role"), "System", "system"),
+        (("messages", 1, "role"), "Human", "user"),
+    ]
+    assert all(diagnostic.severity == AnalysisSeverity.WARNING for diagnostic in diagnostics)
+    assert all(diagnostic.fixable for diagnostic in diagnostics)
+    assert all(
+        diagnostic.repair_kind == RepairKind.AUTOMATIC
+        for diagnostic in diagnostics
+    )
+
+
+def test_chatml_analyzer_reports_content_whitespace_as_automatic_repair():
+    result = ChatMLAnalyzer().analyze(_entry(messages=[
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "  Hi  "},
+        {"role": "assistant", "content": "Hello"},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, CHATML_CONTENT_WHITESPACE)
+
+    assert result.is_valid is True
+    assert diagnostic.severity == AnalysisSeverity.WARNING
+    assert diagnostic.path == ("messages", 1, "content")
+    assert diagnostic.fixable is True
+    assert diagnostic.repair_kind == RepairKind.AUTOMATIC
+    assert diagnostic.original_value == "  Hi  "
+    assert diagnostic.normalized_value == "Hi"
+
+
+def test_chatml_analyzer_keeps_custom_character_roles_manual():
+    result = ChatMLAnalyzer().analyze(_entry(messages=[
+        {"role": "system", "content": "System"},
+        {"role": "Scott", "content": "Hi"},
+        {"role": "Emma", "content": "Hello"},
+    ]))
+
+    wrong_roles = [
+        diagnostic
+        for diagnostic in result.diagnostics
+        if diagnostic.code == CHATML_WRONG_ROLE
+    ]
+
+    assert result.is_valid is False
+    assert len(wrong_roles) == 2
+    assert all(diagnostic.repair_kind == RepairKind.MANUAL for diagnostic in wrong_roles)
+    assert CHATML_ROLE_CANONICALIZATION not in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }
+
+
+def test_chatml_analyzer_reports_custom_role_whitespace_without_mapping_it():
+    result = ChatMLAnalyzer().analyze(_entry(messages=[
+        {"role": "system", "content": "System"},
+        {"role": " Scott ", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ]))
+
+    whitespace = _diagnostic_by_code(result, CHATML_ROLE_CANONICALIZATION)
+    wrong_role = _diagnostic_by_code(result, CHATML_WRONG_ROLE)
+
+    assert result.is_valid is False
+    assert whitespace.repair_kind == RepairKind.AUTOMATIC
+    assert whitespace.original_value == " Scott "
+    assert whitespace.normalized_value == "Scott"
+    assert wrong_role.repair_kind == RepairKind.MANUAL
+    assert wrong_role.original_value == " Scott "
+
+
+def test_chatml_repairs_role_and_content_normalization_without_mutating_original():
+    analyzer = ChatMLAnalyzer()
+    entry = _entry(messages=[
+        {"role": "SYSTEM", "content": " System "},
+        {"role": "Human", "content": "  Hi"},
+        {"role": "GPT", "content": "Hello  "},
+    ])
+
+    result = analyzer.analyze(entry)
+    repair = analyzer.apply_repairs(entry, analyzer.plan_repairs(result))
+
+    assert repair.changed is True
+    assert repair.entry["messages"] == [
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ]
+    assert entry["messages"][0] == {"role": "SYSTEM", "content": " System "}
+    assert {diagnostic.code for diagnostic in repair.repairs_applied} == {
+        CHATML_ROLE_CANONICALIZATION,
+        CHATML_CONTENT_WHITESPACE,
+    }
+    assert ChatMLAnalyzer().analyze(repair.entry).diagnostics == ()
 
 
 @pytest.mark.parametrize(

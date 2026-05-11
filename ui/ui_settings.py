@@ -117,9 +117,9 @@ def render_settings_page() -> None:
         key="_auto_normalize_on_load_checkbox",
         on_change=_persist_auto_normalize_on_load,
         help=(
-            "When enabled, explicit dataset loads persist deterministic metadata "
-            "cleanup to disk after creating a backup. Canonical tag normalization "
-            "always remains enabled."
+            "When enabled, deterministic cleanup runs during load: tag metadata "
+            "normalization, known role canonicalization, and whitespace trimming. "
+            "When disabled, these issues remain for the Validation page."
         ),
     )
 

@@ -13,6 +13,7 @@ import traceback
 from core.backups import create_dataset_backup
 from core.dataset import (
     append_to_dataset,
+    normalize_dataset_entries,
     normalize_dataset_tags,
     normalize_entry_tags,
     replace_entry_tags,
@@ -513,7 +514,7 @@ def save_merged_entries_service(
             message="Merged entries must be a list.",
         )
 
-    proposed_entries = _normalize_entries(entries)
+    proposed_entries = normalize_dataset_entries(entries).entries
     backup_path: str | None = None
     target = Path(dataset_path)
 
