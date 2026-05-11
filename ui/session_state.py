@@ -3,6 +3,8 @@
 This UI-layer module may touch st.session_state and coordinate service calls.
 Pure dataset logic belongs in core or services.
 """
+from pathlib import Path
+
 import streamlit as st
 
 from core.backups import auto_backups_enabled
@@ -10,19 +12,28 @@ from core.dataset import (
     TagNormalizationSummary,
     build_entry_registry,
     get_entry_pairs,
+    get_entry_tags,
     get_index_for_entry_id,
     normalize_dataset_tags,
     rebuild_id_to_index,
     registry_is_valid,
 )
 from core.preferences import save_preferences
-from core.tag_registry import ensure_tags_exist_for_dataset
+from core.registry_sidecar import read_sidecar, sidecar_path_for_dataset
+from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
+from core.tag_registry import (
+    ensure_tags_exist_for_dataset,
+    get_current_tag_lifecycle_metadata,
+    get_tag_by_slug_any_status,
+    prettify_tag_name,
+)
 from services.dataset_service import (
     DatasetOperationResult,
     delete_entries_service,
     normalize_dataset_service,
     save_quick_edit_service,
 )
+from services.registry_sidecar_service import import_registry_sidecar
 
 
 # ── Preferences session helper ─────────────────────────────────────────────────
@@ -48,10 +59,19 @@ def ensure_entry_registry() -> None:
 def set_loaded_entries(
     entries: list[dict],
     normalization_summary: TagNormalizationSummary | None = None,
+    dataset_path: str | None = None,
 ) -> None:
     """Replace loaded_entries and rebuild the registry from scratch."""
     normalization = normalization_summary or normalize_dataset_tags(entries)
+    sidecar_summary, sidecar_tags, sidecar_categories = _import_sibling_sidecar(
+        dataset_path
+    )
     adoption = ensure_tags_exist_for_dataset(normalization.entries)
+    pending_trust = _build_pending_tag_trust(
+        normalization.entries,
+        sidecar_tags=sidecar_tags,
+        sidecar_categories=sidecar_categories,
+    )
     st.session_state.loaded_entries = normalization.entries
     st.session_state.dataset_source_format = normalization.source_format
     st.session_state.entry_registry = build_entry_registry(normalization.entries)
@@ -80,8 +100,133 @@ def set_loaded_entries(
         },
         "adopted_count": adoption.created_count,
         "adopted_slugs": adoption.created_slugs or [],
+        "sidecar_import": sidecar_summary,
+        "pending_trust_count": len(pending_trust),
     }
     st.session_state.normalization_pending = normalization.structural_changed_entries > 0
+    _replace_optional_session_value("sidecar_import_summary", sidecar_summary)
+    _replace_optional_session_value("pending_tag_trust", pending_trust or None)
+
+
+def _replace_optional_session_value(key: str, value) -> None:
+    if value:
+        st.session_state[key] = value
+    else:
+        st.session_state.pop(key, None)
+
+
+def _import_sibling_sidecar(dataset_path: str | None):
+    if not dataset_path:
+        return None, {}, {}
+
+    sidecar_path = sidecar_path_for_dataset(Path(dataset_path))
+    if not sidecar_path.exists():
+        return None, {}, {}
+
+    try:
+        registry = read_sidecar(sidecar_path)
+    except Exception as exc:
+        return (
+            {
+                "found": True,
+                "ok": False,
+                "path": str(sidecar_path),
+                "message": f"Could not read registry sidecar: {exc}",
+                "categories_created": [],
+                "tags_created": [],
+                "tags_promoted": [],
+                "aliases_imported": [],
+                "conflicts": [],
+                "warnings": [],
+                "errors": [str(exc)],
+            },
+            {},
+            {},
+        )
+
+    try:
+        result = import_registry_sidecar(registry=registry)
+    except Exception as exc:
+        return (
+            {
+                "found": True,
+                "ok": False,
+                "path": str(sidecar_path),
+                "message": f"Could not import registry sidecar: {exc}",
+                "categories_created": [],
+                "tags_created": [],
+                "tags_promoted": [],
+                "aliases_imported": [],
+                "conflicts": [],
+                "warnings": [],
+                "errors": [str(exc)],
+            },
+            {tag.slug: tag for tag in registry.tags},
+            {category.slug: category for category in registry.categories},
+        )
+    summary = {
+        "found": True,
+        "ok": result.ok,
+        "path": str(sidecar_path),
+        "message": result.message,
+        "categories_created": list(result.categories_created),
+        "tags_created": list(result.tags_created),
+        "tags_promoted": list(result.tags_promoted),
+        "aliases_imported": list(result.aliases_imported),
+        "conflicts": list(result.conflicts),
+        "warnings": list(result.warnings),
+        "errors": list(result.errors),
+    }
+    return (
+        summary,
+        {tag.slug: tag for tag in registry.tags},
+        {category.slug: category for category in registry.categories},
+    )
+
+
+def _build_pending_tag_trust(
+    entries: list[dict],
+    *,
+    sidecar_tags: dict,
+    sidecar_categories: dict,
+) -> dict[str, dict]:
+    entry_indices_by_slug: dict[str, list[int]] = {}
+    for index, entry in enumerate(entries):
+        for slug in get_entry_tags(entry):
+            entry_indices_by_slug.setdefault(slug, []).append(index)
+
+    pending: dict[str, dict] = {}
+    for slug, entry_indices in sorted(entry_indices_by_slug.items()):
+        tag = get_tag_by_slug_any_status(slug)
+        if tag is None or tag.status != TAG_STATUS_ARCHIVED:
+            continue
+
+        metadata = get_current_tag_lifecycle_metadata(slug)
+        archive_origin = metadata.get("archive_origin")
+        if archive_origin is None and getattr(tag, "category_id", None) is None:
+            archive_origin = ARCHIVE_ORIGIN_IMPORTED
+        if archive_origin != ARCHIVE_ORIGIN_IMPORTED:
+            continue
+
+        sidecar_tag = sidecar_tags.get(slug)
+        sidecar_category = (
+            sidecar_categories.get(sidecar_tag.category_slug)
+            if sidecar_tag and sidecar_tag.category_slug
+            else None
+        )
+        pending[slug] = {
+            "display_name": getattr(tag, "name", None) or prettify_tag_name(slug),
+            "entry_indices": entry_indices,
+            "usage_count": len(entry_indices),
+            "registry_status": getattr(tag, "status", TAG_STATUS_ARCHIVED),
+            "archive_origin": archive_origin,
+            "sidecar_category_slug": sidecar_tag.category_slug if sidecar_tag else None,
+            "sidecar_category_name": sidecar_category.name if sidecar_category else None,
+            "sidecar_status": sidecar_tag.status if sidecar_tag else None,
+            "resolution": "sidecar_hint" if sidecar_tag else "no_hint",
+            "status": "pending",
+        }
+    return pending
 
 
 def clear_normalization_pending() -> None:

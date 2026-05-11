@@ -108,6 +108,38 @@ def _render_load_format_summary(normalization) -> None:
                 f"{diagnostics.auto_repairable_count} auto-fixable issue(s) detected."
             )
 
+    sidecar_summary = st.session_state.get("sidecar_import_summary")
+    if sidecar_summary:
+        if sidecar_summary.get("ok"):
+            category_count = len(sidecar_summary.get("categories_created", []) or [])
+            created_count = len(sidecar_summary.get("tags_created", []) or [])
+            promoted_count = len(sidecar_summary.get("tags_promoted", []) or [])
+            st.info(
+                "Registry sidecar restored: "
+                f"{category_count} categor(y/ies), "
+                f"{created_count} tag(s), "
+                f"{promoted_count} promoted tag(s)."
+            )
+        else:
+            st.warning(
+                "Registry sidecar could not be restored. "
+                "Dataset loading continued normally."
+            )
+            for error in (sidecar_summary.get("errors") or [])[:3]:
+                st.caption(f"Sidecar warning: {error}")
+
+        conflicts = sidecar_summary.get("conflicts") or []
+        if conflicts:
+            st.warning(
+                f"{len(conflicts)} tag conflict(s) detected - resolve on Validation page."
+            )
+
+    pending_trust = st.session_state.get("pending_tag_trust") or {}
+    if pending_trust:
+        st.warning(
+            f"{len(pending_trust)} unknown tag(s) found in dataset - review on Validation page."
+        )
+
 
 def render_manage_page() -> None:
     """Render the Manage Dataset page."""
@@ -143,7 +175,11 @@ def render_manage_page() -> None:
             if errors:
                 for e in errors:
                     st.error(e)
-            set_loaded_entries(entries, normalization_summary=normalization)
+            set_loaded_entries(
+                entries,
+                normalization_summary=normalization,
+                dataset_path=p,
+            )
             st.session_state.loaded_path = p
             st.session_state.stale_last_path = ""
             st.session_state.entry_page = 0

@@ -6,6 +6,7 @@ from services import dataset_service
 import ui.session_state as session_state
 from core.dataset import load_dataset_with_summary
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT
+from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
 from services.dataset_service import DatasetOperationResult
 
 
@@ -37,6 +38,16 @@ def _patch_state(monkeypatch):
         session_state,
         "ensure_tags_exist_for_dataset",
         lambda entries: SimpleNamespace(created_count=0, created_slugs=[]),
+    )
+    monkeypatch.setattr(
+        session_state,
+        "get_tag_by_slug_any_status",
+        lambda slug: None,
+    )
+    monkeypatch.setattr(
+        session_state,
+        "get_current_tag_lifecycle_metadata",
+        lambda slug: {},
     )
     return fake_state
 
@@ -90,6 +101,169 @@ def test_set_loaded_entries_tracks_dataset_source_format(monkeypatch):
     assert state.dataset_source_format == FORMAT_SHAREGPT
     assert state.tag_normalization_summary["source_format"] == FORMAT_SHAREGPT
     assert state.tag_normalization_summary["format_converted_count"] == 1
+
+
+def test_set_loaded_entries_imports_sibling_sidecar_before_tag_adoption(tmp_path, monkeypatch):
+    state = _patch_state(monkeypatch)
+    dataset_path = tmp_path / "dataset.jsonl"
+    sidecar_path = tmp_path / "dataset.registry.json"
+    sidecar_path.write_text("{}", encoding="utf-8")
+    registry = SimpleNamespace(tags=(), categories=())
+    call_order = []
+
+    def fake_import_registry_sidecar(*, registry):
+        call_order.append("import")
+        return SimpleNamespace(
+            ok=True,
+            message="Imported.",
+            categories_created=["custom"],
+            tags_created=["restored"],
+            tags_promoted=[],
+            aliases_imported=[],
+            conflicts=[],
+            warnings=[],
+            errors=[],
+        )
+
+    monkeypatch.setattr(session_state, "read_sidecar", lambda path: registry)
+    monkeypatch.setattr(
+        session_state,
+        "import_registry_sidecar",
+        fake_import_registry_sidecar,
+    )
+    monkeypatch.setattr(
+        session_state,
+        "ensure_tags_exist_for_dataset",
+        lambda entries: call_order.append("adoption")
+        or SimpleNamespace(created_count=0, created_slugs=[]),
+    )
+
+    session_state.set_loaded_entries([], dataset_path=str(dataset_path))
+
+    assert call_order == ["import", "adoption"]
+    assert state.sidecar_import_summary["ok"] is True
+    assert state.sidecar_import_summary["categories_created"] == ["custom"]
+    assert "pending_tag_trust" not in state
+
+
+def test_set_loaded_entries_keeps_loading_when_sidecar_read_fails(tmp_path, monkeypatch):
+    state = _patch_state(monkeypatch)
+    dataset_path = tmp_path / "dataset.jsonl"
+    sidecar_path = tmp_path / "dataset.registry.json"
+    sidecar_path.write_text("{not json", encoding="utf-8")
+    adoption_called = []
+
+    monkeypatch.setattr(
+        session_state,
+        "read_sidecar",
+        lambda path: (_ for _ in ()).throw(ValueError("broken sidecar")),
+    )
+    monkeypatch.setattr(
+        session_state,
+        "ensure_tags_exist_for_dataset",
+        lambda entries: adoption_called.append(True)
+        or SimpleNamespace(created_count=0, created_slugs=[]),
+    )
+
+    session_state.set_loaded_entries([], dataset_path=str(dataset_path))
+
+    assert adoption_called == [True]
+    assert state.sidecar_import_summary["ok"] is False
+    assert state.sidecar_import_summary["errors"] == ["broken sidecar"]
+
+
+def test_set_loaded_entries_builds_pending_trust_for_imported_archived_tags(monkeypatch):
+    state = _patch_state(monkeypatch)
+    entry = _entry_without_tags()
+    entry["tags"] = ["some_custom_tag"]
+
+    monkeypatch.setattr(
+        session_state,
+        "get_tag_by_slug_any_status",
+        lambda slug: SimpleNamespace(
+            name="Some Custom Tag",
+            status=TAG_STATUS_ARCHIVED,
+            category_id=None,
+        ),
+    )
+    monkeypatch.setattr(
+        session_state,
+        "get_current_tag_lifecycle_metadata",
+        lambda slug: {"archive_origin": ARCHIVE_ORIGIN_IMPORTED},
+    )
+
+    session_state.set_loaded_entries([entry])
+
+    pending = state.pending_tag_trust["some_custom_tag"]
+    assert pending["display_name"] == "Some Custom Tag"
+    assert pending["entry_indices"] == [0]
+    assert pending["usage_count"] == 1
+    assert pending["registry_status"] == TAG_STATUS_ARCHIVED
+    assert pending["archive_origin"] == ARCHIVE_ORIGIN_IMPORTED
+    assert pending["resolution"] == "no_hint"
+    assert state.tag_normalization_summary["pending_trust_count"] == 1
+
+
+def test_pending_trust_includes_sidecar_hints(tmp_path, monkeypatch):
+    state = _patch_state(monkeypatch)
+    dataset_path = tmp_path / "dataset.jsonl"
+    sidecar_path = tmp_path / "dataset.registry.json"
+    sidecar_path.write_text("{}", encoding="utf-8")
+    entry = _entry_without_tags()
+    entry["tags"] = ["sidecar_tag"]
+    registry = SimpleNamespace(
+        categories=(
+            SimpleNamespace(slug="behavior", name="Behavior"),
+        ),
+        tags=(
+            SimpleNamespace(
+                slug="sidecar_tag",
+                name="Sidecar Tag",
+                category_slug="behavior",
+                status="active",
+            ),
+        ),
+    )
+
+    monkeypatch.setattr(session_state, "read_sidecar", lambda path: registry)
+    monkeypatch.setattr(
+        session_state,
+        "import_registry_sidecar",
+        lambda *, registry: SimpleNamespace(
+            ok=True,
+            message="Imported.",
+            categories_created=[],
+            tags_created=[],
+            tags_promoted=[],
+            aliases_imported=[],
+            conflicts=["sidecar conflict"],
+            warnings=[],
+            errors=[],
+        ),
+    )
+    monkeypatch.setattr(
+        session_state,
+        "get_tag_by_slug_any_status",
+        lambda slug: SimpleNamespace(
+            name="Sidecar Tag",
+            status=TAG_STATUS_ARCHIVED,
+            category_id=None,
+        ),
+    )
+    monkeypatch.setattr(
+        session_state,
+        "get_current_tag_lifecycle_metadata",
+        lambda slug: {"archive_origin": ARCHIVE_ORIGIN_IMPORTED},
+    )
+
+    session_state.set_loaded_entries([entry], dataset_path=str(dataset_path))
+
+    pending = state.pending_tag_trust["sidecar_tag"]
+    assert pending["sidecar_category_slug"] == "behavior"
+    assert pending["sidecar_category_name"] == "Behavior"
+    assert pending["sidecar_status"] == "active"
+    assert pending["resolution"] == "sidecar_hint"
+    assert state.sidecar_import_summary["conflicts"] == ["sidecar conflict"]
 
 
 def test_persist_loaded_normalization_clears_pending_state_on_success(monkeypatch):

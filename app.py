@@ -114,6 +114,7 @@ if "prefs" not in st.session_state:
             set_loaded_entries(
                 normalization.entries,
                 normalization_summary=normalization,
+                dataset_path=last,
             )
             st.session_state.loaded_path = last
         else:
