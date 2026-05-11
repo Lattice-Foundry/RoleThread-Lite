@@ -351,23 +351,20 @@ def upsert_tag_lifecycle_metadata(
     if not normalized_old:
         raise ValueError("Lifecycle metadata requires a valid old_slug.")
 
-    actions = (
-        TAG_ALIAS_METADATA_ACTIONS
-        if action in TAG_ALIAS_METADATA_ACTIONS
-        else TAG_CURRENT_METADATA_ACTIONS
-    )
     own_session = session is None
     active_session = session or SessionLocal()
     try:
-        history = (
-            active_session.query(TagLifecycleMetadata)
-            .filter(
-                TagLifecycleMetadata.old_slug == normalized_old,
-                TagLifecycleMetadata.action.in_(actions),
+        history = None
+        if action not in TAG_ALIAS_METADATA_ACTIONS:
+            history = (
+                active_session.query(TagLifecycleMetadata)
+                .filter(
+                    TagLifecycleMetadata.old_slug == normalized_old,
+                    TagLifecycleMetadata.action.in_(TAG_CURRENT_METADATA_ACTIONS),
+                )
+                .order_by(TagLifecycleMetadata.id.desc())
+                .first()
             )
-            .order_by(TagLifecycleMetadata.id.desc())
-            .first()
-        )
         if history is None:
             history = TagLifecycleMetadata(old_slug=normalized_old)
             active_session.add(history)

@@ -509,6 +509,63 @@ def test_alias_metadata_remains_resolver_usable(tag_db, action, metadata_builder
     assert result.should_rewrite_slug is True
 
 
+def test_alias_metadata_always_inserts_and_preserves_previous_aliases(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="final_tag", category=category)
+        session.commit()
+    finally:
+        session.close()
+
+    tag_registry.upsert_tag_lifecycle_metadata(
+        action=TAG_LIFECYCLE_METADATA_RENAME,
+        old_slug="old_tag",
+        new_slug="middle_tag",
+        metadata=tag_registry.build_rename_alias_metadata(
+            old_slug="old_tag",
+            new_slug="middle_tag",
+        ),
+    )
+    tag_registry.upsert_tag_lifecycle_metadata(
+        action=TAG_LIFECYCLE_METADATA_RENAME,
+        old_slug="middle_tag",
+        new_slug="final_tag",
+        metadata=tag_registry.build_rename_alias_metadata(
+            old_slug="middle_tag",
+            new_slug="final_tag",
+        ),
+    )
+    tag_registry.upsert_tag_lifecycle_metadata(
+        action=TAG_LIFECYCLE_METADATA_RENAME,
+        old_slug="middle_tag",
+        new_slug="old_tag",
+        metadata=tag_registry.build_rename_alias_metadata(
+            old_slug="middle_tag",
+            new_slug="old_tag",
+        ),
+    )
+
+    session = tag_db()
+    try:
+        middle_aliases = (
+            session.query(TagLifecycleMetadata)
+            .filter_by(old_slug="middle_tag")
+            .order_by(TagLifecycleMetadata.id)
+            .all()
+        )
+        assert [alias.new_slug for alias in middle_aliases] == [
+            "final_tag",
+            "old_tag",
+        ]
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Middle Tag")
+    assert result.result_type == TAG_RESOLUTION_UNKNOWN
+    assert result.should_create_archived is True
+
+
 @pytest.mark.parametrize(
     "raw",
     ["Slow Burn", "slow burn", "slow-burn", "SLOW BURN"],
@@ -598,6 +655,70 @@ def test_resolve_tag_lifecycle_follows_alias_lineage_to_active_target(tag_db):
     assert result.result_type == TAG_RESOLUTION_ALIAS_MAPPED
     assert result.resolved_slug == "final_tag"
     assert result.should_rewrite_slug is True
+
+
+def test_resolve_tag_lifecycle_follows_three_hop_alias_lineage(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="final_tag", category=category)
+        session.add_all(
+            [
+                TagLifecycleMetadata(
+                    action=TAG_LIFECYCLE_METADATA_RENAME,
+                    old_slug="old_tag",
+                    new_slug="middle_tag",
+                ),
+                TagLifecycleMetadata(
+                    action=TAG_LIFECYCLE_METADATA_RENAME,
+                    old_slug="middle_tag",
+                    new_slug="newer_tag",
+                ),
+                TagLifecycleMetadata(
+                    action=TAG_LIFECYCLE_METADATA_MERGE,
+                    old_slug="newer_tag",
+                    new_slug="final_tag",
+                ),
+            ]
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+
+    assert result.result_type == TAG_RESOLUTION_ALIAS_MAPPED
+    assert result.resolved_slug == "final_tag"
+    assert result.should_rewrite_slug is True
+
+
+def test_resolve_tag_lifecycle_handles_alias_cycle_without_hanging(tag_db):
+    session = tag_db()
+    try:
+        session.add_all(
+            [
+                TagLifecycleMetadata(
+                    action=TAG_LIFECYCLE_METADATA_RENAME,
+                    old_slug="old_tag",
+                    new_slug="middle_tag",
+                ),
+                TagLifecycleMetadata(
+                    action=TAG_LIFECYCLE_METADATA_RENAME,
+                    old_slug="middle_tag",
+                    new_slug="old_tag",
+                ),
+            ]
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+
+    assert result.result_type == TAG_RESOLUTION_UNKNOWN
+    assert result.resolved_slug == "old_tag"
+    assert result.should_rewrite_slug is False
+    assert result.should_create_archived is True
 
 
 def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_missing(tag_db):
