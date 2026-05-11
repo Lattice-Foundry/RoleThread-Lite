@@ -289,8 +289,8 @@ def assign_archived_imported_tags_to_category(
             category_slug=normalized_category or None,
         )
 
-    session = tag_registry.SessionLocal()
-    try:
+    with LifecyclePipeline() as pipeline:
+        session = pipeline.session
         category = (
             session.query(TagCategory)
             .filter_by(slug=normalized_category, is_active=True)
@@ -352,60 +352,61 @@ def assign_archived_imported_tags_to_category(
                 category_slug=normalized_category,
             )
 
+        backup_error = pipeline.create_db_backup(
+            failure_fields={
+                "tag_slugs": normalized_tag_slugs,
+                "category_slug": normalized_category,
+            }
+        )
+        if backup_error is not None:
+            return backup_error
+
         try:
-            db_backup_path = tag_registry.create_db_backup(engine=tag_registry.engine)
+            max_order = (
+                session.query(Tag)
+                .filter_by(category_id=category.id)
+                .order_by(Tag.sort_order.desc())
+                .first()
+            )
+            next_sort_order = (max_order.sort_order if max_order is not None else 0) + 1
+
+            for offset, tag in enumerate(tags):
+                tag.status = TAG_STATUS_ACTIVE
+                tag.is_active = True
+                tag.category_id = category.id
+                tag.sort_order = next_sort_order + offset
+                tag_registry.clear_or_replace_tag_lifecycle_metadata(
+                    action=TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
+                    old_slug=tag.slug,
+                    old_display_name=tag.name,
+                    old_category_slug=None,
+                    new_slug=tag.slug,
+                    new_display_name=tag.name,
+                    new_category_slug=category.slug,
+                    metadata=tag_registry.build_active_assigned_metadata(category.slug),
+                    session=session,
+                )
+
+            return pipeline.commit_success(
+                message=f"Assigned {len(tags)} archived tag(s) to {category.name}.",
+                success_fields={
+                    "affected_count": len(tags),
+                    "tag_slugs": [tag.slug for tag in tags],
+                    "category_slug": category.slug,
+                },
+                error_fields={
+                    "tag_slugs": normalized_tag_slugs,
+                    "category_slug": normalized_category,
+                },
+            )
         except Exception as exc:
-            return TagLifecycleOperationResult(
-                ok=False,
-                message=f"Could not create database backup: {exc}",
-                tag_slugs=normalized_tag_slugs,
-                category_slug=normalized_category,
+            return pipeline.database_error(
+                exc,
+                fields={
+                    "tag_slugs": normalized_tag_slugs,
+                    "category_slug": normalized_category,
+                },
             )
-
-        max_order = (
-            session.query(Tag)
-            .filter_by(category_id=category.id)
-            .order_by(Tag.sort_order.desc())
-            .first()
-        )
-        next_sort_order = (max_order.sort_order if max_order is not None else 0) + 1
-
-        for offset, tag in enumerate(tags):
-            tag.status = TAG_STATUS_ACTIVE
-            tag.is_active = True
-            tag.category_id = category.id
-            tag.sort_order = next_sort_order + offset
-            tag_registry.clear_or_replace_tag_lifecycle_metadata(
-                action=TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
-                old_slug=tag.slug,
-                old_display_name=tag.name,
-                old_category_slug=None,
-                new_slug=tag.slug,
-                new_display_name=tag.name,
-                new_category_slug=category.slug,
-                metadata=tag_registry.build_active_assigned_metadata(category.slug),
-                session=session,
-            )
-
-        session.commit()
-        return TagLifecycleOperationResult(
-            ok=True,
-            message=f"Assigned {len(tags)} archived tag(s) to {category.name}.",
-            affected_count=len(tags),
-            tag_slugs=[tag.slug for tag in tags],
-            category_slug=category.slug,
-            db_backup_path=str(Path(db_backup_path)),
-        )
-    except Exception as exc:
-        session.rollback()
-        return TagLifecycleOperationResult(
-            ok=False,
-            message=f"Database error: {exc}",
-            tag_slugs=normalized_tag_slugs,
-            category_slug=normalized_category,
-        )
-    finally:
-        session.close()
 
 
 def assign_archived_imported_tag_to_category(
@@ -590,8 +591,8 @@ def delete_empty_custom_category(
             category_slug=None,
         )
 
-    session = tag_registry.SessionLocal()
-    try:
+    with LifecyclePipeline() as pipeline:
+        session = pipeline.session
         category = (
             session.query(TagCategory)
             .filter_by(slug=normalized_slug)
@@ -633,55 +634,51 @@ def delete_empty_custom_category(
                 old_display_name=category_name,
             )
 
-        try:
-            db_backup = tag_registry.create_db_backup(engine=tag_registry.engine)
-        except Exception as exc:
-            return TagLifecycleOperationResult(
-                ok=False,
-                message=f"Could not create database backup: {exc}",
-                category_slug=category.slug,
-                old_slug=category.slug,
-                old_display_name=category_name,
-            )
+        backup_error = pipeline.create_db_backup(
+            failure_fields={
+                "category_slug": category.slug,
+                "old_slug": category.slug,
+                "old_display_name": category_name,
+            }
+        )
+        if backup_error is not None:
+            return backup_error
 
-        old_slug = category.slug
-        session.add(
-            CategoryHistory(
-                action="delete",
-                old_slug=old_slug,
-                old_display_name=category_name,
-                new_slug=None,
-                new_display_name=None,
-                metadata_json=json.dumps(
-                    {
-                        "lifecycle_state": "deleted",
-                        "delete_reason": "user_deleted_empty_category",
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
-                ),
+        try:
+            old_slug = category.slug
+            session.add(
+                CategoryHistory(
+                    action="delete",
+                    old_slug=old_slug,
+                    old_display_name=category_name,
+                    new_slug=None,
+                    new_display_name=None,
+                    metadata_json=json.dumps(
+                        {
+                            "lifecycle_state": "deleted",
+                            "delete_reason": "user_deleted_empty_category",
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                )
             )
-        )
-        session.delete(category)
-        session.commit()
-        return TagLifecycleOperationResult(
-            ok=True,
-            message=f'Deleted category "{category_name}".',
-            affected_count=1,
-            category_slug=old_slug,
-            db_backup_path=str(Path(db_backup)),
-            old_slug=old_slug,
-            old_display_name=category_name,
-        )
-    except Exception as exc:
-        session.rollback()
-        return TagLifecycleOperationResult(
-            ok=False,
-            message=f"Database error: {exc}",
-            category_slug=normalized_slug,
-        )
-    finally:
-        session.close()
+            session.delete(category)
+            return pipeline.commit_success(
+                message=f'Deleted category "{category_name}".',
+                success_fields={
+                    "affected_count": 1,
+                    "category_slug": old_slug,
+                    "old_slug": old_slug,
+                    "old_display_name": category_name,
+                },
+                error_fields={"category_slug": normalized_slug},
+            )
+        except Exception as exc:
+            return pipeline.database_error(
+                exc,
+                fields={"category_slug": normalized_slug},
+            )
 
 
 def edit_active_tag(
@@ -972,12 +969,10 @@ def rename_active_tag(
 ) -> TagLifecycleOperationResult:
     """Compatibility wrapper for name-only active tag edits."""
     normalized_old = normalize_tag(old_slug).slug
-    session = tag_registry.SessionLocal()
-    try:
+    with LifecyclePipeline() as pipeline:
+        session = pipeline.session
         tag = session.query(Tag).filter_by(slug=normalized_old).order_by(Tag.id).first()
         category_slug = tag.category.slug if tag is not None and tag.category is not None else ""
-    finally:
-        session.close()
     return edit_active_tag(
         old_slug=old_slug,
         new_display_name=new_display_name,
@@ -1013,8 +1008,8 @@ def delete_active_tag(
             old_slug=normalized_slug or None,
         )
 
-    session = tag_registry.SessionLocal()
-    try:
+    with LifecyclePipeline(dataset_path=dataset_path) as pipeline:
+        session = pipeline.session
         tag = session.query(Tag).filter_by(slug=normalized_slug).order_by(Tag.id).first()
         if tag is None:
             return TagLifecycleOperationResult(
@@ -1046,82 +1041,69 @@ def delete_active_tag(
             tag_slug=tag.slug,
         )
 
-        try:
-            dataset_backup = create_dataset_backup(dataset_path, "before_tag_delete")
-            if dataset_backup is None:
-                raise FileNotFoundError(
-                    "Could not create dataset backup because the dataset file was not found."
-                )
-        except Exception as exc:
-            return TagLifecycleOperationResult(
-                ok=False,
-                message=f"Failed to create dataset backup: {exc}",
-                old_slug=tag.slug,
-                old_display_name=tag_label,
-            )
-
-        try:
-            db_backup = tag_registry.create_db_backup(engine=tag_registry.engine)
-        except Exception as exc:
-            return TagLifecycleOperationResult(
-                ok=False,
-                message=f"Could not create database backup: {exc}",
-                dataset_backup_path=str(Path(dataset_backup)),
-                old_slug=tag.slug,
-                old_display_name=tag_label,
-            )
-
-        old_category_slug = old_category.slug
-        tag.status = TAG_STATUS_ARCHIVED
-        tag.is_active = False
-        tag.category_id = None
-        tag_registry.clear_or_replace_tag_lifecycle_metadata(
-            action=TAG_LIFECYCLE_METADATA_ARCHIVE,
-            old_slug=tag.slug,
-            old_display_name=tag.name,
-            old_category_slug=old_category_slug,
-            new_slug=tag.slug,
-            new_display_name=tag.name,
-            new_category_slug=None,
-            metadata=tag_registry.build_deleted_archive_metadata(old_category_slug),
-            session=session,
+        backup_error = pipeline.create_dataset_backup(
+            reason="before_tag_delete",
+            failure_fields={
+                "old_slug": tag.slug,
+                "old_display_name": tag_label,
+            },
         )
+        if backup_error is not None:
+            return backup_error
+
+        backup_error = pipeline.create_db_backup(
+            failure_fields={
+                "old_slug": tag.slug,
+                "old_display_name": tag_label,
+            }
+        )
+        if backup_error is not None:
+            return backup_error
 
         try:
-            save_dataset(dataset_path, proposed_entries)
-        except Exception as exc:
-            session.rollback()
-            return TagLifecycleOperationResult(
-                ok=False,
-                message=f"Failed to save dataset: {exc}",
-                dataset_backup_path=str(Path(dataset_backup)),
-                db_backup_path=str(Path(db_backup)),
+            old_category_slug = old_category.slug
+            tag.status = TAG_STATUS_ARCHIVED
+            tag.is_active = False
+            tag.category_id = None
+            tag_registry.clear_or_replace_tag_lifecycle_metadata(
+                action=TAG_LIFECYCLE_METADATA_ARCHIVE,
                 old_slug=tag.slug,
-                old_display_name=tag_label,
+                old_display_name=tag.name,
+                old_category_slug=old_category_slug,
+                new_slug=tag.slug,
+                new_display_name=tag.name,
+                new_category_slug=None,
+                metadata=tag_registry.build_deleted_archive_metadata(old_category_slug),
+                session=session,
             )
 
-        session.commit()
-        entry_word = "entry" if changed_entries == 1 else "entries"
-        return TagLifecycleOperationResult(
-            ok=True,
-            message=(
-                f'Deleted tag "{tag_label}" and removed it from '
-                f"{changed_entries} {entry_word}."
-            ),
-            affected_count=changed_entries,
-            tag_slugs=[tag.slug],
-            db_backup_path=str(Path(db_backup)),
-            dataset_backup_path=str(Path(dataset_backup)),
-            entries=proposed_entries,
-            old_slug=tag.slug,
-            old_display_name=tag_label,
-        )
-    except Exception as exc:
-        session.rollback()
-        return TagLifecycleOperationResult(
-            ok=False,
-            message=f"Database error: {exc}",
-            old_slug=normalized_slug,
-        )
-    finally:
-        session.close()
+            save_error = pipeline.save_jsonl(
+                proposed_entries,
+                failure_fields={
+                    "old_slug": tag.slug,
+                    "old_display_name": tag_label,
+                },
+            )
+            if save_error is not None:
+                return save_error
+
+            entry_word = "entry" if changed_entries == 1 else "entries"
+            return pipeline.commit_success(
+                message=(
+                    f'Deleted tag "{tag_label}" and removed it from '
+                    f"{changed_entries} {entry_word}."
+                ),
+                success_fields={
+                    "affected_count": changed_entries,
+                    "tag_slugs": [tag.slug],
+                    "entries": proposed_entries,
+                    "old_slug": tag.slug,
+                    "old_display_name": tag_label,
+                },
+                error_fields={"old_slug": normalized_slug},
+            )
+        except Exception as exc:
+            return pipeline.database_error(
+                exc,
+                fields={"old_slug": normalized_slug},
+            )
