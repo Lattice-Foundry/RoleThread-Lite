@@ -2,6 +2,7 @@ import dataclasses
 
 import pytest
 
+from core.dataset import validate_entry
 from core.entry_analysis import (
     BASE_EMPTY_TAG,
     BASE_INVALID_TAG_VALUE,
@@ -9,8 +10,19 @@ from core.entry_analysis import (
     BASE_NOT_DICT,
     BASE_TAGS_NOT_LIST,
     BASE_UNKNOWN_TOP_LEVEL_KEY,
+    CHATML_EMPTY_CONTENT,
+    CHATML_EMPTY_SYSTEM_CONTENT,
+    CHATML_INCOMPLETE_EXCHANGES,
+    CHATML_INSUFFICIENT_MESSAGES,
+    CHATML_MESSAGE_NOT_DICT,
+    CHATML_MESSAGES_NOT_LIST,
+    CHATML_MISSING_MESSAGES,
+    CHATML_MISSING_SYSTEM_ROLE,
+    CHATML_SYSTEM_NOT_DICT,
+    CHATML_WRONG_ROLE,
     AnalysisSeverity,
     BaseEntryAnalyzer,
+    ChatMLAnalyzer,
     EntryAnalysisResult,
     EntryDiagnostic,
     RepairKind,
@@ -21,6 +33,18 @@ def _diagnostic_by_code(result: EntryAnalysisResult, code: str) -> EntryDiagnost
     matches = [diagnostic for diagnostic in result.diagnostics if diagnostic.code == code]
     assert len(matches) == 1
     return matches[0]
+
+
+def _entry(*, messages=None, tags=None):
+    return {
+        "messages": messages
+        or [
+            {"role": "system", "content": "System"},
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello"},
+        ],
+        "tags": [] if tags is None else tags,
+    }
 
 
 def test_base_analyzer_accepts_known_top_level_keys_without_diagnostics():
@@ -181,3 +205,268 @@ def test_severity_and_repair_enums_have_stable_values():
     assert RepairKind.AUTOMATIC.value == "automatic"
     assert RepairKind.SUGGESTED.value == "suggested"
     assert RepairKind.MANUAL.value == "manual"
+
+
+def test_chatml_analyzer_reports_missing_messages_key():
+    result = ChatMLAnalyzer().analyze({"tags": []})
+
+    diagnostic = _diagnostic_by_code(result, CHATML_MISSING_MESSAGES)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "Missing 'messages' key"
+    assert diagnostic.path == ("messages",)
+
+
+def test_chatml_analyzer_reports_messages_not_list():
+    result = ChatMLAnalyzer().analyze({"messages": "bad", "tags": []})
+
+    diagnostic = _diagnostic_by_code(result, CHATML_MESSAGES_NOT_LIST)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "'messages' must be a list"
+    assert diagnostic.path == ("messages",)
+
+
+def test_chatml_analyzer_reports_insufficient_messages():
+    result = ChatMLAnalyzer().analyze({
+        "messages": [
+            {"role": "system", "content": "System"},
+            {"role": "user", "content": "Hi"},
+        ],
+        "tags": [],
+    })
+
+    diagnostic = _diagnostic_by_code(result, CHATML_INSUFFICIENT_MESSAGES)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert "at least 3" in diagnostic.message
+    assert diagnostic.path == ("messages",)
+
+
+def test_chatml_analyzer_reports_incomplete_exchanges():
+    result = ChatMLAnalyzer().analyze({
+        "messages": [
+            {"role": "system", "content": "System"},
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello"},
+            {"role": "user", "content": "Again"},
+        ],
+        "tags": [],
+    })
+
+    diagnostic = _diagnostic_by_code(result, CHATML_INCOMPLETE_EXCHANGES)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "Messages must contain complete user/assistant exchanges"
+    assert diagnostic.path == ("messages",)
+
+
+def test_chatml_analyzer_reports_system_not_dict():
+    result = ChatMLAnalyzer().analyze({
+        "messages": [
+            "not dict",
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello"},
+        ],
+        "tags": [],
+    })
+
+    diagnostic = _diagnostic_by_code(result, CHATML_SYSTEM_NOT_DICT)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "Message 0 is not a dict"
+    assert diagnostic.path == ("messages", 0)
+
+
+def test_chatml_analyzer_reports_wrong_system_role_and_empty_content():
+    result = ChatMLAnalyzer().analyze({
+        "messages": [
+            {"role": "user", "content": " "},
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello"},
+        ],
+        "tags": [],
+    })
+
+    role = _diagnostic_by_code(result, CHATML_MISSING_SYSTEM_ROLE)
+    content = _diagnostic_by_code(result, CHATML_EMPTY_SYSTEM_CONTENT)
+
+    assert result.is_valid is False
+    assert role.severity == AnalysisSeverity.ERROR
+    assert role.message == "Message 0: expected role 'system', got 'user'"
+    assert role.path == ("messages", 0, "role")
+    assert role.original_value == "user"
+    assert role.normalized_value == "system"
+    assert content.severity == AnalysisSeverity.ERROR
+    assert content.message == "Message 0 (system) has empty content"
+    assert content.path == ("messages", 0, "content")
+
+
+def test_chatml_analyzer_reports_message_not_dict_with_indexed_path():
+    result = ChatMLAnalyzer().analyze({
+        "messages": [
+            {"role": "system", "content": "System"},
+            "bad",
+            {"role": "user", "content": "Hi"},
+        ],
+        "tags": [],
+    })
+
+    diagnostic = _diagnostic_by_code(result, CHATML_MESSAGE_NOT_DICT)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "Message 1 is not a dict"
+    assert diagnostic.path == ("messages", 1)
+
+
+def test_chatml_analyzer_reports_wrong_role_and_empty_content_with_indexed_paths():
+    result = ChatMLAnalyzer().analyze({
+        "messages": [
+            {"role": "system", "content": "System"},
+            {"role": "assistant", "content": ""},
+            {"role": "assistant", "content": "Hi"},
+        ],
+        "tags": [],
+    })
+
+    wrong_role = _diagnostic_by_code(result, CHATML_WRONG_ROLE)
+    empty_content = _diagnostic_by_code(result, CHATML_EMPTY_CONTENT)
+
+    assert result.is_valid is False
+    assert wrong_role.severity == AnalysisSeverity.ERROR
+    assert wrong_role.message == "Message 1: expected role 'user', got 'assistant'"
+    assert wrong_role.path == ("messages", 1, "role")
+    assert wrong_role.original_value == "assistant"
+    assert wrong_role.normalized_value == "user"
+    assert empty_content.severity == AnalysisSeverity.ERROR
+    assert empty_content.message == "Message 1 (user) has empty content"
+    assert empty_content.path == ("messages", 1, "content")
+
+
+def test_chatml_analyzer_runs_base_checks_alongside_chatml_checks():
+    result = ChatMLAnalyzer().analyze({"tags": "bad"})
+
+    codes = {diagnostic.code for diagnostic in result.diagnostics}
+
+    assert result.is_valid is False
+    assert codes == {BASE_TAGS_NOT_LIST, CHATML_MISSING_MESSAGES}
+    assert _diagnostic_by_code(result, BASE_TAGS_NOT_LIST).severity == (
+        AnalysisSeverity.ERROR
+    )
+    assert _diagnostic_by_code(result, BASE_TAGS_NOT_LIST).message == (
+        "'tags' must be a list"
+    )
+    assert _diagnostic_by_code(result, CHATML_MISSING_MESSAGES).severity == (
+        AnalysisSeverity.ERROR
+    )
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        _entry(tags=["greeting"]),
+        {"tags": []},
+        {"messages": "not a list", "tags": []},
+        {
+            "messages": [
+                {"role": "system", "content": "System"},
+                {"role": "user", "content": "Hi"},
+            ],
+            "tags": [],
+        },
+        {
+            "messages": [
+                {"role": "system", "content": "System"},
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+                {"role": "user", "content": "Again"},
+            ],
+            "tags": [],
+        },
+        {
+            "messages": [
+                "not dict",
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+            ],
+            "tags": [],
+        },
+        {
+            "messages": [
+                {"role": "user", "content": "System-ish"},
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+            ],
+            "tags": [],
+        },
+        {
+            "messages": [
+                {"role": "system", "content": "   "},
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+            ],
+            "tags": [],
+        },
+        {
+            "messages": [
+                {"role": "system", "content": "System"},
+                {"role": "assistant", "content": "Hello"},
+                {"role": "user", "content": "Hi"},
+            ],
+            "tags": [],
+        },
+        {
+            "messages": [
+                {"role": "system", "content": "System"},
+                {"role": "user", "content": ""},
+                {"role": "assistant", "content": "   "},
+            ],
+            "tags": [],
+        },
+        {
+            "messages": [
+                {"role": "system", "content": "System"},
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+            ],
+        },
+        _entry(tags="greeting"),
+        _entry(tags=["greeting", 7]),
+        _entry(tags=[""]),
+    ],
+)
+def test_chatml_analyzer_validity_matches_validate_entry(entry):
+    result = ChatMLAnalyzer().analyze(entry)
+
+    assert result.is_valid == (validate_entry(entry) == [])
+
+
+def test_chatml_analyzer_error_messages_match_validate_entry_for_representative_entries():
+    entries = [
+        {"tags": []},
+        {"messages": "not a list", "tags": []},
+        {
+            "messages": [
+                {"role": "user", "content": "System-ish"},
+                {"role": "assistant", "content": ""},
+                {"role": "user", "content": "Hi"},
+            ],
+            "tags": [],
+        },
+        _entry(tags="greeting"),
+        _entry(tags=["greeting", 7]),
+    ]
+
+    for entry in entries:
+        result_messages = [
+            diagnostic.message
+            for diagnostic in ChatMLAnalyzer().analyze(entry).diagnostics
+            if diagnostic.severity == AnalysisSeverity.ERROR
+        ]
+        assert result_messages == validate_entry(entry)
