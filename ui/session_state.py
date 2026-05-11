@@ -53,6 +53,7 @@ def set_loaded_entries(
     normalization = normalization_summary or normalize_dataset_tags(entries)
     adoption = ensure_tags_exist_for_dataset(normalization.entries)
     st.session_state.loaded_entries = normalization.entries
+    st.session_state.dataset_source_format = normalization.source_format
     st.session_state.entry_registry = build_entry_registry(normalization.entries)
     st.session_state.tag_normalization_summary = {
         "changed_entries": normalization.changed_entries,
@@ -60,6 +61,12 @@ def set_loaded_entries(
         "structural_changed_entries": normalization.structural_changed_entries,
         "tag_metadata_added_count": normalization.tag_metadata_added_count,
         "dropped_tags": normalization.dropped_tags,
+        "source_format": normalization.source_format,
+        "format_counts": normalization.format_counts,
+        "format_confidence": normalization.format_confidence,
+        "format_converted_count": normalization.format_converted_count,
+        "format_already_target_count": normalization.format_already_target_count,
+        "format_warnings": normalization.format_warnings,
         "adopted_count": adoption.created_count,
         "adopted_slugs": adoption.created_slugs or [],
     }

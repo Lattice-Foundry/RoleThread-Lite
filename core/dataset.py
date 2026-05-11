@@ -12,6 +12,13 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from core.format_conversion import (
+    FORMAT_CHATML,
+    FORMAT_SHAREGPT,
+    FORMAT_UNKNOWN,
+    convert_records_to_chatml,
+    detect_records_format,
+)
 from core.tag_normalization import normalize_tag
 
 
@@ -40,6 +47,12 @@ class TagNormalizationSummary:
     tag_metadata_added_count: int = 0
     normalized_slugs: set[str] = field(default_factory=set)
     dropped_tags: list[str] = field(default_factory=list)
+    source_format: str = FORMAT_CHATML
+    format_counts: dict[str, int] = field(default_factory=dict)
+    format_confidence: float = 0.0
+    format_converted_count: int = 0
+    format_already_target_count: int = 0
+    format_warnings: list[str] = field(default_factory=list)
 
 
 _VALIDATE_ENTRY_CACHE: dict[str, tuple[str, ...]] = {}
@@ -147,7 +160,10 @@ def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[
     entries, parse_errors = [], []
     p = Path(path)
     if not p.exists():
-        return TagNormalizationSummary(entries=[]), [f"File not found: {path}"]
+        return TagNormalizationSummary(
+            entries=[],
+            source_format=FORMAT_UNKNOWN,
+        ), [f"File not found: {path}"]
     with p.open("r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
             line = line.strip()
@@ -158,7 +174,30 @@ def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[
                 entries.append(entry)
             except json.JSONDecodeError as e:
                 parse_errors.append(f"Line {line_num}: {e}")
-    return normalize_dataset_tags(entries), parse_errors
+
+    detection = detect_records_format(entries)
+    conversion_entries = entries
+    converted_count = 0
+    already_target_count = len(entries) if detection.format == FORMAT_CHATML else 0
+    format_warnings: list[str] = []
+    if detection.format == FORMAT_SHAREGPT:
+        conversion = convert_records_to_chatml(
+            entries,
+            source_format=detection.format,
+        )
+        conversion_entries = conversion.entries
+        converted_count = conversion.converted_count
+        already_target_count = conversion.already_target_count
+        format_warnings = conversion.warnings
+
+    summary = normalize_dataset_tags(conversion_entries)
+    summary.source_format = detection.format
+    summary.format_counts = detection.counts
+    summary.format_confidence = detection.confidence
+    summary.format_converted_count = converted_count
+    summary.format_already_target_count = already_target_count
+    summary.format_warnings = format_warnings
+    return summary, parse_errors
 
 
 def save_dataset(path: str, entries: list[dict]) -> None:

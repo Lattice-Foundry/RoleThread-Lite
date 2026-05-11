@@ -40,6 +40,12 @@ from core.dataset import (
     set_entry_tags,
     validate_entry,
 )
+from core.format_conversion import (
+    FORMAT_CHATML,
+    FORMAT_SHAREGPT,
+    FORMAT_UNKNOWN,
+    SHAREGPT_INTERNAL_SYSTEM_PROMPT,
+)
 
 
 def _entry(*, tags=None, messages=None):
@@ -683,6 +689,68 @@ def test_load_dataset_with_summary_reports_missing_tag_metadata(tmp_path):
     assert [entry["tags"] for entry in summary.entries] == [[], [], []]
     assert summary.structural_changed_entries == 3
     assert summary.tag_metadata_added_count == 3
+
+
+def test_load_dataset_with_summary_reports_chatml_source_format(tmp_path):
+    path = tmp_path / "chatml.jsonl"
+    entry = _entry(tags=["greeting"])
+    path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert summary.entries == [entry]
+    assert summary.source_format == FORMAT_CHATML
+    assert summary.format_counts[FORMAT_CHATML] == 1
+    assert summary.format_converted_count == 0
+    assert summary.format_already_target_count == 1
+    assert summary.format_warnings == []
+
+
+def test_load_dataset_with_summary_converts_sharegpt_to_chatml(tmp_path):
+    path = tmp_path / "sharegpt.jsonl"
+    record = {
+        "conversations": [
+            {"from": "human", "value": "Hi"},
+            {"from": "gpt", "value": "Hello"},
+        ],
+        "tags": ["sLow burn"],
+        "source": "outside",
+    }
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert summary.source_format == FORMAT_SHAREGPT
+    assert summary.format_counts[FORMAT_SHAREGPT] == 1
+    assert summary.format_converted_count == 1
+    assert summary.entries == [
+        {
+            "messages": [
+                {"role": "system", "content": SHAREGPT_INTERNAL_SYSTEM_PROMPT},
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+            ],
+            "tags": ["slow_burn"],
+            "source": "outside",
+        }
+    ]
+    assert any("default system prompt" in warning for warning in summary.format_warnings)
+
+
+def test_load_dataset_with_summary_keeps_unknown_format_loadable(tmp_path):
+    path = tmp_path / "unknown.jsonl"
+    record = {"prompt": "Hi", "completion": "Hello"}
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert summary.source_format == FORMAT_UNKNOWN
+    assert summary.entries == [{"prompt": "Hi", "completion": "Hello", "tags": []}]
+    assert summary.format_converted_count == 0
+    assert summary.format_warnings == []
 
 
 def test_load_dataset_normalizes_funky_tags_in_memory(tmp_path):

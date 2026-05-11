@@ -17,6 +17,7 @@ from core.dataset import (
     save_dataset,
     validate_entry,
 )
+from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT, FORMAT_UNKNOWN
 from core.tag_registry import (
     get_tag_registry_snapshot,
     prettify_tag_name,
@@ -63,6 +64,32 @@ from ui.browser_helpers import (
 from ui.ui_components import render_message_preview
 
 _UNTAGGED = "__untagged__"
+
+
+def _format_source_format(source_format: str) -> str:
+    labels = {
+        FORMAT_CHATML: "ChatML",
+        FORMAT_SHAREGPT: "ShareGPT",
+        FORMAT_UNKNOWN: "Unknown",
+    }
+    return labels.get(source_format, source_format or "Unknown")
+
+
+def _render_load_format_summary(normalization) -> None:
+    source_format = normalization.source_format
+    if source_format == FORMAT_SHAREGPT:
+        st.info(
+            "Detected format: ShareGPT. "
+            f"Converted {normalization.format_converted_count} entries to ChatML."
+        )
+    else:
+        st.info(f"Detected format: {_format_source_format(source_format)}.")
+
+    warnings = list(normalization.format_warnings or [])
+    for warning in warnings[:3]:
+        st.caption(f"Conversion warning: {warning}")
+    if len(warnings) > 3:
+        st.caption(f"{len(warnings) - 3} additional conversion warning(s) hidden.")
 
 
 def render_manage_page() -> None:
@@ -134,6 +161,7 @@ def render_manage_page() -> None:
                 st.warning(f"Loaded {len(entries)} entries from `{p}`, but normalization was not saved.")
             else:
                 st.success(f"Loaded {len(entries)} entries from `{p}`.")
+            _render_load_format_summary(normalization)
 
     with col_new:
         if st.button("New Dataset", width="stretch"):

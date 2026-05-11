@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from services import dataset_service
 import ui.session_state as session_state
 from core.dataset import load_dataset_with_summary
+from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT
 from services.dataset_service import DatasetOperationResult
 
 
@@ -52,6 +53,8 @@ def test_set_loaded_entries_tracks_pending_structural_normalization(monkeypatch)
     )
 
     assert state.loaded_entries[0]["tags"] == []
+    assert state.dataset_source_format == FORMAT_CHATML
+    assert state.tag_normalization_summary["source_format"] == FORMAT_CHATML
     assert state.normalization_pending is True
     assert state.tag_normalization_summary["tag_metadata_added_count"] == 1
     assert state.tag_normalization_summary["structural_changed_entries"] == 1
@@ -66,6 +69,27 @@ def test_set_loaded_entries_canonicalizes_tags_even_without_pending_structural_c
 
     assert state.loaded_entries[0]["tags"] == ["slow_burn"]
     assert state.normalization_pending is False
+
+
+def test_set_loaded_entries_tracks_dataset_source_format(monkeypatch):
+    state = _patch_state(monkeypatch)
+    sharegpt_record = {
+        "conversations": [
+            {"from": "human", "value": "Hi"},
+            {"from": "gpt", "value": "Hello"},
+        ]
+    }
+    normalization, errors = _load_entries_with_summary([sharegpt_record])
+
+    assert errors == []
+    session_state.set_loaded_entries(
+        normalization.entries,
+        normalization_summary=normalization,
+    )
+
+    assert state.dataset_source_format == FORMAT_SHAREGPT
+    assert state.tag_normalization_summary["source_format"] == FORMAT_SHAREGPT
+    assert state.tag_normalization_summary["format_converted_count"] == 1
 
 
 def test_persist_loaded_normalization_clears_pending_state_on_success(monkeypatch):
