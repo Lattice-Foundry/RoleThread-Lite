@@ -695,7 +695,6 @@ def render_manage_page() -> None:
                 label = format_entry_summary_label(
                     display_index=i,
                     entry=entry,
-                    dataset_format=st.session_state.dataset_format,
                     errors=errs,
                     tag_label_map=_label_map,
                 )

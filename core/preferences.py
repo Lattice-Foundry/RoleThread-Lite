@@ -23,7 +23,6 @@ DEFAULTS: dict = {
     "last_system_prompt": "",
     "preview_user_name": "User",
     "preview_assistant_name": "Assistant",
-    "dataset_format": "ChatML",
     "confirm_delete_entries": True,
     "default_dataset_directory": str(get_default_training_data_dir()),
     "auto_backups_enabled": True,

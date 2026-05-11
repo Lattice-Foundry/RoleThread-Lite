@@ -541,7 +541,6 @@ def render_edit_entries_page() -> None:
         _ee_label = format_entry_summary_label(
             display_index=_ee_i,
             entry=_ee_entry,
-            dataset_format=st.session_state.dataset_format,
             errors=_ee_errs,
             tag_label_map=_ee_label_map,
         )

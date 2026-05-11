@@ -4,8 +4,18 @@ import plotly.express as px
 import streamlit as st
 
 from core.dataset import build_dataset_stats
+from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT, FORMAT_UNKNOWN
 from ui.session_state import ensure_entry_registry
 from core.tag_registry import get_tag_registry_snapshot
+
+
+def _format_source_format(source_format: str) -> str:
+    labels = {
+        FORMAT_CHATML: "ChatML",
+        FORMAT_SHAREGPT: "ShareGPT",
+        FORMAT_UNKNOWN: "Unknown",
+    }
+    return labels.get(source_format, source_format or "Unknown")
 
 
 def render_stats_page() -> None:
@@ -100,19 +110,21 @@ def render_stats_page() -> None:
         st.metric("Single-turn entries", _s["single_turn"])
         st.metric("Multi-turn entries", _s["multi_turn"])
 
-    # ── Format Distribution ────────────────────────────────────────────────────
+    # ── Source Format ──────────────────────────────────────────────────────────
     st.divider()
-    st.subheader("Format Distribution")
-    _fmt = st.session_state.dataset_format
+    st.subheader("Source Format")
+    _fmt = _format_source_format(
+        st.session_state.get("dataset_source_format", FORMAT_UNKNOWN)
+    )
     _f1, _f2 = st.columns(2)
-    _f1.metric(_fmt, _s["total"], help="All entries are treated as this format.")
+    _f1.metric(_fmt, _s["total"], help="Detected source format for the loaded dataset.")
     with _f2:
         st.plotly_chart(
             px.bar(
                 pd.DataFrame([{"Format": _fmt, "Entries": _s["total"]}]),
                 x="Format",
                 y="Entries",
-                title="Format Distribution",
+                title="Source Format",
             ),
             width="stretch",
         )

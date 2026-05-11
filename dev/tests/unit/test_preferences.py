@@ -10,7 +10,6 @@ EXPECTED_DEFAULT_KEYS = {
     "last_system_prompt",
     "preview_user_name",
     "preview_assistant_name",
-    "dataset_format",
     "confirm_delete_entries",
     "default_dataset_directory",
     "auto_backups_enabled",
@@ -46,7 +45,6 @@ def test_load_preferences_merges_saved_preferences_over_defaults(tmp_path, monke
     prefs_file.write_text(
         json.dumps(
             {
-                "dataset_format": "ShareGPT",
                 "preview_user_name": "Player",
                 "custom_future_key": "kept",
             }
@@ -57,7 +55,6 @@ def test_load_preferences_merges_saved_preferences_over_defaults(tmp_path, monke
 
     loaded = preferences.load_preferences()
 
-    assert loaded["dataset_format"] == "ShareGPT"
     assert loaded["preview_user_name"] == "Player"
     assert loaded["custom_future_key"] == "kept"
     assert loaded["backup_directory"] == preferences.DEFAULTS["backup_directory"]
@@ -83,7 +80,7 @@ def test_save_preferences_writes_utf8_json_with_trailing_newline(tmp_path, monke
     prefs_file = tmp_path / "prefs" / "preferences.json"
     monkeypatch.setattr(preferences, "PREFS_FILE", prefs_file)
     monkeypatch.setattr(preferences, "ensure_app_directories", lambda: prefs_file.parent.mkdir(parents=True))
-    prefs = {"preview_user_name": "Zoë", "dataset_format": "ChatML"}
+    prefs = {"preview_user_name": "Zoë", "custom_future_key": "kept"}
 
     preferences.save_preferences(prefs)
 

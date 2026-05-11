@@ -124,22 +124,6 @@ def render_settings_page() -> None:
     )
 
     st.divider()
-    st.subheader("Dataset Format")
-
-    def _persist_dataset_format():
-        st.session_state.dataset_format = st.session_state["_dataset_format_select"]
-        update_prefs({"dataset_format": st.session_state.dataset_format})
-
-    st.selectbox(
-        "Default dataset format",
-        options=["ChatML"],
-        index=["ChatML"].index(st.session_state.dataset_format)
-        if st.session_state.dataset_format in ["ChatML"] else 0,
-        key="_dataset_format_select",
-        on_change=_persist_dataset_format,
-    )
-
-    st.divider()
     st.subheader("Editing Safety")
 
     def _persist_confirm_delete():

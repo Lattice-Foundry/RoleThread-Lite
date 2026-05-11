@@ -107,7 +107,6 @@ def format_entry_summary_label(
     *,
     display_index: int,
     entry: dict,
-    dataset_format: str,
     errors: list[str] | None = None,
     tag_label_map: dict[str, str] | None = None,
 ) -> str:
@@ -120,8 +119,8 @@ def format_entry_summary_label(
     )
     exchange_count = count_exchanges(entry)
     label = (
-        f"Entry {display_index + 1} | FORMAT: {dataset_format} | "
-        f"TAGS: {tag_part} | EXCHANGES: {exchange_count}"
+        f"Entry {display_index + 1} | TAGS: {tag_part} | "
+        f"EXCHANGES: {exchange_count}"
     )
     if errors:
         label += " \u26a0\ufe0f"

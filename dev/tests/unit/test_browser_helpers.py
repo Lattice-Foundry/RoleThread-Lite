@@ -255,12 +255,11 @@ def test_format_entry_summary_label_for_tagged_entry():
     label = format_entry_summary_label(
         display_index=2,
         entry=_entry(tags=["slow_burn", "sex_toys"]),
-        dataset_format="chatml",
     )
 
     assert (
         label
-        == "Entry 3 | FORMAT: chatml | TAGS: Slow Burn, Sex Toys | EXCHANGES: 1"
+        == "Entry 3 | TAGS: Slow Burn, Sex Toys | EXCHANGES: 1"
     )
 
 
@@ -268,7 +267,6 @@ def test_format_entry_summary_label_uses_label_map_without_category_prefix():
     label = format_entry_summary_label(
         display_index=0,
         entry=_entry(tags=["slow_burn", "sex_toys"]),
-        dataset_format="chatml",
         tag_label_map={
             "slow_burn": "Pacing / Slow Burn",
             "sex_toys": "Props / Sex Toys",
@@ -277,7 +275,7 @@ def test_format_entry_summary_label_uses_label_map_without_category_prefix():
 
     assert (
         label
-        == "Entry 1 | FORMAT: chatml | TAGS: Slow Burn, Sex Toys | EXCHANGES: 1"
+        == "Entry 1 | TAGS: Slow Burn, Sex Toys | EXCHANGES: 1"
     )
 
 
@@ -285,17 +283,15 @@ def test_format_entry_summary_label_for_untagged_entry():
     label = format_entry_summary_label(
         display_index=0,
         entry=_entry(tags=[]),
-        dataset_format="sharegpt",
     )
 
-    assert label == "Entry 1 | FORMAT: sharegpt | TAGS: Untagged | EXCHANGES: 1"
+    assert label == "Entry 1 | TAGS: Untagged | EXCHANGES: 1"
 
 
 def test_format_entry_summary_label_appends_warning_marker_for_errors():
     label = format_entry_summary_label(
         display_index=0,
         entry=_entry(tags=["alpha"]),
-        dataset_format="chatml",
         errors=["Missing assistant message"],
     )
 

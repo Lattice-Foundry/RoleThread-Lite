@@ -4,8 +4,36 @@ from pathlib import Path
 import streamlit as st
 
 from core.dataset import save_dataset
+from core.format_conversion import (
+    FORMAT_CHATML,
+    FORMAT_SHAREGPT,
+    convert_chatml_to_format,
+)
 from ui.file_dialogs import browse_export_file, path_input
 from ui.session_state import ensure_entry_registry
+
+_EXPORT_FORMAT_OPTIONS = {
+    "ChatML": FORMAT_CHATML,
+    "ShareGPT": FORMAT_SHAREGPT,
+}
+
+
+def _prepare_export_entries(
+    entries: list[dict],
+    *,
+    export_format: str,
+    clean_export: bool,
+) -> list[dict]:
+    """Return entries in the requested export shape without mutating input."""
+    if export_format == FORMAT_SHAREGPT:
+        return convert_chatml_to_format(
+            entries,
+            target_format=FORMAT_SHAREGPT,
+            include_metadata=not clean_export,
+        ).entries
+    if clean_export:
+        return [{"messages": e["messages"]} for e in entries]
+    return entries
 
 
 def render_export_page() -> None:
@@ -26,6 +54,13 @@ def render_export_page() -> None:
         f"`{st.session_state.loaded_path or 'unknown'}`"
     )
 
+    _format_label = st.selectbox(
+        "Export format",
+        options=list(_EXPORT_FORMAT_OPTIONS),
+        key="export_format_select",
+    )
+    _export_format = _EXPORT_FORMAT_OPTIONS[_format_label]
+
     clean_export = st.checkbox("Clean — Tag data removed", value=False, key="export_clean")
 
     # Browse button opens save dialog (pure Tkinter → rerun, no save work done here).
@@ -44,10 +79,10 @@ def render_export_page() -> None:
             st.error("Set an export path or use Browse to pick a location.")
         else:
             try:
-                _out = (
-                    [{"messages": e["messages"]} for e in _export_entries]
-                    if clean_export
-                    else _export_entries
+                _out = _prepare_export_entries(
+                    _export_entries,
+                    export_format=_export_format,
+                    clean_export=clean_export,
                 )
                 save_dataset(_p, _out)
                 st.session_state["export_success_msg"] = (
