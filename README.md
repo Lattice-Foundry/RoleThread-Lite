@@ -33,6 +33,23 @@ LoreForge is designed with a strong focus on:
 
 ---
 
+## Backup & Recovery
+
+LoreForge creates local backups before important dataset and registry changes.
+
+For tag edit/delete operations, there is a small known V1 recovery window: the JSONL dataset is saved atomically before the tag database commit finishes. If the JSONL save succeeds but the database commit fails, the dataset may contain the updated tag state while the database still contains the previous registry state.
+
+This is rare in normal local single-user use, and both recovery materials are created before the operation:
+
+* Dataset backups live under `backups/datasets/<dataset_name>/`
+* SQLite database backups live under `backups/database/`
+
+To recover, close LoreForge, choose the matching backup file, and copy it over the current dataset or database file. Dataset backups restore the JSONL data. Database backups restore the tag registry, lifecycle metadata, and local app metadata.
+
+This limitation is known and may be tightened in a future version with stronger SQLite sync/transaction handling or a revised persistence order.
+
+---
+
 ## Planned Features
 
 * ShareGPT export support
