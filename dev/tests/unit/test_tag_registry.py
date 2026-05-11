@@ -32,6 +32,7 @@ from core.models import (
     TagCategory,
     TagLifecycleMetadata,
 )
+from services.tag_lifecycle_service import create_custom_tag
 
 
 @pytest.fixture
@@ -1141,7 +1142,7 @@ def test_custom_tag_backup_failure_aborts_mutation(tag_db, monkeypatch):
 
     monkeypatch.setattr(tag_registry, "create_db_backup", fail_backup)
 
-    ok, message = tag_registry.create_custom_tag(category_id, "Slow Burn")
+    ok, message = create_custom_tag(category_id, "Slow Burn")
 
     assert ok is False
     assert "Could not create database backup" in message

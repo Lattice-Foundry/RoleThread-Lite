@@ -4,8 +4,6 @@ import streamlit as st
 from core.dataset import TAGS, build_entry_registry, get_entry_tags
 from core.tag_registry import (
     _MAX_ACTIVE_CATEGORIES,
-    create_custom_category,
-    create_custom_tag,
     get_full_tag_registry,
     get_visible_archived_tags,
     prettify_tag_name,
@@ -21,6 +19,8 @@ from ui.tag_management_helpers import (
 )
 from services.tag_lifecycle_service import (
     assign_archived_imported_tags_to_category,
+    create_custom_category,
+    create_custom_tag,
     delete_active_tag,
     delete_empty_custom_category,
     edit_active_tag,

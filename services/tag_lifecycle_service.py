@@ -4,6 +4,8 @@ import copy
 import json
 from pathlib import Path
 
+from sqlalchemy import func
+
 from core.backups import create_dataset_backup
 from core.dataset import TAGS, get_entry_tags, normalize_dataset_tags, save_dataset, set_entry_tags
 import core.tag_registry as tag_registry
@@ -267,6 +269,113 @@ def _alias_slug_is_reserved(session, slug: str, *, old_slug: str) -> bool:
         .first()
         is not None
     )
+
+
+def create_custom_category(name: str) -> tuple[bool, str]:
+    """Validate and insert a user-defined tag category."""
+    name = name.strip()
+    if not name:
+        return False, "Category name cannot be empty."
+
+    slug = tag_registry.slugify_tag_name(name)
+    if not slug:
+        return False, "Could not generate a valid slug from the provided name."
+
+    display_name = tag_registry.prettify_tag_name(slug)
+
+    with LifecyclePipeline() as pipeline:
+        session = pipeline.session
+        try:
+            if session.query(TagCategory).filter_by(slug=slug).first() is not None:
+                return False, f"A category with slug '{slug}' already exists."
+
+            active_count = session.query(TagCategory).filter_by(is_active=True).count()
+            if active_count >= tag_registry._MAX_ACTIVE_CATEGORIES:
+                return (
+                    False,
+                    f"Category limit reached. "
+                    f"This version supports {tag_registry._MAX_ACTIVE_CATEGORIES} active categories.",
+                )
+
+            max_order: int = session.query(func.max(TagCategory.sort_order)).scalar() or 0
+
+            backup_error = pipeline.create_db_backup(failure_fields={})
+            if backup_error is not None:
+                return backup_error.ok, backup_error.message
+
+            category = TagCategory(
+                name=display_name,
+                slug=slug,
+                sort_order=max_order + 1,
+                is_active=True,
+            )
+            session.add(category)
+            result = pipeline.commit_success(
+                message="Category created.",
+                success_fields={},
+                error_fields={},
+            )
+            return result.ok, result.message
+        except Exception as exc:
+            result = pipeline.database_error(exc, fields={})
+            return result.ok, result.message
+
+
+def create_custom_tag(category_id: int, name: str) -> tuple[bool, str]:
+    """Validate and insert a custom tag into an existing category."""
+    name = name.strip()
+    if not name:
+        return False, "Tag name cannot be empty."
+
+    slug = tag_registry.slugify_tag_name(name)
+    if not slug:
+        return False, "Could not generate a valid slug from the provided name."
+
+    display_name = tag_registry.prettify_tag_name(slug)
+
+    with LifecyclePipeline() as pipeline:
+        session = pipeline.session
+        try:
+            category = (
+                session.query(TagCategory)
+                .filter_by(id=category_id, is_active=True)
+                .first()
+            )
+            if category is None:
+                return False, "Selected category does not exist or is inactive."
+
+            if session.query(Tag).filter_by(slug=slug).first() is not None:
+                return False, f"A tag with slug '{slug}' already exists."
+
+            max_order: int = (
+                session.query(func.max(Tag.sort_order))
+                .filter_by(category_id=category_id)
+                .scalar()
+            ) or 0
+
+            backup_error = pipeline.create_db_backup(failure_fields={})
+            if backup_error is not None:
+                return backup_error.ok, backup_error.message
+
+            tag = Tag(
+                category_id=category_id,
+                name=display_name,
+                slug=slug,
+                sort_order=max_order + 1,
+                is_active=True,
+                is_builtin=False,
+                status=TAG_STATUS_ACTIVE,
+            )
+            session.add(tag)
+            result = pipeline.commit_success(
+                message="Tag created.",
+                success_fields={},
+                error_fields={},
+            )
+            return result.ok, result.message
+        except Exception as exc:
+            result = pipeline.database_error(exc, fields={})
+            return result.ok, result.message
 
 
 def assign_archived_imported_tags_to_category(
