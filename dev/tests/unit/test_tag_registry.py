@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, inspect as sa_inspect, text
 from sqlalchemy.orm import sessionmaker
 
 import core.tag_registry as tag_registry
+import core.tag_migrations as tag_migrations
 from core.dataset import normalize_dataset_tags
 from core.tag_constants import (
     TAG_LIFECYCLE_METADATA_ARCHIVE,
@@ -43,6 +44,7 @@ def tag_db(tmp_path, monkeypatch):
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_migrations, "engine", engine)
     monkeypatch.setattr(
         tag_registry,
         "create_db_backup",
@@ -210,6 +212,7 @@ def test_old_tag_history_rows_migrate_to_lifecycle_metadata(tmp_path, monkeypatc
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_migrations, "engine", engine)
 
     with engine.begin() as conn:
         conn.execute(
@@ -270,8 +273,8 @@ def test_old_tag_history_rows_migrate_to_lifecycle_metadata(tmp_path, monkeypatc
     finally:
         session.close()
 
-    tag_registry._migrate_tag_lifecycle_schema()
-    tag_registry._migrate_tag_lifecycle_schema()
+    tag_migrations._migrate_tag_lifecycle_schema()
+    tag_migrations._migrate_tag_lifecycle_schema()
 
     session = session_factory()
     try:
@@ -301,7 +304,7 @@ def test_uncategorized_tags_migrate_to_archived(tag_db):
     finally:
         session.close()
 
-    tag_registry._migrate_tag_lifecycle_schema()
+    tag_migrations._migrate_tag_lifecycle_schema()
 
     session = tag_db()
     try:
@@ -1150,6 +1153,7 @@ def test_lifecycle_migration_updates_legacy_tags_table(tmp_path, monkeypatch):
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_migrations, "engine", engine)
 
     with engine.begin() as conn:
         conn.execute(
@@ -1208,9 +1212,9 @@ def test_lifecycle_migration_updates_legacy_tags_table(tmp_path, monkeypatch):
             )
         )
 
-    tag_registry._migrate_tags_slug_column()
-    tag_registry._migrate_tag_lifecycle_schema()
-    tag_registry._migrate_tag_lifecycle_schema()
+    tag_migrations._migrate_tags_slug_column()
+    tag_migrations._migrate_tag_lifecycle_schema()
+    tag_migrations._migrate_tag_lifecycle_schema()
 
     inspector = sa_inspect(engine)
     assert "tag_lifecycle_metadata" in inspector.get_table_names()
