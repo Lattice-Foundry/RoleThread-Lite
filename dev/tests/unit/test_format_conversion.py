@@ -6,6 +6,7 @@ from core.format_conversion import (
     chatml_to_sharegpt_entry,
     convert_chatml_to_format,
     convert_records_to_chatml,
+    detect_custom_role_pattern,
     detect_record_format,
     detect_records_format,
     sharegpt_to_chatml_entry,
@@ -171,13 +172,77 @@ def test_sharegpt_to_chatml_reports_empty_missing_and_unknown_turns():
 
     assert result.entry["messages"] == [
         {"role": "system", "content": SHAREGPT_INTERNAL_SYSTEM_PROMPT},
+        {"role": "critic", "content": "Nope"},
         {"role": "user", "content": ""},
     ]
     warnings = "\n".join(result.diagnostics.warnings)
     assert "not an object" in warnings
-    assert "unknown role" in warnings
+    assert "non-standard role 'critic'" in warnings
     assert "missing a content field" in warnings
     assert "missing a role field" in warnings
+
+
+def test_sharegpt_to_chatml_preserves_unknown_role_content():
+    result = sharegpt_to_chatml_entry(
+        {
+            "conversations": [
+                {"from": "Scott", "value": "Hi"},
+                {"from": "Emma", "value": "Hello"},
+            ]
+        }
+    )
+
+    assert result.entry["messages"] == [
+        {"role": "system", "content": SHAREGPT_INTERNAL_SYSTEM_PROMPT},
+        {"role": "Scott", "content": "Hi"},
+        {"role": "Emma", "content": "Hello"},
+    ]
+    warnings = "\n".join(result.diagnostics.warnings)
+    assert "Turn 0 has non-standard role 'Scott' - manual role mapping needed." in warnings
+    assert "Turn 1 has non-standard role 'Emma' - manual role mapping needed." in warnings
+
+
+def test_detect_custom_role_pattern_suggests_alternating_mapping():
+    summary = detect_custom_role_pattern([
+        {
+            "conversations": [
+                {"from": "Scott", "value": "Hi"},
+                {"from": "Emma", "value": "Hello"},
+                {"from": "Scott", "value": "Again"},
+                {"from": "Emma", "value": "Reply"},
+            ]
+        }
+    ])
+
+    assert summary.detected is True
+    assert summary.suggested_mapping == {
+        "Scott": "user",
+        "Emma": "assistant",
+    }
+    assert summary.message == (
+        "Custom role names detected - likely maps to standard roles: "
+        "Scott appears to be 'user', Emma appears to be 'assistant'."
+    )
+
+
+def test_convert_records_to_chatml_reports_custom_role_pattern():
+    result = convert_records_to_chatml(
+        [
+            {
+                "conversations": [
+                    {"from": "Scott", "value": "Hi"},
+                    {"from": "Emma", "value": "Hello"},
+                ]
+            }
+        ],
+        source_format=FORMAT_SHAREGPT,
+    )
+
+    assert result.entries[0]["messages"][1:] == [
+        {"role": "Scott", "content": "Hi"},
+        {"role": "Emma", "content": "Hello"},
+    ]
+    assert any("Scott appears to be 'user'" in warning for warning in result.warnings)
 
 
 def test_sharegpt_to_chatml_reports_empty_conversations():

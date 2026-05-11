@@ -85,6 +85,13 @@ def _render_load_format_summary(normalization) -> None:
     else:
         st.info(f"Detected format: {_format_source_format(source_format)}.")
 
+    if normalization.parse_error_count:
+        st.warning(
+            f"Loaded {normalization.parsed_entry_count} entr(y/ies) from "
+            f"{normalization.source_line_count} non-empty line(s). "
+            f"{normalization.parse_error_count} line(s) had parse errors."
+        )
+
     warnings = list(normalization.format_warnings or [])
     for warning in warnings[:3]:
         st.caption(f"Conversion warning: {warning}")
@@ -97,12 +104,12 @@ def _render_load_format_summary(normalization) -> None:
         or diagnostics.entries_with_warnings
         or diagnostics.auto_repairable_count
     ):
-        parts = [
-            f"{diagnostics.valid_entries} valid",
-            f"{diagnostics.entries_with_warnings} with warnings",
-            f"{diagnostics.entries_with_errors} with errors",
-        ]
-        st.info(f"Dataset diagnostics: {', '.join(parts)}.")
+        issue_entries = max(0, diagnostics.entries_analyzed - diagnostics.valid_entries)
+        st.info(
+            "Dataset diagnostics: "
+            f"{diagnostics.entries_analyzed} entr(y/ies) loaded "
+            f"({diagnostics.valid_entries} valid, {issue_entries} with issues)."
+        )
         if diagnostics.auto_repairable_count:
             st.caption(
                 f"{diagnostics.auto_repairable_count} auto-fixable issue(s) detected."
@@ -173,8 +180,10 @@ def render_manage_page() -> None:
             normalization, errors = load_dataset_with_summary(p)
             entries = normalization.entries
             if errors:
-                for e in errors:
+                for e in errors[:3]:
                     st.error(e)
+                if len(errors) > 3:
+                    st.caption(f"{len(errors) - 3} additional load error(s) hidden.")
             if errors and not entries:
                 st.error("No dataset was loaded.")
                 return

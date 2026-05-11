@@ -58,6 +58,16 @@ class BatchConversionResult:
     warnings: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class CustomRolePatternSummary:
+    """Detected custom-role pattern and suggested standard mapping."""
+
+    detected: bool = False
+    roles: tuple[str, ...] = ()
+    suggested_mapping: dict[str, str] = field(default_factory=dict)
+    message: str | None = None
+
+
 def detect_record_format(record: dict) -> str:
     """Return ``chatml``, ``sharegpt``, or ``unknown`` for one parsed record."""
     if not isinstance(record, dict):
@@ -109,6 +119,53 @@ def detect_records_format(records: list[dict]) -> FormatDetectionSummary:
     )
 
 
+def detect_custom_role_pattern(records: list[dict]) -> CustomRolePatternSummary:
+    """Detect simple alternating custom-role patterns in ShareGPT records."""
+    role_sequence: list[str] = []
+    for record in records:
+        conversations = record.get("conversations") if isinstance(record, dict) else None
+        if not isinstance(conversations, list):
+            continue
+        for turn in conversations:
+            if not isinstance(turn, dict):
+                continue
+            raw_role = _first_present(turn, _ROLE_FIELD_KEYS)
+            if raw_role is None or _map_sharegpt_role(raw_role) is not None:
+                continue
+            role = str(raw_role).strip()
+            if role:
+                role_sequence.append(role)
+
+    roles = tuple(dict.fromkeys(role_sequence))
+    if len(roles) == 2 and _alternates(role_sequence, roles):
+        mapping = {roles[0]: "user", roles[1]: "assistant"}
+        return CustomRolePatternSummary(
+            detected=True,
+            roles=roles,
+            suggested_mapping=mapping,
+            message=_custom_role_mapping_message(mapping),
+        )
+
+    if len(roles) == 3 and role_sequence and role_sequence[0] == roles[0]:
+        first_role_count = role_sequence.count(roles[0])
+        remaining_roles = roles[1:]
+        remaining_sequence = role_sequence[1:]
+        if first_role_count == 1 and _alternates(remaining_sequence, remaining_roles):
+            mapping = {
+                roles[0]: "system",
+                roles[1]: "user",
+                roles[2]: "assistant",
+            }
+            return CustomRolePatternSummary(
+                detected=True,
+                roles=roles,
+                suggested_mapping=mapping,
+                message=_custom_role_mapping_message(mapping),
+            )
+
+    return CustomRolePatternSummary(roles=roles)
+
+
 def sharegpt_to_chatml_entry(
     record: dict,
     *,
@@ -144,7 +201,10 @@ def sharegpt_to_chatml_entry(
 
         mapped_role = _map_sharegpt_role(raw_role)
         if mapped_role is None:
-            warnings.append(f"Conversation turn {index} has unknown role: {raw_role}")
+            warnings.append(
+                f"Turn {index} has non-standard role '{raw_role}' - manual role mapping needed."
+            )
+            converted_messages.append({"role": str(raw_role), "content": str(raw_content)})
             continue
 
         mapped_roles[str(raw_role)] = mapped_role
@@ -259,6 +319,9 @@ def convert_records_to_chatml(
 
     converted_entries: list[dict] = []
     warnings: list[str] = []
+    role_pattern = detect_custom_role_pattern(records)
+    if role_pattern.detected and role_pattern.message:
+        warnings.append(role_pattern.message)
     for index, record in enumerate(records):
         result = sharegpt_to_chatml_entry(
             record,
@@ -342,6 +405,17 @@ def _map_chatml_role(raw_role: object) -> str | None:
     if role == "system":
         return "system"
     return None
+
+
+def _alternates(sequence: list[str], roles: tuple[str, ...]) -> bool:
+    if not sequence or len(roles) != 2:
+        return False
+    return all(role == roles[index % 2] for index, role in enumerate(sequence))
+
+
+def _custom_role_mapping_message(mapping: dict[str, str]) -> str:
+    pairs = ", ".join(f"{role} appears to be '{target}'" for role, target in mapping.items())
+    return f"Custom role names detected - likely maps to standard roles: {pairs}."
 
 
 def _top_level_metadata(record: dict, *, exclude: set[str]) -> dict:

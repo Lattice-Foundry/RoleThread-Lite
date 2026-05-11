@@ -712,6 +712,23 @@ def test_load_dataset_records_parse_errors_but_keeps_valid_lines(tmp_path):
     assert loaded == [valid]
     assert len(errors) == 1
     assert "Line 2" in errors[0]
+    assert "column 2" in errors[0]
+
+
+def test_load_dataset_with_summary_reports_parse_line_breakdown(tmp_path):
+    path = tmp_path / "mixed.jsonl"
+    valid = _entry(tags=["greeting"])
+    path.write_text(
+        json.dumps(valid, ensure_ascii=False) + "\n{not valid json}\n",
+        encoding="utf-8",
+    )
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert len(errors) == 1
+    assert summary.source_line_count == 2
+    assert summary.parsed_entry_count == 1
+    assert summary.parse_error_count == 1
 
 
 def test_load_dataset_rejects_unsupported_file_extension(tmp_path):

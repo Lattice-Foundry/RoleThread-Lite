@@ -77,6 +77,9 @@ class TagNormalizationSummary:
     format_converted_count: int = 0
     format_already_target_count: int = 0
     format_warnings: list[str] = field(default_factory=list)
+    source_line_count: int = 0
+    parsed_entry_count: int = 0
+    parse_error_count: int = 0
     diagnostics: DatasetDiagnosticSummary = field(default_factory=DatasetDiagnosticSummary)
 
 
@@ -179,7 +182,10 @@ def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[
             source_format=FORMAT_UNKNOWN,
         ), ["File is not valid UTF-8 text and cannot be loaded as a dataset."]
 
-    entries, parse_errors = _parse_dataset_entries(content, extension)
+    entries, parse_errors, source_line_count, parse_error_count = _parse_dataset_entries(
+        content,
+        extension,
+    )
 
     detection = detect_records_format(entries)
     conversion_entries = entries
@@ -203,14 +209,21 @@ def load_dataset_with_summary(path: str) -> tuple[TagNormalizationSummary, list[
     summary.format_converted_count = converted_count
     summary.format_already_target_count = already_target_count
     summary.format_warnings = format_warnings
+    summary.source_line_count = source_line_count
+    summary.parsed_entry_count = len(entries)
+    summary.parse_error_count = parse_error_count
     summary.diagnostics = summarize_entry_analysis(summary.entries)
     return summary, parse_errors
 
 
-def _parse_dataset_entries(content: str, extension: str) -> tuple[list[dict], list[str]]:
+def _parse_dataset_entries(
+    content: str,
+    extension: str,
+) -> tuple[list[dict], list[str], int, int]:
     stripped = content.strip()
+    source_line_count = sum(1 for line in content.splitlines() if line.strip())
     if not stripped:
-        return [], []
+        return [], [], 0, 0
 
     if stripped.startswith("["):
         try:
@@ -219,10 +232,10 @@ def _parse_dataset_entries(content: str, extension: str) -> tuple[list[dict], li
             pass
         else:
             if not isinstance(parsed, list):
-                return [], ["JSON array file detected but root value is not a list."]
+                return [], ["JSON array file detected but root value is not a list."], source_line_count, 0
             if not all(isinstance(item, dict) for item in parsed):
-                return [], ["JSON array file detected but contains non-object items."]
-            return list(parsed), []
+                return [], ["JSON array file detected but contains non-object items."], source_line_count, 0
+            return list(parsed), [], source_line_count, 0
 
     if extension == ".json" and stripped.startswith("{"):
         try:
@@ -231,13 +244,18 @@ def _parse_dataset_entries(content: str, extension: str) -> tuple[list[dict], li
             pass
         else:
             if not isinstance(parsed, dict):
-                return [], ["JSON file root value must be an object or array."]
+                return [], ["JSON file root value must be an object or array."], source_line_count, 0
             if not (_TRAINING_OBJECT_KEYS & set(parsed)):
-                return [], [
-                    "File contains a valid JSON object but it does not appear "
-                    "to be a training dataset entry."
-                ]
-            return [parsed], []
+                return (
+                    [],
+                    [
+                        "File contains a valid JSON object but it does not appear "
+                        "to be a training dataset entry."
+                    ],
+                    source_line_count,
+                    0,
+                )
+            return [parsed], [], source_line_count, 0
 
     entries: list[dict] = []
     parse_errors: list[str] = []
@@ -255,7 +273,7 @@ def _parse_dataset_entries(content: str, extension: str) -> tuple[list[dict], li
         parse_errors.append(
             f"No valid entries could be loaded. {len(parse_errors)} line(s) had parse errors."
         )
-    return entries, parse_errors
+    return entries, parse_errors, source_line_count, len(parse_errors) - (1 if not entries and parse_errors else 0)
 
 
 def summarize_entry_analysis(entries: list[dict]) -> DatasetDiagnosticSummary:
