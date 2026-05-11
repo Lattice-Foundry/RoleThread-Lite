@@ -39,6 +39,17 @@ CHATML_MESSAGE_NOT_DICT = "chatml.message_not_dict"
 CHATML_WRONG_ROLE = "chatml.wrong_role"
 CHATML_EMPTY_CONTENT = "chatml.empty_content"
 
+SHAREGPT_MISSING_CONVERSATIONS = "sharegpt.missing_conversations"
+SHAREGPT_CONVERSATIONS_NOT_LIST = "sharegpt.conversations_not_list"
+SHAREGPT_EMPTY_CONVERSATIONS = "sharegpt.empty_conversations"
+SHAREGPT_TURN_NOT_DICT = "sharegpt.turn_not_dict"
+SHAREGPT_MISSING_ROLE_FIELD = "sharegpt.missing_role_field"
+SHAREGPT_MISSING_CONTENT_FIELD = "sharegpt.missing_content_field"
+SHAREGPT_UNKNOWN_ROLE = "sharegpt.unknown_role"
+SHAREGPT_EMPTY_CONTENT = "sharegpt.empty_content"
+SHAREGPT_MULTIPLE_SYSTEM_TURNS = "sharegpt.multiple_system_turns"
+SHAREGPT_NO_SYSTEM_TURN = "sharegpt.no_system_turn"
+
 
 @dataclass(frozen=True)
 class EntryDiagnostic:
@@ -376,3 +387,181 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             expected_role = "assistant" if expected_role == "user" else "user"
 
         return tuple(diagnostics)
+
+
+class ShareGPTAnalyzer(BaseEntryAnalyzer):
+    """Analyze ShareGPT import structure with lenient import diagnostics."""
+
+    FORMAT = "sharegpt"
+    KNOWN_TOP_LEVEL_KEYS: ClassVar[frozenset[str]] = (
+        BaseEntryAnalyzer.KNOWN_TOP_LEVEL_KEYS
+        | frozenset({
+            "conversations",
+            "conversation",
+            "id",
+            "title",
+            "source",
+            "model",
+        })
+    )
+    ROLE_FIELD_KEYS: ClassVar[tuple[str, ...]] = ("from", "role", "speaker")
+    CONTENT_FIELD_KEYS: ClassVar[tuple[str, ...]] = ("value", "content", "text")
+    USER_ROLES: ClassVar[frozenset[str]] = frozenset({"human", "user"})
+    ASSISTANT_ROLES: ClassVar[frozenset[str]] = frozenset({
+        "gpt",
+        "assistant",
+        "bot",
+        "model",
+    })
+    SYSTEM_ROLES: ClassVar[frozenset[str]] = frozenset({"system"})
+
+    def analyze(self, entry: object, *, entry_index: int | None = None) -> EntryAnalysisResult:
+        """Run base and ShareGPT-specific checks."""
+        diagnostics = list(self._analyze_base(entry))
+        if isinstance(entry, dict):
+            diagnostics.extend(self._analyze_sharegpt(entry))
+        return self._result(
+            entry_index=entry_index,
+            diagnostics=tuple(diagnostics),
+        )
+
+    def _analyze_sharegpt(self, entry: dict) -> tuple[EntryDiagnostic, ...]:
+        if "conversations" not in entry:
+            return (
+                EntryDiagnostic(
+                    code=SHAREGPT_MISSING_CONVERSATIONS,
+                    severity=AnalysisSeverity.ERROR,
+                    message="Missing 'conversations' key",
+                    path=("conversations",),
+                ),
+            )
+
+        conversations = entry["conversations"]
+        if not isinstance(conversations, list):
+            return (
+                EntryDiagnostic(
+                    code=SHAREGPT_CONVERSATIONS_NOT_LIST,
+                    severity=AnalysisSeverity.ERROR,
+                    message="'conversations' must be a list",
+                    path=("conversations",),
+                    original_value=conversations,
+                ),
+            )
+
+        if not conversations:
+            return (
+                EntryDiagnostic(
+                    code=SHAREGPT_EMPTY_CONVERSATIONS,
+                    severity=AnalysisSeverity.ERROR,
+                    message="'conversations' must contain at least one turn",
+                    path=("conversations",),
+                    original_value=0,
+                ),
+            )
+
+        diagnostics: list[EntryDiagnostic] = []
+        system_turn_count = 0
+        for index, turn in enumerate(conversations):
+            if not isinstance(turn, dict):
+                diagnostics.append(
+                    EntryDiagnostic(
+                        code=SHAREGPT_TURN_NOT_DICT,
+                        severity=AnalysisSeverity.ERROR,
+                        message=f"Conversation turn {index} is not a dict",
+                        path=("conversations", index),
+                        original_value=turn,
+                    )
+                )
+                continue
+
+            role_key, raw_role = self._first_present(turn, self.ROLE_FIELD_KEYS)
+            content_key, raw_content = self._first_present(turn, self.CONTENT_FIELD_KEYS)
+
+            if role_key is None:
+                diagnostics.append(
+                    EntryDiagnostic(
+                        code=SHAREGPT_MISSING_ROLE_FIELD,
+                        severity=AnalysisSeverity.ERROR,
+                        message=f"Conversation turn {index} is missing a role field",
+                        path=("conversations", index),
+                    )
+                )
+            else:
+                mapped_role = self._map_role(raw_role)
+                if mapped_role is None:
+                    diagnostics.append(
+                        EntryDiagnostic(
+                            code=SHAREGPT_UNKNOWN_ROLE,
+                            severity=AnalysisSeverity.WARNING,
+                            message=f"Conversation turn {index} has unknown role: {raw_role}",
+                            path=("conversations", index, role_key),
+                            original_value=raw_role,
+                        )
+                    )
+                elif mapped_role == "system":
+                    system_turn_count += 1
+
+            if content_key is None:
+                diagnostics.append(
+                    EntryDiagnostic(
+                        code=SHAREGPT_MISSING_CONTENT_FIELD,
+                        severity=AnalysisSeverity.ERROR,
+                        message=f"Conversation turn {index} is missing a content field",
+                        path=("conversations", index),
+                    )
+                )
+            elif not str(raw_content).strip():
+                diagnostics.append(
+                    EntryDiagnostic(
+                        code=SHAREGPT_EMPTY_CONTENT,
+                        severity=AnalysisSeverity.WARNING,
+                        message=f"Conversation turn {index} has empty content",
+                        path=("conversations", index, content_key),
+                        original_value=raw_content,
+                    )
+                )
+
+        if system_turn_count > 1:
+            diagnostics.append(
+                EntryDiagnostic(
+                    code=SHAREGPT_MULTIPLE_SYSTEM_TURNS,
+                    severity=AnalysisSeverity.INFO,
+                    message="ShareGPT entry contains multiple system turns.",
+                    path=("conversations",),
+                    original_value=system_turn_count,
+                )
+            )
+        elif system_turn_count == 0:
+            diagnostics.append(
+                EntryDiagnostic(
+                    code=SHAREGPT_NO_SYSTEM_TURN,
+                    severity=AnalysisSeverity.INFO,
+                    message="ShareGPT entry has no system turn; LoreForge can inject one during conversion.",
+                    path=("conversations",),
+                    fixable=True,
+                    repair_kind=RepairKind.AUTOMATIC,
+                    suggested_repair="Inject LoreForge's internal ShareGPT import system prompt.",
+                )
+            )
+
+        return tuple(diagnostics)
+
+    def _first_present(
+        self,
+        turn: dict,
+        keys: tuple[str, ...],
+    ) -> tuple[str | None, object | None]:
+        for key in keys:
+            if key in turn:
+                return key, turn[key]
+        return None, None
+
+    def _map_role(self, raw_role: object) -> str | None:
+        role = str(raw_role).strip().lower()
+        if role in self.USER_ROLES:
+            return "user"
+        if role in self.ASSISTANT_ROLES:
+            return "assistant"
+        if role in self.SYSTEM_ROLES:
+            return "system"
+        return None

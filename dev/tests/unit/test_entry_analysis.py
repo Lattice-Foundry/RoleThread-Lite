@@ -20,12 +20,23 @@ from core.entry_analysis import (
     CHATML_MISSING_SYSTEM_ROLE,
     CHATML_SYSTEM_NOT_DICT,
     CHATML_WRONG_ROLE,
+    SHAREGPT_CONVERSATIONS_NOT_LIST,
+    SHAREGPT_EMPTY_CONTENT,
+    SHAREGPT_EMPTY_CONVERSATIONS,
+    SHAREGPT_MISSING_CONTENT_FIELD,
+    SHAREGPT_MISSING_CONVERSATIONS,
+    SHAREGPT_MISSING_ROLE_FIELD,
+    SHAREGPT_MULTIPLE_SYSTEM_TURNS,
+    SHAREGPT_NO_SYSTEM_TURN,
+    SHAREGPT_TURN_NOT_DICT,
+    SHAREGPT_UNKNOWN_ROLE,
     AnalysisSeverity,
     BaseEntryAnalyzer,
     ChatMLAnalyzer,
     EntryAnalysisResult,
     EntryDiagnostic,
     RepairKind,
+    ShareGPTAnalyzer,
 )
 
 
@@ -42,6 +53,18 @@ def _entry(*, messages=None, tags=None):
             {"role": "system", "content": "System"},
             {"role": "user", "content": "Hi"},
             {"role": "assistant", "content": "Hello"},
+        ],
+        "tags": [] if tags is None else tags,
+    }
+
+
+def _sharegpt_entry(*, conversations=None, tags=None):
+    return {
+        "conversations": conversations
+        or [
+            {"from": "system", "value": "System"},
+            {"from": "human", "value": "Hi"},
+            {"from": "gpt", "value": "Hello"},
         ],
         "tags": [] if tags is None else tags,
     }
@@ -470,3 +493,222 @@ def test_chatml_analyzer_error_messages_match_validate_entry_for_representative_
             if diagnostic.severity == AnalysisSeverity.ERROR
         ]
         assert result_messages == validate_entry(entry)
+
+
+def test_sharegpt_analyzer_accepts_valid_entry_without_diagnostics():
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry())
+
+    assert result.format == "sharegpt"
+    assert result.is_valid is True
+    assert result.diagnostics == ()
+
+
+def test_sharegpt_analyzer_reports_missing_conversations_key():
+    result = ShareGPTAnalyzer().analyze({"tags": []})
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_MISSING_CONVERSATIONS)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "Missing 'conversations' key"
+    assert diagnostic.path == ("conversations",)
+
+
+def test_sharegpt_analyzer_reports_conversations_not_list():
+    result = ShareGPTAnalyzer().analyze({"conversations": "bad", "tags": []})
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_CONVERSATIONS_NOT_LIST)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "'conversations' must be a list"
+    assert diagnostic.path == ("conversations",)
+    assert diagnostic.original_value == "bad"
+
+
+def test_sharegpt_analyzer_reports_empty_conversations():
+    result = ShareGPTAnalyzer().analyze({"conversations": [], "tags": []})
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_EMPTY_CONVERSATIONS)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "'conversations' must contain at least one turn"
+    assert diagnostic.path == ("conversations",)
+    assert diagnostic.original_value == 0
+
+
+def test_sharegpt_analyzer_reports_turn_not_dict_with_indexed_path():
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        "bad",
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_TURN_NOT_DICT)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "Conversation turn 1 is not a dict"
+    assert diagnostic.path == ("conversations", 1)
+    assert diagnostic.original_value == "bad"
+
+
+def test_sharegpt_analyzer_reports_missing_role_field():
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {"value": "Hi"},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_MISSING_ROLE_FIELD)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "Conversation turn 1 is missing a role field"
+    assert diagnostic.path == ("conversations", 1)
+
+
+def test_sharegpt_analyzer_reports_missing_content_field():
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {"from": "human"},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_MISSING_CONTENT_FIELD)
+
+    assert result.is_valid is False
+    assert diagnostic.severity == AnalysisSeverity.ERROR
+    assert diagnostic.message == "Conversation turn 1 is missing a content field"
+    assert diagnostic.path == ("conversations", 1)
+
+
+def test_sharegpt_analyzer_reports_unknown_role_as_warning():
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {"from": "narrator", "value": "Hi"},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_UNKNOWN_ROLE)
+
+    assert result.is_valid is True
+    assert diagnostic.severity == AnalysisSeverity.WARNING
+    assert diagnostic.message == "Conversation turn 1 has unknown role: narrator"
+    assert diagnostic.path == ("conversations", 1, "from")
+    assert diagnostic.original_value == "narrator"
+
+
+def test_sharegpt_analyzer_reports_empty_content_as_warning():
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {"from": "human", "value": "   "},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_EMPTY_CONTENT)
+
+    assert result.is_valid is True
+    assert diagnostic.severity == AnalysisSeverity.WARNING
+    assert diagnostic.message == "Conversation turn 1 has empty content"
+    assert diagnostic.path == ("conversations", 1, "value")
+    assert diagnostic.original_value == "   "
+
+
+def test_sharegpt_analyzer_reports_multiple_system_turns_as_info():
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {"from": "system", "value": "More system"},
+        {"from": "human", "value": "Hi"},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_MULTIPLE_SYSTEM_TURNS)
+
+    assert result.is_valid is True
+    assert diagnostic.severity == AnalysisSeverity.INFO
+    assert diagnostic.message == "ShareGPT entry contains multiple system turns."
+    assert diagnostic.path == ("conversations",)
+    assert diagnostic.original_value == 2
+
+
+def test_sharegpt_analyzer_reports_no_system_turn_as_info():
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "human", "value": "Hi"},
+        {"from": "gpt", "value": "Hello"},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, SHAREGPT_NO_SYSTEM_TURN)
+
+    assert result.is_valid is True
+    assert diagnostic.severity == AnalysisSeverity.INFO
+    assert diagnostic.path == ("conversations",)
+    assert diagnostic.fixable is True
+    assert diagnostic.repair_kind == RepairKind.AUTOMATIC
+
+
+def test_sharegpt_analyzer_collects_multiple_simultaneous_issues():
+    result = ShareGPTAnalyzer().analyze({
+        "conversations": [
+            {"from": "system", "value": "System"},
+            "bad",
+            {"from": "narrator"},
+            {"value": ""},
+        ],
+        "tags": ["slow_burn", 7],
+    })
+
+    codes = {diagnostic.code for diagnostic in result.diagnostics}
+
+    assert result.is_valid is False
+    assert {
+        BASE_INVALID_TAG_VALUE,
+        SHAREGPT_TURN_NOT_DICT,
+        SHAREGPT_UNKNOWN_ROLE,
+        SHAREGPT_MISSING_CONTENT_FIELD,
+        SHAREGPT_MISSING_ROLE_FIELD,
+        SHAREGPT_EMPTY_CONTENT,
+    }.issubset(codes)
+    assert _diagnostic_by_code(result, BASE_INVALID_TAG_VALUE).severity == (
+        AnalysisSeverity.WARNING
+    )
+
+
+def test_sharegpt_analyzer_runs_base_checks_alongside_sharegpt_checks():
+    result = ShareGPTAnalyzer().analyze({"tags": "bad"})
+
+    codes = {diagnostic.code for diagnostic in result.diagnostics}
+
+    assert result.is_valid is False
+    assert codes == {BASE_TAGS_NOT_LIST, SHAREGPT_MISSING_CONVERSATIONS}
+    assert _diagnostic_by_code(result, BASE_TAGS_NOT_LIST).severity == (
+        AnalysisSeverity.WARNING
+    )
+    assert _diagnostic_by_code(result, SHAREGPT_MISSING_CONVERSATIONS).severity == (
+        AnalysisSeverity.ERROR
+    )
+
+
+@pytest.mark.parametrize("role_key", ["from", "role", "speaker"])
+def test_sharegpt_analyzer_detects_role_field_variants(role_key):
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {role_key: "human", "value": "Hi"},
+    ]))
+
+    assert SHAREGPT_MISSING_ROLE_FIELD not in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }
+    assert SHAREGPT_UNKNOWN_ROLE not in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }
+
+
+@pytest.mark.parametrize("content_key", ["value", "content", "text"])
+def test_sharegpt_analyzer_detects_content_field_variants(content_key):
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {"from": "human", content_key: "Hi"},
+    ]))
+
+    assert SHAREGPT_MISSING_CONTENT_FIELD not in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }
+    assert SHAREGPT_EMPTY_CONTENT not in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }
