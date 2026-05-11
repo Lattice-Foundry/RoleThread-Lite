@@ -3,7 +3,7 @@
 .streamlit/
 __pycache__/
 trainer/
-backup/
+app_data/backups/
 training_data/
 notes/
 venv/
