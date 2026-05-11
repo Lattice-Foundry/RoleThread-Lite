@@ -28,6 +28,7 @@ from core.entry_analysis import (
     SHAREGPT_MISSING_ROLE_FIELD,
     SHAREGPT_MULTIPLE_SYSTEM_TURNS,
     SHAREGPT_NO_SYSTEM_TURN,
+    SHAREGPT_ROLE_VARIANT,
     SHAREGPT_TURN_NOT_DICT,
     SHAREGPT_UNKNOWN_ROLE,
     AnalysisSeverity,
@@ -36,6 +37,7 @@ from core.entry_analysis import (
     EntryAnalysisResult,
     EntryDiagnostic,
     RepairKind,
+    RepairResult,
     ShareGPTAnalyzer,
 )
 
@@ -220,6 +222,13 @@ def test_analysis_dataclasses_are_frozen():
         result.is_valid = False
 
 
+def test_repair_result_dataclass_is_frozen():
+    repair_result = RepairResult(entry={"tags": []}, repairs_applied=(), changed=False)
+
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        repair_result.changed = True
+
+
 def test_severity_and_repair_enums_have_stable_values():
     assert AnalysisSeverity.INFO.value == "info"
     assert AnalysisSeverity.WARNING.value == "warning"
@@ -228,6 +237,63 @@ def test_severity_and_repair_enums_have_stable_values():
     assert RepairKind.AUTOMATIC.value == "automatic"
     assert RepairKind.SUGGESTED.value == "suggested"
     assert RepairKind.MANUAL.value == "manual"
+
+
+def test_base_analyzer_repairs_missing_tags_without_mutating_original():
+    analyzer = BaseEntryAnalyzer()
+    entry = {"messages": []}
+
+    result = analyzer.analyze(entry)
+    repair = analyzer.apply_repairs(entry, analyzer.plan_repairs(result))
+
+    assert repair.entry == {"messages": [], "tags": []}
+    assert repair.changed is True
+    assert [diagnostic.code for diagnostic in repair.repairs_applied] == [
+        BASE_MISSING_TAGS
+    ]
+    assert entry == {"messages": []}
+
+
+def test_base_analyzer_repairs_tags_not_list_without_mutating_original():
+    analyzer = BaseEntryAnalyzer()
+    entry = {"messages": [], "tags": "slow_burn"}
+
+    result = analyzer.analyze(entry)
+    repair = analyzer.apply_repairs(entry, analyzer.plan_repairs(result))
+
+    assert repair.entry["tags"] == []
+    assert repair.changed is True
+    assert [diagnostic.code for diagnostic in repair.repairs_applied] == [
+        BASE_TAGS_NOT_LIST
+    ]
+    assert entry["tags"] == "slow_burn"
+
+
+def test_base_analyzer_repairs_invalid_and_empty_tag_values():
+    analyzer = BaseEntryAnalyzer()
+    entry = {"messages": [], "tags": ["slow_burn", 7, "   ", "comfort"]}
+
+    result = analyzer.analyze(entry)
+    repair = analyzer.apply_repairs(entry, analyzer.plan_repairs(result))
+
+    assert repair.entry["tags"] == ["slow_burn", "comfort"]
+    assert repair.changed is True
+    assert [diagnostic.code for diagnostic in repair.repairs_applied] == [
+        BASE_EMPTY_TAG,
+        BASE_INVALID_TAG_VALUE,
+    ]
+    assert entry["tags"] == ["slow_burn", 7, "   ", "comfort"]
+
+
+def test_base_repair_round_trip_removes_fixed_tag_diagnostics():
+    analyzer = BaseEntryAnalyzer()
+    entry = {"messages": [], "tags": ["slow_burn", 7, ""]}
+
+    result = analyzer.analyze(entry)
+    repair = analyzer.apply_repairs(entry, analyzer.plan_repairs(result))
+    repaired_result = analyzer.analyze(repair.entry)
+
+    assert {diagnostic.code for diagnostic in repaired_result.diagnostics} == set()
 
 
 def test_chatml_analyzer_reports_missing_messages_key():
@@ -328,6 +394,8 @@ def test_chatml_analyzer_reports_wrong_system_role_and_empty_content():
     assert content.severity == AnalysisSeverity.ERROR
     assert content.message == "Message 0 (system) has empty content"
     assert content.path == ("messages", 0, "content")
+    assert content.fixable is True
+    assert content.repair_kind == RepairKind.SUGGESTED
 
 
 def test_chatml_analyzer_reports_message_not_dict_with_indexed_path():
@@ -388,6 +456,48 @@ def test_chatml_analyzer_runs_base_checks_alongside_chatml_checks():
     assert _diagnostic_by_code(result, CHATML_MISSING_MESSAGES).severity == (
         AnalysisSeverity.ERROR
     )
+
+
+def test_chatml_structural_errors_are_not_automatic_repairs():
+    analyzer = ChatMLAnalyzer()
+    result = analyzer.analyze({"messages": "bad", "tags": []})
+
+    diagnostic = _diagnostic_by_code(result, CHATML_MESSAGES_NOT_LIST)
+
+    assert diagnostic.fixable is False
+    assert diagnostic.repair_kind == RepairKind.MANUAL
+    assert analyzer.plan_repairs(result) == []
+
+
+def test_chatml_repair_plan_for_bad_tags_only_returns_tag_repairs():
+    analyzer = ChatMLAnalyzer()
+    entry = _entry(tags=["slow_burn", 7, ""])
+
+    result = analyzer.analyze(entry)
+    plan = analyzer.plan_repairs(result)
+    repair = analyzer.apply_repairs(entry, plan)
+
+    assert [diagnostic.code for diagnostic in plan] == [
+        BASE_INVALID_TAG_VALUE,
+        BASE_EMPTY_TAG,
+    ]
+    assert repair.entry["tags"] == ["slow_burn"]
+    assert entry["tags"] == ["slow_burn", 7, ""]
+
+
+def test_chatml_suggested_repairs_are_not_in_automatic_repair_plan():
+    analyzer = ChatMLAnalyzer()
+    result = analyzer.analyze(_entry(messages=[
+        {"role": "system", "content": ""},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, CHATML_EMPTY_SYSTEM_CONTENT)
+
+    assert diagnostic.fixable is True
+    assert diagnostic.repair_kind == RepairKind.SUGGESTED
+    assert analyzer.plan_repairs(result) == []
 
 
 @pytest.mark.parametrize(
@@ -639,7 +749,7 @@ def test_sharegpt_analyzer_reports_no_system_turn_as_info():
     assert diagnostic.severity == AnalysisSeverity.INFO
     assert diagnostic.path == ("conversations",)
     assert diagnostic.fixable is True
-    assert diagnostic.repair_kind == RepairKind.AUTOMATIC
+    assert diagnostic.repair_kind == RepairKind.SUGGESTED
 
 
 def test_sharegpt_analyzer_collects_multiple_simultaneous_issues():
@@ -711,4 +821,82 @@ def test_sharegpt_analyzer_detects_content_field_variants(content_key):
     }
     assert SHAREGPT_EMPTY_CONTENT not in {
         diagnostic.code for diagnostic in result.diagnostics
+    }
+
+
+def test_sharegpt_analyzer_reports_role_variant_as_automatic_repair():
+    result = ShareGPTAnalyzer().analyze(_sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {"from": "user", "value": "Hi"},
+        {"from": "assistant", "value": "Hello"},
+    ]))
+
+    diagnostics = [
+        diagnostic
+        for diagnostic in result.diagnostics
+        if diagnostic.code == SHAREGPT_ROLE_VARIANT
+    ]
+
+    assert result.is_valid is True
+    assert len(diagnostics) == 2
+    assert diagnostics[0].path == ("conversations", 1, "from")
+    assert diagnostics[0].original_value == "user"
+    assert diagnostics[0].normalized_value == "human"
+    assert diagnostics[0].fixable is True
+    assert diagnostics[0].repair_kind == RepairKind.AUTOMATIC
+    assert diagnostics[1].path == ("conversations", 2, "from")
+    assert diagnostics[1].original_value == "assistant"
+    assert diagnostics[1].normalized_value == "gpt"
+
+
+def test_sharegpt_applies_automatic_role_variant_repairs_without_mutating_original():
+    analyzer = ShareGPTAnalyzer()
+    entry = _sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {"role": "user", "value": "Hi"},
+        {"speaker": "assistant", "value": "Hello"},
+    ])
+
+    result = analyzer.analyze(entry)
+    repair = analyzer.apply_repairs(entry, analyzer.plan_repairs(result))
+
+    assert repair.changed is True
+    assert [diagnostic.code for diagnostic in repair.repairs_applied] == [
+        SHAREGPT_ROLE_VARIANT,
+        SHAREGPT_ROLE_VARIANT,
+    ]
+    assert repair.entry["conversations"][1]["role"] == "human"
+    assert repair.entry["conversations"][2]["speaker"] == "gpt"
+    assert entry["conversations"][1]["role"] == "user"
+    assert entry["conversations"][2]["speaker"] == "assistant"
+
+
+def test_sharegpt_suggested_repairs_are_not_in_automatic_repair_plan():
+    analyzer = ShareGPTAnalyzer()
+    result = analyzer.analyze(_sharegpt_entry(conversations=[
+        {"from": "human", "value": ""},
+        {"from": "gpt", "value": "Hello"},
+    ]))
+
+    codes = {diagnostic.code for diagnostic in result.diagnostics}
+
+    assert SHAREGPT_EMPTY_CONTENT in codes
+    assert SHAREGPT_NO_SYSTEM_TURN in codes
+    assert analyzer.plan_repairs(result) == []
+
+
+def test_sharegpt_repair_round_trip_removes_fixed_role_variant_diagnostics():
+    analyzer = ShareGPTAnalyzer()
+    entry = _sharegpt_entry(conversations=[
+        {"from": "system", "value": "System"},
+        {"from": "user", "value": "Hi"},
+        {"from": "assistant", "value": "Hello"},
+    ])
+
+    result = analyzer.analyze(entry)
+    repair = analyzer.apply_repairs(entry, analyzer.plan_repairs(result))
+    repaired_result = analyzer.analyze(repair.entry)
+
+    assert SHAREGPT_ROLE_VARIANT not in {
+        diagnostic.code for diagnostic in repaired_result.diagnostics
     }

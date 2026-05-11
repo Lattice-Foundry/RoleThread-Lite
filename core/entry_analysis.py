@@ -1,4 +1,5 @@
 """Pure entry analysis result types and format-agnostic checks."""
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any, ClassVar
@@ -45,6 +46,7 @@ SHAREGPT_EMPTY_CONVERSATIONS = "sharegpt.empty_conversations"
 SHAREGPT_TURN_NOT_DICT = "sharegpt.turn_not_dict"
 SHAREGPT_MISSING_ROLE_FIELD = "sharegpt.missing_role_field"
 SHAREGPT_MISSING_CONTENT_FIELD = "sharegpt.missing_content_field"
+SHAREGPT_ROLE_VARIANT = "sharegpt.role_variant"
 SHAREGPT_UNKNOWN_ROLE = "sharegpt.unknown_role"
 SHAREGPT_EMPTY_CONTENT = "sharegpt.empty_content"
 SHAREGPT_MULTIPLE_SYSTEM_TURNS = "sharegpt.multiple_system_turns"
@@ -78,6 +80,15 @@ class EntryAnalysisResult:
     changed: bool = False
 
 
+@dataclass(frozen=True)
+class RepairResult:
+    """Result of applying deterministic entry repairs."""
+
+    entry: dict
+    repairs_applied: tuple[EntryDiagnostic, ...]
+    changed: bool
+
+
 class BaseEntryAnalyzer:
     """Analyze format-agnostic entry structure and metadata."""
 
@@ -100,6 +111,31 @@ class BaseEntryAnalyzer:
         return self._result(
             entry_index=entry_index,
             diagnostics=diagnostics,
+        )
+
+    def plan_repairs(self, result: EntryAnalysisResult) -> list[EntryDiagnostic]:
+        """Return automatic diagnostics that can be applied deterministically."""
+        return [
+            diagnostic
+            for diagnostic in result.diagnostics
+            if diagnostic.fixable and diagnostic.repair_kind == RepairKind.AUTOMATIC
+        ]
+
+    def apply_repairs(
+        self,
+        entry: dict,
+        repair_plan: list[EntryDiagnostic],
+    ) -> RepairResult:
+        """Apply deterministic repairs to a copy of the entry."""
+        repaired_entry = deepcopy(entry)
+        applied: list[EntryDiagnostic] = []
+        for diagnostic in self._ordered_repair_plan(repair_plan):
+            if self._apply_single_repair(repaired_entry, diagnostic):
+                applied.append(diagnostic)
+        return RepairResult(
+            entry=repaired_entry,
+            repairs_applied=tuple(applied),
+            changed=repaired_entry != entry,
         )
 
     def _analyze_base(self, entry: object) -> tuple[EntryDiagnostic, ...]:
@@ -198,6 +234,83 @@ class BaseEntryAnalyzer:
                 )
         return tuple(diagnostics)
 
+    def _ordered_repair_plan(
+        self,
+        repair_plan: list[EntryDiagnostic],
+    ) -> list[EntryDiagnostic]:
+        tag_item_repairs = [
+            diagnostic
+            for diagnostic in repair_plan
+            if diagnostic.code in {BASE_INVALID_TAG_VALUE, BASE_EMPTY_TAG}
+        ]
+        other_repairs = [
+            diagnostic
+            for diagnostic in repair_plan
+            if diagnostic.code not in {BASE_INVALID_TAG_VALUE, BASE_EMPTY_TAG}
+        ]
+        tag_item_repairs.sort(
+            key=lambda diagnostic: (
+                diagnostic.path[1]
+                if len(diagnostic.path) > 1 and isinstance(diagnostic.path[1], int)
+                else -1
+            ),
+            reverse=True,
+        )
+        return other_repairs + tag_item_repairs
+
+    def _apply_single_repair(
+        self,
+        entry: dict,
+        diagnostic: EntryDiagnostic,
+    ) -> bool:
+        if diagnostic.code == BASE_MISSING_TAGS:
+            if "tags" not in entry:
+                entry["tags"] = []
+                return True
+            return False
+
+        if diagnostic.code == BASE_TAGS_NOT_LIST:
+            if not isinstance(entry.get("tags"), list):
+                entry["tags"] = []
+                return True
+            return False
+
+        if diagnostic.code == BASE_INVALID_TAG_VALUE:
+            return self._drop_tag_at_path(
+                entry,
+                diagnostic,
+                should_drop=lambda tag: not isinstance(tag, str),
+            )
+
+        if diagnostic.code == BASE_EMPTY_TAG:
+            return self._drop_tag_at_path(
+                entry,
+                diagnostic,
+                should_drop=lambda tag: isinstance(tag, str) and not tag.strip(),
+            )
+
+        return False
+
+    def _drop_tag_at_path(
+        self,
+        entry: dict,
+        diagnostic: EntryDiagnostic,
+        *,
+        should_drop,
+    ) -> bool:
+        if len(diagnostic.path) != 2 or diagnostic.path[0] != "tags":
+            return False
+        index = diagnostic.path[1]
+        tags = entry.get("tags")
+        if not isinstance(index, int) or not isinstance(tags, list):
+            return False
+        if index < 0 or index >= len(tags):
+            return False
+        if not should_drop(tags[index]):
+            return False
+        del tags[index]
+        return True
+
     def _result(
         self,
         *,
@@ -271,6 +384,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message="Missing 'messages' key",
                     path=("messages",),
+                    repair_kind=RepairKind.MANUAL,
                 ),
             )
 
@@ -282,6 +396,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message="'messages' must be a list",
                     path=("messages",),
+                    repair_kind=RepairKind.MANUAL,
                     original_value=messages,
                 ),
             )
@@ -294,6 +409,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message="'messages' must have at least 3 items (system + one user/assistant exchange)",
                     path=("messages",),
+                    repair_kind=RepairKind.MANUAL,
                     original_value=len(messages),
                 )
             )
@@ -306,6 +422,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message="Messages must contain complete user/assistant exchanges",
                     path=("messages",),
+                    repair_kind=RepairKind.MANUAL,
                     original_value=len(messages),
                 )
             )
@@ -319,6 +436,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message="Message 0 is not a dict",
                     path=("messages", 0),
+                    repair_kind=RepairKind.MANUAL,
                     original_value=system_message,
                 )
             )
@@ -332,6 +450,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message=f"Message 0: expected role 'system', got '{system_role}'",
                     path=("messages", 0, "role"),
+                    repair_kind=RepairKind.MANUAL,
                     original_value=system_role,
                     normalized_value="system",
                 )
@@ -343,6 +462,9 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message="Message 0 (system) has empty content",
                     path=("messages", 0, "content"),
+                    fixable=True,
+                    repair_kind=RepairKind.SUGGESTED,
+                    suggested_repair="Review and add an appropriate system prompt.",
                     original_value=system_message.get("content", ""),
                 )
             )
@@ -356,6 +478,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                         severity=AnalysisSeverity.ERROR,
                         message=f"Message {index} is not a dict",
                         path=("messages", index),
+                        repair_kind=RepairKind.MANUAL,
                         original_value=message,
                     )
                 )
@@ -370,6 +493,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                         severity=AnalysisSeverity.ERROR,
                         message=f"Message {index}: expected role '{expected_role}', got '{actual_role}'",
                         path=("messages", index, "role"),
+                        repair_kind=RepairKind.MANUAL,
                         original_value=actual_role,
                         normalized_value=expected_role,
                     )
@@ -381,6 +505,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                         severity=AnalysisSeverity.ERROR,
                         message=f"Message {index} ({expected_role}) has empty content",
                         path=("messages", index, "content"),
+                        repair_kind=RepairKind.MANUAL,
                         original_value=message.get("content", ""),
                     )
                 )
@@ -414,6 +539,11 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
         "model",
     })
     SYSTEM_ROLES: ClassVar[frozenset[str]] = frozenset({"system"})
+    CANONICAL_ROLE_VALUES: ClassVar[dict[str, str]] = {
+        "user": "human",
+        "assistant": "gpt",
+        "system": "system",
+    }
 
     def analyze(self, entry: object, *, entry_index: int | None = None) -> EntryAnalysisResult:
         """Run base and ShareGPT-specific checks."""
@@ -433,6 +563,7 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message="Missing 'conversations' key",
                     path=("conversations",),
+                    repair_kind=RepairKind.MANUAL,
                 ),
             )
 
@@ -444,6 +575,7 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message="'conversations' must be a list",
                     path=("conversations",),
+                    repair_kind=RepairKind.MANUAL,
                     original_value=conversations,
                 ),
             )
@@ -455,6 +587,7 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.ERROR,
                     message="'conversations' must contain at least one turn",
                     path=("conversations",),
+                    repair_kind=RepairKind.MANUAL,
                     original_value=0,
                 ),
             )
@@ -469,6 +602,7 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                         severity=AnalysisSeverity.ERROR,
                         message=f"Conversation turn {index} is not a dict",
                         path=("conversations", index),
+                        repair_kind=RepairKind.MANUAL,
                         original_value=turn,
                     )
                 )
@@ -484,6 +618,7 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                         severity=AnalysisSeverity.ERROR,
                         message=f"Conversation turn {index} is missing a role field",
                         path=("conversations", index),
+                        repair_kind=RepairKind.MANUAL,
                     )
                 )
             else:
@@ -495,11 +630,33 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                             severity=AnalysisSeverity.WARNING,
                             message=f"Conversation turn {index} has unknown role: {raw_role}",
                             path=("conversations", index, role_key),
+                            repair_kind=RepairKind.MANUAL,
                             original_value=raw_role,
                         )
                     )
-                elif mapped_role == "system":
-                    system_turn_count += 1
+                else:
+                    canonical_role = self.CANONICAL_ROLE_VALUES[mapped_role]
+                    if str(raw_role).strip() != canonical_role:
+                        diagnostics.append(
+                            EntryDiagnostic(
+                                code=SHAREGPT_ROLE_VARIANT,
+                                severity=AnalysisSeverity.INFO,
+                                message=(
+                                    f"Conversation turn {index} uses role variant "
+                                    f"'{raw_role}' for '{canonical_role}'."
+                                ),
+                                path=("conversations", index, role_key),
+                                fixable=True,
+                                repair_kind=RepairKind.AUTOMATIC,
+                                suggested_repair=(
+                                    f"Replace role value with '{canonical_role}'."
+                                ),
+                                original_value=raw_role,
+                                normalized_value=canonical_role,
+                            )
+                        )
+                    if mapped_role == "system":
+                        system_turn_count += 1
 
             if content_key is None:
                 diagnostics.append(
@@ -508,6 +665,7 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                         severity=AnalysisSeverity.ERROR,
                         message=f"Conversation turn {index} is missing a content field",
                         path=("conversations", index),
+                        repair_kind=RepairKind.MANUAL,
                     )
                 )
             elif not str(raw_content).strip():
@@ -517,6 +675,9 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                         severity=AnalysisSeverity.WARNING,
                         message=f"Conversation turn {index} has empty content",
                         path=("conversations", index, content_key),
+                        fixable=True,
+                        repair_kind=RepairKind.SUGGESTED,
+                        suggested_repair="Review whether this empty turn should be filled or removed.",
                         original_value=raw_content,
                     )
                 )
@@ -528,6 +689,9 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                     severity=AnalysisSeverity.INFO,
                     message="ShareGPT entry contains multiple system turns.",
                     path=("conversations",),
+                    fixable=True,
+                    repair_kind=RepairKind.SUGGESTED,
+                    suggested_repair="Review and merge system turns before conversion.",
                     original_value=system_turn_count,
                 )
             )
@@ -539,12 +703,43 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                     message="ShareGPT entry has no system turn; LoreForge can inject one during conversion.",
                     path=("conversations",),
                     fixable=True,
-                    repair_kind=RepairKind.AUTOMATIC,
+                    repair_kind=RepairKind.SUGGESTED,
                     suggested_repair="Inject LoreForge's internal ShareGPT import system prompt.",
                 )
             )
 
         return tuple(diagnostics)
+
+    def _apply_single_repair(
+        self,
+        entry: dict,
+        diagnostic: EntryDiagnostic,
+    ) -> bool:
+        if super()._apply_single_repair(entry, diagnostic):
+            return True
+
+        if diagnostic.code != SHAREGPT_ROLE_VARIANT:
+            return False
+        if len(diagnostic.path) != 3 or diagnostic.path[0] != "conversations":
+            return False
+        index = diagnostic.path[1]
+        role_key = diagnostic.path[2]
+        conversations = entry.get("conversations")
+        if (
+            not isinstance(index, int)
+            or not isinstance(role_key, str)
+            or not isinstance(conversations, list)
+            or index < 0
+            or index >= len(conversations)
+            or not isinstance(conversations[index], dict)
+            or role_key not in conversations[index]
+            or diagnostic.normalized_value is None
+        ):
+            return False
+        if conversations[index][role_key] == diagnostic.normalized_value:
+            return False
+        conversations[index][role_key] = diagnostic.normalized_value
+        return True
 
     def _first_present(
         self,
