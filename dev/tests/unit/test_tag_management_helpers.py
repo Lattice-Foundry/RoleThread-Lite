@@ -1,7 +1,8 @@
 from ui.tag_management_helpers import (
     selected_assignable_archived_slugs,
     validate_pending_archived_assignment,
-    validate_pending_tag_rename,
+    validate_pending_category_rename,
+    validate_pending_tag_edit,
 )
 
 
@@ -52,31 +53,72 @@ def test_pending_assignment_is_valid_only_while_selection_and_category_match():
     ) is None
 
 
-def test_pending_tag_rename_is_valid_only_for_current_custom_row():
+def test_pending_tag_edit_is_valid_only_for_current_custom_row_and_category():
     pending = {
         "old_slug": "followup_question",
         "old_display_name": "Followup Question",
         "new_slug": "follow_up_question",
         "new_display_name": "Follow Up Question",
+        "category_slug": "behavior",
     }
 
-    assert validate_pending_tag_rename(
-        pending_rename=pending,
-        current_rename_slug="followup_question",
+    assert validate_pending_tag_edit(
+        pending_edit=pending,
+        current_edit_slug="followup_question",
         active_custom_slugs={"followup_question"},
+        active_category_slugs={"behavior"},
     ) == pending
-    assert validate_pending_tag_rename(
+    assert validate_pending_tag_edit(
+        pending_edit=pending,
+        current_edit_slug=None,
+        active_custom_slugs={"followup_question"},
+        active_category_slugs={"behavior"},
+    ) is None
+    assert validate_pending_tag_edit(
+        pending_edit=pending,
+        current_edit_slug="other_tag",
+        active_custom_slugs={"followup_question"},
+        active_category_slugs={"behavior"},
+    ) is None
+    assert validate_pending_tag_edit(
+        pending_edit=pending,
+        current_edit_slug="followup_question",
+        active_custom_slugs=set(),
+        active_category_slugs={"behavior"},
+    ) is None
+    assert validate_pending_tag_edit(
+        pending_edit=pending,
+        current_edit_slug="followup_question",
+        active_custom_slugs={"followup_question"},
+        active_category_slugs={"scene"},
+    ) is None
+
+
+def test_pending_category_rename_is_valid_only_for_current_custom_category():
+    pending = {
+        "old_slug": "story_shape",
+        "old_display_name": "Story Shape",
+        "new_slug": "narrative_shape",
+        "new_display_name": "Narrative Shape",
+    }
+
+    assert validate_pending_category_rename(
+        pending_rename=pending,
+        current_rename_slug="story_shape",
+        active_custom_category_slugs={"story_shape"},
+    ) == pending
+    assert validate_pending_category_rename(
         pending_rename=pending,
         current_rename_slug=None,
-        active_custom_slugs={"followup_question"},
+        active_custom_category_slugs={"story_shape"},
     ) is None
-    assert validate_pending_tag_rename(
+    assert validate_pending_category_rename(
         pending_rename=pending,
-        current_rename_slug="other_tag",
-        active_custom_slugs={"followup_question"},
+        current_rename_slug="other",
+        active_custom_category_slugs={"story_shape"},
     ) is None
-    assert validate_pending_tag_rename(
+    assert validate_pending_category_rename(
         pending_rename=pending,
-        current_rename_slug="followup_question",
-        active_custom_slugs=set(),
+        current_rename_slug="story_shape",
+        active_custom_category_slugs=set(),
     ) is None

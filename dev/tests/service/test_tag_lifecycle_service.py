@@ -9,6 +9,7 @@ import core.tag_registry as tag_registry
 from core.dataset import load_dataset, save_dataset
 from core.models import (
     Base,
+    CategoryHistory,
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
     TAG_STATUS_HIDDEN,
@@ -19,7 +20,9 @@ from core.models import (
 import services.tag_lifecycle_service as tag_lifecycle_service
 from services.tag_lifecycle_service import (
     assign_archived_imported_tags_to_category,
+    edit_active_tag,
     rename_active_tag,
+    rename_custom_category,
 )
 
 
@@ -354,6 +357,148 @@ def test_assign_backup_failure_fails_closed(tag_lifecycle_db, monkeypatch):
         session.close()
 
 
+def test_rename_custom_category_updates_slug_and_preserves_tags(
+    tag_lifecycle_db,
+):
+    session = tag_lifecycle_db()
+    try:
+        category = _add_category(session, slug="story_shape", name="Story Shape")
+        category_id = category.id
+        tag = _add_tag(session, slug="slow_burn", category=category)
+        tag_id = tag.id
+        session.commit()
+    finally:
+        session.close()
+
+    result = rename_custom_category(
+        category_slug="story_shape",
+        new_display_name="Narrative Shape",
+    )
+
+    assert result.ok is True
+    assert result.message == 'Renamed category "Story Shape" to "Narrative Shape".'
+    assert result.category_slug == "narrative_shape"
+    assert result.db_backup_path is not None
+    assert result.dataset_backup_path is None
+
+    session = tag_lifecycle_db()
+    try:
+        renamed = session.query(TagCategory).filter_by(slug="narrative_shape").one()
+        assert renamed.id == category_id
+        assert renamed.name == "Narrative Shape"
+        assert renamed.is_active is True
+        attached_tag = session.query(Tag).filter_by(id=tag_id).one()
+        assert attached_tag.category_id == category_id
+        history = session.query(CategoryHistory).one()
+        assert history.action == "rename"
+        assert history.old_slug == "story_shape"
+        assert history.new_slug == "narrative_shape"
+        metadata = json.loads(history.metadata_json)
+        assert metadata["lifecycle_state"] == "active"
+        assert metadata["action"] == "rename"
+    finally:
+        session.close()
+
+    registry = tag_registry.get_tag_registry_dict()
+    assert "Story Shape" not in registry
+    assert registry["Narrative Shape"] == ["slow_burn"]
+
+
+def test_rename_custom_category_validation_and_noop_paths(tag_lifecycle_db):
+    session = tag_lifecycle_db()
+    try:
+        builtin = _add_category(session, slug="behavior", name="Behavior")
+        custom = _add_category(session, slug="story_shape", name="Story Shape")
+        _add_category(session, slug="duplicate", name="Duplicate")
+        _add_category(session, slug="inactive", name="Inactive", active=False)
+        session.commit()
+    finally:
+        session.close()
+
+    builtin_result = rename_custom_category(
+        category_slug="behavior",
+        new_display_name="New Behavior",
+    )
+    missing = rename_custom_category(
+        category_slug="missing",
+        new_display_name="Missing",
+    )
+    inactive = rename_custom_category(
+        category_slug="inactive",
+        new_display_name="Still Inactive",
+    )
+    empty = rename_custom_category(
+        category_slug="story_shape",
+        new_display_name="!!!",
+    )
+    duplicate = rename_custom_category(
+        category_slug="story_shape",
+        new_display_name="Duplicate",
+    )
+    same = rename_custom_category(
+        category_slug="story_shape",
+        new_display_name="Story Shape",
+    )
+
+    assert builtin_result.ok is False
+    assert builtin_result.errors == ["Built-in categories cannot be renamed: Behavior"]
+    assert missing.ok is False
+    assert missing.errors == ["Category not found: Missing"]
+    assert inactive.ok is False
+    assert inactive.errors == ["Category is inactive: Inactive"]
+    assert empty.ok is False
+    assert empty.errors == ["Category name cannot be empty."]
+    assert duplicate.ok is False
+    assert duplicate.errors == ["A category named Duplicate already exists."]
+    assert same.ok is True
+    assert same.affected_count == 0
+    assert same.db_backup_path is None
+
+    session = tag_lifecycle_db()
+    try:
+        assert session.query(TagCategory).filter_by(slug="story_shape").one().name == (
+            "Story Shape"
+        )
+        assert session.query(TagCategory).filter_by(slug="new_behavior").count() == 0
+        assert session.query(CategoryHistory).count() == 0
+    finally:
+        session.close()
+
+
+def test_rename_custom_category_backup_failure_fails_closed(
+    tag_lifecycle_db,
+    monkeypatch,
+):
+    session = tag_lifecycle_db()
+    try:
+        _add_category(session, slug="story_shape", name="Story Shape")
+        session.commit()
+    finally:
+        session.close()
+
+    def fail_backup(*, engine):
+        raise OSError("db backup blocked")
+
+    monkeypatch.setattr(tag_registry, "create_db_backup", fail_backup)
+
+    result = rename_custom_category(
+        category_slug="story_shape",
+        new_display_name="Narrative Shape",
+    )
+
+    assert result.ok is False
+    assert result.message == "Could not create database backup: db backup blocked"
+    session = tag_lifecycle_db()
+    try:
+        assert session.query(TagCategory).filter_by(slug="story_shape").one().name == (
+            "Story Shape"
+        )
+        assert session.query(TagCategory).filter_by(slug="narrative_shape").count() == 0
+        assert session.query(CategoryHistory).count() == 0
+    finally:
+        session.close()
+
+
 def test_rename_custom_active_tag_rewrites_dataset_and_aliases_old_slug(
     tag_lifecycle_db,
     tmp_path,
@@ -429,7 +574,7 @@ def test_rename_custom_active_tag_rewrites_dataset_and_aliases_old_slug(
 
         current_metadata = _metadata_for(session, "follow_up_question")
         assert current_metadata["lifecycle_state"] == "active"
-        assert current_metadata["activation_origin"] == "tag_rename"
+        assert current_metadata["activation_origin"] == "tag_edit"
     finally:
         session.close()
 
@@ -469,6 +614,120 @@ def test_rename_custom_active_tag_deduplicates_rewritten_entry_tags(
     assert result.entries == [_entry(["new_tag"])]
 
 
+def test_edit_active_tag_moves_category_without_dataset_rewrite(
+    tag_lifecycle_db,
+    tmp_path,
+    monkeypatch,
+):
+    dataset_backups = _fake_dataset_backup(tmp_path, monkeypatch)
+    entries = [_entry(["followup_question"])]
+
+    session = tag_lifecycle_db()
+    try:
+        behavior = _add_category(session, slug="behavior", name="Behavior")
+        scene = _add_category(session, slug="scene", name="Scene")
+        scene_id = scene.id
+        _add_tag(
+            session,
+            slug="followup_question",
+            name="Followup Question",
+            category=behavior,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = edit_active_tag(
+        old_slug="followup_question",
+        new_display_name="Followup Question",
+        category_slug="scene",
+        dataset_path="",
+        entries=entries,
+    )
+
+    assert result.ok is True
+    assert result.message == 'Moved tag "Followup Question" to Scene.'
+    assert result.dataset_backup_path is None
+    assert result.db_backup_path is not None
+    assert result.entries == entries
+    assert dataset_backups == []
+
+    session = tag_lifecycle_db()
+    try:
+        tag = session.query(Tag).filter_by(slug="followup_question").one()
+        assert tag.name == "Followup Question"
+        assert tag.category_id == scene_id
+        metadata = _metadata_for(session, "followup_question")
+        assert metadata["lifecycle_state"] == "active"
+        assert metadata["assigned_category_slug"] == "scene"
+        assert metadata["activation_origin"] == "tag_edit"
+        assert session.query(TagLifecycleMetadata).filter_by(
+            action=tag_registry.TAG_LIFECYCLE_METADATA_RENAME
+        ).count() == 0
+    finally:
+        session.close()
+
+    registry = tag_registry.get_tag_registry_dict()
+    assert registry["Behavior"] == []
+    assert registry["Scene"] == ["followup_question"]
+
+
+def test_edit_active_tag_changes_name_and_category_together(
+    tag_lifecycle_db,
+    tmp_path,
+    monkeypatch,
+):
+    _fake_dataset_backup(tmp_path, monkeypatch)
+    entries = [_entry(["followup_question"])]
+    path = _write_dataset(tmp_path, entries)
+
+    session = tag_lifecycle_db()
+    try:
+        behavior = _add_category(session, slug="behavior", name="Behavior")
+        scene = _add_category(session, slug="scene", name="Scene")
+        scene_id = scene.id
+        _add_tag(
+            session,
+            slug="followup_question",
+            name="Followup Question",
+            category=behavior,
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = edit_active_tag(
+        old_slug="followup_question",
+        new_display_name="Follow Up Question",
+        category_slug="scene",
+        dataset_path=str(path),
+        entries=entries,
+    )
+
+    assert result.ok is True
+    assert result.message == (
+        'Edited tag "Followup Question" to "Follow Up Question" and moved it to Scene.'
+    )
+    assert result.entries == [_entry(["follow_up_question"])]
+    assert result.dataset_backup_path is not None
+    assert result.db_backup_path is not None
+
+    session = tag_lifecycle_db()
+    try:
+        tag = session.query(Tag).filter_by(slug="follow_up_question").one()
+        assert tag.name == "Follow Up Question"
+        assert tag.category_id == scene_id
+        alias = session.query(TagLifecycleMetadata).filter_by(
+            old_slug="followup_question",
+            action=tag_registry.TAG_LIFECYCLE_METADATA_RENAME,
+        ).one()
+        assert alias.new_slug == "follow_up_question"
+        current_metadata = _metadata_for(session, "follow_up_question")
+        assert current_metadata["assigned_category_slug"] == "scene"
+    finally:
+        session.close()
+
+
 @pytest.mark.parametrize(
     ("slug", "status", "active", "builtin", "expected_error"),
     [
@@ -477,7 +736,7 @@ def test_rename_custom_active_tag_deduplicates_rewritten_entry_tags(
             TAG_STATUS_ACTIVE,
             True,
             True,
-            "Built-in tags cannot be renamed: Builtin Tag",
+            "Built-in tags cannot be edited: Builtin Tag",
         ),
         (
             "archived_tag",
@@ -596,6 +855,45 @@ def test_rename_rejects_duplicate_empty_same_and_alias_reserved_names(
     assert reserved.errors == [
         "Canonical ID is reserved by lifecycle metadata: Reserved Tag"
     ]
+
+
+def test_edit_rejects_missing_or_inactive_category(
+    tag_lifecycle_db,
+    tmp_path,
+    monkeypatch,
+):
+    _fake_dataset_backup(tmp_path, monkeypatch)
+    entries = [_entry(["source_tag"])]
+    path = _write_dataset(tmp_path, entries)
+
+    session = tag_lifecycle_db()
+    try:
+        category = _add_category(session)
+        _add_category(session, slug="inactive", name="Inactive", active=False)
+        _add_tag(session, slug="source_tag", name="Source Tag", category=category)
+        session.commit()
+    finally:
+        session.close()
+
+    missing = edit_active_tag(
+        old_slug="source_tag",
+        new_display_name="Source Tag",
+        category_slug="missing",
+        dataset_path=str(path),
+        entries=entries,
+    )
+    inactive = edit_active_tag(
+        old_slug="source_tag",
+        new_display_name="Source Tag",
+        category_slug="inactive",
+        dataset_path=str(path),
+        entries=entries,
+    )
+
+    assert missing.ok is False
+    assert inactive.ok is False
+    assert missing.errors == ["Selected category does not exist or is inactive."]
+    assert inactive.errors == ["Selected category does not exist or is inactive."]
 
 
 def test_rename_backup_failures_fail_closed(tag_lifecycle_db, tmp_path, monkeypatch):

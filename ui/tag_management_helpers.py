@@ -39,13 +39,44 @@ def validate_pending_archived_assignment(
     return pending_assignment
 
 
-def validate_pending_tag_rename(
+def validate_pending_tag_edit(
+    *,
+    pending_edit: dict | None,
+    current_edit_slug: str | None,
+    active_custom_slugs: set[str],
+    active_category_slugs: set[str],
+) -> dict | None:
+    """Return pending edit only while it still matches the active edit row."""
+    if not pending_edit:
+        return None
+
+    old_slug = pending_edit.get("old_slug")
+    new_slug = pending_edit.get("new_slug")
+    new_display_name = pending_edit.get("new_display_name")
+    category_slug = pending_edit.get("category_slug")
+    required_values = [old_slug, new_slug, new_display_name, category_slug]
+    if not all(isinstance(value, str) and value for value in required_values):
+        return None
+    if old_slug != current_edit_slug:
+        return None
+    if old_slug not in active_custom_slugs:
+        return None
+    if category_slug not in active_category_slugs:
+        return None
+
+    return pending_edit
+
+
+validate_pending_tag_rename = validate_pending_tag_edit
+
+
+def validate_pending_category_rename(
     *,
     pending_rename: dict | None,
     current_rename_slug: str | None,
-    active_custom_slugs: set[str],
+    active_custom_category_slugs: set[str],
 ) -> dict | None:
-    """Return pending rename only while it still matches the active edit row."""
+    """Return pending category rename only while its custom category still exists."""
     if not pending_rename:
         return None
 
@@ -57,7 +88,7 @@ def validate_pending_tag_rename(
         return None
     if old_slug != current_rename_slug:
         return None
-    if old_slug not in active_custom_slugs:
+    if old_slug not in active_custom_category_slugs:
         return None
 
     return pending_rename
