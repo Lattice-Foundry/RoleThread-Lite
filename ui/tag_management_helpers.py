@@ -70,6 +70,27 @@ def validate_pending_tag_edit(
 validate_pending_tag_rename = validate_pending_tag_edit
 
 
+def validate_pending_tag_delete(
+    *,
+    pending_delete: dict | None,
+    active_custom_slugs: set[str],
+) -> dict | None:
+    """Return pending delete only while its custom active tag still exists."""
+    if not pending_delete:
+        return None
+
+    tag_slug = pending_delete.get("tag_slug")
+    display_name = pending_delete.get("display_name")
+    if not isinstance(tag_slug, str) or not tag_slug:
+        return None
+    if not isinstance(display_name, str) or not display_name:
+        return None
+    if tag_slug not in active_custom_slugs:
+        return None
+
+    return pending_delete
+
+
 def validate_pending_category_rename(
     *,
     pending_rename: dict | None,

@@ -125,6 +125,28 @@ def _rewrite_entry_tag_slug(
     return normalized, changed_entries
 
 
+def _remove_entry_tag_slug(
+    entries: list[dict],
+    *,
+    tag_slug: str,
+) -> tuple[list[dict], int]:
+    """Return entries with one canonical tag slug removed from tag lists."""
+    proposed_entries = copy.deepcopy(entries)
+    changed_entries = 0
+
+    for entry in proposed_entries:
+        if not isinstance(entry, dict):
+            continue
+        tags = get_entry_tags(entry)
+        if tag_slug not in tags:
+            continue
+        changed_entries += 1
+        set_entry_tags(entry, [tag for tag in tags if tag != tag_slug])
+
+    normalized = normalize_dataset_tags(proposed_entries).entries
+    return normalized, changed_entries
+
+
 def _alias_slug_is_reserved(session, slug: str, *, old_slug: str) -> bool:
     """Return True when slug is already an alias key for another lifecycle map."""
     if slug == old_slug:
@@ -751,3 +773,143 @@ def rename_active_tag(
         dataset_path=dataset_path,
         entries=entries,
     )
+
+
+def delete_active_tag(
+    *,
+    tag_slug: str,
+    dataset_path: str,
+    entries: list[dict],
+) -> TagLifecycleOperationResult:
+    """Soft-delete one custom active tag and remove it from loaded entries."""
+    normalized_slug = normalize_tag(tag_slug).slug
+    errors: list[str] = []
+
+    if not normalized_slug:
+        errors.append("Selected tag is invalid.")
+    if not isinstance(entries, list):
+        errors.append("Loaded entries must be a list.")
+
+    path_errors = _validate_dataset_path(dataset_path)
+    errors.extend(path_errors)
+
+    if errors:
+        return TagLifecycleOperationResult(
+            ok=False,
+            message="Could not delete tag.",
+            errors=errors,
+            old_slug=normalized_slug or None,
+        )
+
+    session = tag_registry.SessionLocal()
+    try:
+        tag = session.query(Tag).filter_by(slug=normalized_slug).order_by(Tag.id).first()
+        if tag is None:
+            return TagLifecycleOperationResult(
+                ok=False,
+                message="Could not delete tag.",
+                errors=[f"Tag not found: {tag_registry.prettify_tag_name(normalized_slug)}"],
+                old_slug=normalized_slug,
+            )
+
+        tag_label = tag.name
+        old_category = tag.category
+        validation_errors: list[str] = []
+        if tag.status != TAG_STATUS_ACTIVE or not tag.is_active or old_category is None or not old_category.is_active:
+            validation_errors.append(f"Tag is not an active custom tag: {tag_label}")
+        if tag.is_builtin:
+            validation_errors.append(f"Built-in tags cannot be deleted: {tag_label}")
+
+        if validation_errors:
+            return TagLifecycleOperationResult(
+                ok=False,
+                message="Could not delete tag.",
+                errors=validation_errors,
+                old_slug=tag.slug,
+                old_display_name=tag_label,
+            )
+
+        proposed_entries, changed_entries = _remove_entry_tag_slug(
+            entries,
+            tag_slug=tag.slug,
+        )
+
+        try:
+            dataset_backup = create_dataset_backup(dataset_path, "before_tag_delete")
+            if dataset_backup is None:
+                raise FileNotFoundError(
+                    "Could not create dataset backup because the dataset file was not found."
+                )
+        except Exception as exc:
+            return TagLifecycleOperationResult(
+                ok=False,
+                message=f"Failed to create dataset backup: {exc}",
+                old_slug=tag.slug,
+                old_display_name=tag_label,
+            )
+
+        try:
+            db_backup = tag_registry.create_db_backup(engine=tag_registry.engine)
+        except Exception as exc:
+            return TagLifecycleOperationResult(
+                ok=False,
+                message=f"Could not create database backup: {exc}",
+                dataset_backup_path=str(Path(dataset_backup)),
+                old_slug=tag.slug,
+                old_display_name=tag_label,
+            )
+
+        old_category_slug = old_category.slug
+        tag.status = TAG_STATUS_ARCHIVED
+        tag.is_active = False
+        tag.category_id = None
+        tag_registry.clear_or_replace_tag_lifecycle_metadata(
+            action=tag_registry.TAG_LIFECYCLE_METADATA_ARCHIVE,
+            old_slug=tag.slug,
+            old_display_name=tag.name,
+            old_category_slug=old_category_slug,
+            new_slug=tag.slug,
+            new_display_name=tag.name,
+            new_category_slug=None,
+            metadata=tag_registry.build_deleted_archive_metadata(old_category_slug),
+            session=session,
+        )
+
+        try:
+            save_dataset(dataset_path, proposed_entries)
+        except Exception as exc:
+            session.rollback()
+            return TagLifecycleOperationResult(
+                ok=False,
+                message=f"Failed to save dataset: {exc}",
+                dataset_backup_path=str(Path(dataset_backup)),
+                db_backup_path=str(Path(db_backup)),
+                old_slug=tag.slug,
+                old_display_name=tag_label,
+            )
+
+        session.commit()
+        entry_word = "entry" if changed_entries == 1 else "entries"
+        return TagLifecycleOperationResult(
+            ok=True,
+            message=(
+                f'Deleted tag "{tag_label}" and removed it from '
+                f"{changed_entries} {entry_word}."
+            ),
+            affected_count=changed_entries,
+            tag_slugs=[tag.slug],
+            db_backup_path=str(Path(db_backup)),
+            dataset_backup_path=str(Path(dataset_backup)),
+            entries=proposed_entries,
+            old_slug=tag.slug,
+            old_display_name=tag_label,
+        )
+    except Exception as exc:
+        session.rollback()
+        return TagLifecycleOperationResult(
+            ok=False,
+            message=f"Database error: {exc}",
+            old_slug=normalized_slug,
+        )
+    finally:
+        session.close()

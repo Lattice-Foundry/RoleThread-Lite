@@ -1,7 +1,7 @@
 """Tag Management page — additive-only custom tag and category creation."""
 import streamlit as st
 
-from core.dataset import TAGS, build_entry_registry
+from core.dataset import TAGS, build_entry_registry, get_entry_tags
 from core.tag_registry import (
     _MAX_ACTIVE_CATEGORIES,
     create_custom_category,
@@ -15,10 +15,12 @@ from ui.tag_management_helpers import (
     selected_assignable_archived_slugs,
     validate_pending_archived_assignment,
     validate_pending_category_rename,
+    validate_pending_tag_delete,
     validate_pending_tag_edit,
 )
 from services.tag_lifecycle_service import (
     assign_archived_imported_tags_to_category,
+    delete_active_tag,
     edit_active_tag,
     rename_custom_category,
 )
@@ -59,8 +61,8 @@ def render_tag_management_page() -> None:
         unsafe_allow_html=True,
     )
     st.info(
-        "Custom tag editing is intentionally conservative. Edit is available "
-        "for custom active tags; delete, merge, and migration tools will come later."
+        "Custom tag editing is intentionally conservative. Edit and Delete are "
+        "available for custom active tags; merge and migration tools will come later."
     )
 
     # ── Flash message (shown at top, consumed on next render) ─────────────────
@@ -102,48 +104,36 @@ def render_tag_management_page() -> None:
             _is_category_renaming = (
                 st.session_state.get("tm_renaming_category_slug") == cat["slug"]
             )
-            if _is_custom_category:
-                _category_expander_col, _cat_rename_col, _cat_pipe_col, _cat_delete_col, _cat_spacer_col = st.columns(
-                    [5.6, 0.55, 0.08, 0.55, 3.22],
-                    gap="small",
-                )
-            else:
-                _category_expander_col = st.container()
-                _cat_rename_col = _cat_pipe_col = _cat_delete_col = None
-
-            if _is_custom_category and _cat_rename_col is not None:
-                with _cat_rename_col:
-                    if st.button(
-                        "Rename",
-                        key=f"btn_tm_rename_category_{cat['slug']}",
-                        type="tertiary",
-                    ):
-                        st.session_state["tm_renaming_category_slug"] = cat["slug"]
-                        st.session_state[
-                            f"tm_category_rename_input_{cat['slug']}"
-                        ] = cat["name"]
-                        st.session_state.pop("tm_pending_category_rename", None)
-                        st.rerun()
-                with _cat_pipe_col:
-                    st.markdown(
-                        "<span style='color:#999'>|</span>",
-                        unsafe_allow_html=True,
-                    )
-                with _cat_delete_col:
-                    st.markdown(
-                        "<span style='color:#b42318;"
-                        "text-decoration:underline;font-size:0.92rem'>"
-                        "Delete</span>",
-                        unsafe_allow_html=True,
-                    )
-                with _cat_spacer_col:
-                    st.empty()
-
-            with _category_expander_col.expander(
+            with st.expander(
                 f"{cat['name']} ({tag_count} tag{_plural})",
                 expanded=_is_category_renaming,
             ):
                 st.caption(f"slug: {cat['slug']}")
+                if _is_custom_category:
+                    _cat_action_rename_col, _cat_action_delete_col, _cat_action_spacer = st.columns(
+                        [1.35, 1.35, 7.3],
+                        gap="small",
+                    )
+                    with _cat_action_rename_col:
+                        if st.button(
+                            "Rename Category",
+                            key=f"btn_tm_rename_category_{cat['slug']}",
+                        ):
+                            st.session_state["tm_renaming_category_slug"] = cat["slug"]
+                            st.session_state[
+                                f"tm_category_rename_input_{cat['slug']}"
+                            ] = cat["name"]
+                            st.session_state.pop("tm_pending_category_rename", None)
+                            st.rerun()
+                    with _cat_action_delete_col:
+                        st.button(
+                            "Delete Category",
+                            key=f"btn_tm_delete_category_{cat['slug']}",
+                            disabled=True,
+                            help="Category delete is not implemented yet.",
+                        )
+                    with _cat_action_spacer:
+                        st.empty()
                 if _is_category_renaming:
                     _category_rename_key = f"tm_category_rename_input_{cat['slug']}"
                     if _category_rename_key not in st.session_state:
@@ -300,6 +290,7 @@ def render_tag_management_page() -> None:
                                     f"tm_edit_category_select_{tag['slug']}"
                                 ] = cat["name"]
                                 st.session_state.pop("tm_pending_tag_edit", None)
+                                st.session_state.pop("tm_pending_tag_delete", None)
                                 st.rerun()
                         with _pipe_col:
                             if tag["is_builtin"]:
@@ -313,12 +304,26 @@ def render_tag_management_page() -> None:
                             if tag["is_builtin"]:
                                 st.empty()
                             else:
-                                st.markdown(
-                                    "<span style='color:#b42318;"
-                                    "text-decoration:underline;font-size:0.92rem'>"
-                                    "Delete</span>",
-                                    unsafe_allow_html=True,
-                                )
+                                if st.button(
+                                    ":red[Delete]",
+                                    key=f"btn_tm_delete_{tag['slug']}",
+                                    type="tertiary",
+                                ):
+                                    _usage_count = sum(
+                                        1
+                                        for entry in st.session_state.get(
+                                            "loaded_entries", []
+                                        )
+                                        if tag["slug"] in get_entry_tags(entry)
+                                    )
+                                    st.session_state["tm_pending_tag_delete"] = {
+                                        "tag_slug": tag["slug"],
+                                        "display_name": tag["name"],
+                                        "usage_count": _usage_count,
+                                    }
+                                    st.session_state.pop("tm_pending_tag_edit", None)
+                                    st.session_state.pop("tm_editing_tag_slug", None)
+                                    st.rerun()
                         with _detail_col:
                             st.markdown(
                                 f"**{tag['name']}** &nbsp; "
@@ -399,6 +404,56 @@ def render_tag_management_page() -> None:
                     st.session_state.pop("tm_pending_tag_edit", None)
                     st.rerun()
 
+        _pending_delete = st.session_state.get("tm_pending_tag_delete")
+        _validated_pending_delete = validate_pending_tag_delete(
+            pending_delete=_pending_delete,
+            active_custom_slugs=_active_custom_slugs,
+        )
+        if _pending_delete and not _validated_pending_delete:
+            st.session_state.pop("tm_pending_tag_delete", None)
+            st.warning("Tag delete was refreshed because the row changed.")
+        _pending_delete = _validated_pending_delete
+        if _pending_delete:
+            _delete_count = int(_pending_delete.get("usage_count", 0) or 0)
+            _delete_entry_word = "entry" if _delete_count == 1 else "entries"
+            st.warning(
+                f"Delete tag \"{_pending_delete['display_name']}\"?\n\n"
+                "This will remove the tag from active use and remove it from "
+                "loaded dataset entries. The tag will move to Archived Tags as "
+                f"Deleted.\n\nThis tag is currently used by {_delete_count} "
+                f"loaded {_delete_entry_word}."
+            )
+            _delete_confirm_col, _delete_cancel_col = st.columns(2)
+            with _delete_confirm_col:
+                if st.button(
+                    "Confirm Delete",
+                    key="btn_tm_confirm_tag_delete",
+                    type="primary",
+                ):
+                    _result = delete_active_tag(
+                        tag_slug=_pending_delete["tag_slug"],
+                        dataset_path=st.session_state.get("loaded_path", ""),
+                        entries=st.session_state.get("loaded_entries", []),
+                    )
+                    if _result.ok:
+                        if _result.entries is not None:
+                            st.session_state.loaded_entries = _result.entries
+                            st.session_state.entry_registry = build_entry_registry(
+                                _result.entries
+                            )
+                        st.session_state["tm_success"] = _result.message
+                        st.session_state.pop("tm_pending_tag_delete", None)
+                        st.rerun()
+                    else:
+                        st.error(_result.message)
+                        for _error in _result.errors:
+                            st.caption(_error)
+                        st.session_state.pop("tm_pending_tag_delete", None)
+            with _delete_cancel_col:
+                if st.button("Cancel", key="btn_tm_cancel_tag_delete"):
+                    st.session_state.pop("tm_pending_tag_delete", None)
+                    st.rerun()
+
         _pending_category_rename = st.session_state.get("tm_pending_category_rename")
         _validated_pending_category_rename = validate_pending_category_rename(
             pending_rename=_pending_category_rename,
@@ -477,7 +532,13 @@ def render_tag_management_page() -> None:
                         label_visibility="collapsed",
                     )
                 else:
-                    st.empty()
+                    st.checkbox(
+                        "Archived tag is not assignable",
+                        key=f"tm_archived_select_disabled_{tag['slug']}",
+                        value=False,
+                        disabled=True,
+                        label_visibility="collapsed",
+                    )
             with _label_col:
                 st.markdown(
                     f"<div style='padding-top:0.52rem;line-height:1.5'>"

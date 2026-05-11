@@ -1255,6 +1255,7 @@ def get_imported_archived_tags() -> list[dict]:
                 ),
                 "visible_badge": metadata.get("visible_badge", ARCHIVE_BADGE_IMPORTED),
                 "selectable": True,
+                "has_selection_slot": True,
                 "can_assign_to_category": True,
                 "disabled_reason": None,
             }
@@ -1279,6 +1280,7 @@ def get_deleted_archived_tags() -> list[dict]:
                 ),
                 "visible_badge": metadata.get("visible_badge", ARCHIVE_BADGE_DELETED),
                 "selectable": False,
+                "has_selection_slot": True,
                 "can_assign_to_category": False,
                 "disabled_reason": "Restore flow is separate.",
             }

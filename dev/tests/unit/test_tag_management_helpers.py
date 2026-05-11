@@ -2,6 +2,7 @@ from ui.tag_management_helpers import (
     selected_assignable_archived_slugs,
     validate_pending_archived_assignment,
     validate_pending_category_rename,
+    validate_pending_tag_delete,
     validate_pending_tag_edit,
 )
 
@@ -121,4 +122,25 @@ def test_pending_category_rename_is_valid_only_for_current_custom_category():
         pending_rename=pending,
         current_rename_slug="story_shape",
         active_custom_category_slugs=set(),
+    ) is None
+
+
+def test_pending_tag_delete_is_valid_only_for_current_custom_tag():
+    pending = {
+        "tag_slug": "slow_burn",
+        "display_name": "Slow Burn",
+        "usage_count": 2,
+    }
+
+    assert validate_pending_tag_delete(
+        pending_delete=pending,
+        active_custom_slugs={"slow_burn"},
+    ) == pending
+    assert validate_pending_tag_delete(
+        pending_delete=pending,
+        active_custom_slugs=set(),
+    ) is None
+    assert validate_pending_tag_delete(
+        pending_delete={"tag_slug": "slow_burn"},
+        active_custom_slugs={"slow_burn"},
     ) is None

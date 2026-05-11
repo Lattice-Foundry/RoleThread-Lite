@@ -754,11 +754,13 @@ def test_lifecycle_specific_helpers_return_status_scoped_tags(tag_db):
     assert [tag["slug"] for tag in deleted] == ["archived_tag"]
     assert deleted[0]["visible_badge"] == "Deleted"
     assert deleted[0]["selectable"] is False
+    assert deleted[0]["has_selection_slot"] is True
     assert deleted[0]["can_assign_to_category"] is False
 
     visible_archived = tag_registry.get_visible_archived_tags()
     assert [tag["name"] for tag in visible_archived] == ["Archived Tag"]
     assert [tag["visible_badge"] for tag in visible_archived] == ["Deleted"]
+    assert [tag["has_selection_slot"] for tag in visible_archived] == [True]
     assert "hidden_tag" not in [tag["slug"] for tag in visible_archived]
 
 
@@ -835,9 +837,11 @@ def test_ensure_archived_import_tag_creates_inactive_archived_with_history(tag_d
         session.close()
 
     assert tag_registry.get_tag_registry_dict() == {}
-    assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
-        "slow_burn"
-    ]
+    imported = tag_registry.get_imported_archived_tags()
+    assert [tag["slug"] for tag in imported] == ["slow_burn"]
+    assert imported[0]["selectable"] is True
+    assert imported[0]["has_selection_slot"] is True
+    assert imported[0]["can_assign_to_category"] is True
     session = tag_db()
     try:
         assert session.query(TagLifecycleMetadata).filter_by(old_slug="slow_burn").count() == 1
