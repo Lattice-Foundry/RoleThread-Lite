@@ -55,6 +55,13 @@ def _patch_state(monkeypatch):
 
 def test_set_loaded_entries_tracks_pending_structural_normalization(monkeypatch):
     state = _patch_state(monkeypatch)
+    state.quick_edit_entry_id = "tmp-entry-1"
+    state.quick_edit_success = "Saved"
+    state.quick_edit_tmp_entry_1_1 = "draft"
+    state.edit_entries_mode = "workspace"
+    state.editing_entry_id = "tmp-entry-1"
+    state.full_edit_entry_id = "tmp-entry-1"
+    state.full_edit_turn_0 = "draft"
 
     normalization, errors = _load_entries_with_summary([_entry_without_tags()])
 
@@ -70,6 +77,13 @@ def test_set_loaded_entries_tracks_pending_structural_normalization(monkeypatch)
     assert state.normalization_pending is True
     assert state.tag_normalization_summary["tag_metadata_added_count"] == 1
     assert state.tag_normalization_summary["structural_changed_entries"] == 1
+    assert "quick_edit_entry_id" not in state
+    assert "quick_edit_success" not in state
+    assert "quick_edit_tmp_entry_1_1" not in state
+    assert state.edit_entries_mode == "browser"
+    assert "editing_entry_id" not in state
+    assert "full_edit_entry_id" not in state
+    assert "full_edit_turn_0" not in state
 
 
 def test_set_loaded_entries_tracks_pending_tag_slug_normalization(monkeypatch):

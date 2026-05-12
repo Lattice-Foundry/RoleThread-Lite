@@ -9,7 +9,7 @@ import streamlit as st
 
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset_with_summary
 from core.preferences import load_preferences
-from ui.session_state import set_loaded_entries
+from ui.session_state import clear_entry_edit_state, set_loaded_entries
 from core.storage import ensure_app_directories
 from core.tag_registry import seed_default_tags
 from ui.browser_helpers import DEFAULT_PAGE_SIZE, MATCH_MODE_ANY
@@ -166,6 +166,8 @@ for _sec_name, _sec_items in _NAV_SECTIONS:
             width="stretch",
             type="primary" if _page == _target else "secondary",
         ):
+            if st.session_state.page == "Edit Entries" and _target != "Edit Entries":
+                clear_entry_edit_state()
             st.session_state.page = _target
             st.rerun()
 

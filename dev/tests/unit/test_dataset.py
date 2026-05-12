@@ -198,7 +198,7 @@ def test_validate_entry_reports_tags_not_list():
 def test_validate_entry_reports_non_string_tag():
     errors = validate_entry(_entry(tags=["greeting", 7]))
 
-    assert "Each tag must be a string" in _error_text(errors)
+    assert "Tags contain non-text values" in _error_text(errors)
 
 
 def test_validate_entry_accepts_valid_multi_turn_entry():

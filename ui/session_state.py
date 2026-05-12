@@ -64,6 +64,7 @@ def set_loaded_entries(
     dataset_path: str | None = None,
 ) -> str | None:
     """Replace loaded_entries and rebuild the registry from scratch."""
+    clear_entry_edit_state()
     normalization = normalization_summary or normalize_dataset_entries(entries)
     working_copy_summary, effective_dataset_path = _prepare_foreign_working_copy(
         dataset_path,
@@ -119,6 +120,30 @@ def set_loaded_entries(
     _replace_optional_session_value("sidecar_import_summary", sidecar_summary)
     _replace_optional_session_value("pending_tag_trust", pending_trust or None)
     return effective_dataset_path
+
+
+def clear_entry_edit_state() -> None:
+    """Clear Quick Edit and Full Edit UI state without triggering a rerun."""
+
+    st.session_state.quick_edit_entry_id = None
+    st.session_state.edit_entries_mode = "browser"
+    for key in (
+        "editing_entry_id",
+        "full_edit_entry_id",
+        "full_edit_system_prompt",
+        "full_edit_turns",
+        "full_edit_planned_exchanges",
+        "full_edit_unknown_tags",
+        "_ee_browser_snapshot",
+    ):
+        st.session_state.pop(key, None)
+    for key in list(st.session_state.keys()):
+        if (
+            key.startswith("quick_edit_")
+            or key.startswith("full_edit_turn_")
+            or key.startswith("full_edit_tags_")
+        ):
+            st.session_state.pop(key, None)
 
 
 def _replace_optional_session_value(key: str, value) -> None:

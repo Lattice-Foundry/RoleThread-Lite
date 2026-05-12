@@ -377,7 +377,10 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
         legacy_messages = {
             BASE_MISSING_TAGS: "Missing 'tags' key",
             BASE_TAGS_NOT_LIST: "'tags' must be a list",
-            BASE_INVALID_TAG_VALUE: "Each tag must be a string",
+            BASE_INVALID_TAG_VALUE: (
+                "Tags contain non-text values, like numbers. "
+                "These will be removed when you save."
+            ),
         }
         return tuple(
             replace(

@@ -246,7 +246,10 @@ def replace_single_entry_tags_service(
         return DatasetOperationResult(
             ok=False,
             message="Tag validation failed.",
-            errors=["Each tag must be a string"],
+            errors=[
+                "Tags contain non-text values, like numbers. "
+                "These will be removed when you save."
+            ],
         )
 
     edited_entry = copy.deepcopy(entries[entry_index])
@@ -296,7 +299,10 @@ def replace_tags_bulk_service(
     normalized_indices, index_errors = _normalized_indices(entry_indices, entries)
     errors.extend(index_errors)
     if not all(isinstance(tag, str) for tag in tags):
-        errors.append("Each tag must be a string")
+        errors.append(
+            "Tags contain non-text values, like numbers. "
+            "These will be removed when you save."
+        )
     if errors:
         return DatasetOperationResult(
             ok=False,

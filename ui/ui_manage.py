@@ -22,6 +22,7 @@ from core.tag_registry import (
     prettify_tag_name,
 )
 from ui.file_dialogs import JSONL_TYPES, browse_open_file, path_input, safe_saveas_filename
+from ui.entry_edit_helpers import requires_full_edit_for_quick_edit
 from ui.message_scaffolding import scaffold_editable_messages
 from core.preferences import get_initial_dir
 from ui.session_state import (
@@ -62,6 +63,7 @@ from ui.browser_helpers import (
     slice_visible_pairs,
 )
 from ui.ui_components import render_message_preview
+from ui.ui_edit_entries import start_full_edit
 
 _UNTAGGED = "__untagged__"
 
@@ -80,7 +82,7 @@ def _render_load_format_summary(normalization) -> None:
     if source_format == FORMAT_SHAREGPT:
         st.info(
             "Detected format: ShareGPT. "
-            f"Converted {normalization.format_converted_count} entries to ChatML."
+            "Export as ShareGPT to preserve the original format."
         )
     else:
         st.info(f"Detected format: {_format_source_format(source_format)}.")
@@ -159,7 +161,8 @@ def _render_load_format_summary(normalization) -> None:
     pending_trust = st.session_state.get("pending_tag_trust") or {}
     if pending_trust:
         st.warning(
-            f"{count_phrase(len(pending_trust), 'unknown tag')} found in dataset - review on Validation page."
+            f"{count_phrase(len(pending_trust), 'unknown tag')} imported to archive "
+            "in Tag Management. Assign categories to make them available in tag pickers."
         )
 
 
@@ -537,9 +540,13 @@ def render_manage_page() -> None:
             # ── Confirmation UI (shown below button row when pending) ───────────
             if st.session_state.get("pending_delete_selected"):
                 _pending_sel_ids = get_selected_entry_ids()
+                _selected_entry_phrase = count_phrase(
+                    len(_pending_sel_ids),
+                    "selected entry",
+                    "selected entries",
+                )
                 st.warning(
-                    f"Delete {count_phrase(len(_pending_sel_ids), 'selected entry', 'selected entries')}? "
-                    "This cannot be undone."
+                    f"Delete {_selected_entry_phrase}? This cannot be undone."
                 )
                 _col_confirm, _col_cancel, _col_del_spacer = st.columns([1, 1, 2])
                 with _col_confirm:
@@ -863,12 +870,20 @@ def render_manage_page() -> None:
 
                         else:
                             # ── Normal preview mode ────────────────────────────
-                            if st.button(
-                                "Quick Edit",
-                                key=f"btn_quick_edit_{entry_id}",
-                            ):
-                                start_quick_edit(entry_id, entry)
-                                st.rerun()
+                            if requires_full_edit_for_quick_edit(entry):
+                                if st.button(
+                                    "Requires Full Edit",
+                                    key=f"btn_requires_full_edit_{entry_id}",
+                                ):
+                                    st.session_state.page = "Edit Entries"
+                                    start_full_edit(entry_id, _tag_snapshot.active_registry)
+                            else:
+                                if st.button(
+                                    "Quick Edit",
+                                    key=f"btn_quick_edit_{entry_id}",
+                                ):
+                                    start_quick_edit(entry_id, entry)
+                                    st.rerun()
                             if errs:
                                 for err in errs:
                                     st.error(err)

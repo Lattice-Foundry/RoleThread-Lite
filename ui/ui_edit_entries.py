@@ -21,6 +21,7 @@ from core.tag_registry import (
 )
 from core.text_helpers import count_phrase
 from ui.session_state import (
+    clear_entry_edit_state,
     ensure_entry_registry,
     get_all_entry_pairs,
     get_loaded_entry_by_id,
@@ -189,6 +190,13 @@ def cancel_full_edit() -> None:
     st.rerun()
 
 
+def reset_full_edit_to_browser() -> None:
+    """Clear stale full-edit state and return to the entry browser."""
+
+    clear_entry_edit_state()
+    st.rerun()
+
+
 def save_full_edit(active_registry: dict[str, list[str]]) -> bool:
     """Build the edited entry from the workspace buffer, validate, replace, and save.
 
@@ -294,6 +302,8 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
     # ── Header ─────────────────────────────────────────────────────────────────
     st.subheader("Full Edit Entry")
     st.caption(f"Temp ID: {entry_id}")
+    if st.button("Back to Entry List", key="btn_back_full_edit_top"):
+        reset_full_edit_to_browser()
 
     # ── System prompt ──────────────────────────────────────────────────────────
     st.divider()
