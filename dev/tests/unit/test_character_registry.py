@@ -14,11 +14,15 @@ from core.character_registry import (
     get_all_characters,
     get_character_display_for_entries,
     get_character_display_for_entry,
+    get_character_usage_counts,
     get_character_by_slug,
+    get_inactive_characters,
     get_entries_for_character,
     get_entry_character_turns,
     normalize_character_name,
+    reactivate_character,
     set_entry_character_turns,
+    update_character,
 )
 from core.loreforge_meta import LOREFORGE_META_KEY
 from core.models import Base, Character, EntryCharacterTurn
@@ -194,6 +198,29 @@ def test_get_character_by_slug_normalizes_and_excludes_inactive(character_db):
     assert get_character_by_slug("Scott Summers") is None
 
 
+def test_update_character_changes_display_metadata_not_slug(character_db):
+    create_character("Scott Summers", description="Old")
+
+    updated = update_character(
+        "scott_summers",
+        display_name="Cyclops",
+        description="Team leader",
+    )
+
+    assert updated.slug == "scott_summers"
+    assert updated.display_name == "Cyclops"
+    assert updated.description == "Team leader"
+
+
+def test_update_character_rejects_missing_or_empty_display_name(character_db):
+    create_character("Scott")
+
+    with pytest.raises(ValueError, match="display name"):
+        update_character("scott", display_name=" ")
+    with pytest.raises(ValueError, match="not found"):
+        update_character("missing", display_name="Missing")
+
+
 def test_deactivate_character_and_bulk_delete_soft_delete(character_db):
     create_character("Scott")
     create_character("Emma")
@@ -212,6 +239,17 @@ def test_deactivate_character_and_bulk_delete_soft_delete(character_db):
         assert stored["kai"].is_active is False
     finally:
         session.close()
+
+
+def test_inactive_characters_and_reactivation(character_db):
+    create_character("Scott")
+    create_character("Emma")
+    delete_characters(["Scott"])
+
+    assert [character.slug for character in get_inactive_characters()] == ["scott"]
+    assert reactivate_character("Scott") is True
+    assert reactivate_character("Missing") is False
+    assert [character.slug for character in get_all_characters()] == ["emma", "scott"]
 
 
 def test_set_and_get_entry_character_turns(character_db):
@@ -340,6 +378,41 @@ def test_get_entries_for_character_returns_distinct_entry_uuids(character_db):
     )
 
     assert get_entries_for_character("Scott") == ["entry-1", "entry-2"]
+
+
+def test_get_character_usage_counts_returns_distinct_entry_counts(character_db):
+    create_character("Scott")
+    create_character("Emma")
+    set_entry_character_turns(
+        "entry-1",
+        [
+            {"turn_index": 1, "character_slug": "scott", "training_role": "user"},
+            {"turn_index": 2, "character_slug": "scott", "training_role": "user"},
+            {"turn_index": 3, "character_slug": "emma", "training_role": "assistant"},
+        ],
+    )
+    set_entry_character_turns(
+        "entry-2",
+        [{"turn_index": 1, "character_slug": "scott", "training_role": "user"}],
+    )
+
+    assert get_character_usage_counts(["Scott", "Emma", "Missing"]) == {
+        "scott": 2,
+        "emma": 1,
+        "missing": 0,
+    }
+
+
+def test_soft_delete_character_removes_turn_mappings(character_db):
+    create_character("Scott")
+    set_entry_character_turns(
+        "entry-1",
+        [{"turn_index": 1, "character_slug": "scott", "training_role": "user"}],
+    )
+
+    assert delete_characters(["Scott"]) == ["scott"]
+    assert get_entry_character_turns("entry-1") == []
+    assert get_entries_for_character("Scott") == []
 
 
 def test_delete_entry_character_turns(character_db):

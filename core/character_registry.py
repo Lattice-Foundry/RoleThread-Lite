@@ -178,6 +178,24 @@ def get_all_characters() -> list[Character]:
         session.close()
 
 
+def get_inactive_characters() -> list[Character]:
+    """Return inactive characters ordered by display name."""
+
+    session = SessionLocal()
+    try:
+        characters = (
+            session.query(Character)
+            .filter_by(is_active=False)
+            .order_by(Character.display_name, Character.slug)
+            .all()
+        )
+        for character in characters:
+            session.expunge(character)
+        return characters
+    finally:
+        session.close()
+
+
 def get_character_by_slug(slug: str) -> Character | None:
     """Return one active character by normalized slug."""
 
@@ -195,6 +213,68 @@ def get_character_by_slug(slug: str) -> Character | None:
         if character is not None:
             session.expunge(character)
         return character
+    finally:
+        session.close()
+
+
+def update_character(
+    slug: str,
+    *,
+    display_name: str,
+    description: str | None = None,
+) -> Character:
+    """Update a character's display metadata without changing its slug."""
+
+    normalized_slug, _display_name = normalize_character_name(slug)
+    if not normalized_slug:
+        raise ValueError("Character slug cannot be empty.")
+    if not isinstance(display_name, str) or not display_name.strip():
+        raise ValueError("Character display name cannot be empty.")
+
+    session = SessionLocal()
+    try:
+        character = (
+            session.query(Character)
+            .filter_by(slug=normalized_slug, is_active=True)
+            .first()
+        )
+        if character is None:
+            raise ValueError(f"Character not found: {slug}")
+        character.display_name = display_name.strip()
+        character.description = description.strip() if isinstance(description, str) else None
+        session.commit()
+        session.refresh(character)
+        session.expunge(character)
+        return character
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def reactivate_character(slug: str) -> bool:
+    """Reactivate one inactive character by normalized slug."""
+
+    normalized_slug, _display_name = normalize_character_name(slug)
+    if not normalized_slug:
+        return False
+
+    session = SessionLocal()
+    try:
+        character = (
+            session.query(Character)
+            .filter_by(slug=normalized_slug, is_active=False)
+            .first()
+        )
+        if character is None:
+            return False
+        character.is_active = True
+        session.commit()
+        return True
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
 
@@ -227,6 +307,11 @@ def delete_characters(slugs: list[str]) -> list[str]:
             .all()
         )
         deactivated: list[str] = []
+        character_ids = [character.id for character in characters]
+        if character_ids:
+            session.query(EntryCharacterTurn).filter(
+                EntryCharacterTurn.character_id.in_(character_ids)
+            ).delete(synchronize_session=False)
         for character in characters:
             character.is_active = False
             deactivated.append(character.slug)
@@ -235,6 +320,37 @@ def delete_characters(slugs: list[str]) -> list[str]:
     except Exception:
         session.rollback()
         raise
+    finally:
+        session.close()
+
+
+def get_character_usage_counts(slugs: list[str]) -> dict[str, int]:
+    """Return entry usage counts for active characters by slug."""
+
+    normalized_slugs = {
+        normalized_slug
+        for slug in slugs
+        if (normalized_slug := normalize_character_name(slug)[0])
+    }
+    if not normalized_slugs:
+        return {}
+
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(Character.slug, EntryCharacterTurn.entry_uuid)
+            .join(EntryCharacterTurn)
+            .filter(
+                Character.slug.in_(normalized_slugs),
+                Character.is_active.is_(True),
+            )
+            .distinct()
+            .all()
+        )
+        counts: dict[str, int] = {slug: 0 for slug in normalized_slugs}
+        for slug, _entry_uuid in rows:
+            counts[slug] = counts.get(slug, 0) + 1
+        return counts
     finally:
         session.close()
 
