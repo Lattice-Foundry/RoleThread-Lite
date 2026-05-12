@@ -99,8 +99,47 @@ class Character(Base):
         onupdate=_utc_datetime,
     )
 
+    turn_mappings: Mapped[list["EntryCharacterTurn"]] = relationship(
+        "EntryCharacterTurn",
+        back_populates="character",
+        cascade="all, delete-orphan",
+    )
+
     def __repr__(self) -> str:
         return f"<Character id={self.id} slug={self.slug!r}>"
+
+
+class EntryCharacterTurn(Base):
+    """Character assignment for one turn in one stamped dataset entry."""
+    __tablename__ = "entry_character_turns"
+    __table_args__ = (
+        UniqueConstraint("entry_uuid", "turn_index", name="uq_entry_character_turn"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entry_uuid: Mapped[str] = mapped_column(String(64), nullable=False)
+    turn_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    character_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("characters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    training_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_role_label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_datetime
+    )
+
+    character: Mapped["Character"] = relationship(
+        "Character",
+        back_populates="turn_mappings",
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<EntryCharacterTurn entry_uuid={self.entry_uuid!r} "
+            f"turn_index={self.turn_index}>"
+        )
 
 
 class TagLifecycleMetadata(Base):
