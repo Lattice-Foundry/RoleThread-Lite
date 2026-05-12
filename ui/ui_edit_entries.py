@@ -19,12 +19,14 @@ from core.tag_registry import (
     get_tag_registry_snapshot,
     prettify_tag_name,
 )
+from core.text_helpers import count_phrase
 from ui.session_state import (
     ensure_entry_registry,
     get_all_entry_pairs,
     get_loaded_entry_by_id,
     get_loaded_entry_index_by_id,
 )
+from ui.message_scaffolding import scaffold_user_assistant_turns
 from services.dataset_service import save_full_edit_service
 from ui.browser_helpers import (
     DEFAULT_PAGE_SIZE,
@@ -80,6 +82,7 @@ def entry_to_edit_buffer(entry: dict) -> dict:
         elif role in ("user", "assistant"):
             turns.append({"role": role, "content": content})
 
+    turns = scaffold_user_assistant_turns(turns)
     tags = get_entry_tags(entry)
     planned_exchanges = max(1, count_exchanges(entry))
 
@@ -353,12 +356,14 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
         st.warning("You have not reached your planned number of exchanges yet.")
     if _m["overage"] > 0:
         st.info(
-            f"You are {_m['overage']} exchange(s) over your planned count. "
+            f"You are {count_phrase(_m['overage'], 'exchange')} over your planned count. "
             "You can still save this exchange."
         )
     if _planned_exchanges > 1 and _m["blank_pairs"] > 0:
+        _blank_pair_verb = "has" if _m["blank_pairs"] == 1 else "have"
         st.warning(
-            f"{_m['blank_pairs']} exchange pair(s) have empty fields and will not be saved. "
+            f"{count_phrase(_m['blank_pairs'], 'exchange pair')} "
+            f"{_blank_pair_verb} empty fields and will not be saved. "
             "Fill them in or remove them before completing."
         )
 

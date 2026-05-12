@@ -34,6 +34,7 @@ from services.dataset_service import (
     normalize_dataset_service,
     save_quick_edit_service,
 )
+from ui.message_scaffolding import scaffold_editable_messages
 from services.registry_sidecar_service import import_registry_sidecar
 
 
@@ -444,7 +445,10 @@ def start_quick_edit(entry_id: str, entry: dict) -> None:
     its text-area session-state key so the widget opens with current content.
     """
     st.session_state.quick_edit_entry_id = entry_id
-    for idx, msg in enumerate(entry.get("messages", [])):
+    messages = entry.get("messages", [])
+    if not isinstance(messages, list):
+        messages = []
+    for idx, msg in enumerate(scaffold_editable_messages(messages)):
         if isinstance(msg, dict) and msg.get("role") in ("user", "assistant"):
             st.session_state[f"quick_edit_{entry_id}_{idx}"] = msg.get("content", "")
 
@@ -477,6 +481,9 @@ def save_quick_edit(entry_id: str, entry: dict) -> DatasetOperationResult:
         )
 
     msgs = entry.get("messages", [])
+    if not isinstance(msgs, list):
+        msgs = []
+    msgs = scaffold_editable_messages(msgs)
     updated_msgs = []
     for msg_index, msg in enumerate(msgs):
         if not isinstance(msg, dict):

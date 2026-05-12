@@ -22,11 +22,16 @@ from core.format_conversion import (
 from core.loreforge_meta import is_native_dataset
 from core.entry_analysis import (
     AnalysisSeverity,
+    BASE_EMPTY_TAG,
+    BASE_INVALID_TAG_VALUE,
+    BASE_MISSING_TAGS,
+    BASE_TAGS_NOT_LIST,
     ChatMLAnalyzer,
     EntryAnalysisResult,
     RepairKind,
 )
 from core.tag_normalization import normalize_tag
+from core.text_helpers import count_phrase
 
 
 DEFAULT_SYSTEM_PROMPT = (
@@ -89,6 +94,12 @@ class TagNormalizationSummary:
 
 _CHATML_ANALYZER = ChatMLAnalyzer()
 _VALIDATE_ENTRY_CACHE: dict[str, EntryAnalysisResult] = {}
+_METADATA_DIAGNOSTIC_CODES = {
+    BASE_MISSING_TAGS,
+    BASE_TAGS_NOT_LIST,
+    BASE_INVALID_TAG_VALUE,
+    BASE_EMPTY_TAG,
+}
 
 
 def clear_validate_entry_cache() -> None:
@@ -226,7 +237,10 @@ def load_dataset_with_summary(
     summary.parsed_entry_count = len(entries)
     summary.parse_error_count = parse_error_count
     summary.dataset_is_native = dataset_is_native
-    summary.diagnostics = summarize_entry_analysis(summary.entries)
+    summary.diagnostics = summarize_entry_analysis(
+        summary.entries,
+        metadata_errors_block_validity=False,
+    )
     return summary, parse_errors
 
 
@@ -285,21 +299,44 @@ def _parse_dataset_entries(
 
     if not entries and parse_errors:
         parse_errors.append(
-            f"No valid entries could be loaded. {len(parse_errors)} line(s) had parse errors."
+            "No valid entries could be loaded. "
+            f"{count_phrase(len(parse_errors), 'line')} had parse errors."
         )
     return entries, parse_errors, source_line_count, len(parse_errors) - (1 if not entries and parse_errors else 0)
 
 
-def summarize_entry_analysis(entries: list[dict]) -> DatasetDiagnosticSummary:
+def summarize_entry_analysis(
+    entries: list[dict],
+    *,
+    metadata_errors_block_validity: bool = True,
+) -> DatasetDiagnosticSummary:
     """Analyze loaded entries and return aggregate typed diagnostic counts."""
 
     summary = DatasetDiagnosticSummary(entries_analyzed=len(entries))
     for entry in entries:
         result = analyze_entry(entry)
-        severities = {diagnostic.severity for diagnostic in result.diagnostics}
-        if result.is_valid:
+        blocking_diagnostics = [
+            diagnostic
+            for diagnostic in result.diagnostics
+            if (
+                diagnostic.severity == AnalysisSeverity.ERROR
+                and (
+                    metadata_errors_block_validity
+                    or diagnostic.code not in _METADATA_DIAGNOSTIC_CODES
+                )
+            )
+        ]
+        severities = {
+            diagnostic.severity
+            for diagnostic in result.diagnostics
+            if (
+                metadata_errors_block_validity
+                or diagnostic.code not in _METADATA_DIAGNOSTIC_CODES
+            )
+        }
+        if not blocking_diagnostics:
             summary.valid_entries += 1
-        if AnalysisSeverity.ERROR in severities:
+        if blocking_diagnostics:
             summary.entries_with_errors += 1
         if AnalysisSeverity.WARNING in severities:
             summary.entries_with_warnings += 1

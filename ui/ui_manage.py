@@ -4,8 +4,6 @@ This module owns selection, filters, pagination, and widgets. Durable
 dataset mutations delegate to services.
 """
 from pathlib import Path
-from tkinter import filedialog
-
 import streamlit as st
 
 from core.backups import auto_backups_enabled
@@ -18,11 +16,13 @@ from core.dataset import (
     validate_entry,
 )
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT, FORMAT_UNKNOWN
+from core.text_helpers import count_phrase
 from core.tag_registry import (
     get_tag_registry_snapshot,
     prettify_tag_name,
 )
-from ui.file_dialogs import JSONL_TYPES, _tk_root, browse_open_file, path_input
+from ui.file_dialogs import JSONL_TYPES, browse_open_file, path_input, safe_saveas_filename
+from ui.message_scaffolding import scaffold_editable_messages
 from core.preferences import get_initial_dir
 from ui.session_state import (
     cancel_quick_edit,
@@ -87,22 +87,24 @@ def _render_load_format_summary(normalization) -> None:
 
     if normalization.parse_error_count:
         st.warning(
-            f"Loaded {normalization.parsed_entry_count} entr(y/ies) from "
-            f"{normalization.source_line_count} non-empty line(s). "
-            f"{normalization.parse_error_count} line(s) had parse errors."
+            f"Loaded {count_phrase(normalization.parsed_entry_count, 'entry', 'entries')} "
+            f"from {count_phrase(normalization.source_line_count, 'non-empty line')}. "
+            f"{count_phrase(normalization.parse_error_count, 'line')} had parse errors."
         )
     if normalization.role_values_normalized or normalization.message_content_trimmed:
         st.caption(
             "Auto-normalized "
-            f"{normalization.role_values_normalized} role value(s) and "
-            f"{normalization.message_content_trimmed} message content field(s)."
+            f"{count_phrase(normalization.role_values_normalized, 'role value')} and "
+            f"{count_phrase(normalization.message_content_trimmed, 'message content field')}."
         )
 
     warnings = list(normalization.format_warnings or [])
     for warning in warnings[:3]:
         st.caption(f"Conversion warning: {warning}")
     if len(warnings) > 3:
-        st.caption(f"{len(warnings) - 3} additional conversion warning(s) hidden.")
+        st.caption(
+            f"{count_phrase(len(warnings) - 3, 'additional conversion warning')} hidden."
+        )
 
     working_copy = st.session_state.get("working_copy_summary")
     if working_copy:
@@ -120,12 +122,12 @@ def _render_load_format_summary(normalization) -> None:
         issue_entries = max(0, diagnostics.entries_analyzed - diagnostics.valid_entries)
         st.info(
             "Dataset diagnostics: "
-            f"{diagnostics.entries_analyzed} entr(y/ies) loaded "
+            f"{count_phrase(diagnostics.entries_analyzed, 'entry', 'entries')} loaded "
             f"({diagnostics.valid_entries} valid, {issue_entries} with issues)."
         )
         if diagnostics.auto_repairable_count:
             st.caption(
-                f"{diagnostics.auto_repairable_count} auto-fixable issue(s) detected."
+                f"{count_phrase(diagnostics.auto_repairable_count, 'auto-fixable issue')} detected."
             )
 
     sidecar_summary = st.session_state.get("sidecar_import_summary")
@@ -136,9 +138,9 @@ def _render_load_format_summary(normalization) -> None:
             promoted_count = len(sidecar_summary.get("tags_promoted", []) or [])
             st.info(
                 "Registry sidecar restored: "
-                f"{category_count} categor(y/ies), "
-                f"{created_count} tag(s), "
-                f"{promoted_count} promoted tag(s)."
+                f"{count_phrase(category_count, 'category', 'categories')}, "
+                f"{count_phrase(created_count, 'tag')}, "
+                f"{count_phrase(promoted_count, 'promoted tag')}."
             )
         else:
             st.warning(
@@ -151,13 +153,13 @@ def _render_load_format_summary(normalization) -> None:
         conflicts = sidecar_summary.get("conflicts") or []
         if conflicts:
             st.warning(
-                f"{len(conflicts)} tag conflict(s) detected - resolve on Validation page."
+                f"{count_phrase(len(conflicts), 'tag conflict')} detected - resolve on Validation page."
             )
 
     pending_trust = st.session_state.get("pending_tag_trust") or {}
     if pending_trust:
         st.warning(
-            f"{len(pending_trust)} unknown tag(s) found in dataset - review on Validation page."
+            f"{count_phrase(len(pending_trust), 'unknown tag')} found in dataset - review on Validation page."
         )
 
 
@@ -203,7 +205,9 @@ def render_manage_page() -> None:
                 for e in errors[:3]:
                     st.error(e)
                 if len(errors) > 3:
-                    st.caption(f"{len(errors) - 3} additional load error(s) hidden.")
+                    st.caption(
+                        f"{count_phrase(len(errors) - 3, 'additional load error')} hidden."
+                    )
             if errors and not entries:
                 st.error("No dataset was loaded.")
                 return
@@ -238,25 +242,32 @@ def render_manage_page() -> None:
                 "last_open_directory": str(Path(loaded_dataset_path).parent),
             })
             if _auto_normalized:
-                st.success(f"Loaded {len(entries)} entries from `{loaded_dataset_path}`. Normalized data saved.")
+                st.success(
+                    f"Loaded {count_phrase(len(entries), 'entry', 'entries')} "
+                    f"from `{loaded_dataset_path}`. Normalized data saved."
+                )
             elif _auto_normalize_failed:
-                st.warning(f"Loaded {len(entries)} entries from `{loaded_dataset_path}`, but normalization was not saved.")
+                st.warning(
+                    f"Loaded {count_phrase(len(entries), 'entry', 'entries')} "
+                    f"from `{loaded_dataset_path}`, but normalization was not saved."
+                )
             else:
-                st.success(f"Loaded {len(entries)} entries from `{loaded_dataset_path}`.")
+                st.success(
+                    f"Loaded {count_phrase(len(entries), 'entry', 'entries')} "
+                    f"from `{loaded_dataset_path}`."
+                )
             _render_load_format_summary(normalization)
 
     with col_new:
         if st.button("New Dataset", width="stretch"):
             prefs = st.session_state.prefs
-            root = _tk_root()
-            new_path = filedialog.asksaveasfilename(
+            new_path = safe_saveas_filename(
                 title="Create new dataset",
                 defaultextension=".jsonl",
                 initialfile="dataset.jsonl",
                 initialdir=get_initial_dir(prefs, dir_key="default_dataset_directory"),
                 filetypes=JSONL_TYPES,
             )
-            root.destroy()
 
             if new_path:
                 # Flush any in-memory entries to the current dataset first
@@ -527,7 +538,7 @@ def render_manage_page() -> None:
             if st.session_state.get("pending_delete_selected"):
                 _pending_sel_ids = get_selected_entry_ids()
                 st.warning(
-                    f"Delete {len(_pending_sel_ids)} selected entrie(s)? "
+                    f"Delete {count_phrase(len(_pending_sel_ids), 'selected entry', 'selected entries')}? "
                     "This cannot be undone."
                 )
                 _col_confirm, _col_cancel, _col_del_spacer = st.columns([1, 1, 2])
@@ -563,8 +574,9 @@ def render_manage_page() -> None:
 
             if st.session_state.get("pending_system_prompt_edit"):
                 st.info(
-                    f"Replace the system prompt for {_total_sel} selected "
-                    "entrie(s). This will overwrite existing system prompts "
+                    "Replace the system prompt for "
+                    f"{count_phrase(_total_sel, 'selected entry', 'selected entries')}. "
+                    "This will overwrite existing system prompts "
                     "or insert one if missing."
                 )
                 _new_prompt = st.text_area(
@@ -800,6 +812,9 @@ def render_manage_page() -> None:
                             # ── Quick edit mode ────────────────────────────────
                             st.markdown("**Quick Edit Messages**")
                             _qe_msgs = entry.get("messages", [])
+                            if not isinstance(_qe_msgs, list):
+                                _qe_msgs = []
+                            _qe_msgs = scaffold_editable_messages(_qe_msgs)
                             _exchange_num = 0
                             for _qe_idx, _qe_msg in enumerate(_qe_msgs):
                                 if not isinstance(_qe_msg, dict):

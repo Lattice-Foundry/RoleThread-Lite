@@ -11,6 +11,7 @@ import streamlit as st
 
 from core.tag_registry import prettify_tag_name
 
+_NON_STANDARD_ROLE_COLOR = "#c2185b"
 _ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
 
 
@@ -51,7 +52,7 @@ def render_message_preview(
         if role == "system" and not include_system:
             continue
         content = msg.get("content", "")
-        color = _COLOR.get(role, "#000")
+        color = _COLOR.get(role, _NON_STANDARD_ROLE_COLOR)
         if role == "system":
             body = f"<span style='color:#f1c40f'>{content}</span>"
         else:
@@ -81,7 +82,7 @@ def render_conversation_preview(turns_now: list[dict], prefix: str) -> None:  # 
 
     for _pt in _preview_turns:
         _role = _pt["role"]
-        _color = _ROLE_COLOR.get(_role, "#000")
+        _color = _ROLE_COLOR.get(_role, _NON_STANDARD_ROLE_COLOR)
         _name = _SPEAKER_LABEL.get(_role, _role.upper())
         _body = _format_preview_content(_pt["content"])
         st.markdown(

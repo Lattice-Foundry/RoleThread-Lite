@@ -25,6 +25,7 @@ class AutoFixSample:
     """Preview data for one auto-fixable diagnostic."""
 
     entry_index: int
+    code: str
     path: tuple[str | int, ...]
     message: str
     original_value: Any | None = None
@@ -179,6 +180,7 @@ def _sample_for_diagnostic(
 ) -> AutoFixSample:
     return AutoFixSample(
         entry_index=entry_index,
+        code=diagnostic.code,
         path=diagnostic.path,
         message=diagnostic.message,
         original_value=deepcopy(diagnostic.original_value),

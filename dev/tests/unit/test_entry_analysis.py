@@ -372,7 +372,7 @@ def test_chatml_analyzer_reports_system_not_dict():
 
     assert result.is_valid is False
     assert diagnostic.severity == AnalysisSeverity.ERROR
-    assert diagnostic.message == "Message 0 is not a dict"
+    assert diagnostic.message == "First message must be a system prompt object."
     assert diagnostic.path == ("messages", 0)
 
 
@@ -391,12 +391,12 @@ def test_chatml_analyzer_reports_wrong_system_role_and_empty_content():
 
     assert result.is_valid is False
     assert role.severity == AnalysisSeverity.ERROR
-    assert role.message == "Message 0: expected role 'system', got 'user'"
+    assert role.message == "First message must be a system prompt, but found role 'user'."
     assert role.path == ("messages", 0, "role")
     assert role.original_value == "user"
     assert role.normalized_value == "system"
     assert content.severity == AnalysisSeverity.ERROR
-    assert content.message == "Message 0 (system) has empty content"
+    assert content.message == "First system prompt is empty."
     assert content.path == ("messages", 0, "content")
     assert content.fixable is True
     assert content.repair_kind == RepairKind.SUGGESTED
@@ -416,7 +416,7 @@ def test_chatml_analyzer_reports_message_not_dict_with_indexed_path():
 
     assert result.is_valid is False
     assert diagnostic.severity == AnalysisSeverity.ERROR
-    assert diagnostic.message == "Message 1 is not a dict"
+    assert diagnostic.message == "Message 2 is not a valid message object."
     assert diagnostic.path == ("messages", 1)
 
 
@@ -435,12 +435,12 @@ def test_chatml_analyzer_reports_wrong_role_and_empty_content_with_indexed_paths
 
     assert result.is_valid is False
     assert wrong_role.severity == AnalysisSeverity.ERROR
-    assert wrong_role.message == "Message 1: expected role 'user', got 'assistant'"
+    assert wrong_role.message == "Message 2 should be a user turn, but found role 'assistant'."
     assert wrong_role.path == ("messages", 1, "role")
     assert wrong_role.original_value == "assistant"
     assert wrong_role.normalized_value == "user"
     assert empty_content.severity == AnalysisSeverity.ERROR
-    assert empty_content.message == "Message 1 (user) has empty content"
+    assert empty_content.message == "Message 2 (user) is empty."
     assert empty_content.path == ("messages", 1, "content")
 
 
@@ -771,7 +771,7 @@ def test_sharegpt_analyzer_reports_turn_not_dict_with_indexed_path():
 
     assert result.is_valid is False
     assert diagnostic.severity == AnalysisSeverity.ERROR
-    assert diagnostic.message == "Conversation turn 1 is not a dict"
+    assert diagnostic.message == "Conversation turn 2 is not a valid conversation object."
     assert diagnostic.path == ("conversations", 1)
     assert diagnostic.original_value == "bad"
 
@@ -786,7 +786,7 @@ def test_sharegpt_analyzer_reports_missing_role_field():
 
     assert result.is_valid is False
     assert diagnostic.severity == AnalysisSeverity.ERROR
-    assert diagnostic.message == "Conversation turn 1 is missing a role field"
+    assert diagnostic.message == "Conversation turn 2 is missing a role field."
     assert diagnostic.path == ("conversations", 1)
 
 
@@ -800,7 +800,7 @@ def test_sharegpt_analyzer_reports_missing_content_field():
 
     assert result.is_valid is False
     assert diagnostic.severity == AnalysisSeverity.ERROR
-    assert diagnostic.message == "Conversation turn 1 is missing a content field"
+    assert diagnostic.message == "Conversation turn 2 is missing a message content field."
     assert diagnostic.path == ("conversations", 1)
 
 
@@ -814,7 +814,7 @@ def test_sharegpt_analyzer_reports_unknown_role_as_warning():
 
     assert result.is_valid is True
     assert diagnostic.severity == AnalysisSeverity.WARNING
-    assert diagnostic.message == "Conversation turn 1 has unknown role: narrator"
+    assert diagnostic.message == "Conversation turn 2 has non-standard role 'narrator'."
     assert diagnostic.path == ("conversations", 1, "from")
     assert diagnostic.original_value == "narrator"
 
@@ -829,7 +829,7 @@ def test_sharegpt_analyzer_reports_empty_content_as_warning():
 
     assert result.is_valid is True
     assert diagnostic.severity == AnalysisSeverity.WARNING
-    assert diagnostic.message == "Conversation turn 1 has empty content"
+    assert diagnostic.message == "Conversation turn 2 has empty content."
     assert diagnostic.path == ("conversations", 1, "value")
     assert diagnostic.original_value == "   "
 

@@ -125,7 +125,7 @@ def test_validate_entry_reports_missing_or_incorrect_system_role():
         }
     )
 
-    assert "expected role 'system'" in _error_text(errors)
+    assert "First message must be a system prompt" in _error_text(errors)
 
 
 def test_validate_entry_reports_empty_system_content():
@@ -141,7 +141,7 @@ def test_validate_entry_reports_empty_system_content():
     )
 
     assert "system" in _error_text(errors)
-    assert "empty content" in _error_text(errors)
+    assert "empty" in _error_text(errors)
 
 
 def test_validate_entry_reports_broken_user_assistant_alternation():
@@ -156,8 +156,8 @@ def test_validate_entry_reports_broken_user_assistant_alternation():
         }
     )
 
-    assert "expected role 'user'" in _error_text(errors)
-    assert "expected role 'assistant'" in _error_text(errors)
+    assert "should be a user turn" in _error_text(errors)
+    assert "should be an assistant turn" in _error_text(errors)
 
 
 def test_validate_entry_reports_empty_user_or_assistant_content():
@@ -172,7 +172,7 @@ def test_validate_entry_reports_empty_user_or_assistant_content():
         }
     )
 
-    assert "empty content" in _error_text(errors)
+    assert "empty" in _error_text(errors)
 
 
 def test_validate_entry_reports_missing_tags():
@@ -866,7 +866,7 @@ def test_load_dataset_reports_zero_entries_when_all_lines_fail(tmp_path):
     assert len(errors) == 3
     assert "Line 1" in errors[0]
     assert "Line 2" in errors[1]
-    assert errors[2] == "No valid entries could be loaded. 2 line(s) had parse errors."
+    assert errors[2] == "No valid entries could be loaded. 2 lines had parse errors."
 
 
 def test_load_dataset_normalizes_missing_tags_to_empty_list(tmp_path):
@@ -955,8 +955,8 @@ def test_load_dataset_with_summary_auto_normalize_off_preserves_issues_for_analy
     assert summary.changed_tags == 0
     assert summary.role_values_normalized == 0
     assert summary.message_content_trimmed == 0
-    assert summary.diagnostics.valid_entries == 0
-    assert summary.diagnostics.entries_with_errors == 1
+    assert summary.diagnostics.valid_entries == 1
+    assert summary.diagnostics.entries_with_errors == 0
     assert summary.diagnostics.entries_with_warnings == 1
     assert summary.diagnostics.auto_repairable_count == 8
 
@@ -1049,6 +1049,37 @@ def test_load_dataset_with_summary_converts_sharegpt_to_chatml(tmp_path):
     assert summary.diagnostics.entries_analyzed == 1
     assert summary.diagnostics.valid_entries == 1
     assert summary.diagnostics.error_count == 0
+
+
+def test_load_dataset_with_summary_treats_clean_sharegpt_without_tags_as_valid(tmp_path):
+    path = tmp_path / "sharegpt_no_tags.jsonl"
+    records = [
+        {
+            "conversations": [
+                {"from": "human", "value": "Hi"},
+                {"from": "gpt", "value": "Hello"},
+            ]
+        },
+        {
+            "conversations": [
+                {"from": "human", "value": "Question"},
+                {"from": "gpt", "value": "Answer"},
+            ]
+        },
+    ]
+    path.write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+    summary, errors = load_dataset_with_summary(str(path), auto_normalize=False)
+
+    assert errors == []
+    assert summary.source_format == FORMAT_SHAREGPT
+    assert summary.diagnostics.entries_analyzed == 2
+    assert summary.diagnostics.valid_entries == 2
+    assert summary.diagnostics.entries_with_errors == 0
+    assert summary.diagnostics.auto_repairable_count == 2
 
 
 def test_load_dataset_with_summary_keeps_unknown_format_loadable(tmp_path):
@@ -1195,7 +1226,7 @@ def test_merge_datasets_collects_parse_errors_from_bad_input_files(tmp_path):
     assert stats["total_loaded"] == 1
     assert len(stats["parse_errors"]) == 2
     assert "Line 1" in stats["parse_errors"][0]
-    assert stats["parse_errors"][1] == "No valid entries could be loaded. 1 line(s) had parse errors."
+    assert stats["parse_errors"][1] == "No valid entries could be loaded. 1 line had parse errors."
 
 
 def test_merge_datasets_with_shuffle_false_preserves_deterministic_order(tmp_path):

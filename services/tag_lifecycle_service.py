@@ -28,6 +28,7 @@ from core.models import (
     TagLifecycleMetadata,
 )
 from core.tag_normalization import normalize_tag
+from core.text_helpers import count_phrase
 
 
 @dataclass
@@ -504,7 +505,10 @@ def assign_archived_imported_tags_to_category(
                 )
 
             return pipeline.commit_success(
-                message=f"Assigned {len(tags)} archived tag(s) to {category.name}.",
+                message=(
+                    f"Assigned {count_phrase(len(tags), 'archived tag')} "
+                    f"to {category.name}."
+                ),
                 success_fields={
                     "affected_count": len(tags),
                     "tag_slugs": [tag.slug for tag in tags],

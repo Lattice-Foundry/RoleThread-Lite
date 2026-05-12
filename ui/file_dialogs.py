@@ -25,6 +25,37 @@ def _tk_root() -> tk.Tk:
     return root
 
 
+def _show_dialog_error(exc: Exception) -> None:
+    st.warning(
+        "The native file dialog could not be opened. "
+        "Paste the file path manually and try again."
+    )
+    st.caption(str(exc))
+
+
+def _run_dialog(dialog_fn, **kwargs):
+    root: tk.Tk | None = None
+    try:
+        root = _tk_root()
+        root.update()
+        return dialog_fn(parent=root, **kwargs)
+    except (RuntimeError, tk.TclError) as exc:
+        _show_dialog_error(exc)
+        return None
+    finally:
+        if root is not None:
+            try:
+                root.destroy()
+            except (RuntimeError, tk.TclError):
+                pass
+
+
+def safe_saveas_filename(**kwargs) -> str | None:
+    """Return a save-as path, or None if the native dialog is unavailable."""
+
+    return _run_dialog(filedialog.asksaveasfilename, **kwargs) or None
+
+
 def _save_prefs(updates: dict) -> None:
     """Update st.session_state.prefs in place and persist to disk.
 
@@ -43,15 +74,14 @@ def browse_open_file(
 ) -> None:
     """Open a single-file picker and store the result in pending_key."""
     prefs = st.session_state.prefs
-    root = _tk_root()
-    path = filedialog.askopenfilename(
+    path = _run_dialog(
+        filedialog.askopenfilename,
         title="Select dataset file",
         filetypes=JSONL_TYPES,
         initialdir=get_initial_dir(
             prefs, path_key=pref_path_key, dir_key="last_open_directory"
         ),
     )
-    root.destroy()
     if path:
         st.session_state[pending_key] = path
         _save_prefs({
@@ -68,15 +98,13 @@ def browse_save_file(
 ) -> None:
     """Open a save-as picker and store the result in pending_key."""
     prefs = st.session_state.prefs
-    root = _tk_root()
-    path = filedialog.asksaveasfilename(
+    path = safe_saveas_filename(
         title="Save dataset as",
         defaultextension=".jsonl",
         initialfile=default_name,
         initialdir=get_initial_dir(prefs, dir_key=dir_key),
         filetypes=JSONL_TYPES,
     )
-    root.destroy()
     if path:
         st.session_state[pending_key] = path
         st.rerun()
@@ -89,12 +117,11 @@ def browse_directory(
 ) -> None:
     """Open a directory picker and store the result in pending_key."""
     prefs = st.session_state.prefs
-    root = _tk_root()
-    path = filedialog.askdirectory(
+    path = _run_dialog(
+        filedialog.askdirectory,
         title=title,
         initialdir=get_initial_dir(prefs, dir_key=dir_key),
     )
-    root.destroy()
     if path:
         st.session_state[pending_key] = path
         st.rerun()
@@ -116,15 +143,13 @@ def browse_export_file(pending_key: str) -> None:
         and Path(st.session_state.loaded_path).parent.exists()
         else get_initial_dir(st.session_state.prefs, dir_key="default_dataset_directory")
     )
-    root = _tk_root()
-    path = filedialog.asksaveasfilename(
+    path = safe_saveas_filename(
         title="Export dataset",
         defaultextension=".jsonl",
         initialfile=_default,
         initialdir=_initial_dir,
         filetypes=JSONL_TYPES,
     )
-    root.destroy()
     if path:
         st.session_state[pending_key] = path
         st.rerun()
@@ -133,13 +158,12 @@ def browse_export_file(pending_key: str) -> None:
 def browse_open_multiple(widget_key: str, pending_key: str) -> None:
     """Open a multi-file picker and append chosen paths to widget_key."""
     prefs = st.session_state.prefs
-    root = _tk_root()
-    paths = filedialog.askopenfilenames(
+    paths = _run_dialog(
+        filedialog.askopenfilenames,
         title="Select dataset files to merge",
         filetypes=JSONL_TYPES,
         initialdir=get_initial_dir(prefs, dir_key="last_open_directory"),
     )
-    root.destroy()
     if paths:
         existing = st.session_state.get(widget_key, "").strip()
         new_lines = "\n".join(paths)

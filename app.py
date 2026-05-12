@@ -21,6 +21,7 @@ from ui.ui_manage import render_manage_page
 from ui.ui_merge import render_merge_page
 from ui.ui_settings import render_settings_page
 from ui.ui_stats import render_stats_page
+from ui.ui_validation import render_validation_page
 
 # ── Page config ────────────────────────────────────────────────────────────────
 ensure_app_directories()
@@ -183,7 +184,7 @@ elif page == "Merge Datasets":
 elif page == "Export":
     render_export_page()
 elif page == "Validation":
-    st.info("This page is planned but not implemented yet.")
+    render_validation_page()
 elif page == "Tag Management":
     render_tag_management_page()
 elif page == "Statistics":

@@ -448,7 +448,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 EntryDiagnostic(
                     code=CHATML_SYSTEM_NOT_DICT,
                     severity=AnalysisSeverity.ERROR,
-                    message="Message 0 is not a dict",
+                    message="First message must be a system prompt object.",
                     path=("messages", 0),
                     repair_kind=RepairKind.MANUAL,
                     original_value=system_message,
@@ -472,7 +472,10 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 EntryDiagnostic(
                     code=CHATML_MISSING_SYSTEM_ROLE,
                     severity=AnalysisSeverity.ERROR,
-                    message=f"Message 0: expected role 'system', got '{system_role}'",
+                    message=(
+                        "First message must be a system prompt, "
+                        f"but found role '{system_role}'."
+                    ),
                     path=("messages", 0, "role"),
                     repair_kind=RepairKind.MANUAL,
                     original_value=system_role,
@@ -485,7 +488,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 EntryDiagnostic(
                     code=CHATML_EMPTY_SYSTEM_CONTENT,
                     severity=AnalysisSeverity.ERROR,
-                    message="Message 0 (system) has empty content",
+                    message="First system prompt is empty.",
                     path=("messages", 0, "content"),
                     fixable=True,
                     repair_kind=RepairKind.SUGGESTED,
@@ -501,7 +504,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     EntryDiagnostic(
                         code=CHATML_MESSAGE_NOT_DICT,
                         severity=AnalysisSeverity.ERROR,
-                        message=f"Message {index} is not a dict",
+                        message=f"Message {index + 1} is not a valid message object.",
                         path=("messages", index),
                         repair_kind=RepairKind.MANUAL,
                         original_value=message,
@@ -526,7 +529,11 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     EntryDiagnostic(
                         code=CHATML_WRONG_ROLE,
                         severity=AnalysisSeverity.ERROR,
-                        message=f"Message {index}: expected role '{expected_role}', got '{actual_role}'",
+                        message=(
+                            f"Message {index + 1} should be "
+                            f"{self._role_article(expected_role)} {expected_role} turn, "
+                            f"but found role '{actual_role}'."
+                        ),
                         path=("messages", index, "role"),
                         repair_kind=RepairKind.MANUAL,
                         original_value=actual_role,
@@ -539,7 +546,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     EntryDiagnostic(
                         code=CHATML_EMPTY_CONTENT,
                         severity=AnalysisSeverity.ERROR,
-                        message=f"Message {index} ({expected_role}) has empty content",
+                        message=f"Message {index + 1} ({expected_role}) is empty.",
                         path=("messages", index, "content"),
                         repair_kind=RepairKind.MANUAL,
                         original_value=message.get("content", ""),
@@ -548,6 +555,11 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             expected_role = "assistant" if expected_role == "user" else "user"
 
         return tuple(diagnostics)
+
+    def _role_article(self, role: str) -> str:
+        if role == "user":
+            return "a"
+        return "an" if role[:1].lower() in {"a", "e", "i", "o", "u"} else "a"
 
     def _canonical_role(self, role: object) -> str | None:
         if not isinstance(role, str):
@@ -631,7 +643,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             code=CHATML_ROLE_CANONICALIZATION,
             severity=AnalysisSeverity.WARNING,
             message=(
-                f"Message {index} role can be normalized from "
+                f"Message {index + 1} role can be normalized from "
                 f"'{original_value}' to '{normalized_value}'."
             ),
             path=("messages", index, "role"),
@@ -657,7 +669,10 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             EntryDiagnostic(
                 code=CHATML_CONTENT_WHITESPACE,
                 severity=AnalysisSeverity.WARNING,
-                message=f"Message {index} content has leading or trailing whitespace.",
+                message=(
+                    f"Message {index + 1} has extra spaces at the beginning "
+                    "or end of its text."
+                ),
                 path=("messages", index, "content"),
                 fixable=True,
                 repair_kind=RepairKind.AUTOMATIC,
@@ -754,7 +769,10 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                     EntryDiagnostic(
                         code=SHAREGPT_TURN_NOT_DICT,
                         severity=AnalysisSeverity.ERROR,
-                        message=f"Conversation turn {index} is not a dict",
+                        message=(
+                            f"Conversation turn {index + 1} is not a valid "
+                            "conversation object."
+                        ),
                         path=("conversations", index),
                         repair_kind=RepairKind.MANUAL,
                         original_value=turn,
@@ -770,7 +788,7 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                     EntryDiagnostic(
                         code=SHAREGPT_MISSING_ROLE_FIELD,
                         severity=AnalysisSeverity.ERROR,
-                        message=f"Conversation turn {index} is missing a role field",
+                        message=f"Conversation turn {index + 1} is missing a role field.",
                         path=("conversations", index),
                         repair_kind=RepairKind.MANUAL,
                     )
@@ -782,7 +800,10 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                         EntryDiagnostic(
                             code=SHAREGPT_UNKNOWN_ROLE,
                             severity=AnalysisSeverity.WARNING,
-                            message=f"Conversation turn {index} has unknown role: {raw_role}",
+                            message=(
+                                f"Conversation turn {index + 1} has non-standard "
+                                f"role '{raw_role}'."
+                            ),
                             path=("conversations", index, role_key),
                             repair_kind=RepairKind.MANUAL,
                             original_value=raw_role,
@@ -817,7 +838,10 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                     EntryDiagnostic(
                         code=SHAREGPT_MISSING_CONTENT_FIELD,
                         severity=AnalysisSeverity.ERROR,
-                        message=f"Conversation turn {index} is missing a content field",
+                        message=(
+                            f"Conversation turn {index + 1} is missing a message "
+                            "content field."
+                        ),
                         path=("conversations", index),
                         repair_kind=RepairKind.MANUAL,
                     )
@@ -827,7 +851,7 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                     EntryDiagnostic(
                         code=SHAREGPT_EMPTY_CONTENT,
                         severity=AnalysisSeverity.WARNING,
-                        message=f"Conversation turn {index} has empty content",
+                        message=f"Conversation turn {index + 1} has empty content.",
                         path=("conversations", index, content_key),
                         fixable=True,
                         repair_kind=RepairKind.SUGGESTED,

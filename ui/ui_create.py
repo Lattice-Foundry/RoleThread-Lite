@@ -10,9 +10,11 @@ import streamlit as st
 from core.dataset import clear_validate_entry_cache, make_entry, validate_entry
 from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
 from core.tag_registry import get_tag_registry_snapshot
+from core.text_helpers import count_phrase
 from ui.session_state import update_prefs, ensure_entry_registry
 from services.dataset_service import create_entry_service
 from ui.ui_components import (
+    _NON_STANDARD_ROLE_COLOR,
     _ROLE_COLOR,
     calculate_exchange_metrics,
     render_conversation_preview,
@@ -120,7 +122,7 @@ def render_turn_builder(
                 break
             _turn = st.session_state[f"{prefix}_turns"][_idx]
             _role = _turn["role"]
-            _color = _ROLE_COLOR.get(_role, "#000")
+            _color = _ROLE_COLOR.get(_role, _NON_STANDARD_ROLE_COLOR)
             with _col:
                 st.markdown(
                     f"<span style='color:{_color};font-weight:bold;"
@@ -223,12 +225,14 @@ def render_entry_actions(
         st.warning("You have not reached your planned number of exchanges yet.")
     if _m["overage"] > 0:
         st.info(
-            f"You are {_m['overage']} exchange(s) over your planned count. "
+            f"You are {count_phrase(_m['overage'], 'exchange')} over your planned count. "
             "You can still save this exchange."
         )
     if _planned_exchanges > 1 and _m["blank_pairs"] > 0:
+        _blank_pair_verb = "has" if _m["blank_pairs"] == 1 else "have"
         st.warning(
-            f"{_m['blank_pairs']} exchange pair(s) have empty fields and will not be saved. "
+            f"{count_phrase(_m['blank_pairs'], 'exchange pair')} "
+            f"{_blank_pair_verb} empty fields and will not be saved. "
             "Fill them in or remove them before completing."
         )
 

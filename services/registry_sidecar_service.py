@@ -29,6 +29,7 @@ from core.tag_constants import (
     TAG_STATUS_HIDDEN,
 )
 from core.tag_normalization import normalize_tag
+from core.text_helpers import count_phrase
 import core.tag_registry as tag_registry
 
 
@@ -533,8 +534,8 @@ def _import_success_message(result: RegistrySidecarImportResult) -> str:
         return "Registry sidecar already matches the current registry."
     return (
         "Imported registry sidecar: "
-        f"{len(result.categories_created)} categor(y/ies), "
-        f"{len(result.tags_created)} tag(s), "
-        f"{len(result.tags_promoted)} promoted tag(s), "
-        f"{len(result.aliases_imported)} alias(es)."
+        f"{count_phrase(len(result.categories_created), 'category', 'categories')}, "
+        f"{count_phrase(len(result.tags_created), 'tag')}, "
+        f"{count_phrase(len(result.tags_promoted), 'promoted tag')}, "
+        f"{count_phrase(len(result.aliases_imported), 'alias', 'aliases')}."
     )

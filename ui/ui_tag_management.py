@@ -7,6 +7,7 @@ from core.tag_registry import (
     prettify_tag_name,
     slugify_tag_name,
 )
+from core.text_helpers import count_phrase
 from ui.tag_management_helpers import (
     selected_assignable_archived_slugs,
     validate_pending_archived_assignment,
@@ -558,7 +559,97 @@ def render_tag_management_page() -> None:
                     st.session_state.pop("tm_pending_category_delete", None)
                     st.rerun()
 
-    # ── Section 1b: Archived lifecycle tags ───────────────────────────────────
+    # ── Section 2: Create Custom Category ─────────────────────────────────────
+    st.divider()
+    st.subheader("Create Custom Category")
+
+    _at_limit = total_categories >= _tag_snapshot.max_active_categories
+
+    if _at_limit:
+        st.info(
+            f"Category limit reached. "
+            f"This version supports {_tag_snapshot.max_active_categories} active categories."
+        )
+
+    _new_cat_name: str = st.text_input(
+        "Category Name",
+        key="tm_new_cat_name",
+        placeholder="e.g. Tone",
+        disabled=_at_limit,
+    )
+
+    # Live slug / display-name preview
+    if _new_cat_name.strip():
+        _cat_slug_preview = slugify_tag_name(_new_cat_name)
+        _cat_name_preview = prettify_tag_name(_cat_slug_preview)
+        st.caption(
+            f"slug: `{_cat_slug_preview}` · display name will be saved as: **{_cat_name_preview}**"
+        )
+
+    if st.button(
+        "Create Category",
+        key="btn_tm_create_cat",
+        type="primary",
+        disabled=_at_limit or not _new_cat_name.strip(),
+        width="stretch",
+    ):
+        _ok, _msg = create_custom_category(_new_cat_name)
+        if _ok:
+            st.session_state["tm_success"] = _msg
+            st.session_state["_tm_clear_cat_name"] = True
+            st.rerun()
+        else:
+            st.error(_msg)
+
+    # ── Section 3: Add Custom Tag ──────────────────────────────────────────────
+    st.divider()
+    st.subheader("Add Custom Tag")
+
+    if not registry:
+        st.info("No active categories available. Create a category first.")
+    else:
+        _cat_name_to_id: dict[str, int] = {cat["name"]: cat["id"] for cat in registry}
+        _cat_names = list(_cat_name_to_id.keys())
+
+        _selected_cat_name: str | None = st.selectbox(
+            "Category",
+            options=_cat_names,
+            key="tm_tag_cat_select",
+        )
+        _selected_cat_id: int | None = (
+            _cat_name_to_id.get(_selected_cat_name) if _selected_cat_name else None
+        )
+
+        _new_tag_name: str = st.text_input(
+            "Tag Name",
+            key="tm_new_tag_name",
+            placeholder="e.g. Playful Banter",
+        )
+
+        # Live slug / display-name preview
+        if _new_tag_name.strip():
+            _tag_slug_preview = slugify_tag_name(_new_tag_name)
+            _tag_name_preview = prettify_tag_name(_tag_slug_preview)
+            st.caption(
+                f"slug: `{_tag_slug_preview}` · display name will be saved as: **{_tag_name_preview}**"
+            )
+
+        if st.button(
+            "Add Tag",
+            key="btn_tm_add_tag",
+            type="primary",
+            disabled=_selected_cat_id is None or not _new_tag_name.strip(),
+            width="stretch",
+        ):
+            _ok, _msg = create_custom_tag(_selected_cat_id, _new_tag_name)
+            if _ok:
+                st.session_state["tm_success"] = _msg
+                st.session_state["_tm_clear_tag_name"] = True
+                st.rerun()
+            else:
+                st.error(_msg)
+
+    # Archived lifecycle tags
     st.divider()
     st.subheader("Archived Tags")
     st.caption(
@@ -676,7 +767,8 @@ def render_tag_management_page() -> None:
             _pending_count = len(_pending_assignment["tag_slugs"])
             _pending_category = _pending_assignment["category_name"]
             st.warning(
-                f"Assign {_pending_count} archived tag(s) to {_pending_category}? "
+                f"Assign {count_phrase(_pending_count, 'archived tag')} "
+                f"to {_pending_category}? "
                 "These tags will become active and appear in normal tag pickers."
             )
             _confirm_col, _cancel_col = st.columns(2)
@@ -704,93 +796,3 @@ def render_tag_management_page() -> None:
                 if st.button("Cancel", key="btn_tm_cancel_archived_assignment"):
                     st.session_state.pop("tm_pending_archived_assignment", None)
                     st.rerun()
-
-    # ── Section 2: Create Custom Category ─────────────────────────────────────
-    st.divider()
-    st.subheader("Create Custom Category")
-
-    _at_limit = total_categories >= _tag_snapshot.max_active_categories
-
-    if _at_limit:
-        st.info(
-            f"Category limit reached. "
-            f"This version supports {_tag_snapshot.max_active_categories} active categories."
-        )
-
-    _new_cat_name: str = st.text_input(
-        "Category Name",
-        key="tm_new_cat_name",
-        placeholder="e.g. Tone",
-        disabled=_at_limit,
-    )
-
-    # Live slug / display-name preview
-    if _new_cat_name.strip():
-        _cat_slug_preview = slugify_tag_name(_new_cat_name)
-        _cat_name_preview = prettify_tag_name(_cat_slug_preview)
-        st.caption(
-            f"slug: `{_cat_slug_preview}` · display name will be saved as: **{_cat_name_preview}**"
-        )
-
-    if st.button(
-        "Create Category",
-        key="btn_tm_create_cat",
-        type="primary",
-        disabled=_at_limit or not _new_cat_name.strip(),
-        width="stretch",
-    ):
-        _ok, _msg = create_custom_category(_new_cat_name)
-        if _ok:
-            st.session_state["tm_success"] = _msg
-            st.session_state["_tm_clear_cat_name"] = True
-            st.rerun()
-        else:
-            st.error(_msg)
-
-    # ── Section 3: Add Custom Tag ──────────────────────────────────────────────
-    st.divider()
-    st.subheader("Add Custom Tag")
-
-    if not registry:
-        st.info("No active categories available. Create a category first.")
-    else:
-        _cat_name_to_id: dict[str, int] = {cat["name"]: cat["id"] for cat in registry}
-        _cat_names = list(_cat_name_to_id.keys())
-
-        _selected_cat_name: str | None = st.selectbox(
-            "Category",
-            options=_cat_names,
-            key="tm_tag_cat_select",
-        )
-        _selected_cat_id: int | None = (
-            _cat_name_to_id.get(_selected_cat_name) if _selected_cat_name else None
-        )
-
-        _new_tag_name: str = st.text_input(
-            "Tag Name",
-            key="tm_new_tag_name",
-            placeholder="e.g. Playful Banter",
-        )
-
-        # Live slug / display-name preview
-        if _new_tag_name.strip():
-            _tag_slug_preview = slugify_tag_name(_new_tag_name)
-            _tag_name_preview = prettify_tag_name(_tag_slug_preview)
-            st.caption(
-                f"slug: `{_tag_slug_preview}` · display name will be saved as: **{_tag_name_preview}**"
-            )
-
-        if st.button(
-            "Add Tag",
-            key="btn_tm_add_tag",
-            type="primary",
-            disabled=_selected_cat_id is None or not _new_tag_name.strip(),
-            width="stretch",
-        ):
-            _ok, _msg = create_custom_tag(_selected_cat_id, _new_tag_name)
-            if _ok:
-                st.session_state["tm_success"] = _msg
-                st.session_state["_tm_clear_tag_name"] = True
-                st.rerun()
-            else:
-                st.error(_msg)
