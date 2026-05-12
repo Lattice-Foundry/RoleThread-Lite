@@ -325,6 +325,36 @@ def get_character_display_for_entry(entry_uuid: str) -> dict[int, str]:
         session.close()
 
 
+def get_character_display_for_entries(entry_uuids: set[str]) -> dict[str, dict[int, str]]:
+    """Return ``{entry_uuid: {turn_index: display_name}}`` for many entries."""
+
+    if not entry_uuids:
+        return {}
+
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(
+                EntryCharacterTurn.entry_uuid,
+                EntryCharacterTurn.turn_index,
+                Character.display_name,
+            )
+            .join(Character)
+            .filter(
+                EntryCharacterTurn.entry_uuid.in_(entry_uuids),
+                Character.is_active.is_(True),
+            )
+            .order_by(EntryCharacterTurn.entry_uuid, EntryCharacterTurn.turn_index)
+            .all()
+        )
+        display_by_entry: dict[str, dict[int, str]] = {}
+        for entry_uuid, turn_index, display_name in rows:
+            display_by_entry.setdefault(entry_uuid, {})[turn_index] = display_name
+        return display_by_entry
+    finally:
+        session.close()
+
+
 def get_entries_for_character(character_slug: str) -> list[str]:
     """Return entry UUIDs that have mappings for one active character."""
 

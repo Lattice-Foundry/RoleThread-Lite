@@ -12,6 +12,7 @@ from core.character_registry import (
     delete_characters,
     delete_entry_character_turns,
     get_all_characters,
+    get_character_display_for_entries,
     get_character_display_for_entry,
     get_character_by_slug,
     get_entries_for_character,
@@ -244,6 +245,24 @@ def test_set_and_get_entry_character_turns(character_db):
     assert get_character_display_for_entry("entry-1") == {
         1: "Scott",
         2: "Emma",
+    }
+
+
+def test_get_character_display_for_entries_bulk(character_db):
+    create_character("Scott")
+    create_character("Emma")
+    set_entry_character_turns(
+        "entry-1",
+        [{"turn_index": 1, "character_slug": "scott", "training_role": "user"}],
+    )
+    set_entry_character_turns(
+        "entry-2",
+        [{"turn_index": 2, "character_slug": "emma", "training_role": "assistant"}],
+    )
+
+    assert get_character_display_for_entries({"entry-1", "entry-2"}) == {
+        "entry-1": {1: "Scott"},
+        "entry-2": {2: "Emma"},
     }
 
 

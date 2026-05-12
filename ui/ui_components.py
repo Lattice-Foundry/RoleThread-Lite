@@ -42,15 +42,18 @@ def render_json_preview(entry: dict, expanded: bool = False) -> None:
 def render_message_preview(
     messages: list[dict],
     include_system: bool = True,
+    display_names: dict[int, str] | None = None,
 ) -> None:
     """Render a formatted read-only preview of saved entry messages."""
     _COLOR = {"system": "#555", "user": "#1a73e8", "assistant": "#188038"}
-    for msg in messages:
+    display_names = display_names or {}
+    for turn_index, msg in enumerate(messages):
         if not isinstance(msg, dict):
             continue
         role = msg.get("role", "")
         if role == "system" and not include_system:
             continue
+        display_name = display_names.get(turn_index, role or "?")
         content = msg.get("content", "")
         color = _COLOR.get(role, _NON_STANDARD_ROLE_COLOR)
         if role == "system":
@@ -59,31 +62,40 @@ def render_message_preview(
             body = _format_preview_content(content)
         st.markdown(
             f"<span style='color:{color};font-weight:bold;"
-            f"text-transform:uppercase'>{role or '?'}:</span> {body}",
+            f"text-transform:uppercase'>{display_name}:</span> {body}",
             unsafe_allow_html=True,
         )
         st.write("")
 
 
-def render_conversation_preview(turns_now: list[dict], prefix: str) -> None:  # noqa: ARG001
+def render_conversation_preview(
+    turns_now: list[dict],
+    prefix: str,  # noqa: ARG001
+    display_names: dict[int, str] | None = None,
+) -> None:
     """Render the read-only conversation preview for an editor instance."""
     # prefix is intentionally unused — reserved for future per-editor settings
     _ = prefix
+    display_names = display_names or {}
 
     _SPEAKER_LABEL = {
         "user": st.session_state.preview_user_name,
         "assistant": st.session_state.preview_assistant_name,
     }
 
-    _preview_turns = [t for t in turns_now if t["content"].strip()]
+    _preview_turns = [
+        (turn_index, turn)
+        for turn_index, turn in enumerate(turns_now)
+        if turn["content"].strip()
+    ]
     if not _preview_turns:
         st.caption("Your conversation will appear here as you write…")
         return
 
-    for _pt in _preview_turns:
+    for _turn_index, _pt in _preview_turns:
         _role = _pt["role"]
         _color = _ROLE_COLOR.get(_role, _NON_STANDARD_ROLE_COLOR)
-        _name = _SPEAKER_LABEL.get(_role, _role.upper())
+        _name = display_names.get(_turn_index, _SPEAKER_LABEL.get(_role, _role.upper()))
         _body = _format_preview_content(_pt["content"])
         st.markdown(
             f"<span style='color:{_color};font-weight:bold'>{_name.upper()}:</span> {_body}",

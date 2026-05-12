@@ -14,6 +14,7 @@ from core.dataset import (
     make_entry,
     validate_entry,
 )
+from core.character_display import build_character_display_cache, get_turn_display_names
 from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
 from core.tag_registry import (
     get_tag_registry_snapshot,
@@ -99,6 +100,34 @@ def entry_to_edit_buffer(entry: dict) -> dict:
         "tags": tags,
         "planned_exchanges": planned_exchanges,
     }
+
+
+def _editor_turn_display_names(entry: dict) -> dict[int, str]:
+    """Map original message display names onto the full-edit turn buffer."""
+
+    display_names = get_turn_display_names(
+        entry,
+        st.session_state.get("preview_user_name", "User"),
+        st.session_state.get("preview_assistant_name", "Assistant"),
+    )
+    messages = entry.get("messages") if isinstance(entry, dict) else None
+    if not isinstance(messages, list):
+        return {}
+
+    editor_display_names: dict[int, str] = {}
+    editor_index = 0
+    for message_index, message in enumerate(messages):
+        if not isinstance(message, dict):
+            continue
+        role = message.get("role")
+        canonical_role = canonical_editor_role(role)
+        if canonical_role == "system":
+            continue
+        if canonical_role in ("user", "assistant") or isinstance(role, str):
+            if message_index in display_names:
+                editor_display_names[editor_index] = display_names[message_index]
+            editor_index += 1
+    return editor_display_names
 
 
 def load_full_edit_buffer(
@@ -300,7 +329,8 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
         return
 
     # ── Guard: entry disappeared from registry ─────────────────────────────────
-    if get_loaded_entry_by_id(entry_id) is None:
+    current_entry = get_loaded_entry_by_id(entry_id)
+    if current_entry is None:
         st.error("Selected entry could not be found.")
         if st.button("Back to Edit Entries", key="btn_back_not_found"):
             cancel_full_edit()
@@ -328,7 +358,11 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
 
     # ── Conversation preview ───────────────────────────────────────────────────
     st.subheader("Conversation Preview")
-    render_conversation_preview(turns_now, "full_edit")
+    render_conversation_preview(
+        turns_now,
+        "full_edit",
+        display_names=_editor_turn_display_names(current_entry),
+    )
 
     # ── Tags ───────────────────────────────────────────────────────────────────
     st.divider()
@@ -538,6 +572,9 @@ def render_edit_entries_page() -> None:
     _ee_start = _ee_pagination.start
     _ee_end = _ee_pagination.end
     _ee_visible_pairs = slice_visible_pairs(_ee_filtered_pairs, _ee_pagination)
+    _ee_character_display_cache = build_character_display_cache([
+        entry for _entry_id, entry in _ee_visible_pairs
+    ])
     if _ee_pagination.is_show_all_capped:
         st.warning(
             f"Showing first 1,000 of {_ee_pagination.total_items} entries. "
@@ -579,7 +616,14 @@ def render_edit_entries_page() -> None:
             if st.session_state.get("dataset_source_format") == FORMAT_SHAREGPT:
                 _include_system = False
             render_message_preview(
-                _ee_entry.get("messages", []), include_system=_include_system
+                _ee_entry.get("messages", []),
+                include_system=_include_system,
+                display_names=get_turn_display_names(
+                    _ee_entry,
+                    st.session_state.get("preview_user_name", "User"),
+                    st.session_state.get("preview_assistant_name", "Assistant"),
+                    _ee_character_display_cache,
+                ),
             )
 
     # ── Pagination buttons ─────────────────────────────────────────────────────

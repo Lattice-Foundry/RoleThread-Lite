@@ -16,6 +16,7 @@ from core.dataset import (
     validate_entry,
 )
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT, FORMAT_UNKNOWN
+from core.character_display import build_character_display_cache, get_turn_display_names
 from core.text_helpers import count_phrase
 from core.tag_registry import (
     get_tag_registry_snapshot,
@@ -489,6 +490,9 @@ def render_manage_page() -> None:
             start = _pagination.start
             end = _pagination.end
             visible_pairs = slice_visible_pairs(filtered_pairs, _pagination)
+            _character_display_cache = build_character_display_cache([
+                entry for _entry_id, entry in visible_pairs
+            ])
             if _pagination.is_show_all_capped:
                 st.warning(
                     f"Showing first 1,000 of {_pagination.total_items} entries. "
@@ -944,7 +948,17 @@ def render_manage_page() -> None:
                             ):
                                 _include_system = False
                             render_message_preview(
-                                entry.get("messages", []), include_system=_include_system
+                                entry.get("messages", []),
+                                include_system=_include_system,
+                                display_names=get_turn_display_names(
+                                    entry,
+                                    st.session_state.get("preview_user_name", "User"),
+                                    st.session_state.get(
+                                        "preview_assistant_name",
+                                        "Assistant",
+                                    ),
+                                    _character_display_cache,
+                                ),
                             )
 
             # ── Pagination buttons ─────────────────────────────────────────────
