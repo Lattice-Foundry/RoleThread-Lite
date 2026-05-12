@@ -105,21 +105,25 @@ def render_settings_page() -> None:
     st.divider()
     st.subheader("Data Normalization")
 
-    def _persist_auto_normalize_on_load():
-        st.session_state.auto_normalize_on_load = st.session_state[
-            "_auto_normalize_on_load_checkbox"
+    def _persist_auto_correct_validation_errors():
+        st.session_state.auto_correct_validation_errors = st.session_state[
+            "_auto_correct_validation_errors_checkbox"
         ]
-        update_prefs({"auto_normalize_on_load": st.session_state.auto_normalize_on_load})
+        update_prefs({
+            "auto_correct_validation_errors": (
+                st.session_state.auto_correct_validation_errors
+            )
+        })
 
     st.checkbox(
-        "Auto-normalize data on load",
-        value=st.session_state.get("auto_normalize_on_load", True),
-        key="_auto_normalize_on_load_checkbox",
-        on_change=_persist_auto_normalize_on_load,
+        "Auto Correct Validation Errors",
+        value=st.session_state.get("auto_correct_validation_errors", True),
+        key="_auto_correct_validation_errors_checkbox",
+        on_change=_persist_auto_correct_validation_errors,
         help=(
-            "When enabled, deterministic cleanup runs during load: tag metadata "
-            "normalization, known role canonicalization, and whitespace trimming. "
-            "When disabled, these issues remain for the Validation page."
+            "When enabled, LoreForge also applies broader deterministic validation "
+            "repairs during load. Baseline normalization for safe metadata, role "
+            "formatting, and simple text cleanup always runs."
         ),
     )
 

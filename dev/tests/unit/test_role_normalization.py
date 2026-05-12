@@ -46,3 +46,23 @@ def test_normalize_entry_roles_deep_copies_and_preserves_unknown_roles():
         {"role": "Scott", "content": "Custom"},
     ]
     assert entry["messages"][0]["role"] == "sys"
+
+
+def test_normalize_entry_roles_leaves_out_of_position_variants_structural():
+    entry = {
+        "messages": [
+            {"role": "GPT", "content": "Should be system"},
+            {"role": "USER", "content": "Hi"},
+            {"role": "Bot", "content": "Hello"},
+        ],
+        "tags": [],
+    }
+
+    normalized, changed = normalize_entry_roles(entry)
+
+    assert changed is True
+    assert normalized["messages"] == [
+        {"role": "GPT", "content": "Should be system"},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ]

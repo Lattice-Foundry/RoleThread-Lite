@@ -60,6 +60,13 @@ def is_known_role_variant(role: str) -> bool:
 def normalize_entry_roles(entry: dict) -> tuple[dict, bool]:
     """Normalize recognized message roles in a deep-copied entry."""
 
+    normalized_entry, changed_count = normalize_entry_roles_with_count(entry)
+    return normalized_entry, changed_count > 0
+
+
+def normalize_entry_roles_with_count(entry: dict) -> tuple[dict, int]:
+    """Normalize recognized roles when they match the expected ChatML position."""
+
     normalized_entry = deepcopy(entry)
     messages = (
         normalized_entry.get("messages")
@@ -67,17 +74,23 @@ def normalize_entry_roles(entry: dict) -> tuple[dict, bool]:
         else None
     )
     if not isinstance(messages, list):
-        return normalized_entry, False
+        return normalized_entry, 0
 
-    changed = False
-    for message in messages:
+    changed_count = 0
+    for index, message in enumerate(messages):
         if not isinstance(message, dict):
             continue
         role = message.get("role")
         if not isinstance(role, str):
             continue
         normalized_role, role_changed = normalize_role(role)
-        if role_changed:
+        if role_changed and normalized_role == _expected_chatml_role(index):
             message["role"] = normalized_role
-            changed = True
-    return normalized_entry, changed
+            changed_count += 1
+    return normalized_entry, changed_count
+
+
+def _expected_chatml_role(index: int) -> str:
+    if index == 0:
+        return STANDARD_ROLE_SYSTEM
+    return STANDARD_ROLE_USER if index % 2 == 1 else STANDARD_ROLE_ASSISTANT

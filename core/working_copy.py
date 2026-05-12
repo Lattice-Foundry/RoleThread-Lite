@@ -30,7 +30,8 @@ def create_dataset_working_copy(
     target_dir = Path(working_dir).resolve() if working_dir else get_default_training_data_dir().resolve()
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    if _is_relative_to(source_path, target_dir):
+    canonical_path = canonical_training_dataset_path(source_path, working_dir=target_dir)
+    if _is_relative_to(source_path, target_dir) and source_path == canonical_path:
         return DatasetWorkingCopyResult(
             original_path=str(source_path),
             working_path=str(source_path),

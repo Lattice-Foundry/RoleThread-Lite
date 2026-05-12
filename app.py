@@ -9,7 +9,12 @@ import streamlit as st
 
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset_with_summary
 from core.preferences import load_preferences
-from ui.session_state import clear_entry_edit_state, set_loaded_entries
+from ui.session_state import (
+    clear_entry_edit_state,
+    persist_loaded_normalization,
+    set_loaded_entries,
+    should_persist_loaded_normalization,
+)
 from core.storage import ensure_app_directories
 from core.tag_registry import seed_default_tags
 from ui.browser_helpers import DEFAULT_PAGE_SIZE, MATCH_MODE_ANY
@@ -106,7 +111,10 @@ if "prefs" not in st.session_state:
     st.session_state.auto_backups_enabled = prefs.get("auto_backups_enabled", True)
     st.session_state.backup_directory = prefs.get("backup_directory", "")
     st.session_state.backups_per_dataset = prefs.get("backups_per_dataset", 25)
-    st.session_state.auto_normalize_on_load = prefs.get("auto_normalize_on_load", True)
+    st.session_state.auto_correct_validation_errors = prefs.get(
+        "auto_correct_validation_errors",
+        prefs.get("auto_normalize_on_load", True),
+    )
     st.session_state.page = "Create Entry"
 
     last = prefs.get("last_loaded_dataset_path", "")
@@ -114,7 +122,10 @@ if "prefs" not in st.session_state:
         if Path(last).exists():
             normalization, errors = load_dataset_with_summary(
                 last,
-                auto_normalize=st.session_state.get("auto_normalize_on_load", True),
+                auto_normalize=st.session_state.get(
+                    "auto_correct_validation_errors",
+                    True,
+                ),
             )
             if errors and not normalization.entries:
                 st.warning(f"Could not reload last dataset: {errors[0]}")
@@ -125,6 +136,14 @@ if "prefs" not in st.session_state:
                     dataset_path=last,
                 ) or last
                 st.session_state.loaded_path = loaded_dataset_path
+                if should_persist_loaded_normalization(
+                    parse_errors=errors,
+                    normalization_pending=st.session_state.get(
+                        "normalization_pending",
+                        False,
+                    ),
+                ):
+                    persist_loaded_normalization(loaded_dataset_path)
         else:
             st.session_state.stale_last_path = last
 

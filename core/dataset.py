@@ -20,7 +20,7 @@ from core.format_conversion import (
     detect_records_format,
 )
 from core.loreforge_meta import is_native_dataset
-from core.role_normalization import normalize_role
+from core.role_normalization import normalize_entry_roles_with_count
 from core.entry_analysis import (
     AnalysisSeverity,
     BASE_EMPTY_TAG,
@@ -94,6 +94,7 @@ class TagNormalizationSummary:
     alias_rewrites: dict[str, str] = field(default_factory=dict)
     alias_rewrite_count: int = 0
     alias_rewritten_entries: int = 0
+    changed_indices: set[int] = field(default_factory=set)
 
 
 _CHATML_ANALYZER = ChatMLAnalyzer()
@@ -226,11 +227,31 @@ def load_dataset_with_summary(
         already_target_count = conversion.already_target_count
         format_warnings = conversion.warnings
 
+    baseline_summary = normalize_dataset_baseline(conversion_entries)
+    baseline_entries = baseline_summary.entries
+
     summary = (
-        normalize_dataset_entries(conversion_entries)
+        normalize_dataset_entries(baseline_entries)
         if auto_normalize
-        else TagNormalizationSummary(entries=conversion_entries)
+        else TagNormalizationSummary(entries=baseline_entries)
     )
+    if auto_normalize:
+        later_changed_indices = {
+            index
+            for index, (baseline_entry, normalized_entry) in enumerate(
+                zip(baseline_entries, summary.entries)
+            )
+            if baseline_entry != normalized_entry
+        }
+        summary.changed_entries = len(baseline_summary.changed_indices | later_changed_indices)
+    else:
+        summary.changed_entries = len(baseline_summary.changed_indices)
+    summary.changed_tags += baseline_summary.changed_tags
+    summary.structural_changed_entries += baseline_summary.structural_changed_entries
+    summary.tag_metadata_added_count += baseline_summary.tag_metadata_added_count
+    summary.role_values_normalized += baseline_summary.role_values_normalized
+    summary.message_content_trimmed += baseline_summary.message_content_trimmed
+    summary.dropped_tags = baseline_summary.dropped_tags + summary.dropped_tags
     summary.source_format = detection.format
     summary.format_counts = detection.counts
     summary.format_confidence = detection.confidence
@@ -630,6 +651,11 @@ def normalize_dataset_tags(entries: list[dict]) -> TagNormalizationSummary:
         tag_metadata_added_count=tag_metadata_added_count,
         normalized_slugs=normalized_slugs,
         dropped_tags=dropped_tags,
+        changed_indices={
+            index
+            for index, (original, normalized) in enumerate(zip(entries, normalized_entries))
+            if original != normalized
+        },
     )
 
 
@@ -667,31 +693,140 @@ def normalize_dataset_entries(entries: list[dict]) -> TagNormalizationSummary:
         message_content_trimmed=message_content_trimmed,
         normalized_slugs=tag_summary.normalized_slugs,
         dropped_tags=tag_summary.dropped_tags,
+        changed_indices=tag_changed_indices | message_changed_indices,
     )
+
+
+def normalize_dataset_baseline(entries: list[dict]) -> TagNormalizationSummary:
+    """Run always-on zero-risk normalization until entries stabilize."""
+
+    current_entries = deepcopy(entries)
+    changed_indices: set[int] = set()
+    changed_tags = 0
+    structural_changed_indices: set[int] = set()
+    tag_metadata_added_count = 0
+    role_values_normalized = 0
+    message_content_trimmed = 0
+    dropped_tags: list[str] = []
+
+    for _pass_index in range(10):
+        next_entries: list[dict] = []
+        pass_changed_indices: set[int] = set()
+        for index, entry in enumerate(current_entries):
+            normalized_entry, stats = normalize_entry_baseline(entry)
+            next_entries.append(normalized_entry)
+            if normalized_entry != entry:
+                pass_changed_indices.add(index)
+                changed_indices.add(index)
+            changed_tags += stats["changed_tags"]
+            if stats["structural_changed"]:
+                structural_changed_indices.add(index)
+            tag_metadata_added_count += stats["tag_metadata_added"]
+            role_values_normalized += stats["role_values_normalized"]
+            message_content_trimmed += stats["message_content_trimmed"]
+            dropped_tags.extend(stats["dropped_tags"])
+
+        current_entries = next_entries
+        if not pass_changed_indices:
+            break
+
+    return TagNormalizationSummary(
+        entries=current_entries,
+        changed_entries=len(changed_indices),
+        changed_tags=changed_tags,
+        structural_changed_entries=len(structural_changed_indices),
+        tag_metadata_added_count=tag_metadata_added_count,
+        role_values_normalized=role_values_normalized,
+        message_content_trimmed=message_content_trimmed,
+        dropped_tags=dropped_tags,
+        changed_indices=changed_indices,
+    )
+
+
+def normalize_entry_baseline(entry: dict) -> tuple[dict, dict]:
+    """Normalize always-safe entry issues without applying broader tag slug cleanup."""
+
+    if not isinstance(entry, dict):
+        return deepcopy(entry), _empty_baseline_stats()
+
+    normalized_entry, role_count = normalize_entry_roles_with_count(entry)
+    stats = _empty_baseline_stats()
+    stats["role_values_normalized"] = role_count
+
+    messages = normalized_entry.get("messages")
+    if isinstance(messages, list):
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            content = message.get("content")
+            if isinstance(content, str):
+                stripped = content.strip()
+                if stripped != content:
+                    message["content"] = stripped
+                    stats["message_content_trimmed"] += 1
+
+    if "tags" not in normalized_entry:
+        normalized_entry["tags"] = []
+        stats["structural_changed"] = True
+        stats["tag_metadata_added"] = 1
+        return normalized_entry, stats
+
+    tags = normalized_entry.get("tags")
+    if not isinstance(tags, list):
+        normalized_entry["tags"] = []
+        stats["structural_changed"] = True
+        stats["changed_tags"] += 1
+        return normalized_entry, stats
+
+    clean_tags: list[str] = []
+    seen: set[str] = set()
+    for tag in tags:
+        if not isinstance(tag, str):
+            stats["dropped_tags"].append(repr(tag))
+            stats["changed_tags"] += 1
+            continue
+        stripped_tag = tag.strip()
+        if not stripped_tag:
+            stats["dropped_tags"].append(tag)
+            stats["changed_tags"] += 1
+            continue
+        if stripped_tag in seen:
+            stats["changed_tags"] += 1
+            continue
+        seen.add(stripped_tag)
+        clean_tags.append(stripped_tag)
+        if stripped_tag != tag:
+            stats["changed_tags"] += 1
+
+    if clean_tags != tags:
+        normalized_entry["tags"] = clean_tags
+    return normalized_entry, stats
+
+
+def _empty_baseline_stats() -> dict:
+    return {
+        "changed_tags": 0,
+        "structural_changed": False,
+        "tag_metadata_added": 0,
+        "role_values_normalized": 0,
+        "message_content_trimmed": 0,
+        "dropped_tags": [],
+    }
 
 
 def normalize_entry_message_fields(entry: dict) -> tuple[dict, bool, int, int]:
     """Normalize known role synonyms and trim message content/role whitespace."""
 
-    normalized_entry = deepcopy(entry)
+    normalized_entry, role_values_normalized = normalize_entry_roles_with_count(entry)
     messages = normalized_entry.get("messages") if isinstance(normalized_entry, dict) else None
     if not isinstance(messages, list):
         return normalized_entry, False, 0, 0
 
-    changed = False
-    role_values_normalized = 0
+    changed = role_values_normalized > 0
     message_content_trimmed = 0
     for message in messages:
         if not isinstance(message, dict):
             continue
-
-        role = message.get("role")
-        if isinstance(role, str):
-            normalized_role, role_changed = normalize_role(role)
-            if role_changed:
-                message["role"] = normalized_role
-                role_values_normalized += 1
-                changed = True
 
         content = message.get("content")
         if isinstance(content, str):

@@ -427,19 +427,19 @@ def test_persist_loaded_normalization_clears_pending_state_on_success(monkeypatc
         normalization_summary=normalization,
     )
 
-    def fake_normalize_dataset_service(dataset_path, entries):
+    def fake_save_repaired_entries_service(dataset_path, repaired_entries, backup_reason):
         return DatasetOperationResult(
             ok=True,
-            message="Dataset normalized.",
-            entries=entries,
+            message="Repaired entries saved.",
+            entries=repaired_entries,
             backup_path="backup.jsonl",
-            affected_count=len(entries),
+            affected_count=len(repaired_entries),
         )
 
     monkeypatch.setattr(
         session_state,
-        "normalize_dataset_service",
-        fake_normalize_dataset_service,
+        "save_repaired_entries_service",
+        fake_save_repaired_entries_service,
     )
 
     result = session_state.persist_loaded_normalization("dataset.jsonl")
@@ -463,7 +463,7 @@ def _load_entries_with_summary(entries):
         return load_dataset_with_summary(str(path))
 
 
-def test_auto_normalize_enabled_explicit_load_can_persist_missing_tag_metadata(tmp_path, monkeypatch):
+def test_explicit_load_persists_missing_tag_metadata(tmp_path, monkeypatch):
     state = _patch_state(monkeypatch)
     path = tmp_path / "legacy.jsonl"
     legacy_entries = [_entry_without_tags(), _entry_without_tags()]
@@ -484,8 +484,7 @@ def test_auto_normalize_enabled_explicit_load_can_persist_missing_tag_metadata(t
         normalization_summary=normalization,
     )
 
-    assert session_state.should_auto_normalize_loaded_dataset(
-        prefs={"auto_normalize_on_load": True},
+    assert session_state.should_persist_loaded_normalization(
         parse_errors=errors,
         normalization_pending=state.normalization_pending,
     ) is True
@@ -498,7 +497,7 @@ def test_auto_normalize_enabled_explicit_load_can_persist_missing_tag_metadata(t
     assert '"tags": []' in saved_text
 
 
-def test_auto_normalize_enabled_explicit_load_can_persist_role_and_content_cleanup(
+def test_explicit_load_persists_role_and_content_cleanup(
     tmp_path,
     monkeypatch,
 ):
@@ -526,8 +525,7 @@ def test_auto_normalize_enabled_explicit_load_can_persist_role_and_content_clean
         normalization_summary=normalization,
     )
 
-    assert session_state.should_auto_normalize_loaded_dataset(
-        prefs={"auto_normalize_on_load": True},
+    assert session_state.should_persist_loaded_normalization(
         parse_errors=errors,
         normalization_pending=state.normalization_pending,
     ) is True
@@ -544,7 +542,7 @@ def test_auto_normalize_enabled_explicit_load_can_persist_role_and_content_clean
     ]
 
 
-def test_auto_normalize_disabled_explicit_load_keeps_disk_unchanged_and_pending(tmp_path, monkeypatch):
+def test_explicit_load_with_pending_normalization_should_persist_even_when_setting_off(tmp_path, monkeypatch):
     state = _patch_state(monkeypatch)
     path = tmp_path / "legacy.jsonl"
     legacy_entry = _entry_without_tags()
@@ -557,11 +555,10 @@ def test_auto_normalize_disabled_explicit_load_keeps_disk_unchanged_and_pending(
         normalization_summary=normalization,
     )
 
-    assert session_state.should_auto_normalize_loaded_dataset(
-        prefs={"auto_normalize_on_load": False},
+    assert session_state.should_persist_loaded_normalization(
         parse_errors=errors,
         normalization_pending=state.normalization_pending,
-    ) is False
+    ) is True
     assert state.loaded_entries[0]["tags"] == []
     assert state.normalization_pending is True
     assert path.read_text(encoding="utf-8") == original_text
@@ -586,39 +583,16 @@ def test_startup_reload_can_track_pending_without_persisting(tmp_path, monkeypat
     assert path.read_text(encoding="utf-8") == original_text
 
 
-def test_should_auto_normalize_loaded_dataset_respects_setting_errors_and_pending_state():
-    assert session_state.should_auto_normalize_loaded_dataset(
-        prefs={"auto_normalize_on_load": True},
+def test_should_persist_loaded_normalization_respects_errors_and_pending_state():
+    assert session_state.should_persist_loaded_normalization(
         parse_errors=[],
         normalization_pending=True,
     ) is True
-    assert session_state.should_auto_normalize_loaded_dataset(
-        prefs={"auto_normalize_on_load": False},
-        parse_errors=[],
-        normalization_pending=True,
-    ) is False
-    assert session_state.should_auto_normalize_loaded_dataset(
-        prefs={"auto_normalize_on_load": True},
+    assert session_state.should_persist_loaded_normalization(
         parse_errors=["Line 2: bad json"],
         normalization_pending=True,
     ) is False
-    assert session_state.should_auto_normalize_loaded_dataset(
-        prefs={"auto_normalize_on_load": True},
+    assert session_state.should_persist_loaded_normalization(
         parse_errors=[],
         normalization_pending=False,
-    ) is False
-
-
-def test_should_auto_normalize_loaded_dataset_prefers_live_session_value():
-    assert session_state.should_auto_normalize_loaded_dataset(
-        prefs={"auto_normalize_on_load": False},
-        parse_errors=[],
-        normalization_pending=True,
-        auto_normalize_on_load=True,
-    ) is True
-    assert session_state.should_auto_normalize_loaded_dataset(
-        prefs={"auto_normalize_on_load": True},
-        parse_errors=[],
-        normalization_pending=True,
-        auto_normalize_on_load=False,
     ) is False

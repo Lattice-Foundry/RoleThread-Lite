@@ -28,7 +28,7 @@ DEFAULTS: dict = {
     "auto_backups_enabled": True,
     "backup_directory": str(get_backups_dir()),
     "backups_per_dataset": 25,
-    "auto_normalize_on_load": True,
+    "auto_correct_validation_errors": True,
 }
 
 
@@ -39,6 +39,11 @@ def load_preferences() -> dict:
         if PREFS_FILE.exists():
             data = json.loads(PREFS_FILE.read_text(encoding="utf-8"))
             if isinstance(data, dict):
+                if (
+                    "auto_correct_validation_errors" not in data
+                    and "auto_normalize_on_load" in data
+                ):
+                    data["auto_correct_validation_errors"] = data["auto_normalize_on_load"]
                 return {**DEFAULTS, **data}
     except Exception:
         pass

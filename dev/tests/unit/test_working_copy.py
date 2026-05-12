@@ -26,12 +26,29 @@ def test_create_dataset_working_copy_copies_foreign_file_and_sidecar(tmp_path):
     assert result.sidecar_path == str((working_dir / "dataset" / "dataset.registry.json").resolve())
     assert (working_dir / "dataset" / "dataset.jsonl").read_text(encoding="utf-8") == source_path.read_text(encoding="utf-8")
     assert (working_dir / "dataset" / "dataset.registry.json").read_text(encoding="utf-8") == '{"metadata": {}}'
+    assert source_path.exists()
+    assert source_sidecar.exists()
 
 
-def test_create_dataset_working_copy_does_not_copy_files_already_in_working_dir(tmp_path):
+def test_create_dataset_working_copy_copies_noncanonical_files_inside_working_dir(tmp_path):
     working_dir = tmp_path / "working"
-    working_dir.mkdir()
-    source_path = working_dir / "dataset.jsonl"
+    source_dir = working_dir / "dirty"
+    source_dir.mkdir(parents=True)
+    source_path = source_dir / "dataset.jsonl"
+    source_path.write_text(json.dumps({"messages": [], "tags": []}) + "\n", encoding="utf-8")
+
+    result = create_dataset_working_copy(source_path, working_dir=working_dir)
+
+    assert result.created is True
+    assert result.working_path == str((working_dir / "dataset" / "dataset.jsonl").resolve())
+    assert source_path.exists()
+
+
+def test_create_dataset_working_copy_does_not_copy_canonical_working_file(tmp_path):
+    working_dir = tmp_path / "working"
+    source_dir = working_dir / "dataset"
+    source_dir.mkdir(parents=True)
+    source_path = source_dir / "dataset.jsonl"
     source_path.write_text(json.dumps({"messages": [], "tags": []}) + "\n", encoding="utf-8")
 
     result = create_dataset_working_copy(source_path, working_dir=working_dir)

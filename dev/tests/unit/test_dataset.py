@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -983,15 +984,24 @@ def test_load_dataset_with_summary_auto_normalize_off_preserves_issues_for_analy
     summary, errors = load_dataset_with_summary(str(path), auto_normalize=False)
 
     assert errors == []
-    assert summary.entries == [entry]
-    assert summary.changed_entries == 0
-    assert summary.changed_tags == 0
-    assert summary.role_values_normalized == 0
-    assert summary.message_content_trimmed == 0
-    assert summary.diagnostics.valid_entries == 0
+    assert summary.entries == [
+        {
+            "messages": [
+                {"role": "system", "content": "System"},
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+            ],
+            "tags": ["slow burn"],
+        }
+    ]
+    assert summary.changed_entries == 1
+    assert summary.changed_tags == 2
+    assert summary.role_values_normalized == 3
+    assert summary.message_content_trimmed == 3
+    assert summary.diagnostics.valid_entries == 1
     assert summary.diagnostics.entries_with_errors == 0
-    assert summary.diagnostics.entries_with_warnings == 1
-    assert summary.diagnostics.auto_repairable_count == 8
+    assert summary.diagnostics.entries_with_warnings == 0
+    assert summary.diagnostics.auto_repairable_count == 0
 
 
 def test_load_dataset_summary_counts_auto_fixable_entries_as_issues(tmp_path):
@@ -1033,11 +1043,37 @@ def test_load_dataset_summary_counts_auto_fixable_entries_as_issues(tmp_path):
 
     assert errors == []
     assert summary.diagnostics.entries_analyzed == 6
-    assert summary.diagnostics.valid_entries == 0
+    assert summary.diagnostics.valid_entries == 5
     assert (
         summary.diagnostics.entries_analyzed - summary.diagnostics.valid_entries
-    ) == 6
-    assert summary.diagnostics.auto_repairable_count > 0
+    ) == 1
+    assert summary.diagnostics.auto_repairable_count == 0
+    assert summary.diagnostics.entries_with_errors == 1
+
+
+def test_load_dataset_with_summary_corrects_known_role_variants_from_dirty_fixture():
+    path = Path("training_data/test_originals/dirty/02_dirty_auto_fixable.jsonl")
+
+    summary, errors = load_dataset_with_summary(str(path), auto_normalize=False)
+
+    assert errors == []
+    assert len(summary.entries) == 6
+    assert [
+        [message["role"] for message in entry["messages"]]
+        for entry in summary.entries
+    ] == [
+        ["system", "user", "assistant"],
+        ["system", "user", "assistant"],
+        ["system", "user", "assistant"],
+        ["system", "user", "assistant"],
+        ["system", "user", "assistant"],
+        ["GPT", "user", "assistant"],
+    ]
+    assert summary.role_values_normalized == 7
+    assert summary.message_content_trimmed == 3
+    assert summary.changed_tags == 4
+    assert summary.diagnostics.entries_analyzed == 6
+    assert summary.diagnostics.valid_entries == 5
 
 
 def test_load_dataset_with_summary_reports_chatml_source_format(tmp_path):
@@ -1130,7 +1166,7 @@ def test_load_dataset_with_summary_converts_sharegpt_to_chatml(tmp_path):
     assert summary.diagnostics.error_count == 0
 
 
-def test_load_dataset_with_summary_reports_unfixed_sharegpt_missing_tags_as_issues(tmp_path):
+def test_load_dataset_with_summary_baseline_repairs_sharegpt_missing_tags(tmp_path):
     path = tmp_path / "sharegpt_no_tags.jsonl"
     records = [
         {
@@ -1156,9 +1192,11 @@ def test_load_dataset_with_summary_reports_unfixed_sharegpt_missing_tags_as_issu
     assert errors == []
     assert summary.source_format == FORMAT_SHAREGPT
     assert summary.diagnostics.entries_analyzed == 2
-    assert summary.diagnostics.valid_entries == 0
+    assert summary.diagnostics.valid_entries == 2
     assert summary.diagnostics.entries_with_errors == 0
-    assert summary.diagnostics.auto_repairable_count == 2
+    assert summary.diagnostics.auto_repairable_count == 0
+    assert summary.tag_metadata_added_count == 2
+    assert all(entry["tags"] == [] for entry in summary.entries)
 
 
 def test_load_dataset_with_summary_keeps_unknown_format_loadable(tmp_path):

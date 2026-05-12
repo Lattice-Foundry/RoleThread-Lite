@@ -462,7 +462,9 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 )
             )
         elif system_role != "system":
-            diagnostics.extend(self._role_whitespace_diagnostic(system_role, 0))
+            diagnostics.extend(
+                self._role_whitespace_diagnostic(system_role, 0, expected_role="system")
+            )
             diagnostics.append(
                 EntryDiagnostic(
                     code=CHATML_MISSING_SYSTEM_ROLE,
@@ -521,7 +523,13 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 )
             )
             elif actual_role != expected_role:
-                diagnostics.extend(self._role_whitespace_diagnostic(actual_role, index))
+                diagnostics.extend(
+                    self._role_whitespace_diagnostic(
+                        actual_role,
+                        index,
+                        expected_role=expected_role,
+                    )
+                )
                 diagnostics.append(
                     EntryDiagnostic(
                         code=CHATML_WRONG_ROLE,
@@ -594,11 +602,13 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
         self,
         role: object,
         index: int,
+        *,
+        expected_role: str,
     ) -> tuple[EntryDiagnostic, ...]:
         if not isinstance(role, str):
             return ()
         normalized_role, changed = normalize_role(role)
-        if not changed:
+        if not changed or normalized_role != expected_role:
             return ()
         return (
             self._role_canonicalization_diagnostic(

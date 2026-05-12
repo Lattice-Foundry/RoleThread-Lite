@@ -15,7 +15,7 @@ EXPECTED_DEFAULT_KEYS = {
     "auto_backups_enabled",
     "backup_directory",
     "backups_per_dataset",
-    "auto_normalize_on_load",
+    "auto_correct_validation_errors",
 }
 
 
@@ -58,6 +58,19 @@ def test_load_preferences_merges_saved_preferences_over_defaults(tmp_path, monke
     assert loaded["preview_user_name"] == "Player"
     assert loaded["custom_future_key"] == "kept"
     assert loaded["backup_directory"] == preferences.DEFAULTS["backup_directory"]
+
+
+def test_load_preferences_migrates_old_auto_normalize_key(tmp_path, monkeypatch):
+    prefs_file = tmp_path / "preferences.json"
+    prefs_file.write_text(
+        json.dumps({"auto_normalize_on_load": False}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(preferences, "PREFS_FILE", prefs_file)
+
+    loaded = preferences.load_preferences()
+
+    assert loaded["auto_correct_validation_errors"] is False
 
 
 def test_load_preferences_falls_back_to_defaults_for_invalid_json(tmp_path, monkeypatch):

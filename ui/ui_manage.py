@@ -11,6 +11,7 @@ from core.dataset import (
     clear_validate_entry_cache,
     filter_entry_pairs_by_tags,
     get_entry_tags,
+    analyze_entry,
     load_dataset_with_summary,
     save_dataset,
     validate_entry,
@@ -46,7 +47,7 @@ from ui.session_state import (
     save_quick_edit,
     select_visible_entries,
     set_loaded_entries,
-    should_auto_normalize_loaded_dataset,
+    should_persist_loaded_normalization,
     start_quick_edit,
     toggle_entry_selection,
     update_prefs,
@@ -85,7 +86,15 @@ def _format_source_format(source_format: str) -> str:
     return labels.get(source_format, source_format or "Unknown")
 
 
-def _render_load_format_summary(normalization) -> None:
+def _render_load_format_summary(
+    normalization,
+    *,
+    loaded_dataset_path: str | None = None,
+    loaded_entry_count: int | None = None,
+    correction_saved: bool = False,
+    correction_failed: bool = False,
+    corrected_entries: int = 0,
+) -> None:
     source_format = normalization.source_format
     if source_format == FORMAT_SHAREGPT:
         st.info(
@@ -95,6 +104,27 @@ def _render_load_format_summary(normalization) -> None:
     else:
         st.info(f"Detected format: {_format_source_format(source_format)}.")
 
+    if loaded_dataset_path is not None and loaded_entry_count is not None:
+        diagnostics = normalization.diagnostics
+        issue_entries = max(0, diagnostics.entries_analyzed - diagnostics.valid_entries)
+        st.success(
+            f"Loaded {count_phrase(loaded_entry_count, 'entry', 'entries')} "
+            f"from `{loaded_dataset_path}`. "
+            f"({diagnostics.valid_entries} valid, {issue_entries} with issues)."
+        )
+
+    if correction_saved:
+        st.info(
+            "LoreForge automatically corrected "
+            f"{count_phrase(corrected_entries, 'entry', 'entries')} on load "
+            "(role formatting, missing metadata). Your original file is preserved. "
+            "See Validation page for remaining issues."
+        )
+    elif correction_failed:
+        st.warning(
+            "Automatic corrections were applied in memory, but were not saved."
+        )
+
     if normalization.parse_error_count:
         st.warning(
             f"Loaded {count_phrase(normalization.parsed_entry_count, 'entry', 'entries')} "
@@ -103,7 +133,7 @@ def _render_load_format_summary(normalization) -> None:
         )
     if normalization.role_values_normalized or normalization.message_content_trimmed:
         st.caption(
-            "Auto-normalized "
+            "Corrected "
             f"{count_phrase(normalization.role_values_normalized, 'role value')} and "
             f"{count_phrase(normalization.message_content_trimmed, 'message content field')}."
         )
@@ -126,7 +156,7 @@ def _render_load_format_summary(normalization) -> None:
         )
 
     working_copy = st.session_state.get("working_copy_summary")
-    if working_copy:
+    if working_copy and not correction_saved:
         st.info(
             "Original file preserved. "
             f"Working copy created at `{working_copy.get('working_path')}`."
@@ -145,23 +175,6 @@ def _render_load_format_summary(normalization) -> None:
             f"{count_phrase(len(labels), 'custom role name')} detected "
             f"({preview}). Review on Validation page."
         )
-
-    diagnostics = normalization.diagnostics
-    if (
-        diagnostics.entries_with_errors
-        or diagnostics.entries_with_warnings
-        or diagnostics.auto_repairable_count
-    ):
-        issue_entries = max(0, diagnostics.entries_analyzed - diagnostics.valid_entries)
-        st.info(
-            "Dataset diagnostics: "
-            f"{count_phrase(diagnostics.entries_analyzed, 'entry', 'entries')} loaded "
-            f"({diagnostics.valid_entries} valid, {issue_entries} with issues)."
-        )
-        if diagnostics.auto_repairable_count:
-            st.caption(
-                f"{count_phrase(diagnostics.auto_repairable_count, 'auto-fixable issue')} detected."
-            )
 
     sidecar_summary = st.session_state.get("sidecar_import_summary")
     if sidecar_summary:
@@ -197,6 +210,15 @@ def _render_load_format_summary(normalization) -> None:
         )
 
 
+def _entry_has_reportable_diagnostics(entry: dict) -> bool:
+    result = analyze_entry(entry)
+    return any(
+        diagnostic.severity.value in {"error", "warning"}
+        or (diagnostic.fixable and diagnostic.repair_kind.value == "automatic")
+        for diagnostic in result.diagnostics
+    )
+
+
 def render_manage_page() -> None:
     """Render the Manage Dataset page."""
     clear_validate_entry_cache()
@@ -226,13 +248,16 @@ def render_manage_page() -> None:
     with col_load:
         if st.button("Load", width="stretch", disabled=not load_path.strip()):
             p = load_path.strip()
-            _auto_normalize_enabled = st.session_state.get(
-                "auto_normalize_on_load",
-                st.session_state.get("prefs", {}).get("auto_normalize_on_load", True),
+            _auto_correct_enabled = st.session_state.get(
+                "auto_correct_validation_errors",
+                st.session_state.get("prefs", {}).get(
+                    "auto_correct_validation_errors",
+                    st.session_state.get("prefs", {}).get("auto_normalize_on_load", True),
+                ),
             )
             normalization, errors = load_dataset_with_summary(
                 p,
-                auto_normalize=_auto_normalize_enabled,
+                auto_normalize=_auto_correct_enabled,
             )
             entries = normalization.entries
             if errors:
@@ -255,19 +280,24 @@ def render_manage_page() -> None:
             st.session_state.entry_page = 0
             st.session_state["manage_select_all_mode"] = False
             clear_selected_entries()
-            _auto_normalized = False
-            _auto_normalize_failed = False
-            if should_auto_normalize_loaded_dataset(
-                prefs=st.session_state.get("prefs", {}),
+            _normalization_saved = False
+            _normalization_failed = False
+            _corrected_entries = int(
+                st.session_state.get("tag_normalization_summary", {}).get(
+                    "changed_entries",
+                    0,
+                )
+                or 0
+            )
+            if should_persist_loaded_normalization(
                 parse_errors=errors,
                 normalization_pending=st.session_state.get("normalization_pending", False),
-                auto_normalize_on_load=_auto_normalize_enabled,
             ):
                 _normalize_result = persist_loaded_normalization(loaded_dataset_path)
                 if _normalize_result.ok:
-                    _auto_normalized = True
+                    _normalization_saved = True
                 else:
-                    _auto_normalize_failed = True
+                    _normalization_failed = True
                     st.error(_normalize_result.message)
                     for _err in _normalize_result.errors:
                         st.error(_err)
@@ -275,22 +305,14 @@ def render_manage_page() -> None:
                 "last_loaded_dataset_path": loaded_dataset_path,
                 "last_open_directory": str(Path(loaded_dataset_path).parent),
             })
-            if _auto_normalized:
-                st.success(
-                    f"Loaded {count_phrase(len(entries), 'entry', 'entries')} "
-                    f"from `{loaded_dataset_path}`. Normalized data saved."
-                )
-            elif _auto_normalize_failed:
-                st.warning(
-                    f"Loaded {count_phrase(len(entries), 'entry', 'entries')} "
-                    f"from `{loaded_dataset_path}`, but normalization was not saved."
-                )
-            else:
-                st.success(
-                    f"Loaded {count_phrase(len(entries), 'entry', 'entries')} "
-                    f"from `{loaded_dataset_path}`."
-                )
-            _render_load_format_summary(normalization)
+            _render_load_format_summary(
+                normalization,
+                loaded_dataset_path=loaded_dataset_path,
+                loaded_entry_count=len(entries),
+                correction_saved=_normalization_saved,
+                correction_failed=_normalization_failed,
+                corrected_entries=_corrected_entries,
+            )
 
     with col_new:
         if st.button("New Dataset", width="stretch"):
@@ -348,36 +370,18 @@ def render_manage_page() -> None:
                 except Exception as exc:
                     st.error(f"Failed to create dataset: {exc}")
 
-    if st.session_state.get("normalization_pending") and st.session_state.get("loaded_path"):
-        _norm_summary = st.session_state.get("tag_normalization_summary", {})
-        _metadata_count = int(_norm_summary.get("tag_metadata_added_count", 0) or 0)
-        st.info(
-            "This dataset contains legacy/un-normalized metadata. "
-            "LoreForge cleaned the dataset in memory. Normalize Data will persist "
-            "the cleaned structure to disk."
-        )
-        if _metadata_count:
-            st.caption(f"Pending cleanup: tag metadata added for {_metadata_count} entries.")
-        if st.button("Normalize Data", width="stretch"):
-            _normalize_result = persist_loaded_normalization(st.session_state.loaded_path)
-            if _normalize_result.ok:
-                _backup_note = " Backup created." if _normalize_result.backup_path else ""
-                st.success(f"Dataset normalized.{_backup_note}")
-                st.rerun()
-            else:
-                st.error(_normalize_result.message)
-                for _err in _normalize_result.errors:
-                    st.error(_err)
-
     entries = st.session_state.loaded_entries
     all_pairs = get_all_entry_pairs()
     if all_pairs:
         st.divider()
         st.subheader(f"Entries ({len(all_pairs)})")
 
-        invalid_count = sum(1 for e in entries if validate_entry(e))
+        invalid_count = sum(1 for e in entries if _entry_has_reportable_diagnostics(e))
         if invalid_count:
-            st.warning(f"{invalid_count} entry/entries have validation issues.")
+            st.warning(
+                f"{count_phrase(invalid_count, 'entry', 'entries')} "
+                "have validation issues."
+            )
         else:
             st.success("All entries are valid.")
 

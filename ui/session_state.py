@@ -34,7 +34,7 @@ from core.working_copy import create_dataset_working_copy
 from services.dataset_service import (
     DatasetOperationResult,
     delete_entries_service,
-    normalize_dataset_service,
+    save_repaired_entries_service,
     save_quick_edit_service,
 )
 from ui.message_scaffolding import scaffold_editable_messages
@@ -353,31 +353,22 @@ def clear_normalization_pending() -> None:
     }
 
 
-def should_auto_normalize_loaded_dataset(
+def should_persist_loaded_normalization(
     *,
-    prefs: dict,
     parse_errors: list[str],
     normalization_pending: bool,
-    auto_normalize_on_load: bool | None = None,
 ) -> bool:
-    """Return True when an explicit load should persist normalized structure."""
-    enabled = (
-        prefs.get("auto_normalize_on_load", True)
-        if auto_normalize_on_load is None
-        else auto_normalize_on_load
-    )
-    return (
-        bool(enabled)
-        and not parse_errors
-        and normalization_pending
-    )
+    """Return True when load-time normalization should be persisted."""
+
+    return not parse_errors and normalization_pending
 
 
 def persist_loaded_normalization(dataset_path: str) -> DatasetOperationResult:
     """Persist normalized loaded entries and clear pending state on success."""
-    result = normalize_dataset_service(
+    result = save_repaired_entries_service(
         dataset_path=dataset_path,
-        entries=st.session_state.loaded_entries,
+        repaired_entries=st.session_state.loaded_entries,
+        backup_reason="before_load_normalization",
     )
     if result.ok and result.entries is not None:
         apply_dataset_operation_result(result)
