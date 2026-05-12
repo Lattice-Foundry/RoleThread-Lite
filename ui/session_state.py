@@ -8,7 +8,11 @@ from pathlib import Path
 import streamlit as st
 
 from core.backups import auto_backups_enabled
-from core.character_registry import collect_character_candidates
+from core.character_registry import (
+    collect_character_candidates,
+    normalize_known_character_roles,
+    upsert_character_mappings,
+)
 from core.dataset import (
     TagNormalizationSummary,
     build_entry_registry,
@@ -19,6 +23,7 @@ from core.dataset import (
     normalize_dataset_entries,
     rebuild_id_to_index,
     registry_is_valid,
+    summarize_entry_analysis,
 )
 from core.preferences import save_preferences
 from core.registry_sidecar import read_sidecar, sidecar_path_for_dataset
@@ -87,7 +92,17 @@ def set_loaded_entries(
         normalization.alias_rewrite_count = int(alias_summary.get("rewrite_count", 0))
         normalization.alias_rewritten_entries = int(alias_summary.get("changed_entries", 0))
         normalization.changed_entries += normalization.alias_rewritten_entries
+    known_character_result = normalize_known_character_roles(normalization.entries)
+    if known_character_result.changed_turns:
+        normalization.entries = known_character_result.entries
+        normalization.changed_entries += known_character_result.changed_entries
+        normalization.role_values_normalized += known_character_result.changed_turns
+        upsert_character_mappings(known_character_result.mapping_payload)
     character_candidates = collect_character_candidates(normalization.entries)
+    normalization.diagnostics = summarize_entry_analysis(
+        normalization.entries,
+        metadata_errors_block_validity=False,
+    )
     adoption = ensure_tags_exist_for_dataset(normalization.entries)
     pending_trust = _build_pending_tag_trust(
         normalization.entries,

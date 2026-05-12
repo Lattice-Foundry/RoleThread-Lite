@@ -497,6 +497,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             )
 
         expected_role = "user"
+        reported_custom_roles: set[str] = set()
         for index, message in enumerate(messages[1:], 1):
             if not isinstance(message, dict):
                 diagnostics.append(
@@ -530,21 +531,25 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                         expected_role=expected_role,
                     )
                 )
-                diagnostics.append(
-                    EntryDiagnostic(
-                        code=CHATML_WRONG_ROLE,
-                        severity=AnalysisSeverity.ERROR,
-                        message=self._wrong_role_message(
-                            role=actual_role,
-                            expected_role=expected_role,
-                            index=index,
-                        ),
-                        path=("messages", index, "role"),
-                        repair_kind=RepairKind.MANUAL,
-                        original_value=actual_role,
-                        normalized_value=expected_role,
+                if not self._is_duplicate_custom_role(
+                    actual_role,
+                    reported_custom_roles,
+                ):
+                    diagnostics.append(
+                        EntryDiagnostic(
+                            code=CHATML_WRONG_ROLE,
+                            severity=AnalysisSeverity.ERROR,
+                            message=self._wrong_role_message(
+                                role=actual_role,
+                                expected_role=expected_role,
+                                index=index,
+                            ),
+                            path=("messages", index, "role"),
+                            repair_kind=RepairKind.MANUAL,
+                            original_value=actual_role,
+                            normalized_value=expected_role,
+                        )
                     )
-                )
             diagnostics.extend(self._content_whitespace_diagnostic(message, index))
             if not message.get("content", "").strip():
                 diagnostics.append(
@@ -597,6 +602,21 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             f"{self._role_article(expected_role)} {expected_role} turn, "
             f"but found role '{role}'."
         )
+
+    def _is_duplicate_custom_role(
+        self,
+        role: object,
+        reported_custom_roles: set[str],
+    ) -> bool:
+        if not isinstance(role, str) or is_known_role_variant(role):
+            return False
+        key = role.strip().casefold()
+        if not key:
+            return False
+        if key in reported_custom_roles:
+            return True
+        reported_custom_roles.add(key)
+        return False
 
     def _role_whitespace_diagnostic(
         self,
@@ -677,7 +697,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             code=CHATML_ROLE_CANONICALIZATION,
             severity=AnalysisSeverity.WARNING,
             message=(
-                f"Role '{original_value}' will be auto-corrected to "
+                f"Role '{original_value}' will be normalized to "
                 f"'{normalized_value}' on save."
             ),
             path=("messages", index, "role"),

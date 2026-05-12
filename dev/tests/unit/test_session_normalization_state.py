@@ -55,6 +55,21 @@ def _patch_state(monkeypatch):
         "resolve_tag_lifecycle",
         lambda slug: SimpleNamespace(should_rewrite_slug=False, resolved_slug=slug),
     )
+    monkeypatch.setattr(
+        session_state,
+        "normalize_known_character_roles",
+        lambda entries: SimpleNamespace(
+            entries=entries,
+            mapping_payload=(),
+            changed_entries=0,
+            changed_turns=0,
+        ),
+    )
+    monkeypatch.setattr(
+        session_state,
+        "upsert_character_mappings",
+        lambda mappings: {"entries": 0, "turns": 0},
+    )
     return fake_state
 
 
@@ -180,6 +195,53 @@ def test_set_loaded_entries_stores_character_candidates(monkeypatch):
         "Emma",
         "Scott",
     ]
+
+
+def test_set_loaded_entries_applies_known_character_role_mappings(monkeypatch):
+    state = _patch_state(monkeypatch)
+    entry = _entry_without_tags()
+    entry["_loreforge"] = {"native": True, "entry_uuid": "entry-1"}
+    entry["messages"][1]["role"] = "Scott"
+    mapped_entries = [json.loads(json.dumps(entry))]
+    mapped_entries[0]["messages"][1]["role"] = "user"
+    mapping_payload = (
+        {
+            "entry_uuid": "entry-1",
+            "turns": [
+                {
+                    "turn_index": 1,
+                    "character_slug": "scott",
+                    "training_role": "user",
+                    "source_role_label": "Scott",
+                }
+            ],
+        },
+    )
+    upsert_calls = []
+
+    monkeypatch.setattr(
+        session_state,
+        "normalize_known_character_roles",
+        lambda entries: SimpleNamespace(
+            entries=mapped_entries,
+            mapping_payload=mapping_payload,
+            changed_entries=1,
+            changed_turns=1,
+        ),
+    )
+    monkeypatch.setattr(
+        session_state,
+        "upsert_character_mappings",
+        lambda mappings: upsert_calls.append(mappings) or {"entries": 1, "turns": 1},
+    )
+
+    session_state.set_loaded_entries([entry])
+
+    assert state.loaded_entries[0]["messages"][1]["role"] == "user"
+    assert "character_candidates" not in state
+    assert state.normalization_pending is True
+    assert state.tag_normalization_summary["role_values_normalized"] == 1
+    assert upsert_calls == [mapping_payload]
 
 
 def test_set_loaded_entries_clears_character_candidates_when_none(monkeypatch):

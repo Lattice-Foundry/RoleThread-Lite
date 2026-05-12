@@ -1,6 +1,5 @@
 """Dataset working-copy helpers."""
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 import shutil
 
@@ -38,9 +37,12 @@ def create_dataset_working_copy(
             created=False,
         )
 
-    dataset_dir = _unique_dataset_dir(target_dir / source_path.stem)
-    dataset_dir.mkdir(parents=True, exist_ok=True)
-    target_path = dataset_dir / source_path.name
+    target_path = _unique_dataset_target_path(
+        target_dir,
+        source_path.stem,
+        source_path.suffix,
+    )
+    target_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_path, target_path)
 
     source_sidecar = sidecar_path_for_dataset(source_path)
@@ -117,33 +119,25 @@ def canonical_training_dataset_path(
         return source_path
     if source_path.parent == target_dir / source_path.stem:
         return source_path
-    return _unique_dataset_target_path(target_dir / source_path.stem / source_path.name)
+    return _unique_dataset_target_path(
+        target_dir,
+        source_path.stem,
+        source_path.suffix,
+    )
 
 
-def _unique_dataset_dir(candidate: Path) -> Path:
-    if not candidate.exists():
-        return candidate
-
-    counter = 2
+def _unique_dataset_target_path(target_dir: Path, source_stem: str, source_suffix: str) -> Path:
+    counter = 1
     while True:
-        target = candidate.with_name(f"{candidate.name}_{counter}")
-        if not target.exists():
+        dataset_stem = source_stem if counter == 1 else f"{source_stem}_copy-{counter}"
+        target = target_dir / dataset_stem / f"{dataset_stem}{source_suffix}"
+        if (
+            not target.parent.exists()
+            and not target.exists()
+            and not sidecar_path_for_dataset(target).exists()
+        ):
             return target
         counter += 1
-
-
-def _unique_dataset_target_path(candidate: Path) -> Path:
-    if not candidate.exists() and not sidecar_path_for_dataset(candidate).exists():
-        return candidate
-
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    stem = f"{candidate.stem}_{timestamp}"
-    target = candidate.with_name(f"{stem}{candidate.suffix}")
-    counter = 1
-    while target.exists() or sidecar_path_for_dataset(target).exists():
-        target = candidate.with_name(f"{stem}_{counter:03d}{candidate.suffix}")
-        counter += 1
-    return target
 
 
 def _is_relative_to(path: Path, parent: Path) -> bool:

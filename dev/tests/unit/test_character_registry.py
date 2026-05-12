@@ -20,9 +20,11 @@ from core.character_registry import (
     get_entries_for_character,
     get_entry_character_turns,
     normalize_character_name,
+    normalize_known_character_roles,
     reactivate_character,
     set_entry_character_turns,
     update_character,
+    upsert_character_mappings,
 )
 from core.loreforge_meta import LOREFORGE_META_KEY
 from core.models import Base, Character, EntryCharacterTurn
@@ -131,6 +133,54 @@ def test_collect_character_candidates_handles_mixed_standard_and_custom_roles():
 
     assert [candidate.source_role_label for candidate in report.candidates] == ["Kai"]
     assert report.candidates[0].suggested_training_role is None
+
+
+def test_normalize_known_character_roles_uses_existing_source_labels(character_db):
+    create_character("Scott")
+    set_entry_character_turns(
+        "existing-entry",
+        [{"turn_index": 1, "character_slug": "scott", "training_role": "user", "source_role_label": "Scott"}],
+    )
+    entry = _candidate_entry("new-entry", ["system", "Scott", "assistant"])
+
+    result = normalize_known_character_roles([entry])
+
+    assert result.changed_entries == 1
+    assert result.changed_turns == 1
+    assert result.entries[0]["messages"][1]["role"] == "user"
+    assert result.mapping_payload == (
+        {
+            "entry_uuid": "new-entry",
+            "turns": [
+                {
+                    "turn_index": 1,
+                    "character_slug": "scott",
+                    "training_role": "user",
+                    "source_role_label": "Scott",
+                }
+            ],
+        },
+    )
+
+
+def test_normalize_known_character_roles_skips_ambiguous_training_roles(character_db):
+    create_character("Scott")
+    set_entry_character_turns(
+        "entry-user",
+        [{"turn_index": 1, "character_slug": "scott", "training_role": "user", "source_role_label": "Scott"}],
+    )
+    set_entry_character_turns(
+        "entry-assistant",
+        [{"turn_index": 2, "character_slug": "scott", "training_role": "assistant", "source_role_label": "Scott"}],
+    )
+    entry = _candidate_entry("new-entry", ["system", "Scott", "assistant"])
+
+    result = normalize_known_character_roles([entry])
+
+    assert result.changed_entries == 0
+    assert result.changed_turns == 0
+    assert result.entries[0]["messages"][1]["role"] == "Scott"
+    assert result.mapping_payload == ()
 
 
 def test_create_character_normalizes_and_persists(character_db):
@@ -452,6 +502,40 @@ def test_bulk_set_character_mappings(character_db):
     assert result == {"entries": 2, "turns": 2}
     assert get_character_display_for_entry("entry-1") == {1: "Scott"}
     assert get_character_display_for_entry("entry-2") == {2: "Emma"}
+
+
+def test_upsert_character_mappings_updates_turn_without_deleting_others(character_db):
+    create_character("Scott")
+    create_character("Emma")
+    set_entry_character_turns(
+        "entry-1",
+        [
+            {"turn_index": 1, "character_slug": "scott", "training_role": "user"},
+            {"turn_index": 2, "character_slug": "emma", "training_role": "assistant"},
+        ],
+    )
+
+    result = upsert_character_mappings([
+        {
+            "entry_uuid": "entry-1",
+            "turns": [
+                {
+                    "turn_index": 1,
+                    "character_slug": "emma",
+                    "training_role": "assistant",
+                    "source_role_label": "Emma",
+                }
+            ],
+        }
+    ])
+
+    assert result == {"entries": 1, "turns": 1}
+    stored = get_entry_character_turns("entry-1")
+    assert [(mapping.turn_index, mapping.training_role) for mapping in stored] == [
+        (1, "assistant"),
+        (2, "assistant"),
+    ]
+    assert len(stored) == 2
 
 
 def test_set_entry_character_turns_validates_inputs(character_db):

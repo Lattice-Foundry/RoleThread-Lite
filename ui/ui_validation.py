@@ -281,23 +281,10 @@ def _render_character_mapping_section(entries: list[dict]) -> None:
     pattern_summary = getattr(report, "pattern_summary", None)
     if pattern_summary:
         st.info(pattern_summary)
-        suggested = {
-            candidate.source_role_label: candidate.suggested_training_role
-            for candidate in candidates
-            if candidate.suggested_training_role in {"user", "assistant"}
-        }
-        if st.button(
-            "Apply Suggested Mapping",
-            type="primary",
-            key="validation_apply_suggested_characters",
-            disabled=not suggested,
-        ):
-            _execute_character_mapping(suggested)
-            return
 
     st.caption(
-        "Map detected custom role names to training roles. LoreForge keeps the "
-        "character names as metadata while saving standard user/assistant roles."
+        "Review the suggested training roles, then apply the mapping. LoreForge "
+        "keeps character names as metadata while saving standard user/assistant roles."
     )
 
     role_mappings: dict[str, str] = {}

@@ -72,9 +72,9 @@ def test_create_dataset_working_copy_uses_unique_folder_for_repeated_loads(tmp_p
     result = create_dataset_working_copy(source_path, working_dir=working_dir)
 
     assert result.created is True
-    assert result.working_path == str((working_dir / "dataset_2" / "dataset.jsonl").resolve())
+    assert result.working_path == str((working_dir / "dataset_copy-2" / "dataset_copy-2.jsonl").resolve())
     assert existing.read_text(encoding="utf-8") == "existing\n"
-    assert (working_dir / "dataset_2" / "dataset.jsonl").read_text(encoding="utf-8") == source_path.read_text(encoding="utf-8")
+    assert (working_dir / "dataset_copy-2" / "dataset_copy-2.jsonl").read_text(encoding="utf-8") == source_path.read_text(encoding="utf-8")
 
 
 def test_create_dataset_working_copy_increments_unique_folder_suffix(tmp_path):
@@ -85,12 +85,39 @@ def test_create_dataset_working_copy_increments_unique_folder_suffix(tmp_path):
     source_path = source_dir / "dataset.jsonl"
     source_path.write_text(json.dumps({"messages": [], "tags": []}) + "\n", encoding="utf-8")
     (working_dir / "dataset").mkdir()
-    (working_dir / "dataset_2").mkdir()
+    (working_dir / "dataset_copy-2").mkdir()
 
     result = create_dataset_working_copy(source_path, working_dir=working_dir)
 
     assert result.created is True
-    assert result.working_path == str((working_dir / "dataset_3" / "dataset.jsonl").resolve())
+    assert result.working_path == str((working_dir / "dataset_copy-3" / "dataset_copy-3.jsonl").resolve())
+
+
+def test_create_dataset_working_copy_repeated_loads_populate_matching_files(tmp_path):
+    source_dir = tmp_path / "source"
+    working_dir = tmp_path / "working"
+    source_dir.mkdir()
+    source_path = source_dir / "dirty_roles.jsonl"
+    source_content = json.dumps({"messages": [], "tags": []}) + "\n"
+    source_path.write_text(source_content, encoding="utf-8")
+    source_sidecar = sidecar_path_for_dataset(source_path)
+    source_sidecar.write_text('{"metadata": {"kind": "test"}}', encoding="utf-8")
+
+    first = create_dataset_working_copy(source_path, working_dir=working_dir)
+    second = create_dataset_working_copy(source_path, working_dir=working_dir)
+    third = create_dataset_working_copy(source_path, working_dir=working_dir)
+
+    expected_paths = [
+        working_dir / "dirty_roles" / "dirty_roles.jsonl",
+        working_dir / "dirty_roles_copy-2" / "dirty_roles_copy-2.jsonl",
+        working_dir / "dirty_roles_copy-3" / "dirty_roles_copy-3.jsonl",
+    ]
+    assert [first.working_path, second.working_path, third.working_path] == [
+        str(path.resolve()) for path in expected_paths
+    ]
+    for path in expected_paths:
+        assert path.read_text(encoding="utf-8") == source_content
+        assert sidecar_path_for_dataset(path).read_text(encoding="utf-8") == '{"metadata": {"kind": "test"}}'
 
 
 def test_migrate_training_dataset_to_subfolder_moves_flat_file_and_sidecar(tmp_path):

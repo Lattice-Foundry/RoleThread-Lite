@@ -574,6 +574,27 @@ def test_chatml_analyzer_keeps_custom_character_roles_manual():
     }
 
 
+def test_chatml_analyzer_deduplicates_repeated_custom_role_diagnostics():
+    result = ChatMLAnalyzer().analyze(_entry(messages=[
+        {"role": "system", "content": "System"},
+        {"role": "Scott", "content": "Hi"},
+        {"role": "Emma", "content": "Hello"},
+        {"role": "Scott", "content": "Again"},
+        {"role": "Emma", "content": "Again"},
+    ]))
+
+    wrong_roles = [
+        diagnostic
+        for diagnostic in result.diagnostics
+        if diagnostic.code == CHATML_WRONG_ROLE
+    ]
+
+    assert [diagnostic.original_value for diagnostic in wrong_roles] == [
+        "Scott",
+        "Emma",
+    ]
+
+
 def test_chatml_analyzer_reports_custom_role_whitespace_without_mapping_it():
     result = ChatMLAnalyzer().analyze(_entry(messages=[
         {"role": "system", "content": "System"},

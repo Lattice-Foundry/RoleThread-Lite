@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from core.db import SessionLocal
 from core.format_conversion import detect_custom_role_pattern
-from core.loreforge_meta import get_entry_uuid
+from core.loreforge_meta import ensure_entry_uuid, get_entry_uuid
 from core.models import Character, EntryCharacterTurn
 from core.role_normalization import normalize_role
 from core.tag_normalization import normalize_tag
@@ -33,6 +33,16 @@ class CharacterCandidateReport:
     candidates: tuple[CharacterCandidate, ...]
     has_candidates: bool
     pattern_summary: str | None = None
+
+
+@dataclass(frozen=True)
+class KnownCharacterNormalizationResult:
+    """Entries normalized from trusted character role labels."""
+
+    entries: list[dict]
+    mapping_payload: tuple[dict, ...]
+    changed_entries: int
+    changed_turns: int
 
 
 def normalize_character_name(name: str) -> tuple[str, str]:
@@ -106,6 +116,131 @@ def collect_character_candidates(entries: list[dict]) -> CharacterCandidateRepor
         has_candidates=bool(candidates),
         pattern_summary=pattern_summary.message if pattern_summary.detected else None,
     )
+
+
+def normalize_known_character_roles(entries: list[dict]) -> KnownCharacterNormalizationResult:
+    """Normalize roles that match unambiguous existing character mappings."""
+
+    role_map = _known_character_role_map()
+    if not role_map:
+        return KnownCharacterNormalizationResult(
+            entries=list(entries),
+            mapping_payload=(),
+            changed_entries=0,
+            changed_turns=0,
+        )
+
+    normalized_entries: list[dict] = []
+    mapping_by_entry: dict[str, list[dict]] = {}
+    changed_entry_uuids: set[str] = set()
+    changed_turns = 0
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            normalized_entries.append(entry)
+            continue
+
+        proposed_entry = entry
+        messages = proposed_entry.get("messages")
+        if not isinstance(messages, list):
+            normalized_entries.append(proposed_entry)
+            continue
+
+        entry_changed = False
+        for turn_index, message in enumerate(messages):
+            if not isinstance(message, dict):
+                continue
+            raw_role = message.get("role")
+            if not isinstance(raw_role, str):
+                continue
+            role_label = raw_role.strip()
+            if _is_standard_or_known_variant(role_label):
+                continue
+            known = role_map.get(role_label.casefold())
+            if known is None:
+                continue
+
+            if not entry_changed:
+                proposed_entry = ensure_entry_uuid(proposed_entry)
+                messages = proposed_entry.get("messages")
+                if not isinstance(messages, list):
+                    break
+                entry_changed = True
+
+            message = messages[turn_index]
+            if not isinstance(message, dict):
+                continue
+            message["role"] = known["training_role"]
+            entry_uuid = get_entry_uuid(proposed_entry)
+            if not entry_uuid:
+                continue
+            mapping_by_entry.setdefault(entry_uuid, []).append({
+                "turn_index": turn_index,
+                "character_slug": known["character_slug"],
+                "training_role": known["training_role"],
+                "source_role_label": role_label,
+            })
+            changed_entry_uuids.add(entry_uuid)
+            changed_turns += 1
+
+        normalized_entries.append(proposed_entry)
+
+    mapping_payload = tuple(
+        {"entry_uuid": entry_uuid, "turns": list(turns)}
+        for entry_uuid, turns in mapping_by_entry.items()
+    )
+    return KnownCharacterNormalizationResult(
+        entries=normalized_entries,
+        mapping_payload=mapping_payload,
+        changed_entries=len(changed_entry_uuids),
+        changed_turns=changed_turns,
+    )
+
+
+def _known_character_role_map() -> dict[str, dict[str, str]]:
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(
+                Character.slug,
+                Character.display_name,
+                EntryCharacterTurn.source_role_label,
+                EntryCharacterTurn.training_role,
+            )
+            .join(EntryCharacterTurn)
+            .filter(
+                Character.is_active.is_(True),
+                EntryCharacterTurn.training_role.in_(("user", "assistant")),
+            )
+            .all()
+        )
+    finally:
+        session.close()
+
+    candidates: dict[str, dict[str, set[str]]] = {}
+    for character_slug, display_name, source_role_label, training_role in rows:
+        for label in (source_role_label, display_name):
+            if not isinstance(label, str) or not label.strip():
+                continue
+            key = label.strip().casefold()
+            candidate = candidates.setdefault(
+                key,
+                {"character_slugs": set(), "training_roles": set()},
+            )
+            candidate["character_slugs"].add(character_slug)
+            candidate["training_roles"].add(training_role)
+
+    role_map: dict[str, dict[str, str]] = {}
+    for key, candidate in candidates.items():
+        if (
+            len(candidate["character_slugs"]) == 1
+            and len(candidate["training_roles"]) == 1
+        ):
+            role_map[key] = {
+                "character_slug": next(iter(candidate["character_slugs"])),
+                "training_role": next(iter(candidate["training_roles"])),
+            }
+    return role_map
 
 
 def _is_standard_or_known_variant(role: str) -> bool:
@@ -527,3 +662,62 @@ def bulk_set_character_mappings(mappings: list[dict]) -> dict[str, int]:
         applied_entries += 1
         applied_turns += len(created)
     return {"entries": applied_entries, "turns": applied_turns}
+
+
+def upsert_character_mappings(mappings: list[dict] | tuple[dict, ...]) -> dict[str, int]:
+    """Create or update character turn mappings without deleting other turns."""
+
+    applied_entries: set[str] = set()
+    applied_turns = 0
+    session = SessionLocal()
+    try:
+        for mapping in mappings:
+            entry_uuid = mapping.get("entry_uuid")
+            turns = mapping.get("turns", [])
+            if not entry_uuid:
+                continue
+            for turn in turns:
+                turn_index = turn.get("turn_index")
+                character_slug = turn.get("character_slug")
+                training_role = turn.get("training_role")
+                if not isinstance(turn_index, int) or turn_index < 0:
+                    raise ValueError("Turn index must be a non-negative integer.")
+                if not isinstance(training_role, str) or not training_role.strip():
+                    raise ValueError("Training role is required.")
+
+                normalized_slug, _display_name = normalize_character_name(character_slug or "")
+                character = (
+                    session.query(Character)
+                    .filter_by(slug=normalized_slug, is_active=True)
+                    .first()
+                )
+                if character is None:
+                    raise ValueError(f"Character not found: {character_slug}")
+
+                existing = (
+                    session.query(EntryCharacterTurn)
+                    .filter_by(entry_uuid=entry_uuid, turn_index=turn_index)
+                    .first()
+                )
+                if existing is None:
+                    existing = EntryCharacterTurn(
+                        entry_uuid=entry_uuid,
+                        turn_index=turn_index,
+                        character_id=character.id,
+                        training_role=training_role.strip(),
+                        source_role_label=turn.get("source_role_label"),
+                    )
+                    session.add(existing)
+                else:
+                    existing.character_id = character.id
+                    existing.training_role = training_role.strip()
+                    existing.source_role_label = turn.get("source_role_label")
+                applied_entries.add(entry_uuid)
+                applied_turns += 1
+        session.commit()
+        return {"entries": len(applied_entries), "turns": applied_turns}
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

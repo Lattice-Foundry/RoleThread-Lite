@@ -93,7 +93,7 @@ def _render_load_format_summary(
     loaded_entry_count: int | None = None,
     correction_saved: bool = False,
     correction_failed: bool = False,
-    corrected_entries: int = 0,
+    normalized_entries: int = 0,
 ) -> None:
     source_format = normalization.source_format
     if source_format == FORMAT_SHAREGPT:
@@ -114,15 +114,22 @@ def _render_load_format_summary(
         )
 
     if correction_saved:
+        diagnostics = normalization.diagnostics
+        issue_entries = max(0, diagnostics.entries_analyzed - diagnostics.valid_entries)
+        validation_note = (
+            " See Validation page for remaining issues."
+            if issue_entries
+            else ""
+        )
         st.info(
-            "LoreForge automatically corrected "
-            f"{count_phrase(corrected_entries, 'entry', 'entries')} on load "
+            "LoreForge automatically normalized "
+            f"{count_phrase(normalized_entries, 'entry', 'entries')} on load "
             "(role formatting, missing metadata). Your original file is preserved. "
-            "See Validation page for remaining issues."
+            f"{validation_note}"
         )
     elif correction_failed:
         st.warning(
-            "Automatic corrections were applied in memory, but were not saved."
+            "Automatic normalization was applied in memory, but was not saved."
         )
 
     if normalization.parse_error_count:
@@ -133,7 +140,7 @@ def _render_load_format_summary(
         )
     if normalization.role_values_normalized or normalization.message_content_trimmed:
         st.caption(
-            "Corrected "
+            "Normalized "
             f"{count_phrase(normalization.role_values_normalized, 'role value')} and "
             f"{count_phrase(normalization.message_content_trimmed, 'message content field')}."
         )
@@ -182,12 +189,25 @@ def _render_load_format_summary(
             category_count = len(sidecar_summary.get("categories_created", []) or [])
             created_count = len(sidecar_summary.get("tags_created", []) or [])
             promoted_count = len(sidecar_summary.get("tags_promoted", []) or [])
-            st.info(
-                "Registry sidecar restored: "
-                f"{count_phrase(category_count, 'category', 'categories')}, "
-                f"{count_phrase(created_count, 'tag')}, "
-                f"{count_phrase(promoted_count, 'promoted tag')}."
-            )
+            alias_count = len(sidecar_summary.get("aliases_imported", []) or [])
+            character_count = len(sidecar_summary.get("characters_created", []) or [])
+            mapping_count = len(sidecar_summary.get("character_mappings_imported", []) or [])
+            if any(
+                (
+                    category_count,
+                    created_count,
+                    promoted_count,
+                    alias_count,
+                    character_count,
+                    mapping_count,
+                )
+            ):
+                st.info(
+                    "Registry sidecar restored: "
+                    f"{count_phrase(category_count, 'category', 'categories')}, "
+                    f"{count_phrase(created_count, 'tag')}, "
+                    f"{count_phrase(promoted_count, 'promoted tag')}."
+                )
         else:
             st.warning(
                 "Registry sidecar could not be restored. "
@@ -204,10 +224,22 @@ def _render_load_format_summary(
 
     pending_trust = st.session_state.get("pending_tag_trust") or {}
     if pending_trust:
-        st.warning(
-            f"{count_phrase(len(pending_trust), 'unknown tag')} imported to archive "
-            "in Tag Management. Assign categories to make them available in tag pickers."
-        )
+        summary = st.session_state.get("tag_normalization_summary", {}) or {}
+        adopted_slugs = set(summary.get("adopted_slugs", []) or [])
+        newly_imported_count = sum(1 for slug in pending_trust if slug in adopted_slugs)
+        already_archived_count = max(0, len(pending_trust) - newly_imported_count)
+        suffix = "Assign categories to make them available in tag pickers."
+        if newly_imported_count:
+            st.warning(
+                f"{count_phrase(newly_imported_count, 'unknown tag')} imported to archive "
+                f"in Tag Management. {suffix}"
+            )
+        if already_archived_count:
+            st.warning(
+                f"{count_phrase(already_archived_count, 'tag')} in this dataset "
+                f"{'is' if already_archived_count == 1 else 'are'} archived in "
+                f"Tag Management. {suffix}"
+            )
 
 
 def _entry_has_reportable_diagnostics(entry: dict) -> bool:
@@ -278,7 +310,7 @@ def render_manage_page() -> None:
             clear_selected_entries()
             _normalization_saved = False
             _normalization_failed = False
-            _corrected_entries = int(
+            _normalized_entries = int(
                 st.session_state.get("tag_normalization_summary", {}).get(
                     "changed_entries",
                     0,
@@ -307,7 +339,7 @@ def render_manage_page() -> None:
                 loaded_entry_count=len(entries),
                 correction_saved=_normalization_saved,
                 correction_failed=_normalization_failed,
-                corrected_entries=_corrected_entries,
+                normalized_entries=_normalized_entries,
             )
 
     with col_new:
