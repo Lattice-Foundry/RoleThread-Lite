@@ -251,6 +251,15 @@ def _entry_has_reportable_diagnostics(entry: dict) -> bool:
     )
 
 
+def _same_dataset_path(left: str | None, right: str | None) -> bool:
+    if not left or not right:
+        return False
+    try:
+        return Path(left).expanduser().resolve() == Path(right).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError):
+        return str(left).strip() == str(right).strip()
+
+
 def render_manage_page() -> None:
     """Render the Manage Dataset page."""
     clear_validate_entry_cache()
@@ -274,7 +283,17 @@ def render_manage_page() -> None:
     col_load, col_new = st.columns(2)
 
     with col_load:
-        if st.button("Load", width="stretch", disabled=not load_path.strip()):
+        _dataset_already_loaded = _same_dataset_path(
+            load_path.strip(),
+            st.session_state.get("loaded_path"),
+        )
+        if _dataset_already_loaded:
+            st.caption("Dataset already loaded.")
+        if st.button(
+            "Load",
+            width="stretch",
+            disabled=not load_path.strip() or _dataset_already_loaded,
+        ):
             p = load_path.strip()
             _auto_correct_enabled = st.session_state.get(
                 "auto_correct_validation_errors",

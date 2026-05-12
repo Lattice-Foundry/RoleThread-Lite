@@ -57,6 +57,8 @@ SHAREGPT_EMPTY_CONTENT = "sharegpt.empty_content"
 SHAREGPT_MULTIPLE_SYSTEM_TURNS = "sharegpt.multiple_system_turns"
 SHAREGPT_NO_SYSTEM_TURN = "sharegpt.no_system_turn"
 
+SYSTEM_PROMPT_EDIT_GUIDANCE = " Use Modify System or Full Edit to correct."
+
 
 @dataclass(frozen=True)
 class EntryDiagnostic:
@@ -416,7 +418,11 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 EntryDiagnostic(
                     code=CHATML_INSUFFICIENT_MESSAGES,
                     severity=AnalysisSeverity.ERROR,
-                    message="'messages' must have at least 3 items (system + one user/assistant exchange)",
+                    message=(
+                        "'messages' must have at least 3 items "
+                        "(system + one user/assistant exchange)."
+                        f"{SYSTEM_PROMPT_EDIT_GUIDANCE}"
+                    ),
                     path=("messages",),
                     repair_kind=RepairKind.MANUAL,
                     original_value=len(messages),
@@ -443,7 +449,10 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 EntryDiagnostic(
                     code=CHATML_SYSTEM_NOT_DICT,
                     severity=AnalysisSeverity.ERROR,
-                    message="First message must be a system prompt object.",
+                    message=(
+                        "First message must be a system prompt object."
+                        f"{SYSTEM_PROMPT_EDIT_GUIDANCE}"
+                    ),
                     path=("messages", 0),
                     repair_kind=RepairKind.MANUAL,
                     original_value=system_message,
@@ -487,7 +496,10 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 EntryDiagnostic(
                     code=CHATML_EMPTY_SYSTEM_CONTENT,
                     severity=AnalysisSeverity.ERROR,
-                    message="First system prompt is empty.",
+                    message=(
+                        "First system prompt is empty."
+                        f"{SYSTEM_PROMPT_EDIT_GUIDANCE}"
+                    ),
                     path=("messages", 0, "content"),
                     fixable=True,
                     repair_kind=RepairKind.SUGGESTED,
@@ -596,6 +608,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             return (
                 "First message must be a system prompt, "
                 f"but found role '{role}'."
+                f"{SYSTEM_PROMPT_EDIT_GUIDANCE}"
             )
         return (
             f"Message {index + 1} should be "

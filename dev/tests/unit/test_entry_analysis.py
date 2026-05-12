@@ -372,7 +372,10 @@ def test_chatml_analyzer_reports_system_not_dict():
 
     assert result.is_valid is False
     assert diagnostic.severity == AnalysisSeverity.ERROR
-    assert diagnostic.message == "First message must be a system prompt object."
+    assert diagnostic.message == (
+        "First message must be a system prompt object. "
+        "Use Modify System or Full Edit to correct."
+    )
     assert diagnostic.path == ("messages", 0)
 
 
@@ -391,12 +394,17 @@ def test_chatml_analyzer_reports_wrong_system_role_and_empty_content():
 
     assert result.is_valid is False
     assert role.severity == AnalysisSeverity.ERROR
-    assert role.message == "First message must be a system prompt, but found role 'user'."
+    assert role.message == (
+        "First message must be a system prompt, but found role 'user'. "
+        "Use Modify System or Full Edit to correct."
+    )
     assert role.path == ("messages", 0, "role")
     assert role.original_value == "user"
     assert role.normalized_value == "system"
     assert content.severity == AnalysisSeverity.ERROR
-    assert content.message == "First system prompt is empty."
+    assert content.message == (
+        "First system prompt is empty. Use Modify System or Full Edit to correct."
+    )
     assert content.path == ("messages", 0, "content")
     assert content.fixable is True
     assert content.repair_kind == RepairKind.SUGGESTED

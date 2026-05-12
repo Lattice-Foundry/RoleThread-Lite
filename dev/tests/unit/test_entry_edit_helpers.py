@@ -17,13 +17,23 @@ def _entry(messages=None, tags=None):
     }
 
 
-def test_quick_edit_allowed_for_content_only_issues():
+def test_quick_edit_requires_full_edit_for_insufficient_messages():
     entry = _entry(messages=[
         {"role": "system", "content": "System"},
         {"role": "user", "content": "Hi"},
     ])
 
-    assert requires_full_edit_for_quick_edit(entry) is False
+    assert requires_full_edit_for_quick_edit(entry) is True
+
+
+def test_quick_edit_requires_full_edit_for_empty_system_prompt():
+    entry = _entry(messages=[
+        {"role": "system", "content": "   "},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ])
+
+    assert requires_full_edit_for_quick_edit(entry) is True
 
 
 def test_quick_edit_requires_full_edit_for_missing_tags():
