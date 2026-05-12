@@ -13,6 +13,7 @@ from ui.session_state import clear_entry_edit_state, set_loaded_entries
 from core.storage import ensure_app_directories
 from core.tag_registry import seed_default_tags
 from ui.browser_helpers import DEFAULT_PAGE_SIZE, MATCH_MODE_ANY
+from ui.ui_character_management import render_character_management_page
 from ui.ui_create import init_editor_state, render_create_page
 from ui.ui_edit_entries import render_edit_entries_page
 from ui.ui_export import render_export_page
@@ -146,7 +147,10 @@ _NAV_SECTIONS = [
     ("Tools", [
         ("Export",          "Export"),
         ("Validate",        "Validation"),
-        ("Tag Management",  "Tag Management"),
+    ]),
+    ("Metadata", [
+        ("Tag Management",        "Tag Management"),
+        ("Character Management",  "Character Management"),
     ]),
     ("Analytics", [
         ("Statistics",      "Statistics"),
@@ -189,6 +193,8 @@ elif page == "Validation":
     render_validation_page()
 elif page == "Tag Management":
     render_tag_management_page()
+elif page == "Character Management":
+    render_character_management_page()
 elif page == "Statistics":
     render_stats_page()
 elif page == "Settings":

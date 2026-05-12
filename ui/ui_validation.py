@@ -11,6 +11,7 @@ from core.dataset import (
     clear_validate_entry_cache,
     summarize_entry_analysis,
 )
+from core.loreforge_meta import get_entry_uuid
 from core.text_helpers import count_phrase
 from core.validation_actions import (
     AutoFixGroup,
@@ -19,6 +20,7 @@ from core.validation_actions import (
     apply_group_repairs,
     collect_auto_fixable_groups,
 )
+from services.character_mapping_service import apply_character_mapping_service
 from services.dataset_service import save_repaired_entries_service
 from ui.session_state import apply_dataset_operation_result, ensure_entry_registry
 
@@ -59,14 +61,15 @@ def render_validation_page() -> None:
     if total_fix_count == 0:
         _clear_pending_fix()
         st.info("No auto-fixable issues found.")
-        return
+    else:
+        _render_master_fix(total_fix_count, affected_entry_count)
+        _render_pending_confirmation(groups)
 
-    _render_master_fix(total_fix_count, affected_entry_count)
-    _render_pending_confirmation(groups)
+        st.divider()
+        for group in groups:
+            _render_group(group)
 
-    st.divider()
-    for group in groups:
-        _render_group(group)
+    _render_character_mapping_section(entries)
 
 
 def _render_summary(
@@ -265,6 +268,140 @@ def _refresh_diagnostic_summary(entries: list[dict]) -> None:
     }
     st.session_state.tag_normalization_summary = summary
     st.session_state.normalization_pending = False
+
+
+def _render_character_mapping_section(entries: list[dict]) -> None:
+    report = st.session_state.get("character_candidates")
+    candidates = tuple(getattr(report, "candidates", ()) or ())
+    if not candidates:
+        return
+
+    st.divider()
+    st.markdown("**Character Role Mapping**")
+    pattern_summary = getattr(report, "pattern_summary", None)
+    if pattern_summary:
+        st.info(pattern_summary)
+        suggested = {
+            candidate.source_role_label: candidate.suggested_training_role
+            for candidate in candidates
+            if candidate.suggested_training_role in {"user", "assistant"}
+        }
+        if st.button(
+            "Apply Suggested Mapping",
+            type="primary",
+            key="validation_apply_suggested_characters",
+            disabled=not suggested,
+        ):
+            _execute_character_mapping(suggested)
+            return
+
+    st.caption(
+        "Map detected custom role names to training roles. LoreForge keeps the "
+        "character names as metadata while saving standard user/assistant roles."
+    )
+
+    role_mappings: dict[str, str] = {}
+    for candidate in candidates:
+        selected_role = _render_character_candidate(candidate, entries)
+        role_mappings[candidate.source_role_label] = selected_role
+
+    if st.button(
+        "Apply Character Mapping",
+        type="primary",
+        key="validation_apply_character_mapping",
+    ):
+        _execute_character_mapping(role_mappings)
+
+
+def _render_character_candidate(candidate, entries: list[dict]) -> str:
+    st.markdown(f"**{candidate.suggested_display_name}**")
+    st.caption(
+        f"{count_phrase(candidate.occurrence_count, 'turn')} across "
+        f"{count_phrase(len(candidate.entry_uuids), 'entry', 'entries')}."
+    )
+    role_options = ["user", "assistant"]
+    selected_role = (
+        candidate.suggested_training_role
+        if candidate.suggested_training_role in role_options
+        else "user"
+    )
+    selected = st.selectbox(
+        "Training role",
+        role_options,
+        index=role_options.index(selected_role),
+        key=f"validation_character_role_{candidate.suggested_slug}",
+    )
+    preview = _candidate_preview(candidate, entries)
+    if preview:
+        st.caption(f"Example: {preview}")
+    return selected
+
+
+def _candidate_preview(candidate, entries: list[dict]) -> str | None:
+    if not candidate.turn_locations:
+        return None
+    location = candidate.turn_locations[0]
+    entry_uuid = location.get("entry_uuid")
+    turn_index = location.get("turn_index")
+    if not isinstance(turn_index, int):
+        return None
+
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            continue
+        current_uuid = get_entry_uuid(entry) or f"entry_index:{index}"
+        if current_uuid != entry_uuid:
+            continue
+        messages = entry.get("messages")
+        if not isinstance(messages, list) or turn_index >= len(messages):
+            return None
+        message = messages[turn_index]
+        if not isinstance(message, dict):
+            return None
+        content = str(message.get("content", "")).strip()
+        if len(content) > 140:
+            content = content[:137] + "..."
+        return content or "Blank turn"
+    return None
+
+
+def _execute_character_mapping(role_mappings: dict[str, str]) -> None:
+    if not role_mappings:
+        st.warning("No suggested character mapping is available.")
+        return
+
+    result = apply_character_mapping_service(
+        dataset_path=st.session_state.get("loaded_path", ""),
+        entries=st.session_state.get("loaded_entries", []),
+        role_mappings=role_mappings,
+    )
+    if not result.ok:
+        st.error(result.message)
+        for error in result.errors:
+            st.error(error)
+        return
+
+    persisted_entries = result.entries or st.session_state.get("loaded_entries", [])
+    apply_dataset_operation_result(result)
+    st.session_state.loaded_entries = persisted_entries
+    st.session_state.entry_registry = build_entry_registry(persisted_entries)
+    clear_validate_entry_cache()
+    _refresh_diagnostic_summary(persisted_entries)
+    st.session_state.pop("character_candidates", None)
+    _clear_pending_fix()
+
+    backup_note = " Backup created." if result.backup_path else ""
+    created_note = (
+        f" Created {count_phrase(len(result.characters_created), 'character')}."
+        if result.characters_created
+        else ""
+    )
+    st.session_state.validation_success_msg = (
+        f"Mapped {count_phrase(result.mapped_turns, 'character turn')} across "
+        f"{count_phrase(result.mapped_entries, 'entry', 'entries')}."
+        f"{created_note}{backup_note}"
+    )
+    st.rerun()
 
 
 def _clear_pending_fix() -> None:
