@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -10,6 +11,7 @@ from core.dataset import (
     append_to_dataset,
     build_dataset_stats,
     build_entry_registry,
+    canonicalize_entry_tag_aliases,
     clear_validate_entry_cache,
     count_exchanges,
     entry_is_untagged,
@@ -77,6 +79,37 @@ def _multi_turn_entry(*, tags=None):
             {"role": "assistant", "content": "Doing well."},
         ],
     )
+
+
+def _resolution(slug, *, rewrite=False, resolved=None):
+    return SimpleNamespace(
+        should_rewrite_slug=rewrite,
+        resolved_slug=resolved or slug,
+    )
+
+
+def test_canonicalize_entry_tag_aliases_rewrites_and_deduplicates_without_mutation():
+    entries = [
+        _entry(tags=["old_tag", "active_tag", "old_tag"]),
+        _entry(tags=["untouched"]),
+    ]
+    original = json.loads(json.dumps(entries))
+
+    def resolve(tag):
+        if tag == "old_tag":
+            return _resolution(tag, rewrite=True, resolved="active_tag")
+        return _resolution(tag)
+
+    canonical_entries, summary = canonicalize_entry_tag_aliases(entries, resolve)
+
+    assert entries == original
+    assert canonical_entries[0]["tags"] == ["active_tag"]
+    assert canonical_entries[1]["tags"] == ["untouched"]
+    assert summary == {
+        "rewrites": {"old_tag": "active_tag"},
+        "rewrite_count": 2,
+        "changed_entries": 1,
+    }
 
 
 def _error_text(errors):

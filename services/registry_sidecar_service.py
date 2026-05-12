@@ -76,6 +76,7 @@ def export_registry_sidecar(
         output_path = sidecar_path_for_dataset(Path(dataset_path))
         usage_counts = _tag_usage_counts(entries)
         included_slugs = set(usage_counts)
+        raw_slugs = _raw_tag_slugs(entries)
         tags = _query_tags()
         tags = [tag for tag in tags if tag["slug"] in included_slugs]
         category_slugs = {
@@ -93,7 +94,8 @@ def export_registry_sidecar(
             aliases=[
                 alias
                 for alias in _query_aliases()
-                if alias.get("new_slug") in included_slugs
+                if alias.get("old_slug") in raw_slugs
+                or alias.get("new_slug") in included_slugs
             ],
             dataset_filename=Path(dataset_path).name,
             entry_count=len(entries),
@@ -272,9 +274,30 @@ def _parse_metadata(metadata_json: str | None) -> dict:
 def _tag_usage_counts(entries: list[dict]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for entry in entries:
+        seen_for_entry: set[str] = set()
         for tag in get_entry_tags(entry):
-            counts[tag] = counts.get(tag, 0) + 1
+            canonical_slug = _canonical_tag_slug(tag)
+            if not canonical_slug or canonical_slug in seen_for_entry:
+                continue
+            seen_for_entry.add(canonical_slug)
+            counts[canonical_slug] = counts.get(canonical_slug, 0) + 1
     return counts
+
+
+def _raw_tag_slugs(entries: list[dict]) -> set[str]:
+    return {
+        tag
+        for entry in entries
+        for tag in get_entry_tags(entry)
+        if tag
+    }
+
+
+def _canonical_tag_slug(tag: str) -> str:
+    resolution = tag_registry.resolve_tag_lifecycle(tag)
+    if resolution.should_rewrite_slug and resolution.resolved_slug:
+        return resolution.resolved_slug
+    return resolution.resolved_slug or normalize_tag(tag).slug
 
 
 def _merge_categories(

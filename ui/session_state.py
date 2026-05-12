@@ -11,6 +11,7 @@ from core.backups import auto_backups_enabled
 from core.dataset import (
     TagNormalizationSummary,
     build_entry_registry,
+    canonicalize_entry_tag_aliases,
     get_entry_pairs,
     get_entry_tags,
     get_index_for_entry_id,
@@ -26,6 +27,7 @@ from core.tag_registry import (
     get_current_tag_lifecycle_metadata,
     get_tag_by_slug_any_status,
     prettify_tag_name,
+    resolve_tag_lifecycle,
 )
 from core.working_copy import create_dataset_working_copy
 from services.dataset_service import (
@@ -73,6 +75,16 @@ def set_loaded_entries(
     sidecar_summary, sidecar_tags, sidecar_categories = _import_sibling_sidecar(
         effective_dataset_path
     )
+    alias_canonical_entries, alias_summary = canonicalize_entry_tag_aliases(
+        normalization.entries,
+        resolve_tag_lifecycle,
+    )
+    if alias_summary.get("rewrite_count"):
+        normalization.entries = alias_canonical_entries
+        normalization.alias_rewrites = dict(alias_summary.get("rewrites", {}))
+        normalization.alias_rewrite_count = int(alias_summary.get("rewrite_count", 0))
+        normalization.alias_rewritten_entries = int(alias_summary.get("changed_entries", 0))
+        normalization.changed_entries += normalization.alias_rewritten_entries
     adoption = ensure_tags_exist_for_dataset(normalization.entries)
     pending_trust = _build_pending_tag_trust(
         normalization.entries,
@@ -113,6 +125,9 @@ def set_loaded_entries(
         "pending_trust_count": len(pending_trust),
         "dataset_is_native": normalization.dataset_is_native,
         "working_copy": working_copy_summary,
+        "alias_rewrites": normalization.alias_rewrites,
+        "alias_rewrite_count": normalization.alias_rewrite_count,
+        "alias_rewritten_entries": normalization.alias_rewritten_entries,
     }
     st.session_state.dataset_is_native = normalization.dataset_is_native
     st.session_state.normalization_pending = normalization.changed_entries > 0
@@ -305,6 +320,9 @@ def clear_normalization_pending() -> None:
         "tag_metadata_added_count": 0,
         "role_values_normalized": 0,
         "message_content_trimmed": 0,
+        "alias_rewrites": {},
+        "alias_rewrite_count": 0,
+        "alias_rewritten_entries": 0,
     }
 
 

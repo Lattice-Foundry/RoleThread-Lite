@@ -185,6 +185,54 @@ def test_export_registry_sidecar_writes_registry_file(tmp_path, monkeypatch):
     assert sidecar.aliases[0].metadata == {"resolver_behavior": "map_to_target"}
 
 
+def test_export_registry_sidecar_follows_aliases_for_dataset_relevance(tmp_path, monkeypatch):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    session = session_factory()
+    try:
+        behavior = TagCategory(
+            name="Behavior",
+            slug="behavior",
+            sort_order=0,
+            is_active=True,
+        )
+        session.add(behavior)
+        session.flush()
+        session.add_all([
+            Tag(
+                category_id=behavior.id,
+                name="Active Tag",
+                slug="active_tag",
+                sort_order=0,
+                is_active=True,
+                is_builtin=False,
+                status=TAG_STATUS_ACTIVE,
+            ),
+            TagLifecycleMetadata(
+                action=TAG_LIFECYCLE_METADATA_RENAME,
+                old_slug="old_tag",
+                new_slug="active_tag",
+                metadata_json=json.dumps({"resolver_behavior": "map_to_target"}),
+            ),
+        ])
+        session.commit()
+    finally:
+        session.close()
+
+    dataset_path = tmp_path / "training_set.jsonl"
+    result = export_registry_sidecar(
+        dataset_path=str(dataset_path),
+        entries=[{"tags": ["old_tag", "active_tag"]}],
+    )
+
+    assert result.ok is True
+    sidecar = read_sidecar(sidecar_path_for_dataset(dataset_path))
+    assert sidecar.dataset_info.tag_usage_counts == {"active_tag": 1}
+    assert [tag.slug for tag in sidecar.tags] == ["active_tag"]
+    assert [(alias.old_slug, alias.new_slug) for alias in sidecar.aliases] == [
+        ("old_tag", "active_tag")
+    ]
+
+
 def test_export_registry_sidecar_failure_is_structured(tmp_path, monkeypatch):
     _session_factory(tmp_path, monkeypatch)
 

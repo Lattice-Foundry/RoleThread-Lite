@@ -3,10 +3,12 @@ import inspect
 import json
 import shutil
 from pathlib import Path
+from types import SimpleNamespace
 
 from core.dataset import load_dataset, save_dataset
 from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid
 from core.version import LOREFORGE_VERSION
+import core.tag_registry as tag_registry
 from services import dataset_service
 from services.dataset_service import (
     clear_tags_bulk_service,
@@ -505,6 +507,32 @@ def test_save_full_edit_service_auto_corrects_role_typos_before_validation(tmp_p
         {"role": "user", "content": "Hi"},
         {"role": "assistant", "content": "Hello"},
     ]
+
+
+def test_save_full_edit_service_rewrites_stale_alias_tags(tmp_path, monkeypatch):
+    entries = [_entry(tags=["old_tag", "active_tag"])]
+    path = _write_dataset(tmp_path, entries)
+
+    monkeypatch.setattr(
+        tag_registry,
+        "resolve_tag_lifecycle",
+        lambda slug: SimpleNamespace(
+            should_rewrite_slug=slug == "old_tag",
+            resolved_slug="active_tag" if slug == "old_tag" else slug,
+        ),
+    )
+
+    result = save_full_edit_service(
+        dataset_path=str(path),
+        entries=entries,
+        entry_index=0,
+        updated_entry=_entry(tags=["old_tag", "active_tag"]),
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    assert result.entries[0]["tags"] == ["active_tag"]
+    assert _read_entries(path)[0]["tags"] == ["active_tag"]
 
 
 def test_save_full_edit_service_invalid_entry_blocks_save(tmp_path):

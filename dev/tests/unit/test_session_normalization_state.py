@@ -50,6 +50,11 @@ def _patch_state(monkeypatch):
         "get_current_tag_lifecycle_metadata",
         lambda slug: {},
     )
+    monkeypatch.setattr(
+        session_state,
+        "resolve_tag_lifecycle",
+        lambda slug: SimpleNamespace(should_rewrite_slug=False, resolved_slug=slug),
+    )
     return fake_state
 
 
@@ -96,6 +101,38 @@ def test_set_loaded_entries_tracks_pending_tag_slug_normalization(monkeypatch):
     assert state.loaded_entries[0]["tags"] == ["slow_burn"]
     assert state.normalization_pending is True
     assert state.tag_normalization_summary["changed_entries"] == 1
+
+
+def test_set_loaded_entries_rewrites_stale_aliases_before_adoption(monkeypatch):
+    state = _patch_state(monkeypatch)
+    entry = _entry_without_tags()
+    entry["tags"] = ["old_tag", "active_tag"]
+    adoption_entries = []
+
+    monkeypatch.setattr(
+        session_state,
+        "ensure_tags_exist_for_dataset",
+        lambda entries: adoption_entries.append(entries)
+        or SimpleNamespace(created_count=0, created_slugs=[]),
+    )
+    monkeypatch.setattr(
+        session_state,
+        "resolve_tag_lifecycle",
+        lambda slug: SimpleNamespace(
+            should_rewrite_slug=slug == "old_tag",
+            resolved_slug="active_tag" if slug == "old_tag" else slug,
+        ),
+    )
+
+    session_state.set_loaded_entries([entry])
+
+    assert state.loaded_entries[0]["tags"] == ["active_tag"]
+    assert adoption_entries[0][0]["tags"] == ["active_tag"]
+    assert state.normalization_pending is True
+    assert state.tag_normalization_summary["alias_rewrites"] == {
+        "old_tag": "active_tag"
+    }
+    assert state.tag_normalization_summary["alias_rewrite_count"] == 1
 
 
 def test_set_loaded_entries_tracks_dataset_source_format(monkeypatch):

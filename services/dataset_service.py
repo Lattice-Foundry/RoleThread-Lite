@@ -12,6 +12,7 @@ import traceback
 
 from core.backups import create_dataset_backup
 from core.dataset import (
+    canonicalize_entry_tag_aliases,
     normalize_dataset_entries,
     normalize_dataset_tags,
     normalize_entry_tags,
@@ -46,7 +47,18 @@ def _copy_entries(entries: list[dict]) -> list[dict]:
 
 
 def _normalize_entries(entries: list[dict]) -> list[dict]:
-    return normalize_dataset_tags(entries).entries
+    normalized_entries = normalize_dataset_tags(entries).entries
+    return _canonicalize_alias_tags(normalized_entries)
+
+
+def _canonicalize_alias_tags(entries: list[dict]) -> list[dict]:
+    from core.tag_registry import resolve_tag_lifecycle
+
+    canonical_entries, _summary = canonicalize_entry_tag_aliases(
+        entries,
+        resolve_tag_lifecycle,
+    )
+    return canonical_entries
 
 
 def _save_dataset_with_sidecar(dataset_path: str, entries: list[dict]) -> tuple[str, list[dict]]:
@@ -674,6 +686,7 @@ def save_repaired_entries_service(
         normalize_entry_roles(entry)[0] if isinstance(entry, dict) else copy.deepcopy(entry)
         for entry in repaired_entries
     ]
+    proposed_entries = _canonicalize_alias_tags(proposed_entries)
     try:
         backup_path = _create_backup_if_enabled(dataset_path, True, backup_reason)
     except Exception as exc:

@@ -91,6 +91,9 @@ class TagNormalizationSummary:
     parse_error_count: int = 0
     dataset_is_native: bool = False
     diagnostics: DatasetDiagnosticSummary = field(default_factory=DatasetDiagnosticSummary)
+    alias_rewrites: dict[str, str] = field(default_factory=dict)
+    alias_rewrite_count: int = 0
+    alias_rewritten_entries: int = 0
 
 
 _CHATML_ANALYZER = ChatMLAnalyzer()
@@ -501,6 +504,56 @@ def get_entry_tags(entry: dict) -> list[str]:
         return []
     except Exception:
         return []
+
+
+def canonicalize_entry_tag_aliases(entries: list[dict], resolve_fn) -> tuple[list[dict], dict]:
+    """Return entries with stale alias tag slugs rewritten to resolver targets."""
+
+    canonical_entries = deepcopy(entries)
+    rewrites: dict[str, str] = {}
+    rewrite_count = 0
+    changed_entries = 0
+
+    for entry in canonical_entries:
+        if not isinstance(entry, dict):
+            continue
+        tags = entry.get("tags")
+        if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+            continue
+
+        resolved_tags: list[str] = []
+        entry_changed = False
+        for tag in tags:
+            resolved_tag = tag
+            resolution = resolve_fn(tag)
+            if (
+                getattr(resolution, "should_rewrite_slug", False)
+                and getattr(resolution, "resolved_slug", "")
+            ):
+                resolved_tag = resolution.resolved_slug
+                if resolved_tag != tag:
+                    rewrites[tag] = resolved_tag
+                    rewrite_count += 1
+                    entry_changed = True
+
+            resolved_tags.append(resolved_tag)
+
+        if entry_changed:
+            rewritten_tags: list[str] = []
+            seen: set[str] = set()
+            for resolved_tag in resolved_tags:
+                if resolved_tag in seen:
+                    continue
+                seen.add(resolved_tag)
+                rewritten_tags.append(resolved_tag)
+            entry["tags"] = rewritten_tags
+            changed_entries += 1
+
+    return canonical_entries, {
+        "rewrites": rewrites,
+        "rewrite_count": rewrite_count,
+        "changed_entries": changed_entries,
+    }
 
 
 def normalize_entry_tags(entry: dict) -> tuple[dict, bool]:

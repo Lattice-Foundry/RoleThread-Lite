@@ -106,6 +106,15 @@ def _render_load_format_summary(normalization) -> None:
             f"{count_phrase(normalization.role_values_normalized, 'role value')} and "
             f"{count_phrase(normalization.message_content_trimmed, 'message content field')}."
         )
+    if normalization.alias_rewrites:
+        rewrite_items = list(normalization.alias_rewrites.items())
+        preview = ", ".join(
+            f"{old_slug} -> {new_slug}"
+            for old_slug, new_slug in rewrite_items[:3]
+        )
+        if len(rewrite_items) > 3:
+            preview += f", and {count_phrase(len(rewrite_items) - 3, 'more alias')}"
+        st.caption(f"Resolved stale tag aliases: {preview}.")
 
     warnings = list(normalization.format_warnings or [])
     for warning in warnings[:3]:

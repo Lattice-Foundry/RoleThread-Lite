@@ -8,7 +8,14 @@ import traceback
 from sqlalchemy import func
 
 from core.backups import create_dataset_backup
-from core.dataset import TAGS, get_entry_tags, normalize_dataset_tags, save_dataset, set_entry_tags
+from core.dataset import (
+    TAGS,
+    canonicalize_entry_tag_aliases,
+    get_entry_tags,
+    normalize_dataset_tags,
+    save_dataset,
+    set_entry_tags,
+)
 from core.loreforge_meta import stamp_entries
 import core.tag_registry as tag_registry
 from core.tag_constants import (
@@ -125,7 +132,11 @@ class LifecyclePipeline:
     def save_jsonl(self, entries: list[dict], *, failure_fields: dict):
         try:
             self.dataset_path = _prepare_dataset_save_path(self.dataset_path)
-            self.saved_entries = stamp_entries(entries)
+            canonical_entries, _summary = canonicalize_entry_tag_aliases(
+                entries,
+                tag_registry.resolve_tag_lifecycle,
+            )
+            self.saved_entries = stamp_entries(canonical_entries)
             save_dataset(self.dataset_path, self.saved_entries)
             entries[:] = self.saved_entries
         except Exception as exc:
