@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 import core.character_registry as character_registry
 from core.character_registry import (
     bulk_set_character_mappings,
+    collect_character_candidates,
     create_character,
     deactivate_character,
     delete_characters,
@@ -18,6 +19,7 @@ from core.character_registry import (
     normalize_character_name,
     set_entry_character_turns,
 )
+from core.loreforge_meta import LOREFORGE_META_KEY
 from core.models import Base, Character, EntryCharacterTurn
 
 
@@ -57,6 +59,73 @@ def test_normalize_character_name_reuses_tag_normalization():
         "scott_summers",
         "Scott Summers",
     )
+
+
+def _candidate_entry(entry_uuid, roles):
+    return {
+        LOREFORGE_META_KEY: {"native": True, "entry_uuid": entry_uuid},
+        "messages": [
+            {"role": role, "content": f"{role} says hi"}
+            for role in roles
+        ],
+        "tags": [],
+    }
+
+
+def test_collect_character_candidates_returns_empty_for_standard_roles():
+    report = collect_character_candidates([
+        _candidate_entry("entry-1", ["system", "user", "assistant"]),
+        _candidate_entry("entry-2", ["System", "Human", "GPT"]),
+    ])
+
+    assert report.has_candidates is False
+    assert report.candidates == ()
+    assert report.pattern_summary is None
+
+
+def test_collect_character_candidates_groups_custom_roles_by_location():
+    report = collect_character_candidates([
+        _candidate_entry("entry-1", ["system", "Scott", "Emma", "Scott"]),
+        _candidate_entry("entry-2", ["system", "Scott", "Emma"]),
+    ])
+
+    assert report.has_candidates is True
+    candidates = {candidate.source_role_label: candidate for candidate in report.candidates}
+    assert set(candidates) == {"Emma", "Scott"}
+    assert candidates["Scott"].suggested_slug == "scott"
+    assert candidates["Scott"].suggested_display_name == "Scott"
+    assert candidates["Scott"].entry_uuids == ("entry-1", "entry-2")
+    assert candidates["Scott"].turn_locations == (
+        {"entry_uuid": "entry-1", "turn_index": 1},
+        {"entry_uuid": "entry-1", "turn_index": 3},
+        {"entry_uuid": "entry-2", "turn_index": 1},
+    )
+    assert candidates["Scott"].occurrence_count == 3
+    assert candidates["Emma"].occurrence_count == 2
+
+
+def test_collect_character_candidates_suggests_alternating_training_roles():
+    report = collect_character_candidates([
+        _candidate_entry("entry-1", ["Scott", "Emma", "Scott", "Emma"]),
+    ])
+
+    candidates = {candidate.source_role_label: candidate for candidate in report.candidates}
+    assert candidates["Scott"].suggested_training_role == "user"
+    assert candidates["Emma"].suggested_training_role == "assistant"
+    assert report.pattern_summary == (
+        "Custom role names detected - likely maps to standard roles: "
+        "Scott appears to be 'user', Emma appears to be 'assistant'."
+    )
+
+
+def test_collect_character_candidates_handles_mixed_standard_and_custom_roles():
+    report = collect_character_candidates([
+        _candidate_entry("entry-1", ["system", "user", "assistant"]),
+        _candidate_entry("entry-2", ["system", "Kai", "assistant"]),
+    ])
+
+    assert [candidate.source_role_label for candidate in report.candidates] == ["Kai"]
+    assert report.candidates[0].suggested_training_role is None
 
 
 def test_create_character_normalizes_and_persists(character_db):

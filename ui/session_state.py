@@ -8,6 +8,7 @@ from pathlib import Path
 import streamlit as st
 
 from core.backups import auto_backups_enabled
+from core.character_registry import collect_character_candidates
 from core.dataset import (
     TagNormalizationSummary,
     build_entry_registry,
@@ -86,6 +87,7 @@ def set_loaded_entries(
         normalization.alias_rewrite_count = int(alias_summary.get("rewrite_count", 0))
         normalization.alias_rewritten_entries = int(alias_summary.get("changed_entries", 0))
         normalization.changed_entries += normalization.alias_rewritten_entries
+    character_candidates = collect_character_candidates(normalization.entries)
     adoption = ensure_tags_exist_for_dataset(normalization.entries)
     pending_trust = _build_pending_tag_trust(
         normalization.entries,
@@ -129,12 +131,22 @@ def set_loaded_entries(
         "alias_rewrites": normalization.alias_rewrites,
         "alias_rewrite_count": normalization.alias_rewrite_count,
         "alias_rewritten_entries": normalization.alias_rewritten_entries,
+        "character_candidate_count": len(character_candidates.candidates),
+        "character_candidate_labels": [
+            candidate.source_role_label
+            for candidate in character_candidates.candidates
+        ],
+        "character_candidate_pattern": character_candidates.pattern_summary,
     }
     st.session_state.dataset_is_native = normalization.dataset_is_native
     st.session_state.normalization_pending = normalization.changed_entries > 0
     _replace_optional_session_value("working_copy_summary", working_copy_summary)
     _replace_optional_session_value("sidecar_import_summary", sidecar_summary)
     _replace_optional_session_value("pending_tag_trust", pending_trust or None)
+    _replace_optional_session_value(
+        "character_candidates",
+        character_candidates if character_candidates.has_candidates else None,
+    )
     return effective_dataset_path
 
 
@@ -335,6 +347,9 @@ def clear_normalization_pending() -> None:
         "alias_rewrites": {},
         "alias_rewrite_count": 0,
         "alias_rewritten_entries": 0,
+        "character_candidate_count": 0,
+        "character_candidate_labels": [],
+        "character_candidate_pattern": None,
     }
 
 

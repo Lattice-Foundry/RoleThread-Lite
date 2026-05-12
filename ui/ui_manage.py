@@ -131,6 +131,20 @@ def _render_load_format_summary(normalization) -> None:
             f"Working copy created at `{working_copy.get('working_path')}`."
         )
 
+    character_candidates = st.session_state.get("character_candidates")
+    if character_candidates and character_candidates.has_candidates:
+        labels = [
+            candidate.source_role_label
+            for candidate in character_candidates.candidates
+        ]
+        preview = ", ".join(labels[:5])
+        if len(labels) > 5:
+            preview += f", and {count_phrase(len(labels) - 5, 'more')}"
+        st.info(
+            f"{count_phrase(len(labels), 'custom role name')} detected "
+            f"({preview}). Review on Validation page."
+        )
+
     diagnostics = normalization.diagnostics
     if (
         diagnostics.entries_with_errors

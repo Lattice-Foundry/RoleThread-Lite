@@ -1,9 +1,38 @@
 """DB-backed character registry helpers."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from core.db import SessionLocal
+from core.format_conversion import detect_custom_role_pattern
+from core.loreforge_meta import get_entry_uuid
 from core.models import Character, EntryCharacterTurn
+from core.role_normalization import normalize_role
 from core.tag_normalization import normalize_tag
+
+_STANDARD_ROLES = {"user", "assistant", "system"}
+
+
+@dataclass(frozen=True)
+class CharacterCandidate:
+    """Detected non-standard role name that may represent a character."""
+
+    source_role_label: str
+    suggested_slug: str
+    suggested_display_name: str
+    suggested_training_role: str | None
+    entry_uuids: tuple[str, ...]
+    turn_locations: tuple[dict, ...]
+    occurrence_count: int
+
+
+@dataclass(frozen=True)
+class CharacterCandidateReport:
+    """Grouped character candidates detected in loaded entries."""
+
+    candidates: tuple[CharacterCandidate, ...]
+    has_candidates: bool
+    pattern_summary: str | None = None
 
 
 def normalize_character_name(name: str) -> tuple[str, str]:
@@ -11,6 +40,93 @@ def normalize_character_name(name: str) -> tuple[str, str]:
 
     normalized = normalize_tag(name)
     return normalized.slug, normalized.display_name
+
+
+def collect_character_candidates(entries: list[dict]) -> CharacterCandidateReport:
+    """Collect non-standard message roles as potential character candidates."""
+
+    pattern_summary = _detect_entry_role_pattern(entries)
+    suggested_mapping = pattern_summary.suggested_mapping if pattern_summary.detected else {}
+    findings: dict[str, dict] = {}
+
+    for entry_index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            continue
+        entry_uuid = get_entry_uuid(entry) or f"entry_index:{entry_index}"
+        messages = entry.get("messages")
+        if not isinstance(messages, list):
+            continue
+        for turn_index, message in enumerate(messages):
+            if not isinstance(message, dict):
+                continue
+            raw_role = message.get("role")
+            if raw_role is None:
+                continue
+            role = str(raw_role).strip()
+            if not role or _is_standard_or_known_variant(role):
+                continue
+
+            normalized_slug, display_name = normalize_character_name(role)
+            if not normalized_slug:
+                continue
+            finding = findings.setdefault(
+                role,
+                {
+                    "entry_uuids": [],
+                    "seen_entry_uuids": set(),
+                    "turn_locations": [],
+                    "occurrence_count": 0,
+                    "suggested_slug": normalized_slug,
+                    "suggested_display_name": display_name,
+                },
+            )
+            if entry_uuid not in finding["seen_entry_uuids"]:
+                finding["seen_entry_uuids"].add(entry_uuid)
+                finding["entry_uuids"].append(entry_uuid)
+            finding["turn_locations"].append({
+                "entry_uuid": entry_uuid,
+                "turn_index": turn_index,
+            })
+            finding["occurrence_count"] += 1
+
+    candidates = tuple(
+        CharacterCandidate(
+            source_role_label=role,
+            suggested_slug=finding["suggested_slug"],
+            suggested_display_name=finding["suggested_display_name"],
+            suggested_training_role=suggested_mapping.get(role),
+            entry_uuids=tuple(finding["entry_uuids"]),
+            turn_locations=tuple(finding["turn_locations"]),
+            occurrence_count=finding["occurrence_count"],
+        )
+        for role, finding in sorted(findings.items(), key=lambda item: item[0].lower())
+    )
+    return CharacterCandidateReport(
+        candidates=candidates,
+        has_candidates=bool(candidates),
+        pattern_summary=pattern_summary.message if pattern_summary.detected else None,
+    )
+
+
+def _is_standard_or_known_variant(role: str) -> bool:
+    normalized_role, changed = normalize_role(role)
+    return normalized_role in _STANDARD_ROLES and (changed or role in _STANDARD_ROLES)
+
+
+def _detect_entry_role_pattern(entries: list[dict]):
+    records = []
+    for entry in entries:
+        messages = entry.get("messages") if isinstance(entry, dict) else None
+        if not isinstance(messages, list):
+            continue
+        records.append({
+            "conversations": [
+                {"from": message.get("role"), "value": message.get("content", "")}
+                for message in messages
+                if isinstance(message, dict)
+            ]
+        })
+    return detect_custom_role_pattern(records)
 
 
 def create_character(name: str, description: str | None = None) -> Character:

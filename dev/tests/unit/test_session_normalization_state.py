@@ -156,6 +156,42 @@ def test_set_loaded_entries_tracks_dataset_source_format(monkeypatch):
     assert state.tag_normalization_summary["format_converted_count"] == 1
 
 
+def test_set_loaded_entries_stores_character_candidates(monkeypatch):
+    state = _patch_state(monkeypatch)
+    entry = _entry_without_tags()
+    entry["_loreforge"] = {"native": True, "entry_uuid": "entry-1"}
+    entry["messages"] = [
+        {"role": "Scott", "content": "Hi"},
+        {"role": "Emma", "content": "Hello"},
+        {"role": "Scott", "content": "Again"},
+        {"role": "Emma", "content": "Again"},
+    ]
+
+    session_state.set_loaded_entries([entry])
+
+    report = state.character_candidates
+    assert report.has_candidates is True
+    assert [candidate.source_role_label for candidate in report.candidates] == [
+        "Emma",
+        "Scott",
+    ]
+    assert state.tag_normalization_summary["character_candidate_count"] == 2
+    assert state.tag_normalization_summary["character_candidate_labels"] == [
+        "Emma",
+        "Scott",
+    ]
+
+
+def test_set_loaded_entries_clears_character_candidates_when_none(monkeypatch):
+    state = _patch_state(monkeypatch)
+    state.character_candidates = "stale"
+
+    session_state.set_loaded_entries([_entry_without_tags()])
+
+    assert "character_candidates" not in state
+    assert state.tag_normalization_summary["character_candidate_count"] == 0
+
+
 def test_set_loaded_entries_creates_working_copy_for_foreign_dataset(tmp_path, monkeypatch):
     state = _patch_state(monkeypatch)
     path = tmp_path / "foreign.jsonl"
