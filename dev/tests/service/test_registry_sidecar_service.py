@@ -4,12 +4,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import core.tag_registry as tag_registry
-from core.models import Base, Tag, TagCategory, TagLifecycleMetadata
+from core.models import (
+    Base,
+    Character,
+    EntryCharacterTurn,
+    Tag,
+    TagCategory,
+    TagLifecycleMetadata,
+)
 from core.registry_sidecar import (
     SidecarAlias,
     SidecarCategory,
+    SidecarCharacter,
     SidecarMetadata,
     SidecarDatasetInfo,
+    SidecarEntryCharacterMapping,
     SidecarRegistry,
     SidecarTag,
     read_sidecar,
@@ -50,6 +59,8 @@ def _registry(
     categories=None,
     tags=None,
     aliases=None,
+    characters=None,
+    entry_character_mappings=None,
 ) -> SidecarRegistry:
     return SidecarRegistry(
         metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00+00:00"),
@@ -57,6 +68,8 @@ def _registry(
         categories=tuple(categories or []),
         tags=tuple(tags or []),
         aliases=tuple(aliases or []),
+        characters=tuple(characters or []),
+        entry_character_mappings=tuple(entry_character_mappings or []),
     )
 
 
@@ -233,6 +246,79 @@ def test_export_registry_sidecar_follows_aliases_for_dataset_relevance(tmp_path,
     ]
 
 
+def test_export_registry_sidecar_includes_dataset_relevant_characters_only(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    session = session_factory()
+    try:
+        scott = Character(slug="scott", display_name="Scott", is_active=True)
+        emma = Character(slug="emma", display_name="Emma", is_active=True)
+        unused = Character(slug="unused", display_name="Unused", is_active=True)
+        session.add_all([scott, emma, unused])
+        session.flush()
+        session.add_all([
+            EntryCharacterTurn(
+                entry_uuid="entry-1",
+                turn_index=1,
+                character_id=scott.id,
+                training_role="user",
+                source_role_label="Scott",
+            ),
+            EntryCharacterTurn(
+                entry_uuid="entry-1",
+                turn_index=2,
+                character_id=emma.id,
+                training_role="assistant",
+                source_role_label="Emma",
+            ),
+            EntryCharacterTurn(
+                entry_uuid="other-entry",
+                turn_index=1,
+                character_id=unused.id,
+                training_role="user",
+            ),
+        ])
+        session.commit()
+    finally:
+        session.close()
+
+    dataset_path = tmp_path / "training_set.jsonl"
+    result = export_registry_sidecar(
+        dataset_path=str(dataset_path),
+        entries=[
+            {
+                "_loreforge": {"native": True, "entry_uuid": "entry-1"},
+                "tags": [],
+            }
+        ],
+    )
+
+    assert result.ok is True
+    sidecar = read_sidecar(sidecar_path_for_dataset(dataset_path))
+    assert [character.slug for character in sidecar.characters] == ["emma", "scott"]
+    assert sidecar.entry_character_mappings == (
+        SidecarEntryCharacterMapping(
+            entry_uuid="entry-1",
+            turns=(
+                {
+                    "turn_index": 1,
+                    "character_slug": "scott",
+                    "training_role": "user",
+                    "source_role_label": "Scott",
+                },
+                {
+                    "turn_index": 2,
+                    "character_slug": "emma",
+                    "training_role": "assistant",
+                    "source_role_label": "Emma",
+                },
+            ),
+        ),
+    )
+
+
 def test_export_registry_sidecar_failure_is_structured(tmp_path, monkeypatch):
     _session_factory(tmp_path, monkeypatch)
 
@@ -302,6 +388,191 @@ def test_import_registry_sidecar_creates_categories_tags_and_aliases(tmp_path, m
         alias = session.query(TagLifecycleMetadata).filter_by(old_slug="slowburn").one()
         assert alias.new_slug == "slow_burn"
         assert json.loads(alias.metadata_json) == {"resolver_behavior": "map_to_target"}
+    finally:
+        session.close()
+
+
+def test_import_registry_sidecar_creates_characters_and_mappings(tmp_path, monkeypatch):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    registry = _registry(
+        characters=[
+            SidecarCharacter(slug="scott", display_name="Scott"),
+            SidecarCharacter(slug="emma", display_name="Emma"),
+        ],
+        entry_character_mappings=[
+            SidecarEntryCharacterMapping(
+                entry_uuid="entry-1",
+                turns=(
+                    {
+                        "turn_index": 1,
+                        "character_slug": "scott",
+                        "training_role": "user",
+                        "source_role_label": "Scott",
+                    },
+                    {
+                        "turn_index": 2,
+                        "character_slug": "emma",
+                        "training_role": "assistant",
+                        "source_role_label": "Emma",
+                    },
+                ),
+            )
+        ],
+    )
+
+    result = import_registry_sidecar(
+        registry=registry,
+        entries=[{"_loreforge": {"native": True, "entry_uuid": "entry-1"}}],
+    )
+
+    assert result.ok is True
+    assert result.characters_created == ["scott", "emma"]
+    assert result.character_mappings_imported == ["entry-1"]
+
+    session = session_factory()
+    try:
+        characters = {character.slug: character for character in session.query(Character)}
+        assert set(characters) == {"scott", "emma"}
+        mappings = (
+            session.query(EntryCharacterTurn)
+            .order_by(EntryCharacterTurn.turn_index)
+            .all()
+        )
+        assert [(mapping.turn_index, mapping.training_role) for mapping in mappings] == [
+            (1, "user"),
+            (2, "assistant"),
+        ]
+        assert mappings[0].character.slug == "scott"
+        assert mappings[1].character.slug == "emma"
+    finally:
+        session.close()
+
+
+def test_import_registry_sidecar_reuses_existing_character_and_replaces_mapping(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    session = session_factory()
+    try:
+        existing = Character(slug="scott", display_name="Scott Existing")
+        emma = Character(slug="emma", display_name="Emma")
+        session.add_all([existing, emma])
+        session.flush()
+        session.add(
+            EntryCharacterTurn(
+                entry_uuid="entry-1",
+                turn_index=1,
+                character_id=existing.id,
+                training_role="user",
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = import_registry_sidecar(
+        registry=_registry(
+            characters=[SidecarCharacter(slug="scott", display_name="Scott")],
+            entry_character_mappings=[
+                SidecarEntryCharacterMapping(
+                    entry_uuid="entry-1",
+                    turns=(
+                        {
+                            "turn_index": 2,
+                            "character_slug": "emma",
+                            "training_role": "assistant",
+                            "source_role_label": "Emma",
+                        },
+                    ),
+                )
+            ],
+        ),
+        entries=[{"_loreforge": {"native": True, "entry_uuid": "entry-1"}}],
+    )
+
+    assert result.ok is True
+    assert result.characters_created == []
+    assert result.character_mappings_imported == ["entry-1"]
+    session = session_factory()
+    try:
+        assert session.query(Character).count() == 2
+        mappings = session.query(EntryCharacterTurn).all()
+        assert len(mappings) == 1
+        assert mappings[0].turn_index == 2
+        assert mappings[0].character.slug == "emma"
+    finally:
+        session.close()
+
+
+def test_import_registry_sidecar_skips_mapping_for_unloaded_entry(tmp_path, monkeypatch):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+
+    result = import_registry_sidecar(
+        registry=_registry(
+            characters=[SidecarCharacter(slug="scott", display_name="Scott")],
+            entry_character_mappings=[
+                SidecarEntryCharacterMapping(
+                    entry_uuid="missing-entry",
+                    turns=(
+                        {
+                            "turn_index": 1,
+                            "character_slug": "scott",
+                            "training_role": "user",
+                        },
+                    ),
+                )
+            ],
+        ),
+        entries=[{"_loreforge": {"native": True, "entry_uuid": "entry-1"}}],
+    )
+
+    assert result.ok is True
+    assert result.characters_created == ["scott"]
+    assert result.character_mappings_imported == []
+    assert result.warnings == [
+        "Character mapping for entry 'missing-entry' was skipped because that entry is not loaded."
+    ]
+    session = session_factory()
+    try:
+        assert session.query(Character).filter_by(slug="scott").count() == 1
+        assert session.query(EntryCharacterTurn).count() == 0
+    finally:
+        session.close()
+
+
+def test_import_registry_sidecar_skips_mapping_for_missing_character(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+
+    result = import_registry_sidecar(
+        registry=_registry(
+            entry_character_mappings=[
+                SidecarEntryCharacterMapping(
+                    entry_uuid="entry-1",
+                    turns=(
+                        {
+                            "turn_index": 1,
+                            "character_slug": "missing",
+                            "training_role": "user",
+                        },
+                    ),
+                )
+            ],
+        ),
+        entries=[{"_loreforge": {"native": True, "entry_uuid": "entry-1"}}],
+    )
+
+    assert result.ok is True
+    assert result.character_mappings_imported == []
+    assert result.warnings == [
+        "Character mapping for entry 'entry-1' turn 1 was skipped because character 'missing' does not exist."
+    ]
+    session = session_factory()
+    try:
+        assert session.query(EntryCharacterTurn).count() == 0
     finally:
         session.close()
 

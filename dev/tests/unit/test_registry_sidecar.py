@@ -8,7 +8,9 @@ from core.registry_sidecar import (
     SIDECAR_SCHEMA_VERSION,
     SidecarAlias,
     SidecarCategory,
+    SidecarCharacter,
     SidecarDatasetInfo,
+    SidecarEntryCharacterMapping,
     SidecarMetadata,
     SidecarRegistry,
     SidecarTag,
@@ -83,6 +85,27 @@ def _sample_registry() -> SidecarRegistry:
                 metadata={"lifecycle_state": "hidden"},
             ),
         ],
+        characters=[
+            SidecarCharacter(
+                slug="scott",
+                display_name="Scott",
+                description=None,
+                is_active=True,
+            )
+        ],
+        entry_character_mappings=[
+            SidecarEntryCharacterMapping(
+                entry_uuid="entry-1",
+                turns=(
+                    {
+                        "turn_index": 1,
+                        "character_slug": "scott",
+                        "training_role": "user",
+                        "source_role_label": "Scott",
+                    },
+                ),
+            )
+        ],
     )
 
 
@@ -110,6 +133,27 @@ def test_build_sidecar_registry_and_to_dict_shape():
     assert data["tags"][0]["slug"] == "slow_burn"
     assert data["tags"][0]["lifecycle"] == {"lifecycle_state": "active"}
     assert data["aliases"][0]["old_slug"] == "slowburn"
+    assert data["characters"] == [
+        {
+            "slug": "scott",
+            "display_name": "Scott",
+            "description": None,
+            "is_active": True,
+        }
+    ]
+    assert data["entry_character_mappings"] == [
+        {
+            "entry_uuid": "entry-1",
+            "turns": [
+                {
+                    "turn_index": 1,
+                    "character_slug": "scott",
+                    "training_role": "user",
+                    "source_role_label": "Scott",
+                }
+            ],
+        }
+    ]
 
 
 def test_sidecar_round_trips_through_dict_parser():
@@ -211,6 +255,8 @@ def test_parse_sidecar_defaults_optional_collections_and_metadata():
         ),
     )
     assert parsed.aliases == ()
+    assert parsed.characters == ()
+    assert parsed.entry_character_mappings == ()
 
 
 def test_build_sidecar_registry_defaults_optional_tag_and_alias_fields():
@@ -229,6 +275,73 @@ def test_build_sidecar_registry_defaults_optional_tag_and_alias_fields():
     assert registry.aliases == (
         SidecarAlias(old_slug="old_tag", new_slug=None, action="hide"),
     )
+
+
+def test_sidecar_registry_coerces_character_sections():
+    registry = build_sidecar_registry(
+        categories=[],
+        tags=[],
+        aliases=[],
+        characters=[
+            {
+                "slug": "emma",
+                "display_name": "Emma",
+                "description": "Telepath",
+                "is_active": True,
+            }
+        ],
+        entry_character_mappings=[
+            {
+                "entry_uuid": "entry-1",
+                "turns": [
+                    {
+                        "turn_index": 2,
+                        "character_slug": "emma",
+                        "training_role": "assistant",
+                        "source_role_label": "Emma",
+                    }
+                ],
+            }
+        ],
+        dataset_filename="training_set.jsonl",
+        entry_count=1,
+        tag_usage_counts={},
+    )
+
+    assert registry.characters == (
+        SidecarCharacter(
+            slug="emma",
+            display_name="Emma",
+            description="Telepath",
+            is_active=True,
+        ),
+    )
+    assert registry.entry_character_mappings == (
+        SidecarEntryCharacterMapping(
+            entry_uuid="entry-1",
+            turns=(
+                {
+                    "turn_index": 2,
+                    "character_slug": "emma",
+                    "training_role": "assistant",
+                    "source_role_label": "Emma",
+                },
+            ),
+        ),
+    )
+
+
+def test_parse_sidecar_rejects_invalid_character_mapping_turn():
+    data = sidecar_to_dict(_sample_registry())
+    data["entry_character_mappings"] = [
+        {
+            "entry_uuid": "entry-2",
+            "turns": [{"turn_index": 1, "training_role": "user"}],
+        }
+    ]
+
+    with pytest.raises(SidecarValidationError, match="character_slug"):
+        parse_sidecar_dict(data)
 
 
 @pytest.mark.parametrize(

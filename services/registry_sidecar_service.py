@@ -5,7 +5,8 @@ from pathlib import Path
 import traceback
 
 from core.dataset import TAGS, get_entry_tags
-from core.models import Tag, TagCategory, TagLifecycleMetadata
+from core.loreforge_meta import get_entry_uuid
+from core.models import Character, EntryCharacterTurn, Tag, TagCategory, TagLifecycleMetadata
 from core.registry_sidecar import (
     SidecarRegistry,
     build_sidecar_registry,
@@ -53,6 +54,8 @@ class RegistrySidecarImportResult:
     tags_created: list[str] = field(default_factory=list)
     tags_promoted: list[str] = field(default_factory=list)
     aliases_imported: list[str] = field(default_factory=list)
+    characters_created: list[str] = field(default_factory=list)
+    character_mappings_imported: list[str] = field(default_factory=list)
     conflicts: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -77,6 +80,13 @@ def export_registry_sidecar(
         usage_counts = _tag_usage_counts(entries)
         included_slugs = set(usage_counts)
         raw_slugs = _raw_tag_slugs(entries)
+        entry_uuids = _entry_uuids(entries)
+        character_mappings = _query_entry_character_mappings(entry_uuids)
+        character_slugs = {
+            turn["character_slug"]
+            for mapping in character_mappings
+            for turn in mapping["turns"]
+        }
         tags = _query_tags()
         tags = [tag for tag in tags if tag["slug"] in included_slugs]
         category_slugs = {
@@ -97,6 +107,12 @@ def export_registry_sidecar(
                 if alias.get("old_slug") in raw_slugs
                 or alias.get("new_slug") in included_slugs
             ],
+            characters=[
+                character
+                for character in _query_characters()
+                if character["slug"] in character_slugs
+            ],
+            entry_character_mappings=character_mappings,
             dataset_filename=Path(dataset_path).name,
             entry_count=len(entries),
             tag_usage_counts=usage_counts,
@@ -120,6 +136,7 @@ def import_registry_sidecar(
     *,
     sidecar_path: str | Path | None = None,
     registry: SidecarRegistry | None = None,
+    entries: list[dict] | None = None,
 ) -> RegistrySidecarImportResult:
     """Merge a registry sidecar into the current DB registry."""
     if registry is None:
@@ -157,6 +174,14 @@ def import_registry_sidecar(
         _merge_tags(session, registry, result)
         session.flush()
         _merge_aliases(session, registry, result)
+        _merge_characters(session, registry, result)
+        session.flush()
+        _merge_character_mappings(
+            session,
+            registry,
+            result,
+            valid_entry_uuids=_entry_uuids(entries) if entries is not None else None,
+        )
 
         session.commit()
         result.ok = not result.errors
@@ -246,6 +271,60 @@ def _query_aliases() -> list[dict]:
         session.close()
 
 
+def _query_characters() -> list[dict]:
+    session = tag_registry.SessionLocal()
+    try:
+        characters = (
+            session.query(Character)
+            .filter_by(is_active=True)
+            .order_by(Character.display_name, Character.slug)
+            .all()
+        )
+        return [
+            {
+                "slug": character.slug,
+                "display_name": character.display_name,
+                "description": character.description,
+                "is_active": character.is_active,
+            }
+            for character in characters
+        ]
+    finally:
+        session.close()
+
+
+def _query_entry_character_mappings(entry_uuids: set[str]) -> list[dict]:
+    if not entry_uuids:
+        return []
+
+    session = tag_registry.SessionLocal()
+    try:
+        rows = (
+            session.query(EntryCharacterTurn)
+            .join(Character)
+            .filter(
+                EntryCharacterTurn.entry_uuid.in_(entry_uuids),
+                Character.is_active.is_(True),
+            )
+            .order_by(EntryCharacterTurn.entry_uuid, EntryCharacterTurn.turn_index)
+            .all()
+        )
+        mappings_by_uuid: dict[str, list[dict]] = {}
+        for row in rows:
+            mappings_by_uuid.setdefault(row.entry_uuid, []).append({
+                "turn_index": row.turn_index,
+                "character_slug": row.character.slug,
+                "training_role": row.training_role,
+                "source_role_label": row.source_role_label,
+            })
+        return [
+            {"entry_uuid": entry_uuid, "turns": turns}
+            for entry_uuid, turns in mappings_by_uuid.items()
+        ]
+    finally:
+        session.close()
+
+
 def _current_metadata_by_slug(session) -> dict[str, dict]:
     rows = (
         session.query(TagLifecycleMetadata)
@@ -290,6 +369,14 @@ def _raw_tag_slugs(entries: list[dict]) -> set[str]:
         for entry in entries
         for tag in get_entry_tags(entry)
         if tag
+    }
+
+
+def _entry_uuids(entries: list[dict] | None) -> set[str]:
+    return {
+        entry_uuid
+        for entry in (entries or [])
+        if (entry_uuid := get_entry_uuid(entry))
     }
 
 
@@ -445,6 +532,73 @@ def _merge_aliases(
         result.aliases_imported.append(alias.old_slug)
 
 
+def _merge_characters(
+    session,
+    registry: SidecarRegistry,
+    result: RegistrySidecarImportResult,
+) -> None:
+    for character in registry.characters:
+        existing = session.query(Character).filter_by(slug=character.slug).first()
+        if existing is not None:
+            continue
+        session.add(
+            Character(
+                slug=character.slug,
+                display_name=character.display_name,
+                description=character.description,
+                is_active=character.is_active,
+            )
+        )
+        result.characters_created.append(character.slug)
+
+
+def _merge_character_mappings(
+    session,
+    registry: SidecarRegistry,
+    result: RegistrySidecarImportResult,
+    *,
+    valid_entry_uuids: set[str] | None,
+) -> None:
+    characters_by_slug = {
+        character.slug: character
+        for character in session.query(Character).all()
+    }
+    for mapping in registry.entry_character_mappings:
+        if valid_entry_uuids is not None and mapping.entry_uuid not in valid_entry_uuids:
+            result.warnings.append(
+                f"Character mapping for entry '{mapping.entry_uuid}' was skipped "
+                "because that entry is not loaded."
+            )
+            continue
+
+        session.query(EntryCharacterTurn).filter_by(
+            entry_uuid=mapping.entry_uuid
+        ).delete()
+        imported_turns = 0
+        for turn in mapping.turns:
+            character_slug = turn.get("character_slug")
+            character = characters_by_slug.get(character_slug)
+            if character is None:
+                result.warnings.append(
+                    f"Character mapping for entry '{mapping.entry_uuid}' turn "
+                    f"{turn.get('turn_index')} was skipped because character "
+                    f"'{character_slug}' does not exist."
+                )
+                continue
+            session.add(
+                EntryCharacterTurn(
+                    entry_uuid=mapping.entry_uuid,
+                    turn_index=turn["turn_index"],
+                    character_id=character.id,
+                    training_role=turn["training_role"],
+                    source_role_label=turn.get("source_role_label"),
+                )
+            )
+            imported_turns += 1
+        if imported_turns:
+            result.character_mappings_imported.append(mapping.entry_uuid)
+
+
 def _ensure_tag_category(
     session,
     sidecar_tag,
@@ -569,6 +723,8 @@ def _import_success_message(result: RegistrySidecarImportResult) -> str:
         + len(result.tags_created)
         + len(result.tags_promoted)
         + len(result.aliases_imported)
+        + len(result.characters_created)
+        + len(result.character_mappings_imported)
     )
     if changed == 0:
         return "Registry sidecar already matches the current registry."
@@ -577,5 +733,7 @@ def _import_success_message(result: RegistrySidecarImportResult) -> str:
         f"{count_phrase(len(result.categories_created), 'category', 'categories')}, "
         f"{count_phrase(len(result.tags_created), 'tag')}, "
         f"{count_phrase(len(result.tags_promoted), 'promoted tag')}, "
-        f"{count_phrase(len(result.aliases_imported), 'alias', 'aliases')}."
+        f"{count_phrase(len(result.aliases_imported), 'alias', 'aliases')}, "
+        f"{count_phrase(len(result.characters_created), 'character')}, "
+        f"{count_phrase(len(result.character_mappings_imported), 'entry mapping')}."
     )

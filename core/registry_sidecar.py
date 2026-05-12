@@ -71,6 +71,24 @@ class SidecarAlias:
 
 
 @dataclass(frozen=True)
+class SidecarCharacter:
+    """Serializable character record."""
+
+    slug: str
+    display_name: str
+    description: str | None = None
+    is_active: bool = True
+
+
+@dataclass(frozen=True)
+class SidecarEntryCharacterMapping:
+    """Serializable per-entry character turn mappings."""
+
+    entry_uuid: str
+    turns: tuple[dict[str, Any], ...] = ()
+
+
+@dataclass(frozen=True)
 class SidecarRegistry:
     """Complete portable tag registry sidecar."""
 
@@ -79,6 +97,8 @@ class SidecarRegistry:
     categories: tuple[SidecarCategory, ...] = ()
     tags: tuple[SidecarTag, ...] = ()
     aliases: tuple[SidecarAlias, ...] = ()
+    characters: tuple[SidecarCharacter, ...] = ()
+    entry_character_mappings: tuple[SidecarEntryCharacterMapping, ...] = ()
 
 
 class SidecarValidationError(ValueError):
@@ -93,6 +113,8 @@ def build_sidecar_registry(
     dataset_filename: str,
     entry_count: int,
     tag_usage_counts: dict[str, int],
+    characters=(),
+    entry_character_mappings=(),
 ) -> SidecarRegistry:
     """Build a registry sidecar from already-queried registry data."""
 
@@ -106,6 +128,11 @@ def build_sidecar_registry(
         categories=tuple(_coerce_category(category) for category in categories),
         tags=tuple(_coerce_tag(tag) for tag in tags),
         aliases=tuple(_coerce_alias(alias) for alias in aliases),
+        characters=tuple(_coerce_character(character) for character in characters),
+        entry_character_mappings=tuple(
+            _coerce_entry_character_mapping(mapping)
+            for mapping in entry_character_mappings
+        ),
     )
 
 
@@ -118,6 +145,14 @@ def sidecar_to_dict(registry: SidecarRegistry) -> dict[str, Any]:
         "categories": [asdict(category) for category in registry.categories],
         "tags": [asdict(tag) for tag in registry.tags],
         "aliases": [asdict(alias) for alias in registry.aliases],
+        "characters": [asdict(character) for character in registry.characters],
+        "entry_character_mappings": [
+            {
+                "entry_uuid": mapping.entry_uuid,
+                "turns": [dict(turn) for turn in mapping.turns],
+            }
+            for mapping in registry.entry_character_mappings
+        ],
     }
 
 
@@ -162,6 +197,14 @@ def parse_sidecar_dict(data: dict) -> SidecarRegistry:
     )
     tags = tuple(_parse_tag(item) for item in _optional_list(data, "tags"))
     aliases = tuple(_parse_alias(item) for item in _optional_list(data, "aliases"))
+    characters = tuple(
+        _parse_character(item)
+        for item in _optional_list(data, "characters")
+    )
+    entry_character_mappings = tuple(
+        _parse_entry_character_mapping(item)
+        for item in _optional_list(data, "entry_character_mappings")
+    )
 
     return SidecarRegistry(
         metadata=metadata,
@@ -169,6 +212,8 @@ def parse_sidecar_dict(data: dict) -> SidecarRegistry:
         categories=categories,
         tags=tags,
         aliases=aliases,
+        characters=characters,
+        entry_character_mappings=entry_character_mappings,
     )
 
 
@@ -219,6 +264,27 @@ def _coerce_alias(alias) -> SidecarAlias:
         new_slug=str(new_slug) if new_slug is not None else None,
         action=str(_get_value(alias, "action")),
         metadata=_copy_mapping(_get_value(alias, "metadata", {})),
+    )
+
+
+def _coerce_character(character) -> SidecarCharacter:
+    if isinstance(character, SidecarCharacter):
+        return character
+    description = _get_value(character, "description", None)
+    return SidecarCharacter(
+        slug=str(_get_value(character, "slug")),
+        display_name=str(_get_value(character, "display_name")),
+        description=str(description) if description is not None else None,
+        is_active=bool(_get_value(character, "is_active", True)),
+    )
+
+
+def _coerce_entry_character_mapping(mapping) -> SidecarEntryCharacterMapping:
+    if isinstance(mapping, SidecarEntryCharacterMapping):
+        return mapping
+    return SidecarEntryCharacterMapping(
+        entry_uuid=str(_get_value(mapping, "entry_uuid")),
+        turns=tuple(dict(turn) for turn in _get_value(mapping, "turns", ())),
     )
 
 
@@ -282,6 +348,47 @@ def _parse_alias(data: dict) -> SidecarAlias:
         action=_required_str(data, "action"),
         metadata=_copy_mapping(data.get("metadata", {})),
     )
+
+
+def _parse_character(data: dict) -> SidecarCharacter:
+    if not isinstance(data, dict):
+        raise SidecarValidationError("Each character must be an object.")
+    description = data.get("description")
+    if description is not None and not isinstance(description, str):
+        raise SidecarValidationError("Character description must be a string or null.")
+    return SidecarCharacter(
+        slug=_required_str(data, "slug"),
+        display_name=_required_str(data, "display_name"),
+        description=description,
+        is_active=_optional_bool(data, "is_active", True),
+    )
+
+
+def _parse_entry_character_mapping(data: dict) -> SidecarEntryCharacterMapping:
+    if not isinstance(data, dict):
+        raise SidecarValidationError("Each entry character mapping must be an object.")
+    turns = _optional_list(data, "turns")
+    return SidecarEntryCharacterMapping(
+        entry_uuid=_required_str(data, "entry_uuid"),
+        turns=tuple(_parse_character_turn(turn) for turn in turns),
+    )
+
+
+def _parse_character_turn(data: dict) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise SidecarValidationError("Each character turn mapping must be an object.")
+    turn_index = _required_int(data, "turn_index")
+    character_slug = _required_str(data, "character_slug")
+    training_role = _required_str(data, "training_role")
+    source_role_label = data.get("source_role_label")
+    if source_role_label is not None and not isinstance(source_role_label, str):
+        raise SidecarValidationError("source_role_label must be a string or null.")
+    return {
+        "turn_index": turn_index,
+        "character_slug": character_slug,
+        "training_role": training_role,
+        "source_role_label": source_role_label,
+    }
 
 
 def _required_mapping(data: dict, key: str) -> dict:

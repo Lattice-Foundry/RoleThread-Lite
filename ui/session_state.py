@@ -73,7 +73,8 @@ def set_loaded_entries(
         dataset_is_native=normalization.dataset_is_native,
     )
     sidecar_summary, sidecar_tags, sidecar_categories = _import_sibling_sidecar(
-        effective_dataset_path
+        effective_dataset_path,
+        normalization.entries,
     )
     alias_canonical_entries, alias_summary = canonicalize_entry_tag_aliases(
         normalization.entries,
@@ -194,7 +195,7 @@ def _prepare_foreign_working_copy(
     )
 
 
-def _import_sibling_sidecar(dataset_path: str | None):
+def _import_sibling_sidecar(dataset_path: str | None, entries: list[dict] | None = None):
     if not dataset_path:
         return None, {}, {}
 
@@ -215,6 +216,8 @@ def _import_sibling_sidecar(dataset_path: str | None):
                 "tags_created": [],
                 "tags_promoted": [],
                 "aliases_imported": [],
+                "characters_created": [],
+                "character_mappings_imported": [],
                 "conflicts": [],
                 "warnings": [],
                 "errors": [str(exc)],
@@ -224,7 +227,10 @@ def _import_sibling_sidecar(dataset_path: str | None):
         )
 
     try:
-        result = import_registry_sidecar(registry=registry)
+        try:
+            result = import_registry_sidecar(registry=registry, entries=entries)
+        except TypeError:
+            result = import_registry_sidecar(registry=registry)
     except Exception as exc:
         return (
             {
@@ -236,6 +242,8 @@ def _import_sibling_sidecar(dataset_path: str | None):
                 "tags_created": [],
                 "tags_promoted": [],
                 "aliases_imported": [],
+                "characters_created": [],
+                "character_mappings_imported": [],
                 "conflicts": [],
                 "warnings": [],
                 "errors": [str(exc)],
@@ -252,6 +260,10 @@ def _import_sibling_sidecar(dataset_path: str | None):
         "tags_created": list(result.tags_created),
         "tags_promoted": list(result.tags_promoted),
         "aliases_imported": list(result.aliases_imported),
+        "characters_created": list(getattr(result, "characters_created", [])),
+        "character_mappings_imported": list(
+            getattr(result, "character_mappings_imported", [])
+        ),
         "conflicts": list(result.conflicts),
         "warnings": list(result.warnings),
         "errors": list(result.errors),
