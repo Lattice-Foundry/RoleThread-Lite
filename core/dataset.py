@@ -315,26 +315,27 @@ def summarize_entry_analysis(
     summary = DatasetDiagnosticSummary(entries_analyzed=len(entries))
     for entry in entries:
         result = analyze_entry(entry)
-        blocking_diagnostics = [
+        issue_diagnostics = [
             diagnostic
             for diagnostic in result.diagnostics
-            if (
-                diagnostic.severity == AnalysisSeverity.ERROR
-                and (
-                    metadata_errors_block_validity
-                    or diagnostic.code not in _METADATA_DIAGNOSTIC_CODES
-                )
-            )
+            if diagnostic.severity in {AnalysisSeverity.ERROR, AnalysisSeverity.WARNING}
+        ]
+        reportable_diagnostics = [
+            diagnostic
+            for diagnostic in result.diagnostics
+            if metadata_errors_block_validity
+            or diagnostic.code not in _METADATA_DIAGNOSTIC_CODES
+        ]
+        blocking_diagnostics = [
+            diagnostic
+            for diagnostic in reportable_diagnostics
+            if diagnostic.severity == AnalysisSeverity.ERROR
         ]
         severities = {
             diagnostic.severity
-            for diagnostic in result.diagnostics
-            if (
-                metadata_errors_block_validity
-                or diagnostic.code not in _METADATA_DIAGNOSTIC_CODES
-            )
+            for diagnostic in reportable_diagnostics
         }
-        if not blocking_diagnostics:
+        if not issue_diagnostics:
             summary.valid_entries += 1
         if blocking_diagnostics:
             summary.entries_with_errors += 1

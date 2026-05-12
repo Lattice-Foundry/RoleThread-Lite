@@ -288,6 +288,40 @@ def test_save_quick_edit_service_does_not_validate_unrelated_malformed_entries(t
     assert result.entries[1] == entries[1]
 
 
+def test_save_quick_edit_service_normalizes_role_variants_before_validation(tmp_path):
+    entries = [
+        {
+            "messages": [
+                {"role": "System", "content": "System"},
+                {"role": "human", "content": "Hi"},
+                {"role": "GPT", "content": "Hello"},
+            ],
+            "tags": ["slow burn", 7, ""],
+        }
+    ]
+    path = _write_dataset(tmp_path, entries)
+
+    result = save_quick_edit_service(
+        dataset_path=str(path),
+        entries=entries,
+        entry_index=0,
+        updated_messages=[
+            {"role": "System", "content": "System"},
+            {"role": "user", "content": "Edited"},
+            {"role": "assistant", "content": "Saved"},
+        ],
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    assert result.entries[0]["messages"] == [
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Edited"},
+        {"role": "assistant", "content": "Saved"},
+    ]
+    assert result.entries[0]["tags"] == ["slow_burn"]
+
+
 def test_save_full_edit_service_saves_valid_full_edit_and_multiturn(tmp_path):
     entries = [_entry(tags=["old"])]
     path = _write_dataset(tmp_path, entries)

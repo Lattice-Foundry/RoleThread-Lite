@@ -109,6 +109,7 @@ def format_entry_summary_label(
     entry: dict,
     errors: list[str] | None = None,
     tag_label_map: dict[str, str] | None = None,
+    has_issues: bool = False,
 ) -> str:
     """Format the browser expander label for one entry."""
     entry_tags = get_entry_tags(entry)
@@ -122,7 +123,7 @@ def format_entry_summary_label(
         f"Entry {display_index + 1} | TAGS: {tag_part} | "
         f"EXCHANGES: {exchange_count}"
     )
-    if errors:
+    if errors or has_issues:
         label += " \u26a0\ufe0f"
     return label
 

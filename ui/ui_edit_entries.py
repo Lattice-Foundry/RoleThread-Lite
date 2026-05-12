@@ -28,6 +28,8 @@ from ui.session_state import (
     get_loaded_entry_index_by_id,
 )
 from ui.message_scaffolding import scaffold_user_assistant_turns
+from ui.entry_edit_helpers import has_entry_notification_issue
+from ui.message_scaffolding import canonical_editor_role
 from services.dataset_service import save_full_edit_service
 from ui.browser_helpers import (
     DEFAULT_PAGE_SIZE,
@@ -78,9 +80,12 @@ def entry_to_edit_buffer(entry: dict) -> dict:
             continue
         role = msg.get("role")
         content = msg.get("content", "")
-        if role == "system" and not system_prompt:
+        canonical_role = canonical_editor_role(role)
+        if canonical_role == "system" and not system_prompt:
             system_prompt = content
-        elif role in ("user", "assistant"):
+        elif canonical_role in ("user", "assistant"):
+            turns.append({"role": canonical_role, "content": content})
+        elif isinstance(role, str):
             turns.append({"role": role, "content": content})
 
     turns = scaffold_user_assistant_turns(turns)
@@ -553,10 +558,12 @@ def render_edit_entries_page() -> None:
         _ee_visible_pairs, start=_ee_start
     ):
         _ee_errs = validate_entry(_ee_entry)
+        _ee_has_notification_issue = has_entry_notification_issue(_ee_entry, _ee_errs)
         _ee_label = format_entry_summary_label(
             display_index=_ee_i,
             entry=_ee_entry,
             errors=_ee_errs,
+            has_issues=_ee_has_notification_issue,
             tag_label_map=_ee_label_map,
         )
         with st.expander(_ee_label):

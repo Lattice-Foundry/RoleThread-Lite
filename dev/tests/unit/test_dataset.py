@@ -955,10 +955,56 @@ def test_load_dataset_with_summary_auto_normalize_off_preserves_issues_for_analy
     assert summary.changed_tags == 0
     assert summary.role_values_normalized == 0
     assert summary.message_content_trimmed == 0
-    assert summary.diagnostics.valid_entries == 1
+    assert summary.diagnostics.valid_entries == 0
     assert summary.diagnostics.entries_with_errors == 0
     assert summary.diagnostics.entries_with_warnings == 1
     assert summary.diagnostics.auto_repairable_count == 8
+
+
+def test_load_dataset_summary_counts_auto_fixable_entries_as_issues(tmp_path):
+    path = tmp_path / "dirty_auto_fixable.jsonl"
+    records = [
+        _entry(messages=[
+            {"role": "System", "content": "System"},
+            {"role": "User", "content": "Hi"},
+            {"role": "Assistant", "content": "Hello"},
+        ]),
+        _entry(messages=[
+            {"role": "SYSTEM", "content": "System"},
+            {"role": "USER", "content": "Hi"},
+            {"role": "ASSISTANT", "content": "Hello"},
+        ]),
+        _entry(messages=[
+            {"role": "system", "content": "System"},
+            {"role": "human", "content": "Hi"},
+            {"role": "gpt", "content": "Hello"},
+        ]),
+        {"messages": [
+            {"role": "system", "content": " System "},
+            {"role": "user", "content": " Hi "},
+            {"role": "assistant", "content": " Hello "},
+        ]},
+        _entry(tags=["good", "", 7, "also good"]),
+        _entry(messages=[
+            {"role": "GPT", "content": "System-ish"},
+            {"role": "USER", "content": "Hi"},
+            {"role": "Bot", "content": "Hello"},
+        ]),
+    ]
+    path.write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+    summary, errors = load_dataset_with_summary(str(path), auto_normalize=False)
+
+    assert errors == []
+    assert summary.diagnostics.entries_analyzed == 6
+    assert summary.diagnostics.valid_entries == 0
+    assert (
+        summary.diagnostics.entries_analyzed - summary.diagnostics.valid_entries
+    ) == 6
+    assert summary.diagnostics.auto_repairable_count > 0
 
 
 def test_load_dataset_with_summary_reports_chatml_source_format(tmp_path):
@@ -1051,7 +1097,7 @@ def test_load_dataset_with_summary_converts_sharegpt_to_chatml(tmp_path):
     assert summary.diagnostics.error_count == 0
 
 
-def test_load_dataset_with_summary_treats_clean_sharegpt_without_tags_as_valid(tmp_path):
+def test_load_dataset_with_summary_reports_unfixed_sharegpt_missing_tags_as_issues(tmp_path):
     path = tmp_path / "sharegpt_no_tags.jsonl"
     records = [
         {
@@ -1077,7 +1123,7 @@ def test_load_dataset_with_summary_treats_clean_sharegpt_without_tags_as_valid(t
     assert errors == []
     assert summary.source_format == FORMAT_SHAREGPT
     assert summary.diagnostics.entries_analyzed == 2
-    assert summary.diagnostics.valid_entries == 2
+    assert summary.diagnostics.valid_entries == 0
     assert summary.diagnostics.entries_with_errors == 0
     assert summary.diagnostics.auto_repairable_count == 2
 

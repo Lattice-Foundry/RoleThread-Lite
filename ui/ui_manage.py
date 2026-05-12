@@ -22,7 +22,10 @@ from core.tag_registry import (
     prettify_tag_name,
 )
 from ui.file_dialogs import JSONL_TYPES, browse_open_file, path_input, safe_saveas_filename
-from ui.entry_edit_helpers import requires_full_edit_for_quick_edit
+from ui.entry_edit_helpers import (
+    has_entry_notification_issue,
+    requires_full_edit_for_quick_edit,
+)
 from ui.message_scaffolding import scaffold_editable_messages
 from core.preferences import get_initial_dir
 from ui.session_state import (
@@ -793,13 +796,18 @@ def render_manage_page() -> None:
 
             for i, (entry_id, entry) in enumerate(visible_pairs, start=start):
                 errs = validate_entry(entry)
+                has_notification_issue = has_entry_notification_issue(entry, errs)
                 label = format_entry_summary_label(
                     display_index=i,
                     entry=entry,
                     errors=errs,
+                    has_issues=has_notification_issue,
                     tag_label_map=_label_map,
                 )
                 _col_cb, _col_entry = st.columns([1, 20])
+                _is_qe = (
+                    st.session_state.get("quick_edit_entry_id") == entry_id
+                )
                 with _col_cb:
                     st.checkbox(
                         "Select",
@@ -809,11 +817,8 @@ def render_manage_page() -> None:
                         label_visibility="collapsed",
                     )
                 with _col_entry:
-                    with st.expander(label):
+                    with st.expander(label, expanded=_is_qe):
                         st.caption(f"Temp ID: {entry_id}")
-                        _is_qe = (
-                            st.session_state.get("quick_edit_entry_id") == entry_id
-                        )
 
                         if _is_qe:
                             # ── Quick edit mode ────────────────────────────────
@@ -878,12 +883,12 @@ def render_manage_page() -> None:
                                     st.session_state.page = "Edit Entries"
                                     start_full_edit(entry_id, _tag_snapshot.active_registry)
                             else:
-                                if st.button(
+                                st.button(
                                     "Quick Edit",
                                     key=f"btn_quick_edit_{entry_id}",
-                                ):
-                                    start_quick_edit(entry_id, entry)
-                                    st.rerun()
+                                    on_click=start_quick_edit,
+                                    args=(entry_id, entry),
+                                )
                             if errs:
                                 for err in errs:
                                     st.error(err)

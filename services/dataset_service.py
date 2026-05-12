@@ -122,6 +122,8 @@ def save_quick_edit_service(
 
     edited_entry = copy.deepcopy(entries[entry_index])
     edited_entry["messages"] = copy.deepcopy(updated_messages)
+    normalized = normalize_dataset_entries([edited_entry])
+    edited_entry = normalized.entries[0] if normalized.entries else edited_entry
 
     errors = validate_entry(edited_entry)
     if errors:

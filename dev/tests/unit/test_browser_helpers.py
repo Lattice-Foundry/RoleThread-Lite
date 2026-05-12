@@ -296,3 +296,13 @@ def test_format_entry_summary_label_appends_warning_marker_for_errors():
     )
 
     assert label.endswith(" \u26a0\ufe0f")
+
+
+def test_format_entry_summary_label_appends_warning_marker_for_auto_fixable_issues():
+    label = format_entry_summary_label(
+        display_index=0,
+        entry=_entry(tags=["alpha"]),
+        has_issues=True,
+    )
+
+    assert label.endswith(" \u26a0\ufe0f")
