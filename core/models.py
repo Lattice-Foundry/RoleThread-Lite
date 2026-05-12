@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for LoreForge metadata."""
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from core.tag_constants import TAG_STATUS_ACTIVE
@@ -10,6 +10,11 @@ from core.tag_constants import TAG_STATUS_ACTIVE
 def _utc_timestamp() -> str:
     """Return an ISO timestamp for registry metadata rows."""
     return datetime.now(timezone.utc).isoformat()
+
+
+def _utc_datetime() -> datetime:
+    """Return a UTC datetime for ORM timestamp columns."""
+    return datetime.now(timezone.utc)
 
 
 # ── Base ───────────────────────────────────────────────────────────────────────
@@ -70,6 +75,32 @@ class Tag(Base):
 
     def __repr__(self) -> str:
         return f"<Tag id={self.id} slug={self.slug!r} category_id={self.category_id}>"
+
+
+class Character(Base):
+    """A reusable character identity for dataset previews and mappings."""
+    __tablename__ = "characters"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_character_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_datetime
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utc_datetime,
+        onupdate=_utc_datetime,
+    )
+
+    def __repr__(self) -> str:
+        return f"<Character id={self.id} slug={self.slug!r}>"
 
 
 class TagLifecycleMetadata(Base):
