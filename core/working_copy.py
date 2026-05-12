@@ -38,9 +38,9 @@ def create_dataset_working_copy(
             created=False,
         )
 
-    dataset_dir = target_dir / source_path.stem
+    dataset_dir = _unique_dataset_dir(target_dir / source_path.stem)
     dataset_dir.mkdir(parents=True, exist_ok=True)
-    target_path = _unique_dataset_target_path(dataset_dir / source_path.name)
+    target_path = dataset_dir / source_path.name
     shutil.copy2(source_path, target_path)
 
     source_sidecar = sidecar_path_for_dataset(source_path)
@@ -120,18 +120,16 @@ def canonical_training_dataset_path(
     return _unique_dataset_target_path(target_dir / source_path.stem / source_path.name)
 
 
-def _unique_target_path(candidate: Path) -> Path:
+def _unique_dataset_dir(candidate: Path) -> Path:
     if not candidate.exists():
         return candidate
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    stem = f"{candidate.stem}_{timestamp}"
-    target = candidate.with_name(f"{stem}{candidate.suffix}")
-    counter = 1
-    while target.exists():
-        target = candidate.with_name(f"{stem}_{counter:03d}{candidate.suffix}")
+    counter = 2
+    while True:
+        target = candidate.with_name(f"{candidate.name}_{counter}")
+        if not target.exists():
+            return target
         counter += 1
-    return target
 
 
 def _unique_dataset_target_path(candidate: Path) -> Path:

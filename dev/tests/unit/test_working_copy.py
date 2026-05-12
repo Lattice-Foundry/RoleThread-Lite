@@ -57,7 +57,7 @@ def test_create_dataset_working_copy_does_not_copy_canonical_working_file(tmp_pa
     assert result.working_path == str(source_path.resolve())
 
 
-def test_create_dataset_working_copy_avoids_overwriting_existing_file(tmp_path):
+def test_create_dataset_working_copy_uses_unique_folder_for_repeated_loads(tmp_path):
     source_dir = tmp_path / "source"
     working_dir = tmp_path / "working"
     source_dir.mkdir()
@@ -72,9 +72,25 @@ def test_create_dataset_working_copy_avoids_overwriting_existing_file(tmp_path):
     result = create_dataset_working_copy(source_path, working_dir=working_dir)
 
     assert result.created is True
-    assert result.working_path != str(existing.resolve())
+    assert result.working_path == str((working_dir / "dataset_2" / "dataset.jsonl").resolve())
     assert existing.read_text(encoding="utf-8") == "existing\n"
-    assert result.working_path.startswith(str(dataset_dir.resolve()))
+    assert (working_dir / "dataset_2" / "dataset.jsonl").read_text(encoding="utf-8") == source_path.read_text(encoding="utf-8")
+
+
+def test_create_dataset_working_copy_increments_unique_folder_suffix(tmp_path):
+    source_dir = tmp_path / "source"
+    working_dir = tmp_path / "working"
+    source_dir.mkdir()
+    working_dir.mkdir()
+    source_path = source_dir / "dataset.jsonl"
+    source_path.write_text(json.dumps({"messages": [], "tags": []}) + "\n", encoding="utf-8")
+    (working_dir / "dataset").mkdir()
+    (working_dir / "dataset_2").mkdir()
+
+    result = create_dataset_working_copy(source_path, working_dir=working_dir)
+
+    assert result.created is True
+    assert result.working_path == str((working_dir / "dataset_3" / "dataset.jsonl").resolve())
 
 
 def test_migrate_training_dataset_to_subfolder_moves_flat_file_and_sidecar(tmp_path):

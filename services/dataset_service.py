@@ -618,52 +618,6 @@ def save_merged_entries_service(
     )
 
 
-def normalize_dataset_service(
-    *,
-    dataset_path: str,
-    entries: list[dict],
-    backup_reason: str = "before_normalize_data",
-) -> DatasetOperationResult:
-    """Persist normalized dataset structure to disk."""
-
-    errors = _validate_dataset_path(dataset_path)
-    if not isinstance(entries, list):
-        errors.append("Loaded entries must be a list.")
-    if errors:
-        return DatasetOperationResult(
-            ok=False,
-            message="Could not normalize dataset.",
-            errors=errors,
-        )
-
-    proposed_entries = _normalize_entries(entries)
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, True, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save normalized dataset: {exc}",
-        )
-
-    return DatasetOperationResult(
-        ok=True,
-        message="Dataset normalized.",
-        entries=proposed_entries,
-        backup_path=backup_path,
-        affected_count=len(proposed_entries),
-        dataset_path=saved_path,
-    )
-
-
 def save_repaired_entries_service(
     *,
     dataset_path: str,

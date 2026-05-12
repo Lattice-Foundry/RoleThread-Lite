@@ -14,7 +14,6 @@ from services.dataset_service import (
     clear_tags_bulk_service,
     create_entry_service,
     delete_entries_service,
-    normalize_dataset_service,
     replace_single_entry_tags_service,
     replace_system_prompt_bulk_service,
     replace_tags_bulk_service,
@@ -975,37 +974,6 @@ def test_save_merged_entries_service_backup_failure_aborts_overwrite(tmp_path, m
 
     assert result.ok is False
     assert _read_entries(path) == existing
-
-
-def test_normalize_dataset_service_persists_structural_metadata_and_creates_backup(tmp_path, monkeypatch):
-    entries = [{"messages": _entry()["messages"]}, _entry(tags=["sLow burn"])]
-    path = _write_dataset(tmp_path, entries)
-    backups = _backup_recorder(monkeypatch, tmp_path)
-
-    result = normalize_dataset_service(
-        dataset_path=str(path),
-        entries=entries,
-    )
-
-    assert result.ok is True
-    assert result.backup_path is not None
-    assert len(backups) == 1
-    assert result.entries[0]["tags"] == []
-    assert result.entries[1]["tags"] == ["slow_burn"]
-    assert _read_entries(path) == result.entries
-
-
-def test_normalize_dataset_service_backup_failure_aborts_save(tmp_path, monkeypatch):
-    entries = [{"messages": _entry()["messages"]}]
-    path = _write_dataset(tmp_path, entries)
-    before = path.read_text(encoding="utf-8")
-    _force_backup_failure(monkeypatch)
-
-    result = normalize_dataset_service(dataset_path=str(path), entries=entries)
-
-    assert result.ok is False
-    assert "backup" in result.message.lower()
-    assert path.read_text(encoding="utf-8") == before
 
 
 def test_save_repaired_entries_service_auto_corrects_role_typos_with_backup(

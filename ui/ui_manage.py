@@ -225,11 +225,7 @@ def render_manage_page() -> None:
     ensure_entry_registry()
     ensure_selection_state()
     _tag_snapshot = get_tag_registry_snapshot(untagged_key=_UNTAGGED)
-    if st.session_state.stale_last_path and not st.session_state.loaded_path:
-        st.warning(
-            f"Last dataset `{st.session_state.stale_last_path}` no longer exists. "
-            "Please load or create a dataset."
-        )
+    _stale_last_path_notice = st.empty()
 
     st.subheader("Load Dataset")
 
@@ -369,6 +365,13 @@ def render_manage_page() -> None:
                     st.rerun()
                 except Exception as exc:
                     st.error(f"Failed to create dataset: {exc}")
+
+    with _stale_last_path_notice:
+        if st.session_state.stale_last_path and not st.session_state.loaded_path:
+            st.warning(
+                f"Last dataset `{st.session_state.stale_last_path}` no longer exists. "
+                "Please load or create a dataset."
+            )
 
     entries = st.session_state.loaded_entries
     all_pairs = get_all_entry_pairs()
