@@ -1,6 +1,8 @@
 import core.version as version
 from core.loreforge_meta import (
     LOREFORGE_META_KEY,
+    ensure_entry_uuid,
+    get_entry_uuid,
     get_loreforge_meta,
     is_native_dataset,
     is_native_entry,
@@ -47,7 +49,52 @@ def test_stamp_entry_marks_copy_as_native_loreforge_data():
     assert stamped[LOREFORGE_META_KEY]["version"] == version.LOREFORGE_VERSION
     assert stamped[LOREFORGE_META_KEY]["native"] is True
     assert stamped[LOREFORGE_META_KEY]["validated_at"].endswith("Z")
+    assert get_entry_uuid(stamped) is not None
     assert is_native_entry(stamped) is True
+
+
+def test_stamp_entry_preserves_existing_entry_uuid():
+    entry = {
+        "messages": [],
+        "tags": [],
+        LOREFORGE_META_KEY: {
+            "version": "0.3.7",
+            "native": True,
+            "validated_at": "2026-05-11T12:00:00Z",
+            "entry_uuid": "existing-entry-uuid",
+        },
+    }
+
+    stamped = stamp_entry(entry)
+
+    assert get_entry_uuid(stamped) == "existing-entry-uuid"
+    assert get_entry_uuid(entry) == "existing-entry-uuid"
+    assert stamped[LOREFORGE_META_KEY]["version"] == version.LOREFORGE_VERSION
+
+
+def test_ensure_entry_uuid_adds_uuid_without_mutating_original():
+    entry = {"messages": [], "tags": []}
+
+    entry_with_uuid = ensure_entry_uuid(entry)
+
+    assert get_entry_uuid(entry) is None
+    assert get_entry_uuid(entry_with_uuid) is not None
+    assert entry_with_uuid is not entry
+
+
+def test_ensure_entry_uuid_preserves_existing_uuid():
+    entry = {LOREFORGE_META_KEY: {"entry_uuid": "existing-entry-uuid"}}
+
+    entry_with_uuid = ensure_entry_uuid(entry)
+
+    assert get_entry_uuid(entry_with_uuid) == "existing-entry-uuid"
+
+
+def test_native_entry_detection_does_not_require_entry_uuid():
+    old_native = {LOREFORGE_META_KEY: {"version": "0.3.7", "native": True}}
+
+    assert get_entry_uuid(old_native) is None
+    assert is_native_entry(old_native) is True
 
 
 def test_stamp_entries_marks_each_dict_entry():
@@ -57,4 +104,5 @@ def test_stamp_entries_marks_each_dict_entry():
 
     assert stamped_entries is not entries
     assert stamped_entries[0] is not entries[0]
+    assert get_entry_uuid(stamped_entries[0]) is not None
     assert is_native_dataset(stamped_entries) is True

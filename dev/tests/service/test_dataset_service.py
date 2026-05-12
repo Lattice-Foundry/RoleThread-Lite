@@ -5,7 +5,8 @@ import shutil
 from pathlib import Path
 
 from core.dataset import load_dataset, save_dataset
-from core.loreforge_meta import LOREFORGE_META_KEY
+from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid
+from core.version import LOREFORGE_VERSION
 from services import dataset_service
 from services.dataset_service import (
     clear_tags_bulk_service,
@@ -84,9 +85,10 @@ def _without_loreforge_meta(value):
 def _assert_stamped(entries):
     assert entries
     for entry in entries:
-        assert entry[LOREFORGE_META_KEY]["version"] == "0.3.7"
+        assert entry[LOREFORGE_META_KEY]["version"] == LOREFORGE_VERSION
         assert entry[LOREFORGE_META_KEY]["native"] is True
         assert entry[LOREFORGE_META_KEY]["validated_at"].endswith("Z")
+        assert get_entry_uuid(entry) is not None
 
 
 def _backup_recorder(monkeypatch, tmp_path):
