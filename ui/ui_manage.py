@@ -251,6 +251,41 @@ def _entry_has_reportable_diagnostics(entry: dict) -> bool:
     )
 
 
+def _render_load_errors(normalization, errors: list[str], entries: list[dict]) -> bool:
+    """Render load errors and return True when loading should stop."""
+
+    zero_entry_parse_failure = (
+        bool(errors)
+        and not entries
+        and normalization.parsed_entry_count == 0
+        and normalization.parse_error_count > 0
+    )
+    if zero_entry_parse_failure:
+        st.error(
+            "No valid entries found. The file does not appear to contain training "
+            "data in a supported format (ChatML, ShareGPT, or JSON array). "
+            f"{count_phrase(normalization.parse_error_count, 'line')} could not be parsed."
+        )
+        parse_details = [error for error in errors if error.startswith("Line ")]
+        if parse_details:
+            with st.expander("Show parse details"):
+                for error in parse_details:
+                    st.error(error)
+        return True
+
+    if errors:
+        for e in errors[:3]:
+            st.error(e)
+        if len(errors) > 3:
+            st.caption(
+                f"{count_phrase(len(errors) - 3, 'additional load error')} hidden."
+            )
+    if errors and not entries:
+        st.error("No dataset was loaded.")
+        return True
+    return False
+
+
 def _same_dataset_path(left: str | None, right: str | None) -> bool:
     if not left or not right:
         return False
@@ -307,15 +342,7 @@ def render_manage_page() -> None:
                 auto_normalize=_auto_correct_enabled,
             )
             entries = normalization.entries
-            if errors:
-                for e in errors[:3]:
-                    st.error(e)
-                if len(errors) > 3:
-                    st.caption(
-                        f"{count_phrase(len(errors) - 3, 'additional load error')} hidden."
-                    )
-            if errors and not entries:
-                st.error("No dataset was loaded.")
+            if _render_load_errors(normalization, errors, entries):
                 return
             loaded_dataset_path = set_loaded_entries(
                 entries,
