@@ -76,18 +76,20 @@ def render_merge_page() -> None:
                     backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
                 )
                 if result.ok and result.entries is not None:
+                    saved_path = result.dataset_path or p
                     loaded_path = st.session_state.get("loaded_path", "")
                     if loaded_path and Path(loaded_path).resolve() == Path(p).resolve():
                         set_loaded_entries(result.entries)
+                        st.session_state.loaded_path = saved_path
                         prune_selection_to_loaded_entries()
                     _backup_note = " Backup created." if result.backup_path else ""
-                    st.success(f"Merged dataset saved to `{p}`.{_backup_note}")
+                    st.success(f"Merged dataset saved to `{saved_path}`.{_backup_note}")
 
                     content = "\n".join(json.dumps(e, ensure_ascii=False) for e in merged)
                     st.download_button(
                         "Download merged JSONL",
                         data=content.encode("utf-8"),
-                        file_name=Path(p).name,
+                        file_name=Path(saved_path).name,
                         mime="application/jsonlines",
                     )
                 else:

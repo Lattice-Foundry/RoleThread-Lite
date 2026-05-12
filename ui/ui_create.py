@@ -11,7 +11,7 @@ from core.dataset import clear_validate_entry_cache, make_entry, validate_entry
 from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
 from core.tag_registry import get_tag_registry_snapshot
 from core.text_helpers import count_phrase
-from ui.session_state import update_prefs, ensure_entry_registry
+from ui.session_state import apply_dataset_operation_result, update_prefs, ensure_entry_registry
 from services.dataset_service import create_entry_service
 from ui.ui_components import (
     _NON_STANDARD_ROLE_COLOR,
@@ -254,12 +254,13 @@ def render_entry_actions(
                 new_entry=entry_preview,
             )
             if result.ok and result.entries is not None:
+                apply_dataset_operation_result(result)
                 st.session_state.loaded_entries = result.entries
                 ensure_entry_registry()
                 update_prefs({
-                    "last_loaded_dataset_path": save_path,
+                    "last_loaded_dataset_path": result.dataset_path or save_path,
                 })
-                st.session_state["manage_load_path_pending"] = save_path
+                st.session_state["manage_load_path_pending"] = result.dataset_path or save_path
                 st.session_state[f"{prefix}_clear"] = True
                 st.success(f"Entry appended to `{Path(save_path).resolve()}`.")
                 st.rerun()

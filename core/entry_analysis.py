@@ -5,6 +5,7 @@ from enum import StrEnum
 from typing import Any, ClassVar
 
 from core.loreforge_meta import LOREFORGE_META_KEY
+from core.role_normalization import is_known_role_variant, normalize_role
 
 
 class AnalysisSeverity(StrEnum):
@@ -345,15 +346,6 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
     KNOWN_TOP_LEVEL_KEYS: ClassVar[frozenset[str]] = (
         BaseEntryAnalyzer.KNOWN_TOP_LEVEL_KEYS | frozenset({"messages"})
     )
-    ROLE_SYNONYMS: ClassVar[dict[str, str]] = {
-        "human": "user",
-        "user": "user",
-        "gpt": "assistant",
-        "assistant": "assistant",
-        "bot": "assistant",
-        "model": "assistant",
-        "system": "system",
-    }
 
     def analyze(self, entry: object, *, entry_index: int | None = None) -> EntryAnalysisResult:
         """Run base and ChatML-specific checks."""
@@ -475,9 +467,11 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                 EntryDiagnostic(
                     code=CHATML_MISSING_SYSTEM_ROLE,
                     severity=AnalysisSeverity.ERROR,
-                    message=(
-                        "First message must be a system prompt, "
-                        f"but found role '{system_role}'."
+                    message=self._wrong_role_message(
+                        role=system_role,
+                        expected_role="system",
+                        index=0,
+                        system_position=True,
                     ),
                     path=("messages", 0, "role"),
                     repair_kind=RepairKind.MANUAL,
@@ -532,10 +526,10 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                     EntryDiagnostic(
                         code=CHATML_WRONG_ROLE,
                         severity=AnalysisSeverity.ERROR,
-                        message=(
-                            f"Message {index + 1} should be "
-                            f"{self._role_article(expected_role)} {expected_role} turn, "
-                            f"but found role '{actual_role}'."
+                        message=self._wrong_role_message(
+                            role=actual_role,
+                            expected_role=expected_role,
+                            index=index,
                         ),
                         path=("messages", index, "role"),
                         repair_kind=RepairKind.MANUAL,
@@ -567,7 +561,34 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
     def _canonical_role(self, role: object) -> str | None:
         if not isinstance(role, str):
             return None
-        return self.ROLE_SYNONYMS.get(role.strip().lower())
+        if not is_known_role_variant(role):
+            return None
+        return normalize_role(role)[0]
+
+    def _wrong_role_message(
+        self,
+        *,
+        role: object,
+        expected_role: str,
+        index: int,
+        system_position: bool = False,
+    ) -> str:
+        if isinstance(role, str) and not is_known_role_variant(role):
+            return (
+                f"Custom role name '{role}' detected. LoreForge needs canonical "
+                "user/assistant/system roles; the character system will preserve "
+                "identity metadata."
+            )
+        if system_position:
+            return (
+                "First message must be a system prompt, "
+                f"but found role '{role}'."
+            )
+        return (
+            f"Message {index + 1} should be "
+            f"{self._role_article(expected_role)} {expected_role} turn, "
+            f"but found role '{role}'."
+        )
 
     def _role_whitespace_diagnostic(
         self,
@@ -576,14 +597,14 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
     ) -> tuple[EntryDiagnostic, ...]:
         if not isinstance(role, str):
             return ()
-        stripped = role.strip()
-        if stripped == role:
+        normalized_role, changed = normalize_role(role)
+        if not changed:
             return ()
         return (
             self._role_canonicalization_diagnostic(
                 index=index,
                 original_value=role,
-                normalized_value=stripped,
+                normalized_value=normalized_role,
             ),
         )
 
@@ -646,8 +667,8 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             code=CHATML_ROLE_CANONICALIZATION,
             severity=AnalysisSeverity.WARNING,
             message=(
-                f"Message {index + 1} role can be normalized from "
-                f"'{original_value}' to '{normalized_value}'."
+                f"Role '{original_value}' will be auto-corrected to "
+                f"'{normalized_value}' on save."
             ),
             path=("messages", index, "role"),
             fixable=True,
@@ -703,14 +724,6 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
     )
     ROLE_FIELD_KEYS: ClassVar[tuple[str, ...]] = ("from", "role", "speaker")
     CONTENT_FIELD_KEYS: ClassVar[tuple[str, ...]] = ("value", "content", "text")
-    USER_ROLES: ClassVar[frozenset[str]] = frozenset({"human", "user"})
-    ASSISTANT_ROLES: ClassVar[frozenset[str]] = frozenset({
-        "gpt",
-        "assistant",
-        "bot",
-        "model",
-    })
-    SYSTEM_ROLES: ClassVar[frozenset[str]] = frozenset({"system"})
     CANONICAL_ROLE_VALUES: ClassVar[dict[str, str]] = {
         "user": "human",
         "assistant": "gpt",
@@ -933,11 +946,7 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
         return None, None
 
     def _map_role(self, raw_role: object) -> str | None:
-        role = str(raw_role).strip().lower()
-        if role in self.USER_ROLES:
-            return "user"
-        if role in self.ASSISTANT_ROLES:
-            return "assistant"
-        if role in self.SYSTEM_ROLES:
-            return "system"
+        role, changed = normalize_role(str(raw_role))
+        if changed or role in {"user", "assistant", "system"}:
+            return role
         return None

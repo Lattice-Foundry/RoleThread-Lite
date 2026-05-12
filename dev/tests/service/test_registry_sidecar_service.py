@@ -23,6 +23,7 @@ from core.tag_constants import (
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
 )
+from core.version import LOREFORGE_VERSION
 import services.registry_sidecar_service as registry_sidecar_service
 from services.registry_sidecar_service import export_registry_sidecar, import_registry_sidecar
 
@@ -166,15 +167,12 @@ def test_export_registry_sidecar_writes_registry_file(tmp_path, monkeypatch):
         "slow_burn": 2,
         "deleted_tag": 1,
     }
-    assert [category.slug for category in sidecar.categories] == [
-        "behavior",
-        "custom",
-    ]
+    assert sidecar.metadata.app_version == LOREFORGE_VERSION
+    assert [category.slug for category in sidecar.categories] == ["behavior"]
     behavior_category = sidecar.categories[0]
     assert behavior_category.is_builtin is True
-    custom_category = sidecar.categories[1]
-    assert custom_category.is_builtin is False
     tags_by_slug = {tag.slug: tag for tag in sidecar.tags}
+    assert set(tags_by_slug) == {"slow_burn", "deleted_tag"}
     assert tags_by_slug["slow_burn"].category_slug == "behavior"
     assert tags_by_slug["slow_burn"].status == TAG_STATUS_ACTIVE
     assert tags_by_slug["deleted_tag"].category_slug is None

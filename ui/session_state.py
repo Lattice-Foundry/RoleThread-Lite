@@ -335,10 +335,26 @@ def persist_loaded_normalization(dataset_path: str) -> DatasetOperationResult:
         entries=st.session_state.loaded_entries,
     )
     if result.ok and result.entries is not None:
+        apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
         st.session_state.entry_registry = build_entry_registry(result.entries)
         clear_normalization_pending()
     return result
+
+
+def apply_dataset_operation_result(result: DatasetOperationResult) -> None:
+    """Adopt a service-returned dataset path after flat training_data migration."""
+
+    if not result.dataset_path:
+        return
+    if st.session_state.get("loaded_path") == result.dataset_path:
+        return
+    st.session_state.loaded_path = result.dataset_path
+    if isinstance(st.session_state.get("prefs"), dict):
+        update_prefs({
+            "last_loaded_dataset_path": result.dataset_path,
+            "last_open_directory": str(Path(result.dataset_path).parent),
+        })
 
 
 def get_loaded_entry_by_id(entry_id: str) -> dict | None:
@@ -450,6 +466,7 @@ def delete_selected_entries() -> tuple[int, list[str], bool]:
         if result.entries is None:
             st.error("Delete operation did not return updated entries.")
             return 0, attempted_ids + failures, False
+        apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
         st.session_state.entry_registry = {
             **st.session_state.entry_registry,
@@ -531,6 +548,7 @@ def save_quick_edit(entry_id: str, entry: dict) -> DatasetOperationResult:
         backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
     )
     if result.ok and result.entries is not None:
+        apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
         ensure_entry_registry()
     return result

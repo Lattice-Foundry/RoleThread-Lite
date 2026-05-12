@@ -9,6 +9,7 @@ from core.format_conversion import (
     FORMAT_SHAREGPT,
     convert_chatml_to_format,
 )
+from core.working_copy import canonical_training_dataset_path
 from services.registry_sidecar_service import export_registry_sidecar
 from ui.file_dialogs import browse_export_file, path_input
 from ui.session_state import ensure_entry_registry
@@ -87,6 +88,7 @@ def render_export_page() -> None:
             st.error("Set an export path or use Browse to pick a location.")
         else:
             try:
+                _p = str(canonical_training_dataset_path(_p))
                 _out = _prepare_export_entries(
                     _export_entries,
                     export_format=_export_format,

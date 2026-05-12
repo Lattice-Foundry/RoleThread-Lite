@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 import core.tag_registry as tag_registry
 from core.dataset import load_dataset, save_dataset
+from core.loreforge_meta import LOREFORGE_META_KEY
 from core.tag_constants import (
     TAG_LIFECYCLE_METADATA_ARCHIVE,
     TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
@@ -120,6 +121,26 @@ def _entry(tags):
         ],
         "tags": tags,
     }
+
+
+def _without_loreforge_meta(value):
+    if isinstance(value, list):
+        return [_without_loreforge_meta(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _without_loreforge_meta(item)
+            for key, item in value.items()
+            if key != LOREFORGE_META_KEY
+        }
+    return value
+
+
+def _assert_stamped(entries):
+    assert entries
+    for entry in entries:
+        assert entry[LOREFORGE_META_KEY]["version"] == "0.3.7"
+        assert entry[LOREFORGE_META_KEY]["native"] is True
+        assert entry[LOREFORGE_META_KEY]["validated_at"].endswith("Z")
 
 
 def _write_dataset(tmp_path, entries):
@@ -665,11 +686,12 @@ def test_rename_custom_active_tag_rewrites_dataset_and_aliases_old_slug(
     assert result.affected_count == 2
     assert result.dataset_backup_path == str(dataset_backups[0])
     assert result.db_backup_path is not None
-    assert result.entries == [
+    assert _without_loreforge_meta(result.entries) == [
         _entry(["follow_up_question", "tone"]),
         _entry(["tone", "follow_up_question"]),
         _entry(["other_tag"]),
     ]
+    _assert_stamped(result.entries)
 
     loaded, errors = load_dataset(path)
     assert errors == []
@@ -739,7 +761,47 @@ def test_rename_custom_active_tag_deduplicates_rewritten_entry_tags(
     )
 
     assert result.ok is True
-    assert result.entries == [_entry(["new_tag"])]
+    assert _without_loreforge_meta(result.entries) == [_entry(["new_tag"])]
+    _assert_stamped(result.entries)
+
+
+def test_tag_lifecycle_rewrite_refreshes_registry_sidecar(
+    tag_lifecycle_db,
+    tmp_path,
+    monkeypatch,
+):
+    _fake_dataset_backup(tmp_path, monkeypatch)
+    entries = [_entry(["old_tag"])]
+    path = _write_dataset(tmp_path, entries)
+    sidecar_calls = []
+
+    session = tag_lifecycle_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="old_tag", name="Old Tag", category=category)
+        session.commit()
+    finally:
+        session.close()
+
+    monkeypatch.setattr(
+        tag_lifecycle_service,
+        "export_registry_sidecar",
+        lambda *, dataset_path, entries: sidecar_calls.append(
+            (dataset_path, json.loads(json.dumps(entries)))
+        )
+        or type("Result", (), {"ok": True, "message": "ok"})(),
+    )
+
+    result = edit_active_tag(
+        old_slug="old_tag",
+        new_display_name="New Tag",
+        category_slug="behavior",
+        dataset_path=str(path),
+        entries=entries,
+    )
+
+    assert result.ok is True
+    assert sidecar_calls == [(str(path), result.entries)]
 
 
 def test_edit_active_tag_moves_category_without_dataset_rewrite(
@@ -836,7 +898,8 @@ def test_edit_active_tag_changes_name_and_category_together(
     assert result.message == (
         'Edited tag "Followup Question" to "Follow Up Question" and moved it to Scene.'
     )
-    assert result.entries == [_entry(["follow_up_question"])]
+    assert _without_loreforge_meta(result.entries) == [_entry(["follow_up_question"])]
+    _assert_stamped(result.entries)
     assert result.dataset_backup_path is not None
     assert result.db_backup_path is not None
 
@@ -889,11 +952,12 @@ def test_delete_custom_active_tag_archives_tag_and_removes_from_entries(
     assert result.affected_count == 2
     assert result.dataset_backup_path == str(dataset_backups[0])
     assert result.db_backup_path is not None
-    assert result.entries == [
+    assert _without_loreforge_meta(result.entries) == [
         _entry(["tone"]),
         _entry([]),
         _entry(["tone"]),
     ]
+    _assert_stamped(result.entries)
 
     loaded, errors = load_dataset(path)
     assert errors == []

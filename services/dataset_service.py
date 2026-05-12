@@ -12,7 +12,6 @@ import traceback
 
 from core.backups import create_dataset_backup
 from core.dataset import (
-    append_to_dataset,
     normalize_dataset_entries,
     normalize_dataset_tags,
     normalize_entry_tags,
@@ -20,6 +19,12 @@ from core.dataset import (
     save_dataset,
     set_entry_system_prompt,
     validate_entry,
+)
+from core.loreforge_meta import stamp_entries
+from core.role_normalization import normalize_entry_roles
+from core.working_copy import (
+    canonical_training_dataset_path,
+    migrate_training_dataset_to_subfolder,
 )
 
 
@@ -33,6 +38,7 @@ class DatasetOperationResult:
     errors: list[str] = field(default_factory=list)
     backup_path: str | None = None
     affected_count: int = 0
+    dataset_path: str | None = None
 
 
 def _copy_entries(entries: list[dict]) -> list[dict]:
@@ -41,6 +47,36 @@ def _copy_entries(entries: list[dict]) -> list[dict]:
 
 def _normalize_entries(entries: list[dict]) -> list[dict]:
     return normalize_dataset_tags(entries).entries
+
+
+def _save_dataset_with_sidecar(dataset_path: str, entries: list[dict]) -> tuple[str, list[dict]]:
+    target_path = _prepare_dataset_save_path(dataset_path)
+    stamped_entries = stamp_entries(entries)
+    save_dataset(target_path, stamped_entries)
+    try:
+        _write_registry_sidecar(target_path, stamped_entries)
+    except Exception:
+        traceback.print_exc()
+    return target_path, stamped_entries
+
+
+def _prepare_dataset_save_path(dataset_path: str) -> str:
+    source = Path(dataset_path)
+    if source.exists():
+        return migrate_training_dataset_to_subfolder(source).working_path
+    return str(canonical_training_dataset_path(source))
+
+
+def _write_registry_sidecar(dataset_path: str, entries: list[dict]) -> None:
+    try:
+        from services.registry_sidecar_service import export_registry_sidecar
+
+        result = export_registry_sidecar(dataset_path=dataset_path, entries=entries)
+    except Exception:
+        traceback.print_exc()
+        return
+    if not result.ok:
+        print(result.message)
 
 
 def _valid_index(entries: list[dict], index: int) -> bool:
@@ -122,6 +158,7 @@ def save_quick_edit_service(
 
     edited_entry = copy.deepcopy(entries[entry_index])
     edited_entry["messages"] = copy.deepcopy(updated_messages)
+    edited_entry, _ = normalize_entry_roles(edited_entry)
     normalized = normalize_dataset_entries([edited_entry])
     edited_entry = normalized.entries[0] if normalized.entries else edited_entry
 
@@ -145,7 +182,7 @@ def save_quick_edit_service(
             message=f"Failed to create dataset backup: {exc}",
         )
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -159,6 +196,7 @@ def save_quick_edit_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=1,
+        dataset_path=saved_path,
     )
 
 
@@ -185,6 +223,7 @@ def save_full_edit_service(
         )
 
     edited_entry = copy.deepcopy(updated_entry)
+    edited_entry, _ = normalize_entry_roles(edited_entry)
     errors = validate_entry(edited_entry)
     if errors:
         return DatasetOperationResult(
@@ -205,7 +244,7 @@ def save_full_edit_service(
             message=f"Failed to create dataset backup: {exc}",
         )
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -219,6 +258,7 @@ def save_full_edit_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=1,
+        dataset_path=saved_path,
     )
 
 
@@ -269,7 +309,7 @@ def replace_single_entry_tags_service(
             message=f"Failed to create dataset backup: {exc}",
         )
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -283,6 +323,7 @@ def replace_single_entry_tags_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=1,
+        dataset_path=saved_path,
     )
 
 
@@ -326,7 +367,7 @@ def replace_tags_bulk_service(
             message=f"Failed to create dataset backup: {exc}",
         )
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -340,6 +381,7 @@ def replace_tags_bulk_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=len(normalized_indices),
+        dataset_path=saved_path,
     )
 
 
@@ -377,7 +419,7 @@ def clear_tags_bulk_service(
             message=f"Failed to create dataset backup: {exc}",
         )
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -391,6 +433,7 @@ def clear_tags_bulk_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=len(normalized_indices),
+        dataset_path=saved_path,
     )
 
 
@@ -431,7 +474,7 @@ def replace_system_prompt_bulk_service(
             message=f"Failed to create dataset backup: {exc}",
         )
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -445,6 +488,7 @@ def replace_system_prompt_bulk_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=len(normalized_indices),
+        dataset_path=saved_path,
     )
 
 
@@ -485,7 +529,7 @@ def delete_entries_service(
             message=f"Failed to create dataset backup: {exc}",
         )
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -499,6 +543,7 @@ def delete_entries_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=len(normalized_indices),
+        dataset_path=saved_path,
     )
 
 
@@ -543,7 +588,7 @@ def save_merged_entries_service(
         backup_path = str(created_backup)
 
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -557,6 +602,7 @@ def save_merged_entries_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=len(proposed_entries),
+        dataset_path=saved_path,
     )
 
 
@@ -588,7 +634,7 @@ def normalize_dataset_service(
             message=f"Failed to create dataset backup: {exc}",
         )
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -602,6 +648,7 @@ def normalize_dataset_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=len(proposed_entries),
+        dataset_path=saved_path,
     )
 
 
@@ -623,7 +670,10 @@ def save_repaired_entries_service(
             errors=errors,
         )
 
-    proposed_entries = copy.deepcopy(repaired_entries)
+    proposed_entries = [
+        normalize_entry_roles(entry)[0] if isinstance(entry, dict) else copy.deepcopy(entry)
+        for entry in repaired_entries
+    ]
     try:
         backup_path = _create_backup_if_enabled(dataset_path, True, backup_reason)
     except Exception as exc:
@@ -633,7 +683,7 @@ def save_repaired_entries_service(
             message=f"Failed to create dataset backup: {exc}",
         )
     try:
-        save_dataset(dataset_path, proposed_entries)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -647,6 +697,7 @@ def save_repaired_entries_service(
         entries=proposed_entries,
         backup_path=backup_path,
         affected_count=len(proposed_entries),
+        dataset_path=saved_path,
     )
 
 
@@ -674,6 +725,7 @@ def create_entry_service(
             message="New entry must be a dictionary.",
         )
 
+    new_entry, _ = normalize_entry_roles(new_entry)
     errors = validate_entry(new_entry)
     if errors:
         return DatasetOperationResult(
@@ -682,9 +734,12 @@ def create_entry_service(
             errors=errors,
         )
 
+    proposed_entries = _copy_entries(entries)
     entry_to_append, _ = normalize_entry_tags(new_entry)
+    proposed_entries.append(entry_to_append)
+    proposed_entries = _normalize_entries(proposed_entries)
     try:
-        append_to_dataset(dataset_path, entry_to_append)
+        saved_path, proposed_entries = _save_dataset_with_sidecar(dataset_path, proposed_entries)
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -692,12 +747,10 @@ def create_entry_service(
             message=f"Failed to save: {exc}",
         )
 
-    proposed_entries = _copy_entries(entries)
-    proposed_entries.append(entry_to_append)
-    proposed_entries = _normalize_entries(proposed_entries)
     return DatasetOperationResult(
         ok=True,
         message="Entry appended.",
         entries=proposed_entries,
         affected_count=1,
+        dataset_path=saved_path,
     )

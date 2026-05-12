@@ -37,7 +37,9 @@ def create_dataset_working_copy(
             created=False,
         )
 
-    target_path = _unique_target_path(target_dir / source_path.name)
+    dataset_dir = target_dir / source_path.stem
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    target_path = _unique_dataset_target_path(dataset_dir / source_path.name)
     shutil.copy2(source_path, target_path)
 
     source_sidecar = sidecar_path_for_dataset(source_path)
@@ -57,6 +59,66 @@ def create_dataset_working_copy(
     )
 
 
+def migrate_training_dataset_to_subfolder(
+    dataset_path: str | Path,
+    *,
+    working_dir: str | Path | None = None,
+) -> DatasetWorkingCopyResult:
+    """Move a flat training_data dataset into its canonical per-dataset folder."""
+
+    source_path = Path(dataset_path).resolve()
+    target_dir = Path(working_dir).resolve() if working_dir else get_default_training_data_dir().resolve()
+    if not _is_relative_to(source_path, target_dir):
+        return DatasetWorkingCopyResult(
+            original_path=str(source_path),
+            working_path=str(source_path),
+            created=False,
+        )
+
+    canonical_path = canonical_training_dataset_path(source_path, working_dir=target_dir)
+    if canonical_path == source_path:
+        return DatasetWorkingCopyResult(
+            original_path=str(source_path),
+            working_path=str(source_path),
+            created=False,
+        )
+
+    canonical_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(source_path), str(canonical_path))
+
+    source_sidecar = sidecar_path_for_dataset(source_path)
+    sidecar_moved = False
+    target_sidecar_path: Path | None = None
+    if source_sidecar.exists():
+        target_sidecar_path = sidecar_path_for_dataset(canonical_path)
+        shutil.move(str(source_sidecar), str(target_sidecar_path))
+        sidecar_moved = True
+
+    return DatasetWorkingCopyResult(
+        original_path=str(source_path),
+        working_path=str(canonical_path),
+        created=True,
+        sidecar_copied=sidecar_moved,
+        sidecar_path=str(target_sidecar_path) if target_sidecar_path else None,
+    )
+
+
+def canonical_training_dataset_path(
+    dataset_path: str | Path,
+    *,
+    working_dir: str | Path | None = None,
+) -> Path:
+    """Return the canonical per-dataset path for files inside training_data."""
+
+    source_path = Path(dataset_path).resolve()
+    target_dir = Path(working_dir).resolve() if working_dir else get_default_training_data_dir().resolve()
+    if not _is_relative_to(source_path, target_dir):
+        return source_path
+    if source_path.parent == target_dir / source_path.stem:
+        return source_path
+    return _unique_dataset_target_path(target_dir / source_path.stem / source_path.name)
+
+
 def _unique_target_path(candidate: Path) -> Path:
     if not candidate.exists():
         return candidate
@@ -66,6 +128,20 @@ def _unique_target_path(candidate: Path) -> Path:
     target = candidate.with_name(f"{stem}{candidate.suffix}")
     counter = 1
     while target.exists():
+        target = candidate.with_name(f"{stem}_{counter:03d}{candidate.suffix}")
+        counter += 1
+    return target
+
+
+def _unique_dataset_target_path(candidate: Path) -> Path:
+    if not candidate.exists() and not sidecar_path_for_dataset(candidate).exists():
+        return candidate
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    stem = f"{candidate.stem}_{timestamp}"
+    target = candidate.with_name(f"{stem}{candidate.suffix}")
+    counter = 1
+    while target.exists() or sidecar_path_for_dataset(target).exists():
         target = candidate.with_name(f"{stem}_{counter:03d}{candidate.suffix}")
         counter += 1
     return target

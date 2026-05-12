@@ -9,6 +9,7 @@ from sqlalchemy import func
 
 from core.backups import create_dataset_backup
 from core.dataset import TAGS, get_entry_tags, normalize_dataset_tags, save_dataset, set_entry_tags
+from core.loreforge_meta import stamp_entries
 import core.tag_registry as tag_registry
 from core.tag_constants import (
     ARCHIVE_ORIGIN_IMPORTED,
@@ -29,6 +30,8 @@ from core.models import (
 )
 from core.tag_normalization import normalize_tag
 from core.text_helpers import count_phrase
+from core.working_copy import canonical_training_dataset_path, migrate_training_dataset_to_subfolder
+from services.registry_sidecar_service import export_registry_sidecar
 
 
 @dataclass
@@ -48,6 +51,7 @@ class TagLifecycleOperationResult:
     new_slug: str | None = None
     old_display_name: str | None = None
     new_display_name: str | None = None
+    dataset_path: str | None = None
 
 
 class LifecyclePipeline:
@@ -58,6 +62,7 @@ class LifecyclePipeline:
         self.session = None
         self.dataset_backup_path: Path | str | None = None
         self.db_backup_path: Path | str | None = None
+        self.saved_entries: list[dict] | None = None
 
     def __enter__(self):
         self.session = tag_registry.SessionLocal()
@@ -73,6 +78,8 @@ class LifecyclePipeline:
         return False
 
     def result(self, *, ok: bool, message: str, include_backups: bool = True, **fields):
+        if self.dataset_path:
+            fields.setdefault("dataset_path", self.dataset_path)
         if include_backups:
             fields.setdefault(
                 "dataset_backup_path",
@@ -117,7 +124,10 @@ class LifecyclePipeline:
 
     def save_jsonl(self, entries: list[dict], *, failure_fields: dict):
         try:
-            save_dataset(self.dataset_path, entries)
+            self.dataset_path = _prepare_dataset_save_path(self.dataset_path)
+            self.saved_entries = stamp_entries(entries)
+            save_dataset(self.dataset_path, self.saved_entries)
+            entries[:] = self.saved_entries
         except Exception as exc:
             traceback.print_exc()
             self.session.rollback()
@@ -140,7 +150,22 @@ class LifecyclePipeline:
                 include_backups=False,
                 **error_fields,
             )
+        self.refresh_sidecar()
         return self.result(ok=True, message=message, **success_fields)
+
+    def refresh_sidecar(self) -> None:
+        if not self.dataset_path or self.saved_entries is None:
+            return
+        try:
+            result = export_registry_sidecar(
+                dataset_path=self.dataset_path,
+                entries=self.saved_entries,
+            )
+        except Exception:
+            traceback.print_exc()
+            return
+        if not result.ok:
+            print(result.message)
 
     def database_error(self, exc: Exception, *, fields: dict) -> TagLifecycleOperationResult:
         self.session.rollback()
@@ -150,6 +175,13 @@ class LifecyclePipeline:
             include_backups=False,
             **fields,
         )
+
+
+def _prepare_dataset_save_path(dataset_path: str | None) -> str:
+    source = Path(dataset_path or "")
+    if source.exists():
+        return migrate_training_dataset_to_subfolder(source).working_path
+    return str(canonical_training_dataset_path(source))
 
 
 def _default_category_slugs() -> set[str]:

@@ -21,6 +21,7 @@ from core.tag_registry import (
     get_tag_registry_snapshot,
     prettify_tag_name,
 )
+from core.working_copy import canonical_training_dataset_path
 from ui.file_dialogs import JSONL_TYPES, browse_open_file, path_input, safe_saveas_filename
 from ui.entry_edit_helpers import (
     has_entry_notification_issue,
@@ -30,6 +31,7 @@ from ui.message_scaffolding import scaffold_editable_messages
 from core.preferences import get_initial_dir
 from ui.session_state import (
     cancel_quick_edit,
+    apply_dataset_operation_result,
     clear_selected_entries,
     delete_selected_entries,
     ensure_entry_registry,
@@ -53,7 +55,9 @@ from services.dataset_service import (
     replace_single_entry_tags_service,
     replace_system_prompt_bulk_service,
     replace_tags_bulk_service,
+    save_repaired_entries_service,
 )
+from services.registry_sidecar_service import export_registry_sidecar
 from ui.browser_helpers import (
     DEFAULT_PAGE_SIZE,
     MATCH_MODE_OPTIONS,
@@ -278,17 +282,31 @@ def render_manage_page() -> None:
             if new_path:
                 # Flush any in-memory entries to the current dataset first
                 if st.session_state.loaded_entries and st.session_state.loaded_path:
-                    try:
-                        save_dataset(
-                            st.session_state.loaded_path, st.session_state.loaded_entries
+                    result = save_repaired_entries_service(
+                        dataset_path=st.session_state.loaded_path,
+                        repaired_entries=st.session_state.loaded_entries,
+                        backup_reason="before_new_dataset_switch",
+                    )
+                    if result.ok:
+                        apply_dataset_operation_result(result)
+                        st.session_state.loaded_entries = result.entries or []
+                    else:
+                        st.error(
+                            "Could not save current dataset before switching: "
+                            f"{result.message}"
                         )
-                    except Exception as exc:
-                        st.error(f"Could not save current dataset before switching: {exc}")
                         new_path = ""  # cancel
 
             if new_path:
                 try:
+                    new_path = str(canonical_training_dataset_path(new_path))
                     save_dataset(new_path, [])  # create empty file
+                    sidecar_result = export_registry_sidecar(
+                        dataset_path=new_path,
+                        entries=[],
+                    )
+                    if not sidecar_result.ok:
+                        st.warning(sidecar_result.message)
                     set_loaded_entries([])
                     st.session_state.loaded_path = new_path
                     st.session_state.stale_last_path = ""
@@ -619,6 +637,7 @@ def render_manage_page() -> None:
                             ),
                         )
                         if _sys_result.ok and _sys_result.entries is not None:
+                            apply_dataset_operation_result(_sys_result)
                             st.session_state.loaded_entries = _sys_result.entries
                             ensure_entry_registry()
                             _backup_note = (
@@ -678,6 +697,7 @@ def render_manage_page() -> None:
                                 ),
                             )
                             if _tag_result.ok and _tag_result.entries is not None:
+                                apply_dataset_operation_result(_tag_result)
                                 st.session_state.loaded_entries = _tag_result.entries
                                 ensure_entry_registry()
                                 _backup_note = (
@@ -728,6 +748,7 @@ def render_manage_page() -> None:
                             ),
                         )
                         if _bulk_result.ok and _bulk_result.entries is not None:
+                            apply_dataset_operation_result(_bulk_result)
                             st.session_state.loaded_entries = _bulk_result.entries
                             ensure_entry_registry()
                             _backup_note = (
@@ -764,6 +785,7 @@ def render_manage_page() -> None:
                             ),
                         )
                         if _bulk_result.ok and _bulk_result.entries is not None:
+                            apply_dataset_operation_result(_bulk_result)
                             st.session_state.loaded_entries = _bulk_result.entries
                             ensure_entry_registry()
                             _backup_note = (

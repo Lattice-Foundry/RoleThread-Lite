@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 
 from core.dataset import load_dataset, save_dataset
+from core.loreforge_meta import LOREFORGE_META_KEY
 from services import dataset_service
 from services.dataset_service import (
     clear_tags_bulk_service,
@@ -68,6 +69,26 @@ def _read_entries(path):
     return entries
 
 
+def _without_loreforge_meta(value):
+    if isinstance(value, list):
+        return [_without_loreforge_meta(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _without_loreforge_meta(item)
+            for key, item in value.items()
+            if key != LOREFORGE_META_KEY
+        }
+    return value
+
+
+def _assert_stamped(entries):
+    assert entries
+    for entry in entries:
+        assert entry[LOREFORGE_META_KEY]["version"] == "0.3.7"
+        assert entry[LOREFORGE_META_KEY]["native"] is True
+        assert entry[LOREFORGE_META_KEY]["validated_at"].endswith("Z")
+
+
 def _backup_recorder(monkeypatch, tmp_path):
     backup_paths = []
     backup_root = tmp_path / "backups"
@@ -122,9 +143,36 @@ def test_create_entry_service_appends_valid_entry_and_preserves_metadata(tmp_pat
 
     assert result.ok is True
     assert result.affected_count == 1
-    assert result.entries == existing + [new_entry]
+    assert _without_loreforge_meta(result.entries) == existing + [new_entry]
+    _assert_stamped(result.entries)
     assert existing == original_entries
-    assert _read_entries(path) == existing + [new_entry]
+    assert _read_entries(path) == result.entries
+
+
+def test_create_entry_service_auto_corrects_role_typos_before_validation(tmp_path):
+    existing = [_entry(tags=["existing"])]
+    path = _write_dataset(tmp_path, existing)
+
+    result = create_entry_service(
+        dataset_path=str(path),
+        entries=existing,
+        new_entry={
+            "messages": [
+                {"role": "context", "content": "System"},
+                {"role": "prompt", "content": "Hi"},
+                {"role": "completion", "content": "Hello"},
+            ],
+            "tags": ["custom"],
+        },
+    )
+
+    assert result.ok is True
+    assert result.entries[-1]["messages"] == [
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ]
+    assert _read_entries(path)[-1]["messages"] == result.entries[-1]["messages"]
 
 
 def test_create_entry_service_invalid_entry_blocks_save_and_preserves_disk(tmp_path):
@@ -285,7 +333,7 @@ def test_save_quick_edit_service_does_not_validate_unrelated_malformed_entries(t
     )
 
     assert result.ok is True
-    assert result.entries[1] == entries[1]
+    assert _without_loreforge_meta(result.entries[1]) == entries[1]
 
 
 def test_save_quick_edit_service_normalizes_role_variants_before_validation(tmp_path):
@@ -337,10 +385,124 @@ def test_save_full_edit_service_saves_valid_full_edit_and_multiturn(tmp_path):
     )
 
     assert result.ok is True
-    assert result.entries == [updated_entry]
+    assert _without_loreforge_meta(result.entries) == [updated_entry]
+    _assert_stamped(result.entries)
     assert result.entries[0]["tags"] == ["new", "unknown"]
     assert entries == original_entries
-    assert _read_entries(path) == [updated_entry]
+    assert _read_entries(path) == result.entries
+
+
+def test_dataset_save_services_auto_write_registry_sidecar(tmp_path, monkeypatch):
+    entries = [_entry(tags=["old"])]
+    path = _write_dataset(tmp_path, entries)
+    sidecar_calls = []
+
+    monkeypatch.setattr(
+        dataset_service,
+        "_write_registry_sidecar",
+        lambda dataset_path, saved_entries: sidecar_calls.append(
+            (dataset_path, copy.deepcopy(saved_entries))
+        ),
+    )
+
+    result = save_full_edit_service(
+        dataset_path=str(path),
+        entries=entries,
+        entry_index=0,
+        updated_entry=_entry(tags=["new"]),
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    assert sidecar_calls == [(str(path), result.entries)]
+
+
+def test_dataset_save_services_do_not_fail_when_sidecar_write_fails(tmp_path, monkeypatch):
+    entries = [_entry(tags=["old"])]
+    path = _write_dataset(tmp_path, entries)
+
+    def fail_sidecar(_dataset_path, _saved_entries):
+        raise RuntimeError("sidecar disk full")
+
+    monkeypatch.setattr(dataset_service, "_write_registry_sidecar", fail_sidecar)
+
+    result = save_full_edit_service(
+        dataset_path=str(path),
+        entries=entries,
+        entry_index=0,
+        updated_entry=_entry(tags=["new"]),
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    assert _read_entries(path) == result.entries
+
+
+def test_dataset_save_migrates_flat_training_data_file_to_subfolder(
+    tmp_path,
+    monkeypatch,
+):
+    training_dir = tmp_path / "training_data"
+    training_dir.mkdir()
+    path = training_dir / "dataset.jsonl"
+    entries = [_entry(tags=["old"])]
+    save_dataset(str(path), entries)
+    sidecar_path = path.with_name("dataset.registry.json")
+    sidecar_path.write_text('{"metadata": {}}', encoding="utf-8")
+    monkeypatch.setattr(
+        dataset_service,
+        "get_default_training_data_dir",
+        lambda: training_dir,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "core.working_copy.get_default_training_data_dir",
+        lambda: training_dir,
+    )
+
+    result = save_full_edit_service(
+        dataset_path=str(path),
+        entries=entries,
+        entry_index=0,
+        updated_entry=_entry(tags=["new"]),
+        backup_enabled=False,
+    )
+
+    expected_path = training_dir / "dataset" / "dataset.jsonl"
+    expected_sidecar = training_dir / "dataset" / "dataset.registry.json"
+    assert result.ok is True
+    assert result.dataset_path == str(expected_path.resolve())
+    assert expected_path.exists()
+    assert expected_sidecar.exists()
+    assert not path.exists()
+    assert not sidecar_path.exists()
+
+
+def test_save_full_edit_service_auto_corrects_role_typos_before_validation(tmp_path):
+    entries = [_entry(tags=["old"])]
+    path = _write_dataset(tmp_path, entries)
+
+    result = save_full_edit_service(
+        dataset_path=str(path),
+        entries=entries,
+        entry_index=0,
+        updated_entry={
+            "messages": [
+                {"role": "sytem", "content": "System"},
+                {"role": "uesr", "content": "Hi"},
+                {"role": "ASSITANT", "content": "Hello"},
+            ],
+            "tags": ["old"],
+        },
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    assert result.entries[0]["messages"] == [
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+    ]
 
 
 def test_save_full_edit_service_invalid_entry_blocks_save(tmp_path):
@@ -420,7 +582,7 @@ def test_replace_single_entry_tags_service_updates_only_target_and_preserves_unk
     )
 
     assert result.ok is True
-    assert result.entries[0] == entries[0]
+    assert _without_loreforge_meta(result.entries[0]) == entries[0]
     assert result.entries[1]["tags"] == ["unknown", "reviewed"]
     assert entries == original_entries
     assert _read_entries(path) == result.entries
@@ -459,7 +621,7 @@ def test_replace_tags_bulk_service_updates_only_selected_entries(tmp_path):
     assert result.ok is True
     assert result.affected_count == 2
     assert result.entries[0]["tags"] == ["bulk", "unknown"]
-    assert result.entries[1] == entries[1]
+    assert _without_loreforge_meta(result.entries[1]) == entries[1]
     assert result.entries[2]["tags"] == ["bulk", "unknown"]
     assert entries == original_entries
     assert _read_entries(path) == result.entries
@@ -568,7 +730,7 @@ def test_replace_system_prompt_bulk_service_replaces_or_inserts_system_prompt(tm
     assert result.entries[1]["messages"][1:] == no_system["messages"]
     assert result.entries[0]["tags"] == ["selected"]
     assert result.entries[1]["tags"] == ["no_system"]
-    assert result.entries[2] == entries[2]
+    assert _without_loreforge_meta(result.entries[2]) == entries[2]
     assert entries == original_entries
     assert _read_entries(path) == result.entries
 
@@ -634,9 +796,9 @@ def test_delete_entries_service_removes_selected_entries_and_preserves_order(tmp
 
     assert result.ok is True
     assert result.affected_count == 2
-    assert result.entries == [entries[0], entries[3]]
+    assert _without_loreforge_meta(result.entries) == [entries[0], entries[3]]
     assert entries == original_entries
-    assert _read_entries(path) == [entries[0], entries[3]]
+    assert _read_entries(path) == result.entries
 
 
 def test_delete_entries_service_invalid_indices_fail_safely(tmp_path):
@@ -667,8 +829,8 @@ def test_delete_entries_service_can_delete_malformed_selected_entries(tmp_path):
     )
 
     assert result.ok is True
-    assert result.entries == [entries[0], _entry(tags=["also_good"])]
-    assert _read_entries(path) == [entries[0], _entry(tags=["also_good"])]
+    assert _without_loreforge_meta(result.entries) == [entries[0], _entry(tags=["also_good"])]
+    assert _read_entries(path) == result.entries
 
 
 def test_delete_entries_service_backup_enabled_disabled_and_failure_paths(tmp_path, monkeypatch):
@@ -724,9 +886,10 @@ def test_save_merged_entries_service_saves_new_output_and_preserves_metadata(tmp
 
     assert result.ok is True
     assert result.backup_path is None
-    assert result.entries == entries
+    assert _without_loreforge_meta(result.entries) == entries
+    _assert_stamped(result.entries)
     assert entries == original_entries
-    assert _read_entries(path) == entries
+    assert _read_entries(path) == result.entries
 
 
 def test_save_merged_entries_service_overwrite_backup_enabled_and_disabled(tmp_path, monkeypatch):
@@ -815,7 +978,7 @@ def test_normalize_dataset_service_backup_failure_aborts_save(tmp_path, monkeypa
     assert path.read_text(encoding="utf-8") == before
 
 
-def test_save_repaired_entries_service_persists_exact_entries_with_backup(
+def test_save_repaired_entries_service_auto_corrects_role_typos_with_backup(
     tmp_path,
     monkeypatch,
 ):
@@ -844,9 +1007,19 @@ def test_save_repaired_entries_service_persists_exact_entries_with_backup(
     assert result.message == "Repaired entries saved."
     assert result.backup_path == str(backups[0])
     assert result.affected_count == 1
-    assert result.entries == repaired_entries
+    assert _without_loreforge_meta(result.entries) == [
+        {
+            "messages": [
+                {"role": "system", "content": " System "},
+                {"role": "user", "content": " Hi "},
+                {"role": "assistant", "content": " Hello "},
+            ],
+            "tags": ["slow burn", 7],
+        }
+    ]
+    _assert_stamped(result.entries)
     assert result.entries is not repaired_entries
-    assert written == repaired_entries
+    assert written == result.entries
     assert _read_entries(backups[0]) == original
 
 

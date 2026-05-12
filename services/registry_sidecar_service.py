@@ -74,13 +74,30 @@ def export_registry_sidecar(
 
     try:
         output_path = sidecar_path_for_dataset(Path(dataset_path))
+        usage_counts = _tag_usage_counts(entries)
+        included_slugs = set(usage_counts)
+        tags = _query_tags()
+        tags = [tag for tag in tags if tag["slug"] in included_slugs]
+        category_slugs = {
+            tag["category_slug"]
+            for tag in tags
+            if tag.get("category_slug")
+        }
         registry = build_sidecar_registry(
-            categories=_query_categories(),
-            tags=_query_tags(),
-            aliases=_query_aliases(),
+            categories=[
+                category
+                for category in _query_categories()
+                if category["slug"] in category_slugs
+            ],
+            tags=tags,
+            aliases=[
+                alias
+                for alias in _query_aliases()
+                if alias.get("new_slug") in included_slugs
+            ],
             dataset_filename=Path(dataset_path).name,
             entry_count=len(entries),
-            tag_usage_counts=_tag_usage_counts(entries),
+            tag_usage_counts=usage_counts,
         )
         write_sidecar(registry, output_path)
         return RegistrySidecarExportResult(

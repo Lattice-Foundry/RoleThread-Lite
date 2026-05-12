@@ -4,15 +4,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-_EDITOR_ROLE_SYNONYMS = {
-    "human": "user",
-    "user": "user",
-    "gpt": "assistant",
-    "assistant": "assistant",
-    "bot": "assistant",
-    "model": "assistant",
-    "system": "system",
-}
+from core.role_normalization import is_known_role_variant, normalize_role
 
 
 def scaffold_user_assistant_turns(turns: list[dict]) -> list[dict]:
@@ -84,4 +76,6 @@ def canonical_editor_role(role: object) -> str | None:
 
     if not isinstance(role, str):
         return None
-    return _EDITOR_ROLE_SYNONYMS.get(role.strip().lower())
+    if not is_known_role_variant(role):
+        return None
+    return normalize_role(role)[0]

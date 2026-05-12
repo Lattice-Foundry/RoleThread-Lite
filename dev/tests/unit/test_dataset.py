@@ -447,13 +447,13 @@ def test_normalize_entry_message_fields_canonicalizes_roles_and_trims_content():
     normalized, changed, role_count, content_count = normalize_entry_message_fields(entry)
 
     assert changed is True
-    assert role_count == 4
+    assert role_count == 3
     assert content_count == 4
     assert normalized["messages"] == [
         {"role": "system", "content": "System"},
         {"role": "user", "content": "Hi"},
         {"role": "assistant", "content": "Hello"},
-        {"role": "Scott", "content": "custom"},
+        {"role": " Scott ", "content": "custom"},
     ]
     assert entry["messages"][0]["role"] == " SYSTEM "
 

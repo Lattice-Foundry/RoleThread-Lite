@@ -20,7 +20,7 @@ from core.validation_actions import (
     collect_auto_fixable_groups,
 )
 from services.dataset_service import save_repaired_entries_service
-from ui.session_state import ensure_entry_registry
+from ui.session_state import apply_dataset_operation_result, ensure_entry_registry
 
 
 def render_validation_page() -> None:
@@ -234,6 +234,7 @@ def _execute_pending_fix(pending: dict) -> None:
         return
 
     persisted_entries = result.entries or repaired_entries
+    apply_dataset_operation_result(result)
     st.session_state.loaded_entries = persisted_entries
     st.session_state.entry_registry = build_entry_registry(persisted_entries)
     clear_validate_entry_cache()

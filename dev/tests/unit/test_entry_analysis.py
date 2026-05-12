@@ -565,6 +565,10 @@ def test_chatml_analyzer_keeps_custom_character_roles_manual():
     assert result.is_valid is False
     assert len(wrong_roles) == 2
     assert all(diagnostic.repair_kind == RepairKind.MANUAL for diagnostic in wrong_roles)
+    assert all(
+        "Custom role name" in diagnostic.message
+        for diagnostic in wrong_roles
+    )
     assert CHATML_ROLE_CANONICALIZATION not in {
         diagnostic.code for diagnostic in result.diagnostics
     }
@@ -577,13 +581,12 @@ def test_chatml_analyzer_reports_custom_role_whitespace_without_mapping_it():
         {"role": "assistant", "content": "Hello"},
     ]))
 
-    whitespace = _diagnostic_by_code(result, CHATML_ROLE_CANONICALIZATION)
     wrong_role = _diagnostic_by_code(result, CHATML_WRONG_ROLE)
 
     assert result.is_valid is False
-    assert whitespace.repair_kind == RepairKind.AUTOMATIC
-    assert whitespace.original_value == " Scott "
-    assert whitespace.normalized_value == "Scott"
+    assert CHATML_ROLE_CANONICALIZATION not in {
+        diagnostic.code for diagnostic in result.diagnostics
+    }
     assert wrong_role.repair_kind == RepairKind.MANUAL
     assert wrong_role.original_value == " Scott "
 

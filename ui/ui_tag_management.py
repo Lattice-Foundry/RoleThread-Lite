@@ -8,6 +8,7 @@ from core.tag_registry import (
     slugify_tag_name,
 )
 from core.text_helpers import count_phrase
+from ui.session_state import apply_dataset_operation_result
 from ui.tag_management_helpers import (
     selected_assignable_archived_slugs,
     validate_pending_archived_assignment,
@@ -408,6 +409,7 @@ def render_tag_management_page() -> None:
                         entries=st.session_state.get("loaded_entries", []),
                     )
                     if _result.ok:
+                        apply_dataset_operation_result(_result)
                         if _result.entries is not None:
                             st.session_state.loaded_entries = _result.entries
                             st.session_state.entry_registry = build_entry_registry(
@@ -459,6 +461,7 @@ def render_tag_management_page() -> None:
                         entries=st.session_state.get("loaded_entries", []),
                     )
                     if _result.ok:
+                        apply_dataset_operation_result(_result)
                         if _result.entries is not None:
                             st.session_state.loaded_entries = _result.entries
                             st.session_state.entry_registry = build_entry_registry(

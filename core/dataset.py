@@ -20,6 +20,7 @@ from core.format_conversion import (
     detect_records_format,
 )
 from core.loreforge_meta import is_native_dataset
+from core.role_normalization import normalize_role
 from core.entry_analysis import (
     AnalysisSeverity,
     BASE_EMPTY_TAG,
@@ -633,10 +634,8 @@ def normalize_entry_message_fields(entry: dict) -> tuple[dict, bool, int, int]:
 
         role = message.get("role")
         if isinstance(role, str):
-            normalized_role = _canonical_chatml_role(role)
-            if normalized_role is None:
-                normalized_role = role.strip()
-            if normalized_role != role:
+            normalized_role, role_changed = normalize_role(role)
+            if role_changed:
                 message["role"] = normalized_role
                 role_values_normalized += 1
                 changed = True
@@ -650,17 +649,6 @@ def normalize_entry_message_fields(entry: dict) -> tuple[dict, bool, int, int]:
                 changed = True
 
     return normalized_entry, changed, role_values_normalized, message_content_trimmed
-
-
-def _canonical_chatml_role(role: str) -> str | None:
-    normalized = role.strip().lower()
-    if normalized in {"human", "user"}:
-        return "user"
-    if normalized in {"gpt", "assistant", "bot", "model"}:
-        return "assistant"
-    if normalized == "system":
-        return "system"
-    return None
 
 
 def set_entry_tags(entry: dict, tags: list[str]) -> dict:

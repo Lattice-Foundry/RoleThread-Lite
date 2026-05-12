@@ -21,6 +21,7 @@ from core.tag_registry import (
 )
 from core.text_helpers import count_phrase
 from ui.session_state import (
+    apply_dataset_operation_result,
     clear_entry_edit_state,
     ensure_entry_registry,
     get_all_entry_pairs,
@@ -268,6 +269,7 @@ def save_full_edit(active_registry: dict[str, list[str]]) -> bool:
         return False
 
     if result.entries is not None:
+        apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
         ensure_entry_registry()
 

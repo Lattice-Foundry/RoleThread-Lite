@@ -5,11 +5,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+from core.version import LOREFORGE_VERSION
+
 
 SIDECAR_SCHEMA_VERSION = 1
 SIDECAR_KIND = "loreforge.tag_registry"
 SIDECAR_APP_NAME = "LoreForge Lite"
-SIDECAR_APP_VERSION = "1"
+SIDECAR_APP_VERSION = LOREFORGE_VERSION
 _MISSING = object()
 
 

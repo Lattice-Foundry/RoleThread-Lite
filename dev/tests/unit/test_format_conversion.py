@@ -83,6 +83,8 @@ def test_sharegpt_to_chatml_maps_roles_and_fields():
                 {"from": "Assistant", "value": "Sure"},
                 {"from": "bot", "value": "Bot reply"},
                 {"from": "model", "value": "Model reply"},
+                {"from": "uesr", "value": "Typo user"},
+                {"from": "ASSITANT", "value": "Typo assistant"},
             ]
         }
     )
@@ -95,6 +97,8 @@ def test_sharegpt_to_chatml_maps_roles_and_fields():
         {"role": "assistant", "content": "Sure"},
         {"role": "assistant", "content": "Bot reply"},
         {"role": "assistant", "content": "Model reply"},
+        {"role": "user", "content": "Typo user"},
+        {"role": "assistant", "content": "Typo assistant"},
     ]
     assert result.diagnostics.mapped_roles["human"] == "user"
     assert result.diagnostics.mapped_roles["gpt"] == "assistant"

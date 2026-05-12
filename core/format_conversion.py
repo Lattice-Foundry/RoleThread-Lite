@@ -2,6 +2,8 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 
+from core.role_normalization import normalize_role
+
 
 FORMAT_CHATML = "chatml"
 FORMAT_SHAREGPT = "sharegpt"
@@ -12,9 +14,6 @@ SHAREGPT_INTERNAL_SYSTEM_PROMPT = (
     "internally by LoreForge and will not be included in ShareGPT exports."
 )
 
-_USER_ROLES = {"human", "user"}
-_ASSISTANT_ROLES = {"gpt", "assistant", "bot", "model"}
-_SYSTEM_ROLES = {"system"}
 _ROLE_FIELD_KEYS = ("from", "role", "speaker")
 _CONTENT_FIELD_KEYS = ("value", "content", "text")
 
@@ -386,18 +385,16 @@ def _first_present(record: dict, keys: tuple[str, ...]) -> object | None:
 
 
 def _map_sharegpt_role(raw_role: object) -> str | None:
-    role = str(raw_role).strip().lower()
-    if role in _USER_ROLES:
-        return "user"
-    if role in _ASSISTANT_ROLES:
-        return "assistant"
-    if role in _SYSTEM_ROLES:
-        return "system"
+    role, changed = normalize_role(str(raw_role))
+    if changed or role in {"user", "assistant", "system"}:
+        return role
     return None
 
 
 def _map_chatml_role(raw_role: object) -> str | None:
-    role = str(raw_role).strip().lower()
+    role, changed = normalize_role(str(raw_role))
+    if not changed and role not in {"user", "assistant", "system"}:
+        return None
     if role == "user":
         return "human"
     if role == "assistant":
