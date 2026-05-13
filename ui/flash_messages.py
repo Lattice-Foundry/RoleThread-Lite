@@ -20,6 +20,8 @@ def enqueue_dataset_result_flash(message: str, result) -> None:
     """Queue a success plus sidecar warning for a dataset operation result."""
 
     enqueue_flash("success", message)
+    for warning_message in getattr(result, "warnings", []) or []:
+        enqueue_flash("warning", warning_message)
     if getattr(result, "sidecar_ok", True):
         return
     detail = getattr(result, "sidecar_message", None)

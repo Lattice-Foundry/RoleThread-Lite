@@ -23,8 +23,7 @@ def render_character_management_page() -> None:
 
     render_flash_messages()
     characters = get_all_characters()
-    selected = st.session_state.setdefault("selected_character_slugs", set())
-    selected.intersection_update({character.slug for character in characters})
+    selected = reconcile_character_selection_state(st.session_state, characters)
     usage_counts = get_character_usage_counts([character.slug for character in characters])
 
     if characters:
@@ -46,13 +45,15 @@ def _render_bulk_actions(characters, selected: set[str]) -> None:
     col_select, col_clear, col_delete, _spacer = st.columns([1, 1, 1.2, 3])
     with col_select:
         if st.button("Select All", width="stretch"):
-            st.session_state.selected_character_slugs = {
-                character.slug for character in characters
-            }
+            set_character_selection_state(
+                st.session_state,
+                characters,
+                {character.slug for character in characters},
+            )
             st.rerun()
     with col_clear:
         if st.button("Deselect All", width="stretch"):
-            st.session_state.selected_character_slugs = set()
+            set_character_selection_state(st.session_state, characters, set())
             _clear_delete_confirmation()
             st.rerun()
     with col_delete:
@@ -81,7 +82,7 @@ def _render_bulk_actions(characters, selected: set[str]) -> None:
     with confirm_col:
         if st.button("Confirm Delete", type="primary"):
             deleted = delete_characters(pending)
-            st.session_state.selected_character_slugs = set()
+            set_character_selection_state(st.session_state, characters, set())
             _clear_delete_confirmation()
             enqueue_flash(
                 "success",
@@ -232,6 +233,38 @@ def _format_date(value) -> str:
     if value is None:
         return "-"
     return value.strftime("%Y-%m-%d") if hasattr(value, "strftime") else str(value)
+
+
+def character_checkbox_key(slug: str) -> str:
+    """Return the widget key for a character row selection checkbox."""
+
+    return f"character_select_{slug}"
+
+
+def reconcile_character_selection_state(state, characters) -> set[str]:
+    """Sync selected character slugs from current checkbox widget state."""
+
+    active_slugs = {character.slug for character in characters}
+    stored_selection = set(state.get("selected_character_slugs", set())) & active_slugs
+    selected: set[str] = set()
+    for character in characters:
+        widget_key = character_checkbox_key(character.slug)
+        if widget_key not in state:
+            state[widget_key] = character.slug in stored_selection
+        if bool(state.get(widget_key)):
+            selected.add(character.slug)
+    state["selected_character_slugs"] = selected
+    return selected
+
+
+def set_character_selection_state(state, characters, selected_slugs: set[str]) -> None:
+    """Set both selection storage and checkbox widget state for characters."""
+
+    active_slugs = {character.slug for character in characters}
+    selected = set(selected_slugs) & active_slugs
+    state["selected_character_slugs"] = selected
+    for character in characters:
+        state[character_checkbox_key(character.slug)] = character.slug in selected
 
 
 def _clear_delete_confirmation() -> None:

@@ -61,7 +61,15 @@ from ui.ui_components import (
     render_message_preview,
     render_tag_multiselects,
 )
-from ui.ui_create import clear_character_state_values, render_entry_mode_toggle, render_turn_builder
+from ui.ui_create import (
+    ENTRY_MODE_GROUP,
+    collect_group_character_turn_mappings,
+    clear_character_state_values,
+    entry_mode_key,
+    group_character_display_names_from_state,
+    render_entry_mode_toggle,
+    render_turn_builder,
+)
 
 _UNTAGGED = "__untagged__"
 
@@ -323,6 +331,14 @@ def save_full_edit(active_registry: dict[str, list[str]]) -> bool:
         entries=st.session_state.loaded_entries,
         entry_index=entry_index,
         updated_entry=edited_entry,
+        character_turns=(
+            collect_group_character_turn_mappings("full_edit", turns_now)
+            if st.session_state.get(entry_mode_key("full_edit")) == ENTRY_MODE_GROUP
+            else None
+        ),
+        clear_character_mappings=(
+            st.session_state.get(entry_mode_key("full_edit")) != ENTRY_MODE_GROUP
+        ),
         backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
     )
     if not result.ok:
@@ -401,7 +417,15 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
     render_conversation_preview(
         turns_now,
         "full_edit",
-        display_names=_editor_turn_display_names(current_entry),
+        display_names=(
+            group_character_display_names_from_state(
+                st.session_state,
+                "full_edit",
+                turns_now,
+            )
+            if st.session_state.get(entry_mode_key("full_edit")) == ENTRY_MODE_GROUP
+            else _editor_turn_display_names(current_entry)
+        ),
     )
 
     # ── Tags ───────────────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import traceback
 from uuid import uuid4
 
 from core.backups import create_dataset_backup
+from core.character_registry import delete_entry_character_turns, set_entry_character_turns
 from core.dataset import (
     canonicalize_entry_tag_aliases,
     load_dataset,
@@ -23,7 +24,12 @@ from core.dataset import (
     set_entry_system_prompt,
     validate_entry,
 )
-from core.loreforge_meta import get_dataset_uuid_for_entries, get_entry_uuid, stamp_entries
+from core.loreforge_meta import (
+    LOREFORGE_META_KEY,
+    get_dataset_uuid_for_entries,
+    get_entry_uuid,
+    stamp_entries,
+)
 from core.registry_sidecar import read_sidecar, sidecar_path_for_dataset
 from core.role_normalization import normalize_entry_roles
 from core.working_copy import (
@@ -45,6 +51,7 @@ class DatasetOperationResult:
     dataset_path: str | None = None
     sidecar_ok: bool = True
     sidecar_message: str | None = None
+    warnings: list[str] = field(default_factory=list)
     source_sidecar_summary: "SourceSidecarImportSummary | None" = None
 
 
@@ -186,6 +193,43 @@ def _sidecar_result_fields(save_result: DatasetSaveResult) -> dict:
         "sidecar_ok": save_result.sidecar_ok,
         "sidecar_message": save_result.sidecar_message,
     }
+
+
+def _apply_character_turn_update(
+    save_result: DatasetSaveResult,
+    *,
+    entry_uuid: str | None,
+    character_turns: list[dict] | None = None,
+    clear_character_mappings: bool = False,
+) -> tuple[DatasetSaveResult, list[str]]:
+    """Apply best-effort entry character mappings after a dataset save."""
+
+    if character_turns is None and not clear_character_mappings:
+        return save_result, []
+
+    warnings: list[str] = []
+    if not entry_uuid:
+        warnings.append("Character mappings could not be updated because the entry UUID is missing.")
+        return save_result, warnings
+
+    try:
+        if clear_character_mappings:
+            delete_entry_character_turns(entry_uuid)
+        else:
+            set_entry_character_turns(entry_uuid, character_turns or [])
+    except Exception as exc:
+        traceback.print_exc()
+        warnings.append(f"Character mappings could not be updated: {exc}")
+        return save_result, warnings
+
+    sidecar_ok, sidecar_message = _write_registry_sidecar(
+        save_result.dataset_path,
+        save_result.entries,
+    )
+    if not sidecar_ok:
+        save_result.sidecar_ok = False
+        save_result.sidecar_message = sidecar_message
+    return save_result, warnings
 
 
 def _import_source_sidecars(
@@ -387,6 +431,8 @@ def save_full_edit_service(
     entries: list[dict],
     entry_index: int,
     updated_entry: dict,
+    character_turns: list[dict] | None = None,
+    clear_character_mappings: bool = False,
     backup_enabled: bool = True,
     backup_reason: str = "before_full_edit",
 ) -> DatasetOperationResult:
@@ -404,6 +450,10 @@ def save_full_edit_service(
         )
 
     edited_entry = copy.deepcopy(updated_entry)
+    if LOREFORGE_META_KEY not in edited_entry:
+        existing_meta = entries[entry_index].get(LOREFORGE_META_KEY)
+        if isinstance(existing_meta, dict):
+            edited_entry[LOREFORGE_META_KEY] = copy.deepcopy(existing_meta)
     edited_entry, _ = normalize_entry_roles(edited_entry)
     errors = validate_entry(edited_entry)
     if errors:
@@ -428,6 +478,13 @@ def save_full_edit_service(
         save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
         saved_path = save_result.dataset_path
         proposed_entries = save_result.entries
+        entry_uuid = get_entry_uuid(proposed_entries[entry_index])
+        save_result, warnings = _apply_character_turn_update(
+            save_result,
+            entry_uuid=entry_uuid,
+            character_turns=character_turns,
+            clear_character_mappings=clear_character_mappings,
+        )
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -442,6 +499,7 @@ def save_full_edit_service(
         backup_path=backup_path,
         affected_count=1,
         dataset_path=saved_path,
+        warnings=warnings,
         **_sidecar_result_fields(save_result),
     )
 
@@ -884,6 +942,7 @@ def create_entry_service(
     dataset_path: str,
     entries: list[dict],
     new_entry: dict,
+    character_turns: list[dict] | None = None,
     backup_enabled: bool = True,
     backup_reason: str = "before_create_entry",
 ) -> DatasetOperationResult:
@@ -930,6 +989,12 @@ def create_entry_service(
         save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
         saved_path = save_result.dataset_path
         proposed_entries = save_result.entries
+        entry_uuid = get_entry_uuid(proposed_entries[-1]) if proposed_entries else None
+        save_result, warnings = _apply_character_turn_update(
+            save_result,
+            entry_uuid=entry_uuid,
+            character_turns=character_turns,
+        )
     except Exception as exc:
         traceback.print_exc()
         return DatasetOperationResult(
@@ -944,5 +1009,6 @@ def create_entry_service(
         backup_path=backup_path,
         affected_count=1,
         dataset_path=saved_path,
+        warnings=warnings,
         **_sidecar_result_fields(save_result),
     )

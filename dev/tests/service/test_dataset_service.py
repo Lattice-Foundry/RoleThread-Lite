@@ -30,6 +30,7 @@ from core.registry_sidecar import (
 )
 from core.models import Base, Character, EntryCharacterTurn, Tag, TagCategory
 import core.tag_registry as tag_registry
+import core.character_registry as character_registry
 from core.version import LOREFORGE_VERSION
 import core.tag_resolution as tag_resolution
 import services.registry_sidecar_service as registry_sidecar_service
@@ -45,6 +46,11 @@ from services.dataset_service import (
     save_full_edit_service,
     save_merged_entries_service,
     save_quick_edit_service,
+)
+from core.character_registry import (
+    create_character,
+    get_entry_character_turns,
+    set_entry_character_turns,
 )
 
 
@@ -158,6 +164,7 @@ def _registry_session_factory(tmp_path, monkeypatch):
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(character_registry, "SessionLocal", session_factory)
     monkeypatch.setattr(registry_sidecar_service, "engine", engine)
     monkeypatch.setattr(registry_sidecar_service, "SessionLocal", session_factory)
     monkeypatch.setattr(tag_resolution, "SessionLocal", session_factory)
@@ -334,6 +341,90 @@ def test_create_entry_service_first_entry_into_empty_dataset_uses_existing_sidec
     assert get_dataset_uuid_for_entries(result.entries) == "empty-sidecar-uuid"
     assert sidecar.dataset_info.dataset_uuid == "empty-sidecar-uuid"
     assert sidecar.dataset_info.entry_count == 1
+
+
+def test_create_entry_service_group_mode_saves_character_mappings(tmp_path, monkeypatch):
+    _registry_session_factory(tmp_path, monkeypatch)
+    create_character("Scott")
+    create_character("Emma")
+    existing = [_entry(tags=["existing"])]
+    path = _write_dataset(tmp_path, existing)
+
+    result = create_entry_service(
+        dataset_path=str(path),
+        entries=existing,
+        new_entry=_entry(tags=["custom"]),
+        character_turns=[
+            {
+                "turn_index": 1,
+                "character_slug": "scott",
+                "training_role": "user",
+                "source_role_label": "Scott",
+            },
+            {
+                "turn_index": 2,
+                "character_slug": "emma",
+                "training_role": "assistant",
+                "source_role_label": "Emma",
+            },
+        ],
+        backup_enabled=False,
+    )
+
+    entry_uuid = get_entry_uuid(result.entries[-1])
+    mappings = get_entry_character_turns(entry_uuid)
+    sidecar = read_sidecar(sidecar_path_for_dataset(path))
+    assert result.ok is True
+    assert [(mapping.turn_index, mapping.training_role) for mapping in mappings] == [
+        (1, "user"),
+        (2, "assistant"),
+    ]
+    assert sidecar.entry_character_mappings[0].entry_uuid == entry_uuid
+    assert sidecar.entry_character_mappings[0].turns == (
+        {
+            "turn_index": 1,
+            "character_slug": "scott",
+            "training_role": "user",
+            "source_role_label": "Scott",
+        },
+        {
+            "turn_index": 2,
+            "character_slug": "emma",
+            "training_role": "assistant",
+            "source_role_label": "Emma",
+        },
+    )
+
+
+def test_create_entry_service_mapping_write_failure_is_non_fatal(tmp_path, monkeypatch):
+    existing = [_entry(tags=["existing"])]
+    path = _write_dataset(tmp_path, existing)
+
+    def fail_mapping(_entry_uuid, _turns):
+        raise RuntimeError("mapping db unavailable")
+
+    monkeypatch.setattr(dataset_service, "set_entry_character_turns", fail_mapping)
+
+    result = create_entry_service(
+        dataset_path=str(path),
+        entries=existing,
+        new_entry=_entry(tags=["custom"]),
+        character_turns=[
+            {
+                "turn_index": 1,
+                "character_slug": "scott",
+                "training_role": "user",
+                "source_role_label": "Scott",
+            },
+        ],
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    assert result.warnings == [
+        "Character mappings could not be updated: mapping db unavailable"
+    ]
+    assert _read_entries(path) == result.entries
 
 
 def test_create_entry_service_missing_dataset_path_fails_safely():
@@ -676,6 +767,93 @@ def test_save_full_edit_service_rewrites_stale_alias_tags(tmp_path, monkeypatch)
     assert result.ok is True
     assert result.entries[0]["tags"] == ["active_tag"]
     assert _read_entries(path)[0]["tags"] == ["active_tag"]
+
+
+def test_save_full_edit_service_group_mode_replaces_character_mappings(
+    tmp_path,
+    monkeypatch,
+):
+    _registry_session_factory(tmp_path, monkeypatch)
+    create_character("Scott")
+    create_character("Emma")
+    create_character("Kai")
+    entries = stamp_entries([_entry(tags=["old"])], dataset_uuid="dataset-uuid")
+    path = _write_dataset(tmp_path, entries)
+    entry_uuid = get_entry_uuid(entries[0])
+    set_entry_character_turns(
+        entry_uuid,
+        [
+            {
+                "turn_index": 1,
+                "character_slug": "kai",
+                "training_role": "user",
+                "source_role_label": "Kai",
+            },
+        ],
+    )
+
+    result = save_full_edit_service(
+        dataset_path=str(path),
+        entries=entries,
+        entry_index=0,
+        updated_entry=_entry(user="Edited", assistant="Saved", tags=["new"]),
+        character_turns=[
+            {
+                "turn_index": 1,
+                "character_slug": "scott",
+                "training_role": "user",
+                "source_role_label": "Scott",
+            },
+            {
+                "turn_index": 2,
+                "character_slug": "emma",
+                "training_role": "assistant",
+                "source_role_label": "Emma",
+            },
+        ],
+        backup_enabled=False,
+    )
+
+    mappings = get_entry_character_turns(entry_uuid)
+    assert result.ok is True
+    assert [(mapping.turn_index, mapping.training_role) for mapping in mappings] == [
+        (1, "user"),
+        (2, "assistant"),
+    ]
+
+
+def test_save_full_edit_service_standard_mode_clears_character_mappings(
+    tmp_path,
+    monkeypatch,
+):
+    _registry_session_factory(tmp_path, monkeypatch)
+    create_character("Scott")
+    entries = stamp_entries([_entry(tags=["old"])], dataset_uuid="dataset-uuid")
+    path = _write_dataset(tmp_path, entries)
+    entry_uuid = get_entry_uuid(entries[0])
+    set_entry_character_turns(
+        entry_uuid,
+        [
+            {
+                "turn_index": 1,
+                "character_slug": "scott",
+                "training_role": "user",
+                "source_role_label": "Scott",
+            },
+        ],
+    )
+
+    result = save_full_edit_service(
+        dataset_path=str(path),
+        entries=entries,
+        entry_index=0,
+        updated_entry=_entry(user="Edited", assistant="Saved", tags=["new"]),
+        clear_character_mappings=True,
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    assert get_entry_character_turns(entry_uuid) == []
 
 
 def test_save_full_edit_service_invalid_entry_blocks_save(tmp_path):

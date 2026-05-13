@@ -69,25 +69,22 @@ def character_state_key(prefix: str, turn_index: int) -> str:
     return f"{prefix}_character_{turn_index}"
 
 
-def ai_character_state_key(prefix: str) -> str:
-    """Return the session-state key for one editor's AI character."""
+def pending_character_state_key(prefix: str, turn_index: int) -> str:
+    """Return the non-widget key used to select a newly created character."""
 
-    return f"{prefix}_ai_character"
+    return f"{prefix}_pending_character_{turn_index}"
 
 
-def clear_character_state_values(
-    state,
-    prefix: str,
-    *,
-    clear_ai: bool = True,
-) -> None:
+def clear_character_state_values(state, prefix: str) -> None:
     """Clear group-mode character state for one editor prefix."""
 
-    prefixes = (f"{prefix}_character_", f"{prefix}_new_character_")
+    prefixes = (
+        f"{prefix}_character_",
+        f"{prefix}_new_character_",
+        f"{prefix}_pending_character_",
+    )
     for key in [key for key in state if str(key).startswith(prefixes)]:
         state.pop(key, None)
-    if clear_ai:
-        state.pop(ai_character_state_key(prefix), None)
 
 
 def matching_character_slug(name: str, characters) -> str:
@@ -100,6 +97,105 @@ def matching_character_slug(name: str, characters) -> str:
         if character.slug == normalized_slug:
             return character.slug
     return ""
+
+
+def default_character_slug_for_turn(
+    state,
+    prefix: str,
+    turn_index: int,
+    role: str,
+    characters,
+) -> str:
+    """Return the inherited or settings-backed default character for a turn."""
+
+    if turn_index >= 2:
+        previous_key = character_state_key(prefix, turn_index - 2)
+        if previous_key in state and state.get(previous_key) != _NEW_CHARACTER_OPTION:
+            previous_slug = state.get(previous_key, "")
+            return previous_slug
+
+    if role == "assistant":
+        return matching_character_slug(
+            state.get("preview_assistant_name", "Assistant"),
+            characters,
+        )
+    if role == "user":
+        return matching_character_slug(
+            state.get("preview_user_name", "User"),
+            characters,
+        )
+    return ""
+
+
+def apply_pending_character_assignment(
+    state,
+    prefix: str,
+    turn_index: int,
+    valid_slugs: set[str] | None = None,
+) -> bool:
+    """Apply a pending inline-created character before its selectbox renders."""
+
+    pending_key = pending_character_state_key(prefix, turn_index)
+    if pending_key not in state:
+        return False
+    pending_slug = state.get(pending_key, "")
+    if valid_slugs is not None and pending_slug not in valid_slugs:
+        return False
+    state[character_state_key(prefix, turn_index)] = pending_slug
+    state.pop(pending_key, None)
+    return True
+
+
+def collect_group_character_turn_mappings(
+    prefix: str,
+    turns: list[dict],
+    characters=None,
+) -> list[dict]:
+    """Collect DB mapping payloads from one editor's group-mode state."""
+
+    character_list = list(characters if characters is not None else get_all_characters())
+    character_by_slug = {character.slug: character for character in character_list}
+    mappings: list[dict] = []
+    for turn_index, turn in enumerate(turns):
+        role = turn.get("role")
+        if role not in ("user", "assistant"):
+            continue
+        character_slug = st.session_state.get(character_state_key(prefix, turn_index), "")
+        if not character_slug or character_slug == _NEW_CHARACTER_OPTION:
+            continue
+        character = character_by_slug.get(character_slug)
+        if character is None:
+            continue
+        mappings.append({
+            "turn_index": turn_index + 1,
+            "character_slug": character.slug,
+            "training_role": role,
+            "source_role_label": character.display_name,
+        })
+    return mappings
+
+
+def group_character_display_names_from_state(
+    state,
+    prefix: str,
+    turns: list[dict],
+    characters=None,
+) -> dict[int, str]:
+    """Return live preview display names from group-mode character dropdowns."""
+
+    character_list = list(characters if characters is not None else get_all_characters())
+    character_by_slug = {character.slug: character for character in character_list}
+    display_names: dict[int, str] = {}
+    for turn_index, turn in enumerate(turns):
+        if turn.get("role") not in ("user", "assistant"):
+            continue
+        character_slug = state.get(character_state_key(prefix, turn_index), "")
+        if not character_slug or character_slug == _NEW_CHARACTER_OPTION:
+            continue
+        character = character_by_slug.get(character_slug)
+        if character is not None:
+            display_names[turn_index] = character.display_name
+    return display_names
 
 
 def render_entry_mode_toggle(prefix: str) -> str:
@@ -153,7 +249,7 @@ def render_turn_builder(
             st.session_state.pop(f"{prefix}_turn_{_i}", None)
         for _cat in _tag_cat_names:
             st.session_state[f"{prefix}_tags_{_cat}"] = []
-        clear_character_state_values(st.session_state, prefix, clear_ai=False)
+        clear_character_state_values(st.session_state, prefix)
 
     # ── Tag backup restore ─────────────────────────────────────────────────────
     for _cat in _tag_cat_names:
@@ -193,9 +289,8 @@ def render_turn_builder(
     _overage = max(0, _current_exchanges - _planned_exchanges)
     _group_mode = st.session_state.get(entry_mode_key(prefix)) == ENTRY_MODE_GROUP
     _characters = get_all_characters() if _group_mode else []
-    _ai_character_slug = ""
-    if _group_mode:
-        _ai_character_slug = _render_group_ai_selector(prefix, _characters)
+    if _group_mode and not _characters:
+        st.caption("Add characters in Metadata or from a turn dropdown to use group mode.")
 
     # ── Turn pair rendering loop ───────────────────────────────────────────────
     for _pair in range(0, len(st.session_state[f"{prefix}_turns"]), 2):
@@ -214,7 +309,6 @@ def render_turn_builder(
                         _role,
                         _color,
                         _characters,
-                        _ai_character_slug,
                     )
                 else:
                     st.markdown(
@@ -262,6 +356,7 @@ def render_turn_builder(
                 st.session_state.pop(_k, None)
             for _idx in (_n - 2, _n - 1):
                 st.session_state.pop(character_state_key(prefix, _idx), None)
+                st.session_state.pop(pending_character_state_key(prefix, _idx), None)
                 st.session_state.pop(f"{prefix}_new_character_{_idx}", None)
             st.rerun()
 
@@ -271,35 +366,12 @@ def render_turn_builder(
     return _turns_now
 
 
-def _render_group_ai_selector(prefix: str, characters) -> str:
-    assistant_default = matching_character_slug(
-        st.session_state.get("preview_assistant_name", "Assistant"),
-        characters,
-    )
-    ai_key = ai_character_state_key(prefix)
-    if ai_key not in st.session_state:
-        st.session_state[ai_key] = assistant_default
-
-    options = [_NO_CHARACTER_OPTION] + [character.slug for character in characters]
-    character_by_slug = {character.slug: character for character in characters}
-    selected = st.selectbox(
-        "AI Character (speaks on assistant turns):",
-        options=options,
-        format_func=lambda slug: _format_character_option(slug, character_by_slug),
-        key=ai_key,
-    )
-    if not characters:
-        st.caption("Add characters in Metadata or from a turn dropdown to use group mode.")
-    return selected
-
-
 def _render_group_turn_header(
     prefix: str,
     turn_index: int,
     role: str,
     color: str,
     characters,
-    ai_character_slug: str,
 ) -> None:
     header_label, header_select = st.columns([1, 2])
     with header_label:
@@ -309,15 +381,12 @@ def _render_group_turn_header(
             unsafe_allow_html=True,
         )
     with header_select:
-        selected_slug = _render_turn_character_select(
+        _render_turn_character_select(
             prefix,
             turn_index,
             role,
             characters,
-            ai_character_slug,
         )
-    if role == "assistant" and selected_slug and selected_slug != ai_character_slug:
-        st.caption("This assistant turn is assigned to a non-AI character.")
 
 
 def _render_turn_character_select(
@@ -325,17 +394,21 @@ def _render_turn_character_select(
     turn_index: int,
     role: str,
     characters,
-    ai_character_slug: str,
 ) -> str:
     character_key = character_state_key(prefix, turn_index)
+    character_by_slug = {character.slug: character for character in characters}
+    apply_pending_character_assignment(
+        st.session_state,
+        prefix,
+        turn_index,
+        set(character_by_slug),
+    )
     _ensure_turn_character_default(
         prefix,
         turn_index,
         role,
         characters,
-        ai_character_slug,
     )
-    character_by_slug = {character.slug: character for character in characters}
     options = (
         [_NO_CHARACTER_OPTION]
         + [character.slug for character in characters]
@@ -358,23 +431,18 @@ def _ensure_turn_character_default(
     turn_index: int,
     role: str,
     characters,
-    ai_character_slug: str,
 ) -> None:
     character_key = character_state_key(prefix, turn_index)
-    if st.session_state.get(character_key):
+    if character_key in st.session_state:
         return
 
-    default_slug = ""
-    if role == "assistant":
-        default_slug = ai_character_slug or matching_character_slug(
-            st.session_state.get("preview_assistant_name", "Assistant"),
-            characters,
-        )
-    elif role == "user":
-        default_slug = matching_character_slug(
-            st.session_state.get("preview_user_name", "User"),
-            characters,
-        )
+    default_slug = default_character_slug_for_turn(
+        st.session_state,
+        prefix,
+        turn_index,
+        role,
+        characters,
+    )
     if default_slug:
         st.session_state[character_key] = default_slug
 
@@ -392,7 +460,7 @@ def _render_inline_character_create(prefix: str, turn_index: int) -> None:
         except Exception as exc:
             st.error(str(exc))
             return
-        st.session_state[character_state_key(prefix, turn_index)] = character.slug
+        st.session_state[pending_character_state_key(prefix, turn_index)] = character.slug
         st.session_state.pop(input_key, None)
         st.rerun()
 
@@ -479,10 +547,14 @@ def render_entry_actions(
         if not save_path:
             st.error("No dataset loaded. Please load or create a dataset before saving an exchange.")
         else:
+            character_turns = None
+            if st.session_state.get(entry_mode_key(prefix)) == ENTRY_MODE_GROUP:
+                character_turns = collect_group_character_turn_mappings(prefix, turns_now)
             result = create_entry_service(
                 dataset_path=save_path,
                 entries=st.session_state.loaded_entries,
                 new_entry=entry_preview,
+                character_turns=character_turns,
             )
             if result.ok and result.entries is not None:
                 apply_dataset_operation_result(result)
@@ -542,6 +614,11 @@ def render_create_page() -> None:
 
     # ── Conversation preview (full width, below Add/Remove buttons) ────────────
     st.subheader("Conversation Preview")
-    render_conversation_preview(turns_now, "create")
+    preview_display_names = (
+        group_character_display_names_from_state(st.session_state, "create", turns_now)
+        if st.session_state.get(entry_mode_key("create")) == ENTRY_MODE_GROUP
+        else None
+    )
+    render_conversation_preview(turns_now, "create", display_names=preview_display_names)
 
     render_entry_actions(turns_now, "create", _tag_snapshot.active_registry)
