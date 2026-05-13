@@ -142,6 +142,33 @@ class EntryCharacterTurn(Base):
         )
 
 
+class SystemPromptTemplate(Base):
+    """Reusable system prompt text for entry creation and editing."""
+    __tablename__ = "system_prompt_templates"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_system_prompt_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_datetime
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utc_datetime,
+        onupdate=_utc_datetime,
+    )
+
+    def __repr__(self) -> str:
+        return f"<SystemPromptTemplate id={self.id} slug={self.slug!r}>"
+
+
 class TagLifecycleMetadata(Base):
     """Current lifecycle metadata and resolver intelligence for one tag slug."""
     __tablename__ = "tag_lifecycle_metadata"
