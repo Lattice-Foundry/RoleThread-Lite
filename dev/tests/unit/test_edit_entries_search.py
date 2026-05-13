@@ -50,6 +50,37 @@ def test_edit_blank_search_preserves_existing_tag_filter_behavior():
     assert [entry_uuid for entry_uuid, _entry in matches] == ["alpha", "both"]
 
 
+def test_edit_whitespace_search_is_inactive_even_with_no_scopes():
+    pairs = [
+        ("alpha", _entry(tags=["alpha"], user="first")),
+        ("beta", _entry(tags=["beta"], user="second")),
+    ]
+
+    matches = apply_edit_entry_filters(
+        pairs,
+        filter_tags=["alpha"],
+        tag_match_mode=MATCH_MODE_ANY,
+        search_query="   ",
+        search_options=EntrySearchOptions(scopes=()),
+    )
+
+    assert [entry_uuid for entry_uuid, _entry in matches] == ["alpha"]
+
+
+def test_edit_active_search_with_all_scopes_disabled_matches_nothing():
+    pairs = [("entry", _entry(user="needle"))]
+
+    matches = apply_edit_entry_filters(
+        pairs,
+        filter_tags=[],
+        tag_match_mode=MATCH_MODE_ANY,
+        search_query="needle",
+        search_options=EntrySearchOptions(scopes=()),
+    )
+
+    assert matches == []
+
+
 def test_edit_search_preserves_tag_exact_match_mode():
     pairs = [
         ("alpha", _entry(tags=["alpha"], user="lantern")),

@@ -46,7 +46,12 @@ from ui.browser_helpers import (
     slice_visible_pairs,
 )
 from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
-from ui.entry_search_controls import render_entry_search_controls
+from ui.entry_search_controls import (
+    entry_search_has_enabled_scope,
+    format_entry_search_no_results_message,
+    is_entry_search_query_active,
+    render_entry_search_controls,
+)
 from ui.entry_search_state import ENTRY_SEARCH_QUERY_KEY, get_entry_search_options
 from ui.ui_components import (
     calculate_exchange_metrics,
@@ -553,7 +558,7 @@ def render_edit_entries_page() -> None:
         )
 
     # ── Apply filter ───────────────────────────────────────────────────────────
-    render_entry_search_controls()
+    render_entry_search_controls(on_change=_ee_reset_page)
     _ee_search_query = st.session_state.get(ENTRY_SEARCH_QUERY_KEY, "")
     _ee_search_options = get_entry_search_options()
 
@@ -588,14 +593,15 @@ def render_edit_entries_page() -> None:
     _ee_total_filtered = len(_ee_filtered_pairs)
     _ee_total_all = len(_ee_all_pairs)
 
-    _ee_search_active = bool(str(_ee_search_query or "").strip())
+    _ee_search_active = is_entry_search_query_active(_ee_search_query)
     if _ee_total_filtered == 0:
-        if _ee_search_active and _ee_filter_tags:
-            st.info("No entries match the current filters and search.")
-        elif _ee_search_active:
-            st.info("No entries match the current search.")
-        else:
-            st.info("No entries match the current filters.")
+        st.info(
+            format_entry_search_no_results_message(
+                has_tag_filters=bool(_ee_filter_tags),
+                search_active=_ee_search_active,
+                scopes_enabled=entry_search_has_enabled_scope(_ee_search_options),
+            )
+        )
         return
 
     _ee_pagination = calculate_pagination(

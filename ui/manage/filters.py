@@ -17,7 +17,12 @@ from ui.browser_helpers import (
     normalize_untagged_selection,
     slice_visible_pairs,
 )
-from ui.entry_search_controls import render_entry_search_controls
+from ui.entry_search_controls import (
+    entry_search_has_enabled_scope,
+    format_entry_search_no_results_message,
+    is_entry_search_query_active,
+    render_entry_search_controls,
+)
 from ui.entry_search_state import (
     ENTRY_SEARCH_QUERY_KEY,
     get_entry_search_options,
@@ -137,7 +142,7 @@ def render_filters(
             on_change=_reset_page,
         )
 
-    render_entry_search_controls()
+    render_entry_search_controls(on_change=_reset_page)
     search_query = st.session_state.get(ENTRY_SEARCH_QUERY_KEY, "")
     search_options = get_entry_search_options()
 
@@ -171,14 +176,15 @@ def render_filters(
     total_filtered = len(filtered_pairs)
     total_all = len(all_pairs)
 
-    search_active = bool(str(search_query or "").strip())
+    search_active = is_entry_search_query_active(search_query)
     if total_filtered == 0:
-        if search_active and filter_tags:
-            st.info("No entries match the current filters and search.")
-        elif search_active:
-            st.info("No entries match the current search.")
-        else:
-            st.info("No entries match the current filters.")
+        st.info(
+            format_entry_search_no_results_message(
+                has_tag_filters=bool(filter_tags),
+                search_active=search_active,
+                scopes_enabled=entry_search_has_enabled_scope(search_options),
+            )
+        )
         return None
 
     pagination = calculate_pagination(
