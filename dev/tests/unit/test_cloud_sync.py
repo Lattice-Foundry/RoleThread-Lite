@@ -46,9 +46,44 @@ def test_resolve_cloud_backup_destination_uses_custom_path(tmp_path):
     destination = tmp_path / "Dropbox" / "LoreForge"
 
     assert cloud_sync.resolve_cloud_backup_destination({
-        "backup_destination_type": "custom",
+        "backup_destination_type": "dropbox",
         "backup_destination_custom_path": str(destination),
     }) == destination
+
+
+def test_resolve_cloud_backup_destination_uses_onedrive_setting_before_detection(
+    tmp_path,
+):
+    destination = tmp_path / "OneDrive"
+
+    assert cloud_sync.resolve_cloud_backup_destination({
+        "backup_destination_type": "onedrive",
+        "backup_destination_custom_path": str(destination),
+    }) == destination
+
+
+def test_detect_cloud_sync_provider_for_path_uses_onedrive_env(tmp_path, monkeypatch):
+    onedrive = tmp_path / "OneDrive"
+    local_backup = onedrive / "LoreForge" / "backups"
+    local_backup.mkdir(parents=True)
+    monkeypatch.setenv("ONEDRIVE", str(onedrive))
+
+    assert cloud_sync.detect_cloud_sync_provider_for_path(local_backup) == "OneDrive"
+
+
+def test_detect_cloud_sync_provider_for_path_uses_common_folder_names(tmp_path):
+    assert cloud_sync.detect_cloud_sync_provider_for_path(
+        tmp_path / "Google Drive" / "LoreForge"
+    ) == "Google Drive"
+    assert cloud_sync.detect_cloud_sync_provider_for_path(
+        tmp_path / "Dropbox" / "LoreForge"
+    ) == "Dropbox"
+    assert cloud_sync.detect_cloud_sync_provider_for_path(
+        tmp_path / "iCloud Drive" / "LoreForge"
+    ) == "iCloud Drive"
+    assert cloud_sync.detect_cloud_sync_provider_for_path(
+        tmp_path / "Box Sync" / "LoreForge"
+    ) == "Box"
 
 
 def test_sync_backups_to_cloud_copies_db_sidecars_and_settings(tmp_path, monkeypatch):

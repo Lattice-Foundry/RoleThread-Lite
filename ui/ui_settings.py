@@ -5,14 +5,18 @@ import streamlit as st
 
 from core.dataset import DEFAULT_SYSTEM_PROMPT
 from core.cloud_sync import (
+    BACKUP_DESTINATION_BOX,
     BACKUP_DESTINATION_CUSTOM,
+    BACKUP_DESTINATION_DROPBOX,
+    BACKUP_DESTINATION_GOOGLE_DRIVE,
+    BACKUP_DESTINATION_ICLOUD_DRIVE,
     BACKUP_DESTINATION_LOCAL,
     BACKUP_DESTINATION_ONEDRIVE,
-    default_onedrive_backup_path,
+    detect_cloud_sync_provider_for_path,
     save_backup_config_from_settings,
     sync_configured_backups_to_cloud,
 )
-from core.platform import IS_WINDOWS
+from core.platform import IS_WINDOWS, detect_onedrive_path
 from core.preferences import export_settings, import_settings
 from ui.file_dialogs import (
     browse_directory,
@@ -74,27 +78,17 @@ def render_settings_page() -> None:
         or str(get_backups_dir())
     )
     backup_folder_value = path_input(
-        "Backup Folder",
+        "Local Backup Folder",
         state_key="_backup_dir_input",
         browse_fn=browse_directory,
-        browse_kwargs={"title": "Select backup folder", "dir_key": "backup_directory"},
+        browse_kwargs={
+            "title": "Select local backup folder",
+            "dir_key": "backup_directory",
+        },
         default=current_backup_dir,
     )
-
-    if st.button("Save Backup Folder", width="stretch"):
-        try:
-            raw_folder = backup_folder_value.strip()
-            if not raw_folder:
-                raise ValueError("Backup Folder cannot be empty.")
-            target = Path(raw_folder).expanduser()
-            target.mkdir(parents=True, exist_ok=True)
-            normalized = str(target.resolve())
-            st.session_state.backup_directory = normalized
-            st.session_state["_backup_dir_input"] = normalized
-            update_prefs({"backup_directory": normalized})
-            st.success("Backup Folder updated.")
-        except Exception as exc:
-            st.error(f"Could not update Backup Folder: {exc}")
+    st.caption("Do not use a cloud-synced folder here. Use Cloud Backup below instead.")
+    _render_local_backup_confirmation(backup_folder_value, current_backup_dir)
 
     def _persist_backups_per_dataset():
         keep_count = int(st.session_state["_backups_per_dataset_input"])
@@ -117,6 +111,7 @@ def render_settings_page() -> None:
         on_change=_persist_backups_per_dataset,
         help="Older backups are automatically pruned after successful backup creation.",
     )
+    st.caption("Applies to local backups. Cloud receives only the latest.")
 
     _render_cloud_backup_settings()
 
@@ -245,18 +240,77 @@ def _apply_preferences_to_session(prefs: dict) -> None:
     )
 
 
+def _normalize_folder_path(raw_path: str, *, label: str) -> str:
+    raw_path = (raw_path or "").strip()
+    if not raw_path:
+        raise ValueError(f"{label} cannot be empty.")
+    target = Path(raw_path).expanduser()
+    target.mkdir(parents=True, exist_ok=True)
+    return str(target.resolve())
+
+
+def _render_local_backup_confirmation(
+    backup_folder_value: str,
+    current_backup_dir: str,
+) -> None:
+    """Confirm local backup folder changes before applying them."""
+
+    if not (backup_folder_value or "").strip():
+        return
+    try:
+        proposed = Path(backup_folder_value).expanduser().resolve()
+        current = Path(current_backup_dir).expanduser().resolve()
+    except OSError:
+        proposed = Path(backup_folder_value).expanduser()
+        current = Path(current_backup_dir).expanduser()
+    if proposed == current:
+        st.session_state.pop("pending_local_backup_folder", None)
+        return
+
+    provider = detect_cloud_sync_provider_for_path(proposed)
+    if provider:
+        st.warning(
+            f"This path appears to be inside a {provider} sync folder. "
+            "This may cause issues during your session. Consider using Cloud Backup instead."
+        )
+
+    st.warning(f"Change local backup folder to `{proposed}`?")
+    confirm_col, cancel_col = st.columns(2)
+    with confirm_col:
+        if st.button("Confirm Local Backup Folder", key="btn_confirm_local_backup"):
+            try:
+                normalized = _normalize_folder_path(
+                    backup_folder_value,
+                    label="Local Backup Folder",
+                )
+                st.session_state.backup_directory = normalized
+                st.session_state["_backup_dir_input_pending"] = normalized
+                update_prefs({"backup_directory": normalized})
+                st.success("Local Backup Folder updated.")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Could not update Local Backup Folder: {exc}")
+    with cancel_col:
+        if st.button("Cancel Local Backup Change", key="btn_cancel_local_backup"):
+            st.session_state["_backup_dir_input_pending"] = current_backup_dir
+            st.rerun()
+
+
 def _render_cloud_backup_settings() -> None:
     """Render optional cloud backup destination controls."""
 
     st.markdown("**Cloud Backup Destination**")
-    destination_options = [
-        ("Local (default)", BACKUP_DESTINATION_LOCAL),
-    ]
+    destination_options = [("Local (no cloud sync)", BACKUP_DESTINATION_LOCAL)]
     if IS_WINDOWS:
         destination_options.append(
             ("OneDrive (auto-detected)", BACKUP_DESTINATION_ONEDRIVE)
         )
-    destination_options.append(("Custom Path", BACKUP_DESTINATION_CUSTOM))
+    destination_options.extend([
+        ("Google Drive", BACKUP_DESTINATION_GOOGLE_DRIVE),
+        ("Dropbox", BACKUP_DESTINATION_DROPBOX),
+        ("iCloud Drive", BACKUP_DESTINATION_ICLOUD_DRIVE),
+        ("Box", BACKUP_DESTINATION_BOX),
+    ])
 
     current_type = st.session_state.prefs.get(
         "backup_destination_type",
@@ -265,85 +319,173 @@ def _render_cloud_backup_settings() -> None:
     option_values = [value for _, value in destination_options]
     if current_type not in option_values:
         current_type = BACKUP_DESTINATION_LOCAL
-    option_labels = [label for label, _ in destination_options]
+    option_labels = [label for label, _value in destination_options]
+    current_label = option_labels[option_values.index(current_type)]
 
-    selected_label = st.radio(
-        "Cloud destination",
+    pending_provider = st.session_state.pop("_cloud_provider_select_pending", None)
+    if pending_provider in option_labels:
+        st.session_state["_cloud_provider_select"] = pending_provider
+    elif "_cloud_provider_select" not in st.session_state:
+        st.session_state["_cloud_provider_select"] = current_label
+
+    selected_label = st.selectbox(
+        "Cloud Provider",
         option_labels,
-        index=option_values.index(current_type),
-        key="_cloud_backup_destination_radio",
-        horizontal=True,
+        key="_cloud_provider_select",
         help="Cloud sync mirrors local backups on demand and when the app exits.",
     )
     selected_type = dict(destination_options)[selected_label]
     if selected_type != current_type:
-        st.session_state.backup_destination_type = selected_type
-        update_prefs({"backup_destination_type": selected_type})
-        save_backup_config_from_settings(st.session_state.prefs)
-        st.rerun()
+        _render_cloud_provider_confirmation(
+            selected_label=selected_label,
+            selected_type=selected_type,
+            current_label=current_label,
+        )
+        return
 
-    if selected_type == BACKUP_DESTINATION_ONEDRIVE:
-        destination = default_onedrive_backup_path()
-        if destination is None:
-            st.warning("OneDrive was not detected. Use Custom Path for another sync folder.")
+    if current_type == BACKUP_DESTINATION_LOCAL:
+        return
+
+    provider_name = _cloud_provider_display_name(current_type)
+    stored_path = st.session_state.prefs.get("backup_destination_custom_path", "")
+    default_path = stored_path
+    if current_type == BACKUP_DESTINATION_ONEDRIVE and not default_path:
+        detected = detect_onedrive_path()
+        if detected is not None:
+            default_path = str(detected)
         else:
-            try:
-                destination.mkdir(parents=True, exist_ok=True)
-            except Exception as exc:
-                st.warning(f"OneDrive backup folder could not be created: {exc}")
-            else:
-                st.caption(f"Cloud backups will sync to `{destination}`.")
+            st.warning("OneDrive was not detected. Choose another provider or browse to a sync folder.")
 
-    if selected_type == BACKUP_DESTINATION_CUSTOM:
-        current_custom_path = st.session_state.prefs.get(
-            "backup_destination_custom_path",
-            "",
+    cloud_path = path_input(
+        f"{provider_name} sync folder:",
+        state_key="_cloud_backup_custom_path_input",
+        browse_fn=browse_directory,
+        browse_kwargs={
+            "title": f"Select {provider_name} sync folder",
+            "dir_key": "backup_destination_custom_path",
+        },
+        default=default_path,
+    )
+    _render_cloud_path_confirmation(
+        provider_name=provider_name,
+        cloud_path=cloud_path,
+        current_path=stored_path,
+    )
+
+    configured_path = (st.session_state.prefs.get("backup_destination_custom_path") or "").strip()
+    if configured_path and Path(configured_path).expanduser().exists():
+        if st.button("Sync to Cloud Now", width="stretch"):
+            result = sync_configured_backups_to_cloud()
+            if result.ok:
+                _apply_preferences_to_session({
+                    **st.session_state.prefs,
+                    "cloud_backup_last_sync_at": result.synced_at
+                    or st.session_state.prefs.get("cloud_backup_last_sync_at", ""),
+                })
+                st.success(result.message)
+                if result.destination_path:
+                    st.caption(f"Destination: `{result.destination_path}`")
+                for warning in result.warnings:
+                    st.warning(warning)
+            else:
+                st.warning(result.message)
+                for error in result.errors:
+                    st.caption(error)
+
+        last_sync = st.session_state.prefs.get("cloud_backup_last_sync_at") or ""
+        st.caption(f"Last synced: `{last_sync}`" if last_sync else "Last synced: never")
+
+
+def _cloud_provider_display_name(provider_type: str) -> str:
+    return {
+        BACKUP_DESTINATION_ONEDRIVE: "OneDrive",
+        BACKUP_DESTINATION_GOOGLE_DRIVE: "Google Drive",
+        BACKUP_DESTINATION_DROPBOX: "Dropbox",
+        BACKUP_DESTINATION_ICLOUD_DRIVE: "iCloud Drive",
+        BACKUP_DESTINATION_BOX: "Box",
+        BACKUP_DESTINATION_CUSTOM: "Custom",
+    }.get(provider_type, "Cloud")
+
+
+def _render_cloud_provider_confirmation(
+    *,
+    selected_label: str,
+    selected_type: str,
+    current_label: str,
+) -> None:
+    st.warning(f"Change cloud provider to {selected_label}?")
+    confirm_col, cancel_col = st.columns(2)
+    with confirm_col:
+        if st.button("Confirm Cloud Provider", key="btn_confirm_cloud_provider"):
+            updates = {"backup_destination_type": selected_type}
+            if selected_type == BACKUP_DESTINATION_LOCAL:
+                updates["backup_destination_custom_path"] = ""
+            elif selected_type == BACKUP_DESTINATION_ONEDRIVE:
+                detected = detect_onedrive_path()
+                if detected is not None:
+                    updates["backup_destination_custom_path"] = str(detected)
+                else:
+                    updates["backup_destination_custom_path"] = ""
+            else:
+                updates["backup_destination_custom_path"] = ""
+            st.session_state.backup_destination_type = selected_type
+            if "backup_destination_custom_path" in updates:
+                st.session_state.backup_destination_custom_path = updates[
+                    "backup_destination_custom_path"
+                ]
+                st.session_state["_cloud_backup_custom_path_input_pending"] = updates[
+                    "backup_destination_custom_path"
+                ]
+            update_prefs(updates)
+            save_backup_config_from_settings(st.session_state.prefs)
+            st.session_state["_cloud_provider_select_pending"] = selected_label
+            st.success("Cloud backup destination updated.")
+            st.rerun()
+    with cancel_col:
+        if st.button("Cancel Cloud Provider Change", key="btn_cancel_cloud_provider"):
+            st.session_state["_cloud_provider_select_pending"] = current_label
+            st.rerun()
+
+
+def _render_cloud_path_confirmation(
+    *,
+    provider_name: str,
+    cloud_path: str,
+    current_path: str,
+) -> None:
+    if not (cloud_path or "").strip():
+        return
+    try:
+        proposed = Path(cloud_path).expanduser().resolve()
+        current = (
+            Path(current_path).expanduser().resolve()
+            if current_path
+            else Path()
         )
-        custom_path = path_input(
-            "Custom cloud backup folder",
-            state_key="_cloud_backup_custom_path_input",
-            browse_fn=browse_directory,
-            browse_kwargs={
-                "title": "Select cloud backup folder",
-                "dir_key": "backup_destination_custom_path",
-            },
-            default=current_custom_path,
-        )
-        if st.button("Save Cloud Backup Folder", width="stretch"):
+    except OSError:
+        proposed = Path(cloud_path).expanduser()
+        current = Path(current_path).expanduser() if current_path else Path()
+    if current_path and proposed == current:
+        return
+
+    st.warning(f"Use `{proposed}` as the {provider_name} sync folder?")
+    confirm_col, cancel_col = st.columns(2)
+    with confirm_col:
+        if st.button("Confirm Cloud Folder", key="btn_confirm_cloud_folder"):
             try:
-                raw_path = custom_path.strip()
-                if not raw_path:
-                    raise ValueError("Cloud backup folder cannot be empty.")
-                target = Path(raw_path).expanduser()
-                target.mkdir(parents=True, exist_ok=True)
-                normalized = str(target.resolve())
+                normalized = _normalize_folder_path(
+                    cloud_path,
+                    label=f"{provider_name} sync folder",
+                )
                 st.session_state.backup_destination_custom_path = normalized
-                st.session_state["_cloud_backup_custom_path_input"] = normalized
+                st.session_state["_cloud_backup_custom_path_input_pending"] = normalized
                 update_prefs({"backup_destination_custom_path": normalized})
                 save_backup_config_from_settings(st.session_state.prefs)
-                st.success("Cloud backup folder updated.")
+                st.success("Cloud sync folder updated.")
+                st.rerun()
             except Exception as exc:
-                st.error(f"Could not update cloud backup folder: {exc}")
-
-    last_sync = st.session_state.prefs.get("cloud_backup_last_sync_at") or ""
-    if last_sync:
-        st.caption(f"Last cloud sync: `{last_sync}`")
-
-    sync_disabled = selected_type == BACKUP_DESTINATION_LOCAL
-    if st.button("Sync to Cloud Now", width="stretch", disabled=sync_disabled):
-        result = sync_configured_backups_to_cloud()
-        if result.ok:
-            _apply_preferences_to_session({
-                **st.session_state.prefs,
-                "cloud_backup_last_sync_at": result.synced_at
-                or st.session_state.prefs.get("cloud_backup_last_sync_at", ""),
-            })
-            st.success(result.message)
-            if result.destination_path:
-                st.caption(f"Destination: `{result.destination_path}`")
-            for warning in result.warnings:
-                st.warning(warning)
-        else:
-            st.warning(result.message)
-            for error in result.errors:
-                st.caption(error)
+                st.error(f"Could not update cloud sync folder: {exc}")
+    with cancel_col:
+        if st.button("Cancel Cloud Folder Change", key="btn_cancel_cloud_folder"):
+            st.session_state["_cloud_backup_custom_path_input_pending"] = current_path
+            st.rerun()

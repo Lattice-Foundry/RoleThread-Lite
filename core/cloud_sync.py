@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import shutil
 import sqlite3
@@ -19,7 +20,7 @@ from core.db_backups import (
     DB_BACKUP_SUFFIX,
     get_db_backup_dir,
 )
-from core.platform import default_onedrive_backup_path
+from core.platform import default_onedrive_backup_path, detect_onedrive_path
 from core.preferences import (
     export_settings,
     get_all_settings,
@@ -32,10 +33,18 @@ from core.storage import APP_ROOT, TRAINING_DATA_DIR
 
 BACKUP_DESTINATION_LOCAL = "local"
 BACKUP_DESTINATION_ONEDRIVE = "onedrive"
+BACKUP_DESTINATION_GOOGLE_DRIVE = "google_drive"
+BACKUP_DESTINATION_DROPBOX = "dropbox"
+BACKUP_DESTINATION_ICLOUD_DRIVE = "icloud_drive"
+BACKUP_DESTINATION_BOX = "box"
 BACKUP_DESTINATION_CUSTOM = "custom"
 BACKUP_DESTINATION_TYPES = {
     BACKUP_DESTINATION_LOCAL,
     BACKUP_DESTINATION_ONEDRIVE,
+    BACKUP_DESTINATION_GOOGLE_DRIVE,
+    BACKUP_DESTINATION_DROPBOX,
+    BACKUP_DESTINATION_ICLOUD_DRIVE,
+    BACKUP_DESTINATION_BOX,
     BACKUP_DESTINATION_CUSTOM,
 }
 
@@ -103,12 +112,13 @@ def resolve_cloud_backup_destination(settings: dict | None = None) -> Path | Non
         "backup_destination_type",
         BACKUP_DESTINATION_LOCAL,
     )
+    configured = str(settings.get("backup_destination_custom_path") or "").strip()
     if destination_type == BACKUP_DESTINATION_ONEDRIVE:
-        return default_onedrive_backup_path()
-    if destination_type == BACKUP_DESTINATION_CUSTOM:
-        configured = str(settings.get("backup_destination_custom_path") or "").strip()
         if configured:
             return Path(configured).expanduser()
+        return default_onedrive_backup_path()
+    if destination_type != BACKUP_DESTINATION_LOCAL and configured:
+        return Path(configured).expanduser()
     return None
 
 
@@ -117,12 +127,39 @@ def resolve_cloud_backup_destination_from_config(config: dict | None = None) -> 
 
     config = config or load_backup_config()
     destination_type = config.get("backup_destination_type")
+    configured = str(config.get("backup_destination_custom_path") or "").strip()
     if destination_type == BACKUP_DESTINATION_ONEDRIVE:
-        return default_onedrive_backup_path()
-    if destination_type == BACKUP_DESTINATION_CUSTOM:
-        configured = str(config.get("backup_destination_custom_path") or "").strip()
         if configured:
             return Path(configured).expanduser()
+        return default_onedrive_backup_path()
+    if destination_type != BACKUP_DESTINATION_LOCAL and configured:
+        return Path(configured).expanduser()
+    return None
+
+
+def detect_cloud_sync_provider_for_path(path: str | Path) -> str | None:
+    """Detect common cloud sync folders from a filesystem path."""
+
+    raw_path = str(path or "").strip()
+    if not raw_path:
+        return None
+    candidate = Path(raw_path).expanduser()
+    onedrive_env = os.environ.get("ONEDRIVE")
+    if onedrive_env and _path_is_inside(candidate, Path(onedrive_env).expanduser()):
+        return "OneDrive"
+    onedrive_path = detect_onedrive_path()
+    if onedrive_path and _path_is_inside(candidate, onedrive_path):
+        return "OneDrive"
+
+    lowered = str(candidate).lower()
+    for marker, provider in (
+        ("google drive", "Google Drive"),
+        ("dropbox", "Dropbox"),
+        ("icloud", "iCloud Drive"),
+        ("box sync", "Box"),
+    ):
+        if marker in lowered:
+            return provider
     return None
 
 
@@ -305,6 +342,14 @@ def restore_cloud_backup(destination_path: str | Path) -> CloudRestoreResult:
 def _latest_db_backup() -> Path | None:
     backup_dir = get_db_backup_dir()
     return _latest_backup_file(backup_dir)
+
+
+def _path_is_inside(path: Path, possible_parent: Path) -> bool:
+    try:
+        path.expanduser().resolve().relative_to(possible_parent.expanduser().resolve())
+        return True
+    except (OSError, ValueError):
+        return False
 
 
 def _latest_cloud_db_backup(destination: Path) -> Path | None:
