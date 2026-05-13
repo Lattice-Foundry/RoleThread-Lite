@@ -61,7 +61,7 @@ from ui.ui_components import (
     render_message_preview,
     render_tag_multiselects,
 )
-from ui.ui_create import render_turn_builder
+from ui.ui_create import clear_character_state_values, render_entry_mode_toggle, render_turn_builder
 
 _UNTAGGED = "__untagged__"
 
@@ -176,6 +176,7 @@ def load_full_edit_buffer(
     if entry is None:
         return False
 
+    clear_character_state_values(st.session_state, "full_edit")
     buf = entry_to_edit_buffer(entry)
 
     # ── Scalar keys ───────────────────────────────────────────────────────────
@@ -246,6 +247,7 @@ def cancel_full_edit() -> None:
     # ── Clear per-category tag keys ────────────────────────────────────────────
     for _k in [k for k in st.session_state if k.startswith("full_edit_tags_")]:
         del st.session_state[_k]
+    clear_character_state_values(st.session_state, "full_edit")
 
     # ── Restore browser filter/page state ─────────────────────────────────────
     snapshot = st.session_state.pop("_ee_browser_snapshot", {})
@@ -260,6 +262,7 @@ def cancel_full_edit() -> None:
 def reset_full_edit_to_browser() -> None:
     """Clear stale full-edit state and return to the entry browser."""
 
+    clear_character_state_values(st.session_state, "full_edit")
     clear_entry_edit_state()
     st.rerun()
 
@@ -373,6 +376,7 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
     st.caption(f"Entry UUID: {entry_uuid}")
     if st.button("Back to Entry List", key="btn_back_full_edit_top"):
         reset_full_edit_to_browser()
+    render_entry_mode_toggle("full_edit")
 
     # ── System prompt ──────────────────────────────────────────────────────────
     st.divider()
