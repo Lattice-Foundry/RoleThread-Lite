@@ -74,6 +74,11 @@ def _load_summary(tmp_path, records):
 
 def test_pipeline_finalizes_sharegpt_load_without_streamlit(tmp_path, monkeypatch):
     _patch_pipeline_defaults(monkeypatch)
+    training_dir = tmp_path / "training_data"
+    monkeypatch.setattr(
+        "core.working_copy.get_default_training_data_dir",
+        lambda: training_dir,
+    )
     path, (summary, errors) = _load_summary(
         tmp_path,
         [
@@ -359,6 +364,11 @@ def test_pipeline_reruns_analysis_after_alias_canonicalization(monkeypatch):
 
 def test_pipeline_imports_sidecar_before_tag_adoption(tmp_path, monkeypatch):
     _patch_pipeline_defaults(monkeypatch)
+    training_dir = tmp_path / "training_data"
+    monkeypatch.setattr(
+        "core.working_copy.get_default_training_data_dir",
+        lambda: training_dir,
+    )
     dataset_path = tmp_path / "dataset.jsonl"
     sidecar_path = tmp_path / "dataset.registry.json"
     dataset_path.write_text("", encoding="utf-8")

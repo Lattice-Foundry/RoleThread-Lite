@@ -17,6 +17,7 @@ dataset engineering.
 * ChatML dataset creation and management
 * ShareGPT import/export with ChatML conversion support
 * Quick edit and full edit workflows for multi-turn entries
+* Entry search across Manage Dataset and Edit Entries with role scopes and match modes
 * Validation page with auto-fixable repairs and character role mapping
 * Custom tag categories, active/archived tag lifecycle handling, and alias repair
 * Character registry and per-entry character-to-turn metadata
