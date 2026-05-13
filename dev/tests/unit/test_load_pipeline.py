@@ -2,7 +2,7 @@ import json
 from types import SimpleNamespace
 
 import core.load_pipeline as core_load_pipeline
-from core.dataset import load_dataset_with_summary
+from core.dataset import DatasetDiagnosticSummary, TagNormalizationSummary, load_dataset_with_summary
 from core.format_conversion import FORMAT_SHAREGPT
 from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid, is_native_entry
 from core.registry_sidecar import (
@@ -240,6 +240,57 @@ def test_pipeline_preserves_existing_uuid_without_trust_stamp(monkeypatch):
     assert "validated_at" not in result.entries[0][LOREFORGE_META_KEY]
 
 
+def test_pipeline_does_not_rerun_analysis_when_entries_are_unchanged(monkeypatch):
+    _patch_pipeline_defaults(monkeypatch)
+    entry = _entry()
+    normalization = TagNormalizationSummary(
+        entries=[entry],
+        dataset_is_native=False,
+        source_format="chatml",
+        format_counts={},
+        format_confidence=0.0,
+        format_converted_count=0,
+        format_already_target_count=1,
+        format_warnings=[],
+        diagnostics=DatasetDiagnosticSummary(
+            entries_analyzed=1,
+            valid_entries=1,
+            entries_with_errors=0,
+            entries_with_warnings=0,
+            entries_with_info=0,
+            error_count=0,
+            warning_count=0,
+            info_count=0,
+            auto_repairable_count=0,
+        ),
+        changed_entries=0,
+        changed_tags=0,
+        structural_changed_entries=0,
+        tag_metadata_added_count=0,
+        role_values_normalized=0,
+        message_content_trimmed=0,
+        dropped_tags=[],
+        alias_rewrites={},
+        alias_rewrite_count=0,
+        alias_rewritten_entries=0,
+    )
+    analysis_calls = []
+    monkeypatch.setattr(
+        load_pipeline,
+        "summarize_entry_analysis",
+        lambda entries, **kwargs: analysis_calls.append((entries, kwargs))
+        or normalization.diagnostics,
+    )
+
+    result = load_pipeline.finalize_loaded_entries(
+        normalization.entries,
+        normalization_summary=normalization,
+    )
+
+    assert result.entries[0]["messages"] == entry["messages"]
+    assert analysis_calls == []
+
+
 def test_pipeline_canonicalizes_aliases_before_adoption(monkeypatch):
     _patch_pipeline_defaults(monkeypatch)
     adoption_entries = []
@@ -267,6 +318,43 @@ def test_pipeline_canonicalizes_aliases_before_adoption(monkeypatch):
     assert result.tag_normalization_summary["alias_rewrites"] == {
         "old_tag": "current_tag"
     }
+
+
+def test_pipeline_reruns_analysis_after_alias_canonicalization(monkeypatch):
+    _patch_pipeline_defaults(monkeypatch)
+    diagnostics = SimpleNamespace(
+        entries_analyzed=1,
+        valid_entries=1,
+        entries_with_errors=0,
+        entries_with_warnings=0,
+        entries_with_info=0,
+        error_count=0,
+        warning_count=0,
+        info_count=0,
+        auto_repairable_count=0,
+    )
+    analysis_calls = []
+
+    monkeypatch.setattr(
+        load_pipeline,
+        "resolve_tag_lifecycle",
+        lambda slug: SimpleNamespace(
+            should_rewrite_slug=slug == "old_tag",
+            resolved_slug="current_tag" if slug == "old_tag" else slug,
+        ),
+    )
+    monkeypatch.setattr(
+        load_pipeline,
+        "summarize_entry_analysis",
+        lambda entries, **kwargs: analysis_calls.append((entries, kwargs))
+        or diagnostics,
+    )
+
+    result = load_pipeline.finalize_loaded_entries([_entry(tags=["old_tag"])])
+
+    assert result.entries[0]["tags"] == ["current_tag"]
+    assert len(analysis_calls) == 1
+    assert analysis_calls[0][1] == {"metadata_errors_block_validity": False}
 
 
 def test_pipeline_imports_sidecar_before_tag_adoption(tmp_path, monkeypatch):

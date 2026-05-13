@@ -454,6 +454,45 @@ def test_import_registry_sidecar_creates_categories_tags_and_aliases(tmp_path, m
         session.close()
 
 
+def test_import_registry_sidecar_is_idempotent_for_registry_content(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    registry = _registry(
+        categories=[_category("behavior", "Behavior", builtin=True)],
+        tags=[_tag("slow_burn", "Slow Burn", "behavior")],
+        aliases=[
+            SidecarAlias(
+                old_slug="slowburn",
+                new_slug="slow_burn",
+                action=TAG_LIFECYCLE_METADATA_RENAME,
+                metadata={"resolver_behavior": "map_to_target"},
+            )
+        ],
+    )
+
+    first = import_registry_sidecar(registry=registry)
+    second = import_registry_sidecar(registry=registry)
+
+    assert first.ok is True
+    assert second.ok is True
+    assert second.categories_created == []
+    assert second.tags_created == []
+    assert second.aliases_imported == []
+    session = session_factory()
+    try:
+        assert session.query(TagCategory).count() == 1
+        assert session.query(Tag).count() == 1
+        assert session.query(TagLifecycleMetadata).filter_by(
+            action=TAG_LIFECYCLE_METADATA_RENAME,
+            old_slug="slowburn",
+            new_slug="slow_burn",
+        ).count() == 1
+    finally:
+        session.close()
+
+
 def test_import_registry_sidecar_rejects_dataset_uuid_mismatch(tmp_path, monkeypatch):
     session_factory = _session_factory(tmp_path, monkeypatch)
 
@@ -542,6 +581,63 @@ def test_import_registry_sidecar_creates_characters_and_mappings(tmp_path, monke
         ]
         assert mappings[0].character.slug == "scott"
         assert mappings[1].character.slug == "emma"
+    finally:
+        session.close()
+
+
+def test_import_registry_sidecar_character_mappings_are_idempotent(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    registry = _registry(
+        characters=[
+            SidecarCharacter(slug="scott", display_name="Scott"),
+            SidecarCharacter(slug="emma", display_name="Emma"),
+        ],
+        entry_character_mappings=[
+            SidecarEntryCharacterMapping(
+                entry_uuid="entry-1",
+                turns=(
+                    {
+                        "turn_index": 1,
+                        "character_slug": "scott",
+                        "training_role": "user",
+                        "source_role_label": "Scott",
+                    },
+                    {
+                        "turn_index": 2,
+                        "character_slug": "emma",
+                        "training_role": "assistant",
+                        "source_role_label": "Emma",
+                    },
+                ),
+            )
+        ],
+    )
+    entries = [
+        {
+            "_loreforge": {
+                "native": True,
+                "dataset_uuid": "dataset-uuid-1",
+                "entry_uuid": "entry-1",
+            }
+        }
+    ]
+
+    first = import_registry_sidecar(registry=registry, entries=entries)
+    second = import_registry_sidecar(registry=registry, entries=entries)
+
+    assert first.ok is True
+    assert second.ok is True
+    assert second.characters_created == []
+    assert second.character_mappings_imported == ["entry-1"]
+    session = session_factory()
+    try:
+        assert session.query(Character).count() == 2
+        mappings = session.query(EntryCharacterTurn).all()
+        assert len(mappings) == 2
+        assert sorted(mapping.turn_index for mapping in mappings) == [1, 2]
     finally:
         session.close()
 

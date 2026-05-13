@@ -122,6 +122,77 @@ def test_apply_character_mapping_reuses_existing_character(tmp_path, monkeypatch
     assert result.mapped_turns == 1
 
 
+def test_apply_character_mapping_twice_replaces_existing_turn_mappings(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _setup_character_db(tmp_path, monkeypatch)
+    _backup_recorder(monkeypatch, tmp_path)
+    monkeypatch.setattr(dataset_service, "_write_registry_sidecar", lambda *_args: None)
+    monkeypatch.setattr(character_mapping_service, "_write_sidecar_after_mapping", lambda *_args: None)
+    path = tmp_path / "dataset.jsonl"
+    entries = [_entry()]
+    save_dataset(str(path), entries)
+
+    first = apply_character_mapping_service(
+        dataset_path=str(path),
+        entries=entries,
+        role_mappings={"Scott": "user", "Emma": "assistant"},
+    )
+    second_input = [_entry()]
+    second_input[0]["_loreforge"] = dict(first.entries[0]["_loreforge"])
+    second = apply_character_mapping_service(
+        dataset_path=str(path),
+        entries=second_input,
+        role_mappings={"Scott": "user", "Emma": "assistant"},
+    )
+
+    assert first.ok is True
+    assert second.ok is True
+    assert second.characters_created == []
+    entry_uuid = get_entry_uuid(second.entries[0])
+    session = session_factory()
+    try:
+        rows = character_registry.get_entry_character_turns(entry_uuid)
+        assert len(rows) == 2
+        assert [
+            (row.turn_index, row.training_role, row.source_role_label)
+            for row in rows
+        ] == [
+            (1, "user", "Scott"),
+            (2, "assistant", "Emma"),
+        ]
+    finally:
+        session.close()
+
+
+def test_character_mapping_remains_addressable_by_entry_uuid_after_reload(
+    tmp_path,
+    monkeypatch,
+):
+    _setup_character_db(tmp_path, monkeypatch)
+    _backup_recorder(monkeypatch, tmp_path)
+    monkeypatch.setattr(dataset_service, "_write_registry_sidecar", lambda *_args: None)
+    monkeypatch.setattr(character_mapping_service, "_write_sidecar_after_mapping", lambda *_args: None)
+    path = tmp_path / "dataset.jsonl"
+    save_dataset(str(path), [_entry()])
+
+    result = apply_character_mapping_service(
+        dataset_path=str(path),
+        entries=[_entry()],
+        role_mappings={"Scott": "user", "Emma": "assistant"},
+    )
+    reloaded_entries = _read_entries(path)
+    reloaded_uuid = get_entry_uuid(reloaded_entries[0])
+
+    assert result.ok is True
+    assert reloaded_uuid == get_entry_uuid(result.entries[0])
+    assert character_registry.get_character_display_for_entry(reloaded_uuid) == {
+        1: "Scott",
+        2: "Emma",
+    }
+
+
 def test_apply_character_mapping_rejects_invalid_training_role(tmp_path, monkeypatch):
     _setup_character_db(tmp_path, monkeypatch)
     path = tmp_path / "dataset.jsonl"
