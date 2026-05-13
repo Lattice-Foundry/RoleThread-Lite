@@ -257,6 +257,9 @@ def render_entry_mode_toggle(prefix: str) -> str:
 def render_turn_builder(
     prefix: str,
     active_registry: dict[str, list[str]],
+    *,
+    show_exchange_numbers: bool = False,
+    exchange_divider_callback=None,
 ) -> list[dict]:
     """Render the multi-turn conversation builder for an editor instance.
 
@@ -328,7 +331,12 @@ def render_turn_builder(
 
     # ── Turn pair rendering loop ───────────────────────────────────────────────
     for _pair in range(0, len(st.session_state[f"{prefix}_turns"]), 2):
-        _col_user, _col_asst = st.columns(2)
+        if show_exchange_numbers:
+            _col_label, _col_user, _col_asst = st.columns([0.65, 2, 2])
+            with _col_label:
+                st.caption(f"Exchange {_pair // 2 + 1}")
+        else:
+            _col_user, _col_asst = st.columns(2)
         for _col, _idx in ((_col_user, _pair), (_col_asst, _pair + 1)):
             if _idx >= len(st.session_state[f"{prefix}_turns"]):
                 break
@@ -357,6 +365,11 @@ def render_turn_builder(
                     height=150,
                     label_visibility="collapsed",
                 )
+        if (
+            exchange_divider_callback is not None
+            and _pair + 2 < len(st.session_state[f"{prefix}_turns"])
+        ):
+            exchange_divider_callback(_pair // 2 + 1)
 
     # ── Add / Remove Exchange buttons ─────────────────────────────────────────
     _add_label = (

@@ -142,3 +142,12 @@ def test_split_button_visible_only_for_multiple_complete_exchanges():
         {"role": "assistant"},
         {"role": "user"},
     ]) is False
+
+
+def test_split_complete_message_uses_singular_and_plural_exchange_wording():
+    assert edit_entries._split_complete_message(1) == (
+        "Split complete. Exchange 1-1 saved as a new entry."
+    )
+    assert edit_entries._split_complete_message(3) == (
+        "Split complete. Exchanges 1-3 saved as a new entry."
+    )

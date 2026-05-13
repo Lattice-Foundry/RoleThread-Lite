@@ -18,6 +18,7 @@ from core.character_display import build_character_display_cache, get_turn_displ
 from core.character_registry import get_entry_character_turns
 from core.entry_search import EntrySearchOptions, filter_entries_by_search
 from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
+from core.loreforge_meta import get_entry_uuid
 from core.tag_registry import (
     get_tag_registry_snapshot,
     prettify_tag_name,
@@ -291,9 +292,6 @@ def cancel_full_edit() -> None:
         "full_edit_turns",
         "full_edit_planned_exchanges",
         "full_edit_unknown_tags",
-        "full_edit_split_mode",
-        "full_edit_split_points",
-        "pending_full_edit_split",
         "editing_entry_uuid",
     ):
         st.session_state.pop(_k, None)
@@ -414,90 +412,84 @@ def _split_button_visible(turns_now: list[dict]) -> bool:
     return len(turns_now) > 2 and len(turns_now) % 2 == 0
 
 
-def _render_split_controls(entry_uuid: str, turns_now: list[dict]) -> None:
-    """Render Full Edit split controls for multi-exchange entries."""
+def _split_complete_message(split_after_exchange: int) -> str:
+    noun = "Exchange" if split_after_exchange == 1 else "Exchanges"
+    return (
+        f"Split complete. {noun} 1-{split_after_exchange} "
+        "saved as a new entry."
+    )
 
-    if not _split_button_visible(turns_now):
-        return
 
-    if not st.session_state.get("full_edit_split_mode"):
-        if st.button("Split Entry", key="btn_start_full_edit_split"):
-            st.session_state["full_edit_split_mode"] = True
-            st.session_state["full_edit_split_points"] = []
-            st.session_state.pop("pending_full_edit_split", None)
-            st.rerun()
-        return
+def _render_live_split_divider(
+    *,
+    entry_uuid: str,
+    split_after_exchange: int,
+    active_registry: dict[str, list[str]],
+) -> None:
+    """Render one immediate split divider between exchanges."""
 
-    st.subheader("Split Entry")
-    st.caption("Choose one or more exchange boundaries, then apply the split.")
-    split_points = set(st.session_state.get("full_edit_split_points", []))
-    exchange_count = len(turns_now) // 2
-    for exchange_index in range(1, exchange_count):
-        selected = exchange_index in split_points
-        label = (
-            f"Remove split after exchange {exchange_index}"
-            if selected
-            else f"Split after exchange {exchange_index}"
-        )
-        if st.button(label, key=f"btn_toggle_full_edit_split_{exchange_index}"):
-            if selected:
-                split_points.discard(exchange_index)
-            else:
-                split_points.add(exchange_index)
-            st.session_state["full_edit_split_points"] = sorted(split_points)
-            st.session_state.pop("pending_full_edit_split", None)
-            st.rerun()
-
-    new_count = len(split_points) + 1
-    st.info(f"This will create {new_count} entries from 1.")
-    col_apply, col_cancel = st.columns(2)
-    with col_apply:
-        if st.button(
-            "Apply Split",
-            key="btn_apply_full_edit_split",
-            disabled=not split_points,
+    left, middle, right = st.columns([2, 1, 2])
+    with middle:
+        if not st.button(
+            "✂ Split here",
+            key=f"btn_live_split_after_exchange_{split_after_exchange}",
             width="stretch",
         ):
-            st.session_state["pending_full_edit_split"] = True
-            st.rerun()
-    with col_cancel:
-        if st.button("Cancel Split", key="btn_cancel_full_edit_split", width="stretch"):
-            st.session_state.pop("full_edit_split_mode", None)
-            st.session_state.pop("full_edit_split_points", None)
-            st.session_state.pop("pending_full_edit_split", None)
-            st.rerun()
+            return
 
-    if st.session_state.get("pending_full_edit_split"):
-        st.warning(f"Split this entry into {new_count} entries? Backup will be created first.")
-        confirm_col, cancel_col = st.columns(2)
-        with confirm_col:
-            if st.button("Confirm Split", key="btn_confirm_full_edit_split", type="primary"):
-                result = split_entry_service(
-                    dataset_path=st.session_state.get("loaded_path", ""),
-                    entry_uuid=entry_uuid,
-                    split_points=sorted(split_points),
-                    entries=st.session_state.loaded_entries,
-                    backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
-                )
-                if result.ok and result.entries is not None:
-                    apply_dataset_operation_result(result)
-                    st.session_state.loaded_entries = result.entries
-                    ensure_entry_indexes()
-                    backup_note = " Backup created." if result.backup_path else ""
-                    enqueue_dataset_result_flash(
-                        f"{result.message}{backup_note}",
-                        result,
-                    )
-                    cancel_full_edit()
-                else:
-                    for error in result.errors:
-                        st.error(error)
-                    if not result.errors:
-                        st.error(result.message)
-        with cancel_col:
-            if st.button("Keep Editing", key="btn_cancel_confirm_full_edit_split"):
-                st.session_state.pop("pending_full_edit_split", None)
-                st.rerun()
+    _apply_live_split(
+        entry_uuid=entry_uuid,
+        split_after_exchange=split_after_exchange,
+        active_registry=active_registry,
+    )
+
+
+def _apply_live_split(
+    *,
+    entry_uuid: str,
+    split_after_exchange: int,
+    active_registry: dict[str, list[str]],
+) -> None:
+    """Split above the divider and keep editing the lower remaining entry."""
+
+    original_index = get_loaded_entry_index_by_uuid(entry_uuid)
+    result = split_entry_service(
+        dataset_path=st.session_state.get("loaded_path", ""),
+        entry_uuid=entry_uuid,
+        split_points=[split_after_exchange],
+        entries=st.session_state.loaded_entries,
+        backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
+    )
+    if not result.ok or result.entries is None:
+        for error in result.errors:
+            st.error(error)
+        if not result.errors:
+            st.error(result.message)
+        return
+
+    apply_dataset_operation_result(result)
+    st.session_state.loaded_entries = result.entries
+    ensure_entry_indexes()
+
+    remaining_uuid = None
+    if original_index is not None:
+        remaining_index = original_index + 1
+        if 0 <= remaining_index < len(result.entries):
+            remaining_entry = result.entries[remaining_index]
+            remaining_uuid = get_entry_uuid(remaining_entry)
+
+    backup_note = " Backup created." if result.backup_path else ""
+    enqueue_dataset_result_flash(
+        f"{_split_complete_message(split_after_exchange)}{backup_note}",
+        result,
+    )
+
+    if remaining_uuid and load_full_edit_buffer(remaining_uuid, active_registry):
+        st.session_state.editing_entry_uuid = remaining_uuid
+        st.session_state.edit_entries_mode = "workspace"
+    else:
+        clear_entry_edit_state()
+    st.rerun()
 
 
 # ── Full edit workspace ────────────────────────────────────────────────────────
@@ -550,8 +542,19 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
 
     # ── Turn builder (includes planned exchanges input + turn text areas) ───────
     st.divider()
-    turns_now = render_turn_builder("full_edit", active_registry)
-    _render_split_controls(entry_uuid, turns_now)
+    split_divider_callback = None
+    if _split_button_visible(st.session_state.get("full_edit_turns", [])):
+        split_divider_callback = lambda exchange_index: _render_live_split_divider(
+            entry_uuid=entry_uuid,
+            split_after_exchange=exchange_index,
+            active_registry=active_registry,
+        )
+    turns_now = render_turn_builder(
+        "full_edit",
+        active_registry,
+        show_exchange_numbers=True,
+        exchange_divider_callback=split_divider_callback,
+    )
 
     # ── Conversation preview ───────────────────────────────────────────────────
     st.subheader("Conversation Preview")
