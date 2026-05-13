@@ -13,6 +13,7 @@ from core.preferences import get_initial_dir, save_preferences
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 JSONL_TYPES = [("JSONL files", "*.jsonl"), ("All files", "*.*")]
+JSON_TYPES = [("JSON files", "*.json"), ("All files", "*.*")]
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
@@ -149,6 +150,41 @@ def browse_export_file(pending_key: str) -> None:
         initialfile=_default,
         initialdir=_initial_dir,
         filetypes=JSONL_TYPES,
+    )
+    if path:
+        st.session_state[pending_key] = path
+        st.rerun()
+
+
+def browse_settings_export_file(pending_key: str) -> None:
+    """Open a save-as dialog for Settings export JSON."""
+
+    path = safe_saveas_filename(
+        title="Export settings",
+        defaultextension=".json",
+        initialfile="loreforge_settings.json",
+        initialdir=get_initial_dir(
+            st.session_state.prefs,
+            dir_key="default_dataset_directory",
+        ),
+        filetypes=JSON_TYPES,
+    )
+    if path:
+        st.session_state[pending_key] = path
+        st.rerun()
+
+
+def browse_settings_import_file(pending_key: str) -> None:
+    """Open a JSON file picker for Settings import."""
+
+    path = _run_dialog(
+        filedialog.askopenfilename,
+        title="Import settings",
+        filetypes=JSON_TYPES,
+        initialdir=get_initial_dir(
+            st.session_state.prefs,
+            dir_key="default_dataset_directory",
+        ),
     )
     if path:
         st.session_state[pending_key] = path

@@ -3,7 +3,14 @@ from pathlib import Path
 
 import streamlit as st
 
-from ui.file_dialogs import browse_directory, path_input
+from core.dataset import DEFAULT_SYSTEM_PROMPT
+from core.preferences import export_settings, import_settings
+from ui.file_dialogs import (
+    browse_directory,
+    browse_settings_export_file,
+    browse_settings_import_file,
+    path_input,
+)
 from core.storage import get_backups_dir, get_default_training_data_dir
 from ui.session_state import update_prefs
 
@@ -163,4 +170,56 @@ def render_settings_page() -> None:
         value=st.session_state.preview_assistant_name,
         key="_preview_assistant_name_input",
         on_change=_persist_preview_assistant_name,
+    )
+
+    st.divider()
+    st.subheader("Settings Portability")
+    export_path = path_input(
+        "Export settings path",
+        state_key="_settings_export_path",
+        browse_fn=browse_settings_export_file,
+        browse_kwargs={},
+        default="",
+    )
+    if st.button("Export Settings", width="stretch", disabled=not export_path.strip()):
+        try:
+            export_settings(export_path.strip())
+        except Exception as exc:
+            st.error(f"Could not export settings: {exc}")
+        else:
+            st.success(f"Settings exported to `{Path(export_path).expanduser()}`.")
+
+    import_path = path_input(
+        "Import settings path",
+        state_key="_settings_import_path",
+        browse_fn=browse_settings_import_file,
+        browse_kwargs={},
+        default="",
+    )
+    if st.button("Import Settings", width="stretch", disabled=not import_path.strip()):
+        try:
+            imported = import_settings(import_path.strip())
+        except Exception as exc:
+            st.error(f"Could not import settings: {exc}")
+        else:
+            _apply_preferences_to_session(imported)
+            st.success("Settings imported.")
+            st.rerun()
+
+
+def _apply_preferences_to_session(prefs: dict) -> None:
+    """Refresh settings-related session state after a DB import."""
+
+    st.session_state.prefs = prefs
+    st.session_state.system_prompt = prefs.get("last_system_prompt") or DEFAULT_SYSTEM_PROMPT
+    st.session_state.confirm_delete_entries = prefs.get("confirm_delete_entries", True)
+    st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
+    st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
+    st.session_state.default_dataset_directory = prefs.get("default_dataset_directory", "")
+    st.session_state.auto_backups_enabled = prefs.get("auto_backups_enabled", True)
+    st.session_state.backup_directory = prefs.get("backup_directory", "")
+    st.session_state.backups_per_dataset = prefs.get("backups_per_dataset", 25)
+    st.session_state.auto_correct_validation_errors = prefs.get(
+        "auto_correct_validation_errors",
+        prefs.get("auto_normalize_on_load", True),
     )

@@ -24,6 +24,23 @@ class Base(DeclarativeBase):
     pass
 
 
+class AppSetting(Base):
+    """A JSON-serialized local application setting."""
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utc_datetime,
+        onupdate=_utc_datetime,
+    )
+
+    def __repr__(self) -> str:
+        return f"<AppSetting key={self.key!r}>"
+
+
 # ── TagCategory ────────────────────────────────────────────────────────────────
 class TagCategory(Base):
     """A named category that groups related tags."""
