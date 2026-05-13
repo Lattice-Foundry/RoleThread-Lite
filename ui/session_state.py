@@ -14,7 +14,7 @@ from core.dataset import (
     get_entry_index_by_uuid,
     TagNormalizationSummary,
 )
-from core.loreforge_meta import get_entry_uuid
+from core.loreforge_meta import get_dataset_uuid_for_entries, get_entry_uuid
 from core.preferences import save_preferences
 from services.dataset_service import (
     DatasetOperationResult,
@@ -25,6 +25,7 @@ from services.dataset_service import (
 from services.load_pipeline_service import finalize_loaded_entries
 from ui.message_scaffolding import scaffold_editable_messages
 from ui.flash_messages import enqueue_flash
+from ui.entry_search_state import sync_entry_search_state_for_dataset
 
 
 # ── Preferences session helper ─────────────────────────────────────────────────
@@ -59,6 +60,12 @@ def set_loaded_entries(
         normalization_summary=normalization_summary,
     )
     clear_dataset_scoped_state()
+    sync_entry_search_state_for_dataset(
+        _entry_search_dataset_identifier(
+            entries=result.entries,
+            dataset_path=result.effective_dataset_path,
+        )
+    )
     st.session_state.loaded_entries = result.entries
     st.session_state.dataset_source_format = result.dataset_source_format
     st.session_state.uuid_to_index = build_uuid_index(result.entries)
@@ -70,6 +77,19 @@ def set_loaded_entries(
     _replace_optional_session_value("pending_tag_trust", result.pending_tag_trust or None)
     _replace_optional_session_value("character_candidates", result.character_candidates)
     return result.effective_dataset_path
+
+
+def _entry_search_dataset_identifier(
+    *,
+    entries: list[dict],
+    dataset_path: str | None,
+) -> str:
+    """Return the dataset-scoped search marker for the current load."""
+
+    if dataset_path:
+        return str(Path(dataset_path).expanduser())
+    dataset_uuid = get_dataset_uuid_for_entries(entries)
+    return dataset_uuid or ""
 
 
 _DATASET_SCOPED_STATE_KEYS = (

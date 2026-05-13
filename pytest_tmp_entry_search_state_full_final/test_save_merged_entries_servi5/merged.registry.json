@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "schema_version": 1,
+    "kind": "loreforge.tag_registry",
+    "exported_at": "2026-05-13T16:32:38.782504+00:00",
+    "app_name": "LoreForge Lite",
+    "app_version": "0.8.1"
+  },
+  "dataset": {
+    "dataset_uuid": "1ad82ebf-912f-45b9-af3b-5cc140ad5c54",
+    "filename": "merged.jsonl",
+    "entry_count": 1,
+    "tag_usage_counts": {
+      "slow_burn": 1
+    }
+  },
+  "categories": [
+    {
+      "slug": "behavior",
+      "name": "Behavior",
+      "sort_order": 0,
+      "is_active": true,
+      "is_builtin": true
+    }
+  ],
+  "tags": [
+    {
+      "slug": "slow_burn",
+      "name": "Slow Burn",
+      "category_slug": "behavior",
+      "sort_order": 0,
+      "status": "active",
+      "is_active": true,
+      "is_builtin": false,
+      "lifecycle": {}
+    }
+  ],
+  "aliases": [
+    {
+      "old_slug": "slowburn",
+      "new_slug": "slow_burn",
+      "action": "rename",
+      "metadata": {
+        "resolver_behavior": "map_to_target"
+      }
+    }
+  ],
+  "characters": [
+    {
+      "slug": "scott",
+      "display_name": "Scott",
+      "description": null,
+      "is_active": true
+    }
+  ],
+  "entry_character_mappings": []
+}

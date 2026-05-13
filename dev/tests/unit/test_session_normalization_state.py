@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import core.load_pipeline as core_load_pipeline
 from services import dataset_service
 import services.load_pipeline_service as load_pipeline
+import ui.entry_search_state as entry_search_state
 import ui.session_state as session_state
 from core.dataset import load_dataset_with_summary
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT
@@ -37,6 +38,7 @@ def _entry_without_tags():
 def _patch_state(monkeypatch):
     fake_state = FakeSessionState()
     monkeypatch.setattr(session_state, "st", SimpleNamespace(session_state=fake_state))
+    monkeypatch.setattr(entry_search_state, "st", SimpleNamespace(session_state=fake_state))
     monkeypatch.setattr(
         load_pipeline,
         "ensure_tags_exist_for_dataset",
@@ -256,6 +258,49 @@ def test_set_loaded_entries_clears_character_candidates_when_none(monkeypatch):
 
     assert "character_candidates" not in state
     assert state.tag_normalization_summary["character_candidate_count"] == 0
+
+
+def test_set_loaded_entries_preserves_search_state_for_same_dataset(monkeypatch):
+    state = _patch_state(monkeypatch)
+    state.entry_search_dataset_identifier = "dataset.jsonl"
+    state.entry_search_query = "lantern"
+    state.entry_search_include_system = True
+    state.entry_search_include_user = False
+    state.entry_search_include_assistant = True
+    state.entry_search_match_mode = "all_words"
+
+    session_state.set_loaded_entries(
+        [_entry_without_tags()],
+        dataset_path="dataset.jsonl",
+    )
+
+    assert state.entry_search_dataset_identifier == "dataset.jsonl"
+    assert state.entry_search_query == "lantern"
+    assert state.entry_search_include_system is True
+    assert state.entry_search_include_user is False
+    assert state.entry_search_match_mode == "all_words"
+
+
+def test_set_loaded_entries_resets_search_state_for_new_dataset(monkeypatch):
+    state = _patch_state(monkeypatch)
+    state.entry_search_dataset_identifier = "dataset-a.jsonl"
+    state.entry_search_query = "lantern"
+    state.entry_search_include_system = True
+    state.entry_search_include_user = False
+    state.entry_search_include_assistant = False
+    state.entry_search_match_mode = "all_words"
+
+    session_state.set_loaded_entries(
+        [_entry_without_tags()],
+        dataset_path="dataset-b.jsonl",
+    )
+
+    assert state.entry_search_dataset_identifier == "dataset-b.jsonl"
+    assert state.entry_search_query == ""
+    assert state.entry_search_include_system is False
+    assert state.entry_search_include_user is True
+    assert state.entry_search_include_assistant is True
+    assert state.entry_search_match_mode == "contains"
 
 
 def test_set_loaded_entries_builds_uuid_index_and_lookup_helpers(monkeypatch):
