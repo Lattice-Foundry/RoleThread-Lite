@@ -22,6 +22,7 @@ from core.validation_actions import (
 )
 from services.character_mapping_service import apply_character_mapping_service
 from services.dataset_service import save_repaired_entries_service
+from ui.flash_messages import enqueue_dataset_result_flash, enqueue_flash, render_flash_messages
 from ui.session_state import apply_dataset_operation_result, ensure_entry_registry
 
 
@@ -30,11 +31,7 @@ def render_validation_page() -> None:
 
     ensure_entry_registry()
     st.subheader("Validation")
-
-    if "validation_success_msg" in st.session_state:
-        st.success(st.session_state.pop("validation_success_msg"))
-    if "validation_warning_msg" in st.session_state:
-        st.warning(st.session_state.pop("validation_warning_msg"))
+    render_flash_messages()
 
     entries = st.session_state.get("loaded_entries", [])
     if not entries:
@@ -220,7 +217,7 @@ def _execute_pending_fix(pending: dict) -> None:
 
     if not changed_indices:
         _clear_pending_fix()
-        st.session_state.validation_warning_msg = "No entries needed repair."
+        enqueue_flash("warning", "No entries needed repair.")
         st.rerun()
         return
 
@@ -245,9 +242,10 @@ def _execute_pending_fix(pending: dict) -> None:
     _clear_pending_fix()
 
     backup_note = " Backup created." if result.backup_path else ""
-    st.session_state.validation_success_msg = (
+    enqueue_dataset_result_flash(
         f"Fixed {count_phrase(pending['issue_count'], 'issue')} in "
-        f"{count_phrase(len(changed_indices), 'entry', 'entries')}.{backup_note}"
+        f"{count_phrase(len(changed_indices), 'entry', 'entries')}.{backup_note}",
+        result,
     )
     st.rerun()
 
@@ -383,10 +381,11 @@ def _execute_character_mapping(role_mappings: dict[str, str]) -> None:
         if result.characters_created
         else ""
     )
-    st.session_state.validation_success_msg = (
+    enqueue_flash(
+        "success",
         f"Mapped {count_phrase(result.mapped_turns, 'character turn')} across "
         f"{count_phrase(result.mapped_entries, 'entry', 'entries')}."
-        f"{created_note}{backup_note}"
+        f"{created_note}{backup_note}",
     )
     st.rerun()
 

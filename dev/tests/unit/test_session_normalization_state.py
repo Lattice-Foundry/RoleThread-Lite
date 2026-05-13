@@ -82,6 +82,9 @@ def test_set_loaded_entries_tracks_pending_structural_normalization(monkeypatch)
     state.editing_entry_id = "tmp-entry-1"
     state.full_edit_entry_id = "tmp-entry-1"
     state.full_edit_turn_0 = "draft"
+    state.pending_delete_selected = True
+    state.pending_system_prompt_edit = True
+    state.validation_pending_fix = {"mode": "all"}
 
     normalization, errors = _load_entries_with_summary([_entry_without_tags()])
 
@@ -104,6 +107,9 @@ def test_set_loaded_entries_tracks_pending_structural_normalization(monkeypatch)
     assert "editing_entry_id" not in state
     assert "full_edit_entry_id" not in state
     assert "full_edit_turn_0" not in state
+    assert "pending_delete_selected" not in state
+    assert "pending_system_prompt_edit" not in state
+    assert "validation_pending_fix" not in state
 
 
 def test_set_loaded_entries_tracks_pending_tag_slug_normalization(monkeypatch):
@@ -326,8 +332,9 @@ def test_set_loaded_entries_imports_sibling_sidecar_before_tag_adoption(tmp_path
     registry = SimpleNamespace(tags=(), categories=())
     call_order = []
 
-    def fake_import_registry_sidecar(*, registry):
+    def fake_import_registry_sidecar(*, registry, entries):
         call_order.append("import")
+        assert entries == []
         return SimpleNamespace(
             ok=True,
             message="Imported.",
@@ -444,7 +451,7 @@ def test_pending_trust_includes_sidecar_hints(tmp_path, monkeypatch):
     monkeypatch.setattr(
         session_state,
         "import_registry_sidecar",
-        lambda *, registry: SimpleNamespace(
+        lambda *, registry, entries: SimpleNamespace(
             ok=True,
             message="Imported.",
             categories_created=[],

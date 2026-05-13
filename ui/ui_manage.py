@@ -71,6 +71,7 @@ from ui.browser_helpers import (
     normalize_untagged_selection,
     slice_visible_pairs,
 )
+from ui.flash_messages import enqueue_dataset_result_flash, enqueue_flash, render_flash_messages
 from ui.ui_components import render_message_preview
 from ui.ui_edit_entries import start_full_edit
 
@@ -304,6 +305,7 @@ def render_manage_page() -> None:
     _stale_last_path_notice = st.empty()
 
     st.subheader("Load Dataset")
+    render_flash_messages()
 
     load_path = path_input(
         "File path",
@@ -600,11 +602,6 @@ def render_manage_page() -> None:
                     clear_selected_entries()
 
             # ── Flash messages ─────────────────────────────────────────────────
-            if "quick_edit_success" in st.session_state:
-                st.success(st.session_state.pop("quick_edit_success"))
-            if "tag_save_success" in st.session_state:
-                st.success(st.session_state.pop("tag_save_success"))
-
             # ── Status line (always visible) ───────────────────────────────────
             _selected_ids = get_selected_entry_ids()
             _total_sel = len(_selected_ids)
@@ -667,7 +664,7 @@ def render_manage_page() -> None:
                             )
                         else:
                             _backup_note = " Backup created." if _backup_created else ""
-                            st.success(f"Deleted {_n} entries.{_backup_note}")
+                            enqueue_flash("success", f"Deleted {_n} entries.{_backup_note}")
                         st.rerun()
 
             # ── Confirmation UI (shown below button row when pending) ───────────
@@ -701,7 +698,7 @@ def render_manage_page() -> None:
                             )
                         else:
                             _backup_note = " Backup created." if _backup_created else ""
-                            st.success(f"Deleted {_n} entries.{_backup_note}")
+                            enqueue_flash("success", f"Deleted {_n} entries.{_backup_note}")
                         st.rerun()
                 with _col_cancel:
                     if st.button("Cancel", key="btn_cancel_delete", width="stretch"):
@@ -709,9 +706,6 @@ def render_manage_page() -> None:
                         st.rerun()
 
             # ── System prompt editor (shown when pending) ──────────────────────
-            if "sys_prompt_success" in st.session_state:
-                st.success(st.session_state.pop("sys_prompt_success"))
-
             if st.session_state.get("pending_system_prompt_edit"):
                 st.info(
                     "Replace the system prompt for "
@@ -756,8 +750,9 @@ def render_manage_page() -> None:
                                 " Backup created." if _sys_result.backup_path else ""
                             )
                             st.session_state.pop("pending_system_prompt_edit", None)
-                            st.session_state["sys_prompt_success"] = (
-                                f"{_sys_result.message}{_backup_note}"
+                            enqueue_dataset_result_flash(
+                                f"{_sys_result.message}{_backup_note}",
+                                _sys_result,
                             )
                             st.rerun()
                         else:
@@ -815,8 +810,9 @@ def render_manage_page() -> None:
                                 _backup_note = (
                                     " Backup created." if _tag_result.backup_path else ""
                                 )
-                                st.session_state["tag_save_success"] = (
-                                    f"{_tag_result.message}{_backup_note}"
+                                enqueue_dataset_result_flash(
+                                    f"{_tag_result.message}{_backup_note}",
+                                    _tag_result,
                                 )
                                 st.rerun()
                             else:
@@ -866,8 +862,9 @@ def render_manage_page() -> None:
                             _backup_note = (
                                 " Backup created." if _bulk_result.backup_path else ""
                             )
-                            st.session_state["tag_save_success"] = (
-                                f"{_bulk_result.message}{_backup_note}"
+                            enqueue_dataset_result_flash(
+                                f"{_bulk_result.message}{_backup_note}",
+                                _bulk_result,
                             )
                             st.rerun()
                         else:
@@ -903,8 +900,9 @@ def render_manage_page() -> None:
                             _backup_note = (
                                 " Backup created." if _bulk_result.backup_path else ""
                             )
-                            st.session_state["tag_save_success"] = (
-                                f"{_bulk_result.message}{_backup_note}"
+                            enqueue_dataset_result_flash(
+                                f"{_bulk_result.message}{_backup_note}",
+                                _bulk_result,
                             )
                             st.rerun()
                         else:
@@ -989,8 +987,9 @@ def render_manage_page() -> None:
                                             " Backup created."
                                             if _quick_result.backup_path else ""
                                         )
-                                        st.session_state["quick_edit_success"] = (
-                                            f"{_quick_result.message}{_backup_note}"
+                                        enqueue_dataset_result_flash(
+                                            f"{_quick_result.message}{_backup_note}",
+                                            _quick_result,
                                         )
                                         st.rerun()
                                     else:

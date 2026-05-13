@@ -12,6 +12,7 @@ from core.format_conversion import (
 from core.working_copy import canonical_training_dataset_path
 from services.registry_sidecar_service import export_registry_sidecar
 from ui.file_dialogs import browse_export_file, path_input
+from ui.flash_messages import enqueue_flash, render_flash_messages
 from ui.session_state import ensure_entry_registry
 
 _EXPORT_FORMAT_OPTIONS = {
@@ -42,11 +43,7 @@ def render_export_page() -> None:
     """Render the Export Dataset page."""
     ensure_entry_registry()
     st.subheader("Export Dataset")
-
-    if "export_success_msg" in st.session_state:
-        st.success(st.session_state.pop("export_success_msg"))
-    if "export_warning_msg" in st.session_state:
-        st.warning(st.session_state.pop("export_warning_msg"))
+    render_flash_messages()
 
     _export_entries = st.session_state.loaded_entries
     if not _export_entries:
@@ -104,8 +101,8 @@ def render_export_page() -> None:
                     if sidecar_result.ok:
                         success_message += f" {sidecar_result.message}"
                     else:
-                        st.session_state["export_warning_msg"] = sidecar_result.message
-                st.session_state["export_success_msg"] = success_message
+                        enqueue_flash("warning", sidecar_result.message)
+                enqueue_flash("success", success_message)
                 st.session_state["export_save_path_pending"] = ""
                 st.rerun()
             except Exception as exc:

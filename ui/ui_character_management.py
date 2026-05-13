@@ -13,6 +13,7 @@ from core.character_registry import (
     update_character,
 )
 from core.text_helpers import count_phrase
+from ui.flash_messages import enqueue_flash, render_flash_messages
 
 
 def render_character_management_page() -> None:
@@ -20,7 +21,7 @@ def render_character_management_page() -> None:
 
     st.subheader("Character Management")
 
-    _render_flash_messages()
+    render_flash_messages()
     characters = get_all_characters()
     selected = st.session_state.setdefault("selected_character_slugs", set())
     selected.intersection_update({character.slug for character in characters})
@@ -39,13 +40,6 @@ def render_character_management_page() -> None:
     st.divider()
     _render_add_character()
     _render_inactive_characters()
-
-
-def _render_flash_messages() -> None:
-    if "character_success_msg" in st.session_state:
-        st.success(st.session_state.pop("character_success_msg"))
-    if "character_warning_msg" in st.session_state:
-        st.warning(st.session_state.pop("character_warning_msg"))
 
 
 def _render_bulk_actions(characters, selected: set[str]) -> None:
@@ -89,7 +83,8 @@ def _render_bulk_actions(characters, selected: set[str]) -> None:
             deleted = delete_characters(pending)
             st.session_state.selected_character_slugs = set()
             _clear_delete_confirmation()
-            st.session_state.character_success_msg = (
+            enqueue_flash(
+                "success",
                 f"Deleted {count_phrase(len(deleted), 'character')}."
             )
             st.rerun()
@@ -184,7 +179,7 @@ def _render_edit_character(character) -> None:
                 except Exception as exc:
                     st.error(str(exc))
                     return
-                st.session_state.character_success_msg = "Character updated."
+                enqueue_flash("success", "Character updated.")
                 st.session_state.pop("editing_character_slug", None)
                 st.rerun()
         with cancel_col:
@@ -206,7 +201,8 @@ def _render_add_character() -> None:
         except Exception as exc:
             st.error(str(exc))
             return
-        st.session_state.character_success_msg = (
+        enqueue_flash(
+            "success",
             f"Added character \"{character.display_name}\"."
         )
         st.rerun()
@@ -225,7 +221,8 @@ def _render_inactive_characters() -> None:
             with cols[2]:
                 if st.button("Reactivate", key=f"character_reactivate_{character.slug}"):
                     if reactivate_character(character.slug):
-                        st.session_state.character_success_msg = (
+                        enqueue_flash(
+                            "success",
                             f"Reactivated \"{character.display_name}\"."
                         )
                     st.rerun()

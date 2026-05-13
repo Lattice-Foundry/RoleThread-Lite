@@ -13,6 +13,7 @@ from core.tag_registry import get_tag_registry_snapshot
 from core.text_helpers import count_phrase
 from ui.session_state import apply_dataset_operation_result, update_prefs, ensure_entry_registry
 from services.dataset_service import create_entry_service
+from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
 from ui.ui_components import (
     _NON_STANDARD_ROLE_COLOR,
     _ROLE_COLOR,
@@ -262,7 +263,10 @@ def render_entry_actions(
                 })
                 st.session_state["manage_load_path_pending"] = result.dataset_path or save_path
                 st.session_state[f"{prefix}_clear"] = True
-                st.success(f"Entry appended to `{Path(save_path).resolve()}`.")
+                enqueue_dataset_result_flash(
+                    f"Entry appended to `{Path(save_path).resolve()}`.",
+                    result,
+                )
                 st.rerun()
             else:
                 for err in result.errors:
@@ -279,6 +283,7 @@ def render_create_page() -> None:
     _tag_snapshot = get_tag_registry_snapshot()
 
     st.subheader("System Prompt")
+    render_flash_messages()
 
     def _persist_system_prompt():
         update_prefs({"last_system_prompt": st.session_state.sys_prompt_input})

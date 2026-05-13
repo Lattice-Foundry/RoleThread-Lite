@@ -439,6 +439,8 @@ def test_dataset_save_services_do_not_fail_when_sidecar_write_fails(tmp_path, mo
 
     assert result.ok is True
     assert _read_entries(path) == result.entries
+    assert result.sidecar_ok is False
+    assert result.sidecar_message == "Registry sidecar could not be updated."
 
 
 def test_dataset_save_migrates_flat_training_data_file_to_subfolder(

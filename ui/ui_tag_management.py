@@ -8,6 +8,7 @@ from core.tag_registry import (
     slugify_tag_name,
 )
 from core.text_helpers import count_phrase
+from ui.flash_messages import enqueue_flash, render_flash_messages
 from ui.session_state import apply_dataset_operation_result
 from ui.tag_management_helpers import (
     selected_assignable_archived_slugs,
@@ -68,8 +69,7 @@ def render_tag_management_page() -> None:
     )
 
     # ── Flash message (shown at top, consumed on next render) ─────────────────
-    if "tm_success" in st.session_state:
-        st.success(st.session_state.pop("tm_success"))
+    render_flash_messages()
 
     _tag_snapshot = get_tag_registry_snapshot()
     registry = _tag_snapshot.active_categories
@@ -181,8 +181,9 @@ def render_tag_management_page() -> None:
                             disabled=not _new_category_slug,
                         ):
                             if _new_category_slug == cat["slug"]:
-                                st.session_state["tm_success"] = (
-                                    "Rename canceled; category name is unchanged."
+                                enqueue_flash(
+                                    "success",
+                                    "Rename canceled; category name is unchanged.",
                                 )
                                 st.session_state.pop(
                                     "tm_renaming_category_slug", None
@@ -263,8 +264,9 @@ def render_tag_management_page() -> None:
                                         _new_slug == tag["slug"]
                                         and _selected_category_slug == cat["slug"]
                                     ):
-                                        st.session_state["tm_success"] = (
-                                            "Edit canceled; tag is unchanged."
+                                        enqueue_flash(
+                                            "success",
+                                            "Edit canceled; tag is unchanged.",
                                         )
                                         st.session_state.pop(
                                             "tm_editing_tag_slug", None
@@ -415,7 +417,7 @@ def render_tag_management_page() -> None:
                             st.session_state.entry_registry = build_entry_registry(
                                 _result.entries
                             )
-                        st.session_state["tm_success"] = _result.message
+                        enqueue_flash("success", _result.message)
                         st.session_state.pop("tm_editing_tag_slug", None)
                         st.session_state.pop("tm_pending_tag_edit", None)
                         st.rerun()
@@ -467,7 +469,7 @@ def render_tag_management_page() -> None:
                             st.session_state.entry_registry = build_entry_registry(
                                 _result.entries
                             )
-                        st.session_state["tm_success"] = _result.message
+                        enqueue_flash("success", _result.message)
                         st.session_state.pop("tm_pending_tag_delete", None)
                         st.rerun()
                     else:
@@ -509,7 +511,7 @@ def render_tag_management_page() -> None:
                         new_display_name=_pending_category_rename["new_display_name"],
                     )
                     if _result.ok:
-                        st.session_state["tm_success"] = _result.message
+                        enqueue_flash("success", _result.message)
                         st.session_state.pop("tm_renaming_category_slug", None)
                         st.session_state.pop("tm_pending_category_rename", None)
                         st.rerun()
@@ -549,7 +551,7 @@ def render_tag_management_page() -> None:
                         category_slug=_pending_category_delete["category_slug"],
                     )
                     if _result.ok:
-                        st.session_state["tm_success"] = _result.message
+                        enqueue_flash("success", _result.message)
                         st.session_state.pop("tm_pending_category_delete", None)
                         st.rerun()
                     else:
@@ -598,7 +600,7 @@ def render_tag_management_page() -> None:
     ):
         _ok, _msg = create_custom_category(_new_cat_name)
         if _ok:
-            st.session_state["tm_success"] = _msg
+            enqueue_flash("success", _msg)
             st.session_state["_tm_clear_cat_name"] = True
             st.rerun()
         else:
@@ -646,7 +648,7 @@ def render_tag_management_page() -> None:
         ):
             _ok, _msg = create_custom_tag(_selected_cat_id, _new_tag_name)
             if _ok:
-                st.session_state["tm_success"] = _msg
+                enqueue_flash("success", _msg)
                 st.session_state["_tm_clear_tag_name"] = True
                 st.rerun()
             else:
@@ -786,7 +788,7 @@ def render_tag_management_page() -> None:
                         category_slug=_pending_assignment["category_slug"],
                     )
                     if _result.ok:
-                        st.session_state["tm_success"] = _result.message
+                        enqueue_flash("success", _result.message)
                         st.session_state.pop("tm_pending_archived_assignment", None)
                         st.session_state["_tm_clear_archived_selection"] = True
                         st.rerun()

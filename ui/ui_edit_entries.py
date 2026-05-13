@@ -44,6 +44,7 @@ from ui.browser_helpers import (
     normalize_untagged_selection,
     slice_visible_pairs,
 )
+from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
 from ui.ui_components import (
     calculate_exchange_metrics,
     render_conversation_preview,
@@ -304,7 +305,7 @@ def save_full_edit(active_registry: dict[str, list[str]]) -> bool:
 
     # ── Success: flash message + cleanup + return to browser ──────────────────
     _backup_note = " Backup created." if result.backup_path else ""
-    st.session_state["full_edit_success"] = f"{result.message}{_backup_note}"
+    enqueue_dataset_result_flash(f"{result.message}{_backup_note}", result)
     cancel_full_edit()  # clears buffer, restores browser state, calls st.rerun()
     return True          # unreachable after rerun, kept for type correctness
 
@@ -445,6 +446,7 @@ def render_edit_entries_page() -> None:
     clear_validate_entry_cache()
     ensure_entry_registry()
     _tag_snapshot = get_tag_registry_snapshot(untagged_key=_UNTAGGED)
+    render_flash_messages()
 
     if st.session_state.get("edit_entries_mode") == "workspace":
         render_full_edit_workspace(_tag_snapshot.active_registry)
@@ -458,9 +460,6 @@ def render_edit_entries_page() -> None:
         return
 
     st.subheader(f"Browse Entries ({len(_ee_all_pairs)})")
-
-    if "full_edit_success" in st.session_state:
-        st.success(st.session_state.pop("full_edit_success"))
 
     # ── Filter controls ────────────────────────────────────────────────────────
     # DB-backed label map and known-slug list for filter multiselect

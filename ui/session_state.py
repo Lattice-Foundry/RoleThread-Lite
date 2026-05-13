@@ -44,6 +44,7 @@ from services.dataset_service import (
 )
 from ui.message_scaffolding import scaffold_editable_messages
 from services.registry_sidecar_service import import_registry_sidecar
+from ui.flash_messages import enqueue_flash
 
 
 # ── Preferences session helper ─────────────────────────────────────────────────
@@ -71,9 +72,30 @@ def set_loaded_entries(
     normalization_summary: TagNormalizationSummary | None = None,
     dataset_path: str | None = None,
 ) -> str | None:
-    """Replace loaded_entries and rebuild the registry from scratch."""
-    clear_entry_edit_state()
+    """Replace loaded_entries and rebuild the registry from scratch.
+
+    Load pipeline order:
+    1. Clear stale dataset-scoped UI/edit state.
+    2. Use the provided load summary or normalize the given entries.
+    3. Create a protected working copy for foreign source files.
+    4. Locate and read a sibling registry sidecar.
+    5. Import sidecar registry data before tag adoption.
+    6. Canonicalize stale tag aliases in loaded entries.
+    7. Apply trusted character-role mappings already known to the DB.
+    8. Persist trusted character turn mappings created during normalization.
+    9. Collect remaining custom-role character candidates.
+    10. Refresh typed diagnostics if entries changed after core load analysis.
+    11. Adopt unknown dataset tags into the registry/archive.
+    12. Build the pending tag-trust map for imported archived tags.
+    13. Publish loaded entries and source format into session state.
+    14. Rebuild the temporary entry registry.
+    15. Store load, diagnostic, adoption, and sidecar summary data.
+    16. Update native/normalization flags and optional session values.
+    17. Return the effective dataset path.
+    """
+    clear_dataset_scoped_state()
     normalization = normalization_summary or normalize_dataset_entries(entries)
+    entries_changed_after_analysis = normalization_summary is None
     working_copy_summary, effective_dataset_path = _prepare_foreign_working_copy(
         dataset_path,
         dataset_is_native=normalization.dataset_is_native,
@@ -87,6 +109,7 @@ def set_loaded_entries(
         resolve_tag_lifecycle,
     )
     if alias_summary.get("rewrite_count"):
+        entries_changed_after_analysis = True
         normalization.entries = alias_canonical_entries
         normalization.alias_rewrites = dict(alias_summary.get("rewrites", {}))
         normalization.alias_rewrite_count = int(alias_summary.get("rewrite_count", 0))
@@ -94,15 +117,17 @@ def set_loaded_entries(
         normalization.changed_entries += normalization.alias_rewritten_entries
     known_character_result = normalize_known_character_roles(normalization.entries)
     if known_character_result.changed_turns:
+        entries_changed_after_analysis = True
         normalization.entries = known_character_result.entries
         normalization.changed_entries += known_character_result.changed_entries
         normalization.role_values_normalized += known_character_result.changed_turns
         upsert_character_mappings(known_character_result.mapping_payload)
     character_candidates = collect_character_candidates(normalization.entries)
-    normalization.diagnostics = summarize_entry_analysis(
-        normalization.entries,
-        metadata_errors_block_validity=False,
-    )
+    if entries_changed_after_analysis:
+        normalization.diagnostics = summarize_entry_analysis(
+            normalization.entries,
+            metadata_errors_block_validity=False,
+        )
     adoption = ensure_tags_exist_for_dataset(normalization.entries)
     pending_trust = _build_pending_tag_trust(
         normalization.entries,
@@ -163,6 +188,39 @@ def set_loaded_entries(
         character_candidates if character_candidates.has_candidates else None,
     )
     return effective_dataset_path
+
+
+_DATASET_SCOPED_STATE_KEYS = (
+    "quick_edit_success",
+    "tag_save_success",
+    "sys_prompt_success",
+    "full_edit_success",
+    "tm_success",
+    "export_success_msg",
+    "export_warning_msg",
+    "character_success_msg",
+    "character_warning_msg",
+    "validation_success_msg",
+    "validation_warning_msg",
+    "pending_delete_selected",
+    "pending_system_prompt_edit",
+    "validation_pending_fix",
+    "pending_character_delete",
+    "tm_pending_archived_assignment",
+    "tm_pending_category_delete",
+    "tm_pending_category_rename",
+    "tm_pending_tag_delete",
+    "tm_pending_tag_edit",
+    "bulk_system_prompt_text",
+)
+
+
+def clear_dataset_scoped_state() -> None:
+    """Clear confirmation/edit state that must not survive dataset switches."""
+
+    clear_entry_edit_state()
+    for key in _DATASET_SCOPED_STATE_KEYS:
+        st.session_state.pop(key, None)
 
 
 def clear_entry_edit_state() -> None:
@@ -254,10 +312,7 @@ def _import_sibling_sidecar(dataset_path: str | None, entries: list[dict] | None
         )
 
     try:
-        try:
-            result = import_registry_sidecar(registry=registry, entries=entries)
-        except TypeError:
-            result = import_registry_sidecar(registry=registry)
+        result = import_registry_sidecar(registry=registry, entries=entries)
     except Exception as exc:
         return (
             {
@@ -390,6 +445,7 @@ def persist_loaded_normalization(dataset_path: str) -> DatasetOperationResult:
         st.session_state.loaded_entries = result.entries
         st.session_state.entry_registry = build_entry_registry(result.entries)
         clear_normalization_pending()
+        _enqueue_sidecar_warning_if_needed(result)
     return result
 
 
@@ -525,8 +581,19 @@ def delete_selected_entries() -> tuple[int, list[str], bool]:
             "id_to_index": rebuild_id_to_index(proposed_ids),
         }
         clear_selected_entries()
+        _enqueue_sidecar_warning_if_needed(result)
         return result.affected_count, failures, result.backup_path is not None
     return 0, failures, False
+
+
+def _enqueue_sidecar_warning_if_needed(result: DatasetOperationResult) -> None:
+    if getattr(result, "sidecar_ok", True):
+        return
+    detail = getattr(result, "sidecar_message", None)
+    warning = "Dataset saved successfully but registry sidecar could not be updated."
+    if detail:
+        warning = f"{warning} {detail}"
+    enqueue_flash("warning", warning)
 
 
 # ── Quick-edit helpers ─────────────────────────────────────────────────────────
