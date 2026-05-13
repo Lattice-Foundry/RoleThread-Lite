@@ -23,7 +23,7 @@ from core.dataset import (
     set_entry_system_prompt,
     validate_entry,
 )
-from core.loreforge_meta import get_dataset_uuid_for_entries, stamp_entries
+from core.loreforge_meta import get_dataset_uuid_for_entries, get_entry_uuid, stamp_entries
 from core.registry_sidecar import read_sidecar, sidecar_path_for_dataset
 from core.role_normalization import normalize_entry_roles
 from core.working_copy import (
@@ -73,6 +73,7 @@ class SourceSidecarImportSummary:
     tags_promoted: list[str] = field(default_factory=list)
     aliases_imported: list[str] = field(default_factory=list)
     characters_created: list[str] = field(default_factory=list)
+    character_mappings_imported: list[str] = field(default_factory=list)
     character_slugs: list[str] = field(default_factory=list)
     conflicts: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -187,7 +188,11 @@ def _sidecar_result_fields(save_result: DatasetSaveResult) -> dict:
     }
 
 
-def _import_source_sidecars(source_paths: list[str] | None) -> SourceSidecarImportSummary:
+def _import_source_sidecars(
+    source_paths: list[str] | None,
+    *,
+    surviving_entry_uuids: set[str] | None = None,
+) -> SourceSidecarImportSummary:
     summary = SourceSidecarImportSummary(source_count=len(source_paths or []))
     if not source_paths:
         return summary
@@ -211,7 +216,8 @@ def _import_source_sidecars(source_paths: list[str] | None) -> SourceSidecarImpo
             import_result = _import_registry_sidecar(
                 registry=registry,
                 entries=entries if entries else None,
-                include_entry_character_mappings=False,
+                include_entry_character_mappings=True,
+                valid_entry_uuids=surviving_entry_uuids,
             )
         except Exception as exc:
             traceback.print_exc()
@@ -230,6 +236,9 @@ def _import_source_sidecars(source_paths: list[str] | None) -> SourceSidecarImpo
             summary.tags_promoted.extend(import_result.tags_promoted)
             summary.aliases_imported.extend(import_result.aliases_imported)
             summary.characters_created.extend(import_result.characters_created)
+            summary.character_mappings_imported.extend(
+                import_result.character_mappings_imported
+            )
             summary.conflicts.extend(import_result.conflicts)
             summary.warnings.extend(import_result.warnings)
         else:
@@ -778,7 +787,15 @@ def save_merged_entries_service(
             )
         backup_path = str(created_backup)
 
-    source_sidecar_summary = _import_source_sidecars(source_paths)
+    surviving_entry_uuids = {
+        entry_uuid
+        for entry in proposed_entries
+        if (entry_uuid := get_entry_uuid(entry))
+    }
+    source_sidecar_summary = _import_source_sidecars(
+        source_paths,
+        surviving_entry_uuids=surviving_entry_uuids,
+    )
     proposed_entries = _canonicalize_alias_tags(proposed_entries)
 
     try:

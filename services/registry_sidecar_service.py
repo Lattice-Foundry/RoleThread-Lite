@@ -150,6 +150,7 @@ def import_registry_sidecar(
     registry: SidecarRegistry | None = None,
     entries: list[dict] | None = None,
     include_entry_character_mappings: bool = True,
+    valid_entry_uuids: set[str] | None = None,
 ) -> RegistrySidecarImportResult:
     """Merge a registry sidecar into the current DB registry."""
     if registry is None:
@@ -202,11 +203,14 @@ def import_registry_sidecar(
         _merge_characters(session, registry, result)
         session.flush()
         if include_entry_character_mappings:
+            mapping_valid_entry_uuids = valid_entry_uuids
+            if mapping_valid_entry_uuids is None and entries is not None:
+                mapping_valid_entry_uuids = _entry_uuids(entries)
             _merge_character_mappings(
                 session,
                 registry,
                 result,
-                valid_entry_uuids=_entry_uuids(entries) if entries is not None else None,
+                valid_entry_uuids=mapping_valid_entry_uuids,
             )
 
         session.commit()
