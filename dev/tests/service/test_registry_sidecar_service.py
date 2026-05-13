@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import core.tag_registry as tag_registry
+import core.tag_resolution as tag_resolution
 from core.models import (
     Base,
     Character,
@@ -46,6 +47,7 @@ def _session_factory(tmp_path, monkeypatch):
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_resolution, "SessionLocal", session_factory)
     monkeypatch.setattr(
         tag_registry,
         "create_db_backup",

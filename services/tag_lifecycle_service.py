@@ -18,6 +18,15 @@ from core.dataset import (
 )
 from core.loreforge_meta import stamp_entries
 import core.tag_registry as tag_registry
+from core.tag_metadata import (
+    build_active_assigned_metadata,
+    build_deleted_archive_metadata,
+    build_rename_alias_metadata,
+    clear_current_tag_lifecycle_metadata,
+    clear_or_replace_tag_lifecycle_metadata,
+    upsert_tag_lifecycle_metadata,
+)
+from core.tag_resolution import resolve_tag_lifecycle
 from core.tag_constants import (
     ARCHIVE_ORIGIN_IMPORTED,
     LIFECYCLE_STATE_ACTIVE,
@@ -134,7 +143,7 @@ class LifecyclePipeline:
             self.dataset_path = _prepare_dataset_save_path(self.dataset_path)
             canonical_entries, _summary = canonicalize_entry_tag_aliases(
                 entries,
-                tag_registry.resolve_tag_lifecycle,
+                resolve_tag_lifecycle,
             )
             self.saved_entries = stamp_entries(canonical_entries)
             save_dataset(self.dataset_path, self.saved_entries)
@@ -535,7 +544,7 @@ def assign_archived_imported_tags_to_category(
                 tag.is_active = True
                 tag.category_id = category.id
                 tag.sort_order = next_sort_order + offset
-                tag_registry.clear_or_replace_tag_lifecycle_metadata(
+                clear_or_replace_tag_lifecycle_metadata(
                     action=TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
                     old_slug=tag.slug,
                     old_display_name=tag.name,
@@ -543,7 +552,7 @@ def assign_archived_imported_tags_to_category(
                     new_slug=tag.slug,
                     new_display_name=tag.name,
                     new_category_slug=category.slug,
-                    metadata=tag_registry.build_active_assigned_metadata(category.slug),
+                    metadata=build_active_assigned_metadata(category.slug),
                     session=session,
                 )
 
@@ -1035,10 +1044,10 @@ def edit_active_tag(
             tag.is_active = True
 
             if slug_changed:
-                tag_registry.clear_current_tag_lifecycle_metadata(
+                clear_current_tag_lifecycle_metadata(
                     normalized_old, session=session
                 )
-            tag_registry.clear_or_replace_tag_lifecycle_metadata(
+            clear_or_replace_tag_lifecycle_metadata(
                 action=TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
                 old_slug=normalized_new.slug,
                 old_display_name=normalized_new.display_name,
@@ -1055,7 +1064,7 @@ def edit_active_tag(
                 session=session,
             )
             if slug_changed:
-                tag_registry.upsert_tag_lifecycle_metadata(
+                upsert_tag_lifecycle_metadata(
                     action=TAG_LIFECYCLE_METADATA_RENAME,
                     old_slug=normalized_old,
                     old_display_name=old_display_name,
@@ -1063,7 +1072,7 @@ def edit_active_tag(
                     new_slug=normalized_new.slug,
                     new_display_name=normalized_new.display_name,
                     new_category_slug=new_category_slug,
-                    metadata=tag_registry.build_rename_alias_metadata(
+                    metadata=build_rename_alias_metadata(
                         old_slug=normalized_old,
                         new_slug=normalized_new.slug,
                     ),
@@ -1210,7 +1219,7 @@ def delete_active_tag(
             tag.status = TAG_STATUS_ARCHIVED
             tag.is_active = False
             tag.category_id = None
-            tag_registry.clear_or_replace_tag_lifecycle_metadata(
+            clear_or_replace_tag_lifecycle_metadata(
                 action=TAG_LIFECYCLE_METADATA_ARCHIVE,
                 old_slug=tag.slug,
                 old_display_name=tag.name,
@@ -1218,7 +1227,7 @@ def delete_active_tag(
                 new_slug=tag.slug,
                 new_display_name=tag.name,
                 new_category_slug=None,
-                metadata=tag_registry.build_deleted_archive_metadata(old_category_slug),
+                metadata=build_deleted_archive_metadata(old_category_slug),
                 session=session,
             )
 

@@ -64,7 +64,7 @@ def _normalize_entries(entries: list[dict]) -> list[dict]:
 
 
 def _canonicalize_alias_tags(entries: list[dict]) -> list[dict]:
-    from core.tag_registry import resolve_tag_lifecycle
+    from core.tag_resolution import resolve_tag_lifecycle
 
     canonical_entries, _summary = canonicalize_entry_tag_aliases(
         entries,

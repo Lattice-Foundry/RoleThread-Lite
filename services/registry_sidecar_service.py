@@ -30,6 +30,7 @@ from core.tag_constants import (
     TAG_STATUS_HIDDEN,
 )
 from core.tag_normalization import normalize_tag
+from core.tag_resolution import resolve_tag_lifecycle
 from core.text_helpers import count_phrase
 import core.tag_registry as tag_registry
 
@@ -381,7 +382,7 @@ def _entry_uuids(entries: list[dict] | None) -> set[str]:
 
 
 def _canonical_tag_slug(tag: str) -> str:
-    resolution = tag_registry.resolve_tag_lifecycle(tag)
+    resolution = resolve_tag_lifecycle(tag)
     if resolution.should_rewrite_slug and resolution.resolved_slug:
         return resolution.resolved_slug
     return resolution.resolved_slug or normalize_tag(tag).slug

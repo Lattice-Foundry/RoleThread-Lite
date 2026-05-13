@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from core.dataset import load_dataset, save_dataset
 from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid
 from core.version import LOREFORGE_VERSION
-import core.tag_registry as tag_registry
+import core.tag_resolution as tag_resolution
 from services import dataset_service
 from services.dataset_service import (
     clear_tags_bulk_service,
@@ -515,7 +515,7 @@ def test_save_full_edit_service_rewrites_stale_alias_tags(tmp_path, monkeypatch)
     path = _write_dataset(tmp_path, entries)
 
     monkeypatch.setattr(
-        tag_registry,
+        tag_resolution,
         "resolve_tag_lifecycle",
         lambda slug: SimpleNamespace(
             should_rewrite_slug=slug == "old_tag",

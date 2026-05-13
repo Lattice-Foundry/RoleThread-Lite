@@ -7,6 +7,8 @@ from sqlalchemy.orm import sessionmaker
 
 import core.tag_registry as tag_registry
 import core.tag_migrations as tag_migrations
+import core.tag_metadata as tag_metadata
+import core.tag_resolution as tag_resolution
 from core.dataset import normalize_dataset_tags
 from core.tag_constants import (
     TAG_LIFECYCLE_METADATA_ARCHIVE,
@@ -46,6 +48,8 @@ def tag_db(tmp_path, monkeypatch):
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_metadata, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_resolution, "SessionLocal", session_factory)
     monkeypatch.setattr(tag_migrations, "engine", engine)
     monkeypatch.setattr(
         tag_registry,
@@ -277,6 +281,8 @@ def test_old_tag_history_rows_migrate_to_lifecycle_metadata(tmp_path, monkeypatc
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_metadata, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_resolution, "SessionLocal", session_factory)
     monkeypatch.setattr(tag_migrations, "engine", engine)
 
     with engine.begin() as conn:
@@ -351,7 +357,7 @@ def test_old_tag_history_rows_migrate_to_lifecycle_metadata(tmp_path, monkeypatc
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Old Tag")
     assert result.result_type == TAG_RESOLUTION_ALIAS_MAPPED
     assert result.resolved_slug == "new_tag"
 
@@ -383,21 +389,21 @@ def test_history_models_can_be_inserted(tag_db):
 
 
 def test_current_lifecycle_metadata_upserts_one_current_row(tag_db):
-    tag_registry.upsert_tag_lifecycle_metadata(
+    tag_metadata.upsert_tag_lifecycle_metadata(
         action=TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
         old_slug="slow_burn",
         old_display_name="Slow Burn",
         new_slug="slow_burn",
         new_display_name="Slow Burn",
-        metadata=tag_registry.build_imported_archive_metadata(),
+        metadata=tag_metadata.build_imported_archive_metadata(),
     )
-    tag_registry.upsert_tag_lifecycle_metadata(
+    tag_metadata.upsert_tag_lifecycle_metadata(
         action=TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
         old_slug="slow-burn",
         old_display_name="Slow Burn",
         new_slug="slow_burn",
         new_display_name="Slow Burn",
-        metadata=tag_registry.build_imported_archive_metadata(),
+        metadata=tag_metadata.build_imported_archive_metadata(),
     )
 
     session = tag_db()
@@ -410,41 +416,41 @@ def test_current_lifecycle_metadata_upserts_one_current_row(tag_db):
 
 
 def test_current_lifecycle_metadata_replaces_imported_with_active_deleted_and_hidden(tag_db):
-    tag_registry.upsert_tag_lifecycle_metadata(
+    tag_metadata.upsert_tag_lifecycle_metadata(
         action=TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
         old_slug="slow_burn",
-        metadata=tag_registry.build_imported_archive_metadata(),
+        metadata=tag_metadata.build_imported_archive_metadata(),
     )
-    tag_registry.clear_or_replace_tag_lifecycle_metadata(
+    tag_metadata.clear_or_replace_tag_lifecycle_metadata(
         action=TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
         old_slug="slow_burn",
         new_slug="slow_burn",
         new_category_slug="pacing",
-        metadata=tag_registry.build_active_assigned_metadata("pacing"),
+        metadata=tag_metadata.build_active_assigned_metadata("pacing"),
     )
 
-    active_metadata = tag_registry.get_current_tag_lifecycle_metadata("slow burn")
+    active_metadata = tag_metadata.get_current_tag_lifecycle_metadata("slow burn")
     assert active_metadata["lifecycle_state"] == "active"
     assert active_metadata["activation_origin"] == "imported_assignment"
     assert active_metadata["assigned_category_slug"] == "pacing"
 
-    tag_registry.clear_or_replace_tag_lifecycle_metadata(
+    tag_metadata.clear_or_replace_tag_lifecycle_metadata(
         action=TAG_LIFECYCLE_METADATA_ARCHIVE,
         old_slug="slow_burn",
         old_category_slug="pacing",
-        metadata=tag_registry.build_deleted_archive_metadata("pacing"),
+        metadata=tag_metadata.build_deleted_archive_metadata("pacing"),
     )
-    deleted_metadata = tag_registry.get_current_tag_lifecycle_metadata("slow_burn")
+    deleted_metadata = tag_metadata.get_current_tag_lifecycle_metadata("slow_burn")
     assert deleted_metadata["lifecycle_state"] == "archived"
     assert deleted_metadata["archive_origin"] == "deleted"
     assert deleted_metadata["previous_category_slug"] == "pacing"
 
-    tag_registry.clear_or_replace_tag_lifecycle_metadata(
+    tag_metadata.clear_or_replace_tag_lifecycle_metadata(
         action=TAG_LIFECYCLE_METADATA_HIDE,
         old_slug="slow_burn",
-        metadata=tag_registry.build_hidden_metadata(),
+        metadata=tag_metadata.build_hidden_metadata(),
     )
-    hidden_metadata = tag_registry.get_current_tag_lifecycle_metadata("slow_burn")
+    hidden_metadata = tag_metadata.get_current_tag_lifecycle_metadata("slow_burn")
     assert hidden_metadata["lifecycle_state"] == "hidden"
     assert hidden_metadata["hide_reason"] == "hidden_from_archive"
 
@@ -460,8 +466,8 @@ def test_current_lifecycle_metadata_replaces_imported_with_active_deleted_and_hi
 @pytest.mark.parametrize(
     ("action", "metadata_builder"),
     [
-        (TAG_LIFECYCLE_METADATA_RENAME, tag_registry.build_rename_alias_metadata),
-        (TAG_LIFECYCLE_METADATA_MERGE, tag_registry.build_merge_alias_metadata),
+        (TAG_LIFECYCLE_METADATA_RENAME, tag_metadata.build_rename_alias_metadata),
+        (TAG_LIFECYCLE_METADATA_MERGE, tag_metadata.build_merge_alias_metadata),
     ],
 )
 def test_alias_metadata_remains_resolver_usable(tag_db, action, metadata_builder):
@@ -473,14 +479,14 @@ def test_alias_metadata_remains_resolver_usable(tag_db, action, metadata_builder
     finally:
         session.close()
 
-    tag_registry.upsert_tag_lifecycle_metadata(
+    tag_metadata.upsert_tag_lifecycle_metadata(
         action=action,
         old_slug="old_tag",
         new_slug="new_tag",
         metadata=metadata_builder(),
     )
 
-    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Old Tag")
 
     assert result.result_type == TAG_RESOLUTION_ALIAS_MAPPED
     assert result.resolved_slug == "new_tag"
@@ -496,29 +502,29 @@ def test_alias_metadata_always_inserts_and_preserves_previous_aliases(tag_db):
     finally:
         session.close()
 
-    tag_registry.upsert_tag_lifecycle_metadata(
+    tag_metadata.upsert_tag_lifecycle_metadata(
         action=TAG_LIFECYCLE_METADATA_RENAME,
         old_slug="old_tag",
         new_slug="middle_tag",
-        metadata=tag_registry.build_rename_alias_metadata(
+        metadata=tag_metadata.build_rename_alias_metadata(
             old_slug="old_tag",
             new_slug="middle_tag",
         ),
     )
-    tag_registry.upsert_tag_lifecycle_metadata(
+    tag_metadata.upsert_tag_lifecycle_metadata(
         action=TAG_LIFECYCLE_METADATA_RENAME,
         old_slug="middle_tag",
         new_slug="final_tag",
-        metadata=tag_registry.build_rename_alias_metadata(
+        metadata=tag_metadata.build_rename_alias_metadata(
             old_slug="middle_tag",
             new_slug="final_tag",
         ),
     )
-    tag_registry.upsert_tag_lifecycle_metadata(
+    tag_metadata.upsert_tag_lifecycle_metadata(
         action=TAG_LIFECYCLE_METADATA_RENAME,
         old_slug="middle_tag",
         new_slug="old_tag",
-        metadata=tag_registry.build_rename_alias_metadata(
+        metadata=tag_metadata.build_rename_alias_metadata(
             old_slug="middle_tag",
             new_slug="old_tag",
         ),
@@ -539,7 +545,7 @@ def test_alias_metadata_always_inserts_and_preserves_previous_aliases(tag_db):
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Middle Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Middle Tag")
     assert result.result_type == TAG_RESOLUTION_UNKNOWN
     assert result.should_create_archived is True
 
@@ -549,7 +555,7 @@ def test_alias_metadata_always_inserts_and_preserves_previous_aliases(tag_db):
     ["Slow Burn", "slow burn", "slow-burn", "SLOW BURN"],
 )
 def test_resolve_tag_lifecycle_normalizes_raw_values(tag_db, raw):
-    result = tag_registry.resolve_tag_lifecycle(raw)
+    result = tag_resolution.resolve_tag_lifecycle(raw)
 
     assert result.normalized_slug == "slow_burn"
     assert result.normalized_display_name == "Slow Burn"
@@ -567,7 +573,7 @@ def test_resolve_tag_lifecycle_returns_active_for_active_categorized_tag(tag_db)
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Slow Burn")
+    result = tag_resolution.resolve_tag_lifecycle("Slow Burn")
 
     assert result.result_type == TAG_RESOLUTION_ACTIVE
     assert result.resolved_slug == "slow_burn"
@@ -596,7 +602,7 @@ def test_resolve_tag_lifecycle_maps_alias_history_to_active_target(tag_db, actio
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Old Tag")
 
     assert result.result_type == TAG_RESOLUTION_ALIAS_MAPPED
     assert result.resolved_slug == "new_tag"
@@ -628,7 +634,7 @@ def test_resolve_tag_lifecycle_follows_alias_lineage_to_active_target(tag_db):
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Old Tag")
 
     assert result.result_type == TAG_RESOLUTION_ALIAS_MAPPED
     assert result.resolved_slug == "final_tag"
@@ -663,7 +669,7 @@ def test_resolve_tag_lifecycle_follows_three_hop_alias_lineage(tag_db):
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Old Tag")
 
     assert result.result_type == TAG_RESOLUTION_ALIAS_MAPPED
     assert result.resolved_slug == "final_tag"
@@ -691,7 +697,7 @@ def test_resolve_tag_lifecycle_handles_alias_cycle_without_hanging(tag_db):
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Old Tag")
 
     assert result.result_type == TAG_RESOLUTION_UNKNOWN
     assert result.resolved_slug == "old_tag"
@@ -713,7 +719,7 @@ def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_missing(tag_db)
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Old Tag")
 
     assert result.result_type == TAG_RESOLUTION_UNKNOWN
     assert result.resolved_slug == "old_tag"
@@ -743,7 +749,7 @@ def test_resolve_tag_lifecycle_does_not_map_alias_when_target_is_not_active(tag_
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Old Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Old Tag")
 
     assert result.result_type == TAG_RESOLUTION_UNKNOWN
     assert result.should_rewrite_slug is False
@@ -767,7 +773,7 @@ def test_resolve_tag_lifecycle_recognizes_existing_inactive_states(
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Legacy Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Legacy Tag")
 
     assert result.result_type == result_type
     assert result.resolved_slug == "legacy_tag"
@@ -796,7 +802,7 @@ def test_resolve_tag_lifecycle_recognizes_retired_history_without_target(tag_db,
     finally:
         session.close()
 
-    result = tag_registry.resolve_tag_lifecycle("Retired Tag")
+    result = tag_resolution.resolve_tag_lifecycle("Retired Tag")
 
     assert result.result_type == TAG_RESOLUTION_RETIRED
     assert result.resolved_slug == "retired_tag"
@@ -804,7 +810,7 @@ def test_resolve_tag_lifecycle_recognizes_retired_history_without_target(tag_db,
 
 
 def test_resolve_tag_lifecycle_returns_unknown_for_truly_unknown_tag(tag_db):
-    result = tag_registry.resolve_tag_lifecycle("Brand New")
+    result = tag_resolution.resolve_tag_lifecycle("Brand New")
 
     assert result.result_type == TAG_RESOLUTION_UNKNOWN
     assert result.normalized_slug == "brand_new"
@@ -920,19 +926,19 @@ def test_tag_registry_snapshot_matches_existing_read_helpers(tag_db):
             status=TAG_STATUS_ARCHIVED,
             active=False,
         )
-        tag_registry.upsert_tag_lifecycle_metadata(
+        tag_metadata.upsert_tag_lifecycle_metadata(
             action=TAG_LIFECYCLE_METADATA_ARCHIVE,
             old_slug=imported.slug,
             old_display_name=imported.name,
-            metadata=tag_registry.build_imported_archive_metadata(),
+            metadata=tag_metadata.build_imported_archive_metadata(),
             session=session,
         )
-        tag_registry.upsert_tag_lifecycle_metadata(
+        tag_metadata.upsert_tag_lifecycle_metadata(
             action=TAG_LIFECYCLE_METADATA_ARCHIVE,
             old_slug=deleted.slug,
             old_display_name=deleted.name,
             old_category_slug="behavior",
-            metadata=tag_registry.build_deleted_archive_metadata("behavior"),
+            metadata=tag_metadata.build_deleted_archive_metadata("behavior"),
             session=session,
         )
         session.commit()

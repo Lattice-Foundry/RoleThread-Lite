@@ -19,14 +19,14 @@ from core.dataset import (
     summarize_entry_analysis,
 )
 from core.registry_sidecar import read_sidecar, sidecar_path_for_dataset
+from core.tag_metadata import get_current_tag_lifecycle_metadata
 from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
 from core.tag_registry import (
     ensure_tags_exist_for_dataset,
-    get_current_tag_lifecycle_metadata,
     get_tag_by_slug_any_status,
     prettify_tag_name,
-    resolve_tag_lifecycle,
 )
+from core.tag_resolution import resolve_tag_lifecycle
 from core.working_copy import create_dataset_working_copy
 from services.registry_sidecar_service import import_registry_sidecar
 

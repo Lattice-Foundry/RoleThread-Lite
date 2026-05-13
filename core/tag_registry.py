@@ -3,7 +3,6 @@
 JSONL entries store tag slugs; this module owns slug/display conversion,
 registry seeding, lookup helpers, and additive custom tag writes.
 """
-import json
 from dataclasses import dataclass, field
 
 from sqlalchemy import func
@@ -20,34 +19,15 @@ from core.tag_migrations import (
     _migrate_tags_slug_column,
 )
 from core.tag_constants import (
-    ACTIVATION_ORIGIN_IMPORTED_ASSIGNMENT,
     ARCHIVE_BADGE_DELETED,
     ARCHIVE_BADGE_IMPORTED,
     ARCHIVE_ORIGIN_DELETED,
     ARCHIVE_ORIGIN_IMPORTED,
     ARCHIVE_REASON_UNKNOWN_IMPORT,
     ARCHIVE_REASON_USER_SOFT_DELETE,
-    HIDE_REASON_HIDDEN_FROM_ARCHIVE,
-    LIFECYCLE_STATE_ACTIVE,
-    LIFECYCLE_STATE_ARCHIVED,
-    LIFECYCLE_STATE_HIDDEN,
-    RESOLVER_BEHAVIOR_MAP_TO_TARGET,
-    TAG_ALIAS_METADATA_ACTIONS,
-    TAG_CURRENT_METADATA_ACTIONS,
-    TAG_LIFECYCLE_METADATA_ARCHIVE,
-    TAG_LIFECYCLE_METADATA_ASSIGN_CATEGORY,
-    TAG_LIFECYCLE_METADATA_DELETE,
-    TAG_LIFECYCLE_METADATA_HIDE,
     TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
     TAG_LIFECYCLE_METADATA_IMPORT_UNCATEGORIZED,
-    TAG_LIFECYCLE_METADATA_MERGE,
-    TAG_LIFECYCLE_METADATA_RENAME,
-    TAG_LIFECYCLE_METADATA_RESTORE,
-    TAG_RESOLUTION_ACTIVE,
-    TAG_RESOLUTION_ALIAS_MAPPED,
     TAG_RESOLUTION_ARCHIVED,
-    TAG_RESOLUTION_HIDDEN,
-    TAG_RESOLUTION_RETIRED,
     TAG_RESOLUTION_UNKNOWN,
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
@@ -55,8 +35,24 @@ from core.tag_constants import (
     TAG_STATUS_UNCATEGORIZED,
     TagResolutionResult,
 )
-from core.models import Tag, TagCategory, TagLifecycleMetadata
+from core.models import Tag, TagCategory
+from core.tag_metadata import (
+    archive_metadata_for_tag,
+    archive_metadata_for_tag_dict,
+    build_active_assigned_metadata,
+    build_deleted_archive_metadata,
+    build_hidden_metadata,
+    build_imported_archive_metadata,
+    build_merge_alias_metadata,
+    build_rename_alias_metadata,
+    clear_current_tag_lifecycle_metadata,
+    clear_or_replace_tag_lifecycle_metadata,
+    current_metadata_by_slug,
+    get_current_tag_lifecycle_metadata,
+    upsert_tag_lifecycle_metadata,
+)
 from core.tag_normalization import normalize_tag
+from core.tag_resolution import resolve_tag_lifecycle
 
 
 @dataclass
@@ -108,21 +104,6 @@ def prettify_tag_name(slug: str) -> str:
 
 
 
-def _get_active_tag(session, slug: str) -> Tag | None:
-    """Return an active tag only when it belongs to an active category."""
-    return (
-        session.query(Tag)
-        .join(TagCategory, Tag.category_id == TagCategory.id)
-        .filter(
-            Tag.slug == slug,
-            Tag.status == TAG_STATUS_ACTIVE,
-            Tag.is_active.is_(True),
-            TagCategory.is_active.is_(True),
-        )
-        .first()
-    )
-
-
 def _query_active_tags(session):
     """Return a query for active tags with active category membership."""
     return (
@@ -135,375 +116,6 @@ def _query_active_tags(session):
             TagCategory.is_active.is_(True),
         )
     )
-
-
-def _resolve_alias_mapping(session, slug: str) -> tuple[str, str] | None:
-    """Follow rename/merge history to an active target slug."""
-    seen: set[str] = set()
-    current_slug = slug
-
-    for _ in range(20):
-        if current_slug in seen:
-            return None
-        seen.add(current_slug)
-
-        history = (
-            session.query(TagLifecycleMetadata)
-            .filter(
-                TagLifecycleMetadata.old_slug == current_slug,
-                TagLifecycleMetadata.action.in_([TAG_LIFECYCLE_METADATA_RENAME, TAG_LIFECYCLE_METADATA_MERGE]),
-                TagLifecycleMetadata.new_slug.isnot(None),
-                TagLifecycleMetadata.new_slug != "",
-            )
-            .order_by(TagLifecycleMetadata.id.desc())
-            .first()
-        )
-        if history is None:
-            return None
-
-        target_slug = normalize_tag(history.new_slug).slug
-        if not target_slug:
-            return None
-        if _get_active_tag(session, target_slug) is not None:
-            return target_slug, history.action
-        current_slug = target_slug
-
-    return None
-
-
-def _has_retired_history(session, slug: str) -> bool:
-    """Return True when history says a slug should not be recreated."""
-    retired_actions = [TAG_LIFECYCLE_METADATA_ARCHIVE, TAG_LIFECYCLE_METADATA_HIDE, TAG_LIFECYCLE_METADATA_DELETE]
-    histories = (
-        session.query(TagLifecycleMetadata)
-        .filter(
-            TagLifecycleMetadata.old_slug == slug,
-            TagLifecycleMetadata.action.in_(retired_actions),
-        )
-        .order_by(TagLifecycleMetadata.id.desc())
-        .all()
-    )
-    for history in histories:
-        target_slug = normalize_tag(history.new_slug).slug if history.new_slug else ""
-        if not target_slug or _get_active_tag(session, target_slug) is None:
-            return True
-    return False
-
-
-def resolve_tag_lifecycle(raw_tag: str) -> TagResolutionResult:
-    """Resolve an imported tag against active tags, lifecycle rows, and history."""
-    normalized = normalize_tag(raw_tag)
-    if not normalized.slug:
-        return TagResolutionResult(
-            raw=normalized.raw,
-            normalized_slug="",
-            normalized_display_name="",
-            resolved_slug="",
-            result_type=TAG_RESOLUTION_UNKNOWN,
-            should_skip_creation=True,
-            reason="invalid_tag",
-        )
-
-    session = SessionLocal()
-    try:
-        active_tag = _get_active_tag(session, normalized.slug)
-        if active_tag is not None:
-            return TagResolutionResult(
-                raw=normalized.raw,
-                normalized_slug=normalized.slug,
-                normalized_display_name=normalized.display_name,
-                resolved_slug=normalized.slug,
-                result_type=TAG_RESOLUTION_ACTIVE,
-                reason="active_tag",
-            )
-
-        alias = _resolve_alias_mapping(session, normalized.slug)
-        if alias is not None:
-            target_slug, action = alias
-            return TagResolutionResult(
-                raw=normalized.raw,
-                normalized_slug=normalized.slug,
-                normalized_display_name=normalized.display_name,
-                resolved_slug=target_slug,
-                result_type=TAG_RESOLUTION_ALIAS_MAPPED,
-                should_rewrite_slug=target_slug != normalized.slug,
-                target_slug=target_slug,
-                reason=action,
-            )
-
-        existing_tag = (
-            session.query(Tag)
-            .filter_by(slug=normalized.slug)
-            .order_by(Tag.id)
-            .first()
-        )
-        if existing_tag is not None:
-            status_to_result = {
-                TAG_STATUS_UNCATEGORIZED: TAG_RESOLUTION_ARCHIVED,
-                TAG_STATUS_ARCHIVED: TAG_RESOLUTION_ARCHIVED,
-                TAG_STATUS_HIDDEN: TAG_RESOLUTION_HIDDEN,
-            }
-            result_type = status_to_result.get(existing_tag.status)
-            if result_type is not None:
-                return TagResolutionResult(
-                    raw=normalized.raw,
-                    normalized_slug=normalized.slug,
-                    normalized_display_name=normalized.display_name,
-                    resolved_slug=normalized.slug,
-                    result_type=result_type,
-                    should_skip_creation=True,
-                    reason=f"existing_{existing_tag.status}",
-                )
-
-        if _has_retired_history(session, normalized.slug):
-            return TagResolutionResult(
-                raw=normalized.raw,
-                normalized_slug=normalized.slug,
-                normalized_display_name=normalized.display_name,
-                resolved_slug=normalized.slug,
-                result_type=TAG_RESOLUTION_RETIRED,
-                should_skip_creation=True,
-                reason="retired_history",
-            )
-
-        return TagResolutionResult(
-            raw=normalized.raw,
-            normalized_slug=normalized.slug,
-            normalized_display_name=normalized.display_name,
-            resolved_slug=normalized.slug,
-            result_type=TAG_RESOLUTION_UNKNOWN,
-            should_create_archived=True,
-            reason="unknown_tag",
-        )
-    finally:
-        session.close()
-
-
-def _metadata_json(metadata: dict) -> str:
-    """Serialize lifecycle metadata compactly and consistently."""
-    return json.dumps(metadata, sort_keys=True, separators=(",", ":"))
-
-
-def build_imported_archive_metadata() -> dict:
-    """Return current metadata for an imported archived tag."""
-    return {
-        "lifecycle_state": LIFECYCLE_STATE_ARCHIVED,
-        "archive_origin": ARCHIVE_ORIGIN_IMPORTED,
-        "archive_reason": ARCHIVE_REASON_UNKNOWN_IMPORT,
-        "visible_badge": ARCHIVE_BADGE_IMPORTED,
-    }
-
-
-def build_active_assigned_metadata(assigned_category_slug: str) -> dict:
-    """Return current metadata for an imported tag assigned to a category."""
-    return {
-        "lifecycle_state": LIFECYCLE_STATE_ACTIVE,
-        "activation_origin": ACTIVATION_ORIGIN_IMPORTED_ASSIGNMENT,
-        "assigned_category_slug": assigned_category_slug,
-        "visible_badge": None,
-    }
-
-
-def build_deleted_archive_metadata(previous_category_slug: str) -> dict:
-    """Return current metadata for a soft-deleted archived tag."""
-    return {
-        "lifecycle_state": LIFECYCLE_STATE_ARCHIVED,
-        "archive_origin": ARCHIVE_ORIGIN_DELETED,
-        "archive_reason": ARCHIVE_REASON_USER_SOFT_DELETE,
-        "previous_category_slug": previous_category_slug,
-        "visible_badge": ARCHIVE_BADGE_DELETED,
-    }
-
-
-def build_hidden_metadata() -> dict:
-    """Return current metadata for a hidden history-only tag."""
-    return {
-        "lifecycle_state": LIFECYCLE_STATE_HIDDEN,
-        "hide_reason": HIDE_REASON_HIDDEN_FROM_ARCHIVE,
-        "visible_badge": None,
-    }
-
-
-def build_rename_alias_metadata(
-    old_slug: str | None = None,
-    new_slug: str | None = None,
-) -> dict:
-    """Return resolver metadata for a hidden rename alias."""
-    metadata = {
-        "lifecycle_state": LIFECYCLE_STATE_HIDDEN,
-        "alias_type": TAG_LIFECYCLE_METADATA_RENAME,
-        "resolver_behavior": RESOLVER_BEHAVIOR_MAP_TO_TARGET,
-    }
-    if old_slug is not None:
-        metadata["old_slug"] = normalize_tag(old_slug).slug
-    if new_slug is not None:
-        metadata["new_slug"] = normalize_tag(new_slug).slug
-    return metadata
-
-
-def build_merge_alias_metadata() -> dict:
-    """Return resolver metadata for a hidden merge alias."""
-    return {
-        "lifecycle_state": LIFECYCLE_STATE_HIDDEN,
-        "alias_type": TAG_LIFECYCLE_METADATA_MERGE,
-        "resolver_behavior": RESOLVER_BEHAVIOR_MAP_TO_TARGET,
-    }
-
-
-def upsert_tag_lifecycle_metadata(
-    *,
-    action: str,
-    old_slug: str,
-    old_display_name: str | None = None,
-    old_category_slug: str | None = None,
-    new_slug: str | None = None,
-    new_display_name: str | None = None,
-    new_category_slug: str | None = None,
-    metadata: dict | None = None,
-    session=None,
-) -> TagLifecycleMetadata:
-    """Create or replace the current lifecycle metadata row for a slug."""
-    normalized_old = normalize_tag(old_slug).slug
-    if not normalized_old:
-        raise ValueError("Lifecycle metadata requires a valid old_slug.")
-
-    own_session = session is None
-    active_session = session or SessionLocal()
-    try:
-        history = None
-        if action not in TAG_ALIAS_METADATA_ACTIONS:
-            history = (
-                active_session.query(TagLifecycleMetadata)
-                .filter(
-                    TagLifecycleMetadata.old_slug == normalized_old,
-                    TagLifecycleMetadata.action.in_(TAG_CURRENT_METADATA_ACTIONS),
-                )
-                .order_by(TagLifecycleMetadata.id.desc())
-                .first()
-            )
-        if history is None:
-            history = TagLifecycleMetadata(old_slug=normalized_old)
-            active_session.add(history)
-
-        history.action = action
-        history.old_display_name = old_display_name
-        history.old_category_slug = old_category_slug
-        history.new_slug = normalize_tag(new_slug).slug if new_slug else None
-        history.new_display_name = new_display_name
-        history.new_category_slug = new_category_slug
-        history.metadata_json = _metadata_json(metadata or {})
-
-        if own_session:
-            active_session.commit()
-            active_session.refresh(history)
-        else:
-            active_session.flush()
-        return history
-    except Exception:
-        if own_session:
-            active_session.rollback()
-        raise
-    finally:
-        if own_session:
-            active_session.close()
-
-
-def get_current_tag_lifecycle_metadata(slug: str) -> dict:
-    """Return the current lifecycle metadata for a tag slug."""
-    normalized = normalize_tag(slug).slug
-    if not normalized:
-        return {}
-
-    session = SessionLocal()
-    try:
-        history = (
-            session.query(TagLifecycleMetadata)
-            .filter(
-                TagLifecycleMetadata.old_slug == normalized,
-                TagLifecycleMetadata.action.in_(TAG_CURRENT_METADATA_ACTIONS),
-            )
-            .order_by(TagLifecycleMetadata.id.desc())
-            .first()
-        )
-        if history is None or not history.metadata_json:
-            return {}
-        try:
-            metadata = json.loads(history.metadata_json)
-        except json.JSONDecodeError:
-            return {}
-        return metadata if isinstance(metadata, dict) else {}
-    finally:
-        session.close()
-
-
-def clear_or_replace_tag_lifecycle_metadata(
-    *,
-    action: str,
-    old_slug: str,
-    metadata: dict,
-    old_display_name: str | None = None,
-    old_category_slug: str | None = None,
-    new_slug: str | None = None,
-    new_display_name: str | None = None,
-    new_category_slug: str | None = None,
-    session=None,
-) -> TagLifecycleMetadata:
-    """Replace the current lifecycle metadata for a slug."""
-    return upsert_tag_lifecycle_metadata(
-        action=action,
-        old_slug=old_slug,
-        old_display_name=old_display_name,
-        old_category_slug=old_category_slug,
-        new_slug=new_slug,
-        new_display_name=new_display_name,
-        new_category_slug=new_category_slug,
-        metadata=metadata,
-        session=session,
-    )
-
-
-def clear_current_tag_lifecycle_metadata(slug: str, session=None) -> None:
-    """Remove current-state lifecycle metadata for a slug, preserving aliases."""
-    normalized = normalize_tag(slug).slug
-    if not normalized:
-        return
-
-    own_session = session is None
-    active_session = session or SessionLocal()
-    try:
-        (
-            active_session.query(TagLifecycleMetadata)
-            .filter(
-                TagLifecycleMetadata.old_slug == normalized,
-                TagLifecycleMetadata.action.in_(TAG_CURRENT_METADATA_ACTIONS),
-            )
-            .delete(synchronize_session=False)
-        )
-        if own_session:
-            active_session.commit()
-    except Exception:
-        if own_session:
-            active_session.rollback()
-        raise
-    finally:
-        if own_session:
-            active_session.close()
-
-
-def _archive_metadata_for_tag(tag: dict) -> dict:
-    """Return visible archive metadata for one lifecycle tag dict."""
-    default = {
-        "archive_origin": ARCHIVE_ORIGIN_IMPORTED
-        if tag.get("category_id") is None
-        else ARCHIVE_ORIGIN_DELETED,
-        "archive_reason": ARCHIVE_REASON_UNKNOWN_IMPORT
-        if tag.get("category_id") is None
-        else ARCHIVE_REASON_USER_SOFT_DELETE,
-        "visible_badge": ARCHIVE_BADGE_IMPORTED
-        if tag.get("category_id") is None
-        else ARCHIVE_BADGE_DELETED,
-    }
-    return {**default, **get_current_tag_lifecycle_metadata(tag.get("slug", ""))}
 
 
 def ensure_archived_import_tag(raw_tag: str) -> TagResolutionResult:
@@ -968,7 +580,7 @@ def get_imported_archived_tags() -> list[dict]:
     ]
     result = []
     for tag in tags:
-        metadata = _archive_metadata_for_tag(tag)
+        metadata = archive_metadata_for_tag(tag)
         if metadata.get("archive_origin") != ARCHIVE_ORIGIN_IMPORTED:
             continue
         result.append(
@@ -993,7 +605,7 @@ def get_deleted_archived_tags() -> list[dict]:
     """Return visible deleted archived tags for future restore surfaces."""
     result = []
     for tag in get_archived_tags():
-        metadata = _archive_metadata_for_tag(tag)
+        metadata = archive_metadata_for_tag(tag)
         if metadata.get("archive_origin") != ARCHIVE_ORIGIN_DELETED:
             continue
         result.append(
@@ -1046,56 +658,6 @@ def get_tag_by_slug_any_status(slug: str) -> Tag | None:
 
 # Hard ceiling on active categories to keep the UI manageable.
 _MAX_ACTIVE_CATEGORIES = 10
-
-
-def _parse_metadata_json(metadata_json: str | None) -> dict:
-    """Return lifecycle metadata dict from stored JSON."""
-    if not metadata_json:
-        return {}
-    try:
-        metadata = json.loads(metadata_json)
-    except json.JSONDecodeError:
-        return {}
-    return metadata if isinstance(metadata, dict) else {}
-
-
-def _current_metadata_by_slug(session, slugs: list[str]) -> dict[str, dict]:
-    """Return latest current-state lifecycle metadata for each slug."""
-    if not slugs:
-        return {}
-
-    rows = (
-        session.query(TagLifecycleMetadata)
-        .filter(
-            TagLifecycleMetadata.old_slug.in_(slugs),
-            TagLifecycleMetadata.action.in_(TAG_CURRENT_METADATA_ACTIONS),
-        )
-        .order_by(TagLifecycleMetadata.id.desc())
-        .all()
-    )
-
-    metadata_by_slug: dict[str, dict] = {}
-    for row in rows:
-        if row.old_slug in metadata_by_slug:
-            continue
-        metadata_by_slug[row.old_slug] = _parse_metadata_json(row.metadata_json)
-    return metadata_by_slug
-
-
-def _archive_metadata_for_tag_dict(tag: dict, metadata_by_slug: dict[str, dict]) -> dict:
-    """Return visible archive metadata for one lifecycle tag dict."""
-    default = {
-        "archive_origin": ARCHIVE_ORIGIN_IMPORTED
-        if tag.get("category_id") is None
-        else ARCHIVE_ORIGIN_DELETED,
-        "archive_reason": ARCHIVE_REASON_UNKNOWN_IMPORT
-        if tag.get("category_id") is None
-        else ARCHIVE_REASON_USER_SOFT_DELETE,
-        "visible_badge": ARCHIVE_BADGE_IMPORTED
-        if tag.get("category_id") is None
-        else ARCHIVE_BADGE_DELETED,
-    }
-    return {**default, **metadata_by_slug.get(tag.get("slug", ""), {})}
 
 
 def get_tag_registry_snapshot(
@@ -1164,7 +726,7 @@ def get_tag_registry_snapshot(
             .all()
         )
         archived_tag_dicts = [_tag_to_dict(tag) for tag in archived_tags]
-        metadata_by_slug = _current_metadata_by_slug(
+        metadata_by_slug = current_metadata_by_slug(
             session,
             [tag["slug"] for tag in archived_tag_dicts],
         )
@@ -1173,7 +735,7 @@ def get_tag_registry_snapshot(
         for tag in archived_tag_dicts:
             if tag.get("category_id") is not None:
                 continue
-            metadata = _archive_metadata_for_tag_dict(tag, metadata_by_slug)
+            metadata = archive_metadata_for_tag_dict(tag, metadata_by_slug)
             if metadata.get("archive_origin") != ARCHIVE_ORIGIN_IMPORTED:
                 continue
             imported_archived_tags.append(
@@ -1194,7 +756,7 @@ def get_tag_registry_snapshot(
 
         deleted_archived_tags = []
         for tag in archived_tag_dicts:
-            metadata = _archive_metadata_for_tag_dict(tag, metadata_by_slug)
+            metadata = archive_metadata_for_tag_dict(tag, metadata_by_slug)
             if metadata.get("archive_origin") != ARCHIVE_ORIGIN_DELETED:
                 continue
             deleted_archived_tags.append(
