@@ -1,4 +1,5 @@
 """Dataset load and creation controls for Manage Dataset."""
+from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
@@ -57,9 +58,10 @@ def _render_load_controls() -> None:
 
 
 def _render_load_button(load_path: str) -> None:
-    dataset_already_loaded = _same_dataset_path(
+    dataset_already_loaded = _is_load_path_already_active(
         load_path.strip(),
         st.session_state.get("loaded_path"),
+        st.session_state.get("working_copy_summary"),
     )
     if dataset_already_loaded:
         st.caption("Dataset already loaded.")
@@ -93,6 +95,7 @@ def _load_dataset(path: str) -> None:
         dataset_path=path,
     ) or path
     st.session_state.loaded_path = loaded_dataset_path
+    st.session_state["manage_load_path_pending"] = loaded_dataset_path
     st.session_state.stale_last_path = ""
     st.session_state.entry_page = 0
     st.session_state["manage_select_all_mode"] = False
@@ -140,7 +143,7 @@ def _render_new_dataset_button() -> None:
     new_path = safe_saveas_filename(
         title="Create new dataset",
         defaultextension=".jsonl",
-        initialfile="dataset.jsonl",
+        initialfile=_default_new_dataset_filename(),
         initialdir=get_initial_dir(prefs, dir_key="default_dataset_directory"),
         filetypes=JSONL_TYPES,
     )
@@ -202,6 +205,23 @@ def _create_new_dataset(new_path: str) -> None:
         st.error(f"Failed to create dataset: {exc}")
 
 
+def _is_load_path_already_active(
+    load_path: str | None,
+    loaded_path: str | None,
+    working_copy_summary: dict | None = None,
+) -> bool:
+    """Return True if load_path targets the active dataset or its source."""
+
+    if _same_dataset_path(load_path, loaded_path):
+        return True
+    original_path = (
+        working_copy_summary.get("original_path")
+        if isinstance(working_copy_summary, dict)
+        else None
+    )
+    return _same_dataset_path(load_path, original_path)
+
+
 def _same_dataset_path(left: str | None, right: str | None) -> bool:
     if not left or not right:
         return False
@@ -209,3 +229,10 @@ def _same_dataset_path(left: str | None, right: str | None) -> bool:
         return Path(left).expanduser().resolve() == Path(right).expanduser().resolve()
     except (OSError, RuntimeError, ValueError):
         return str(left).strip() == str(right).strip()
+
+
+def _default_new_dataset_filename(now: datetime | None = None) -> str:
+    """Return a collision-resistant default filename for new datasets."""
+
+    current = now or datetime.now()
+    return f"dataset_{current.strftime('%Y%m%d_%H%M%S')}.jsonl"
