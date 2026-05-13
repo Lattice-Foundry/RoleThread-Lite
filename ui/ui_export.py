@@ -62,7 +62,11 @@ def render_export_page() -> None:
     )
     _export_format = _EXPORT_FORMAT_OPTIONS[_format_label]
 
-    clean_export = st.checkbox("Clean — Tag data removed", value=False, key="export_clean")
+    clean_export = st.checkbox(
+        "Clean - Metadata removed",
+        value=False,
+        key="export_clean",
+    )
     include_sidecar = st.checkbox(
         "Include registry sidecar",
         value=True,

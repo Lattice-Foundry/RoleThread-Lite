@@ -22,7 +22,7 @@ dataset engineering.
 * Custom tag categories, active/archived tag lifecycle handling, and alias repair
 * Character registry and per-entry character-to-turn metadata
 * Portable registry sidecars for tags, aliases, characters, and mappings
-* Protected working copies for foreign files so originals stay untouched
+* Protected working copies for untrusted files so originals stay untouched
 * Dataset merge tools with dataset UUID, entry UUID, sidecar, and tag hardening
 * Bulk tag edits, system prompt tools, statistics, and diagnostics
 * Local preferences, dataset backups, and database backups

@@ -46,10 +46,14 @@ def test_prepare_export_entries_clean_export_strips_loreforge_metadata():
     entry = {
         **_entry(),
         LOREFORGE_META_KEY: {
-            "version": "0.1.0",
+            "version": "0.10.0",
             "native": True,
             "validated_at": "2026-05-11T12:00:00Z",
+            "entry_uuid": "entry-uuid-1",
+            "dataset_uuid": "dataset-uuid-1",
         },
+        "character_notes": {"scott": "speaker metadata"},
+        "custom_metadata": "remove me",
     }
 
     chatml = _prepare_export_entries(
@@ -65,6 +69,15 @@ def test_prepare_export_entries_clean_export_strips_loreforge_metadata():
 
     assert LOREFORGE_META_KEY not in chatml[0]
     assert LOREFORGE_META_KEY not in sharegpt[0]
+    assert chatml == [{"messages": entry["messages"]}]
+    assert sharegpt == [
+        {
+            "conversations": [
+                {"from": "human", "value": "Hi"},
+                {"from": "gpt", "value": "Hello"},
+            ],
+        }
+    ]
 
 
 def test_prepare_export_entries_converts_sharegpt_with_metadata():
