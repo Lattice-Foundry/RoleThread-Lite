@@ -9,6 +9,7 @@ from core.models import (
     Base,
     Character,
     EntryCharacterTurn,
+    SystemPromptTemplate,
     Tag,
     TagCategory,
     TagLifecycleMetadata,
@@ -21,6 +22,7 @@ from core.registry_sidecar import (
     SidecarDatasetInfo,
     SidecarEntryCharacterMapping,
     SidecarRegistry,
+    SidecarSystemPrompt,
     SidecarTag,
     read_sidecar,
     sidecar_path_for_dataset,
@@ -70,6 +72,7 @@ def _registry(
     aliases=None,
     characters=None,
     entry_character_mappings=None,
+    system_prompts=None,
 ) -> SidecarRegistry:
     return SidecarRegistry(
         metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00+00:00"),
@@ -82,6 +85,7 @@ def _registry(
         aliases=tuple(aliases or []),
         characters=tuple(characters or []),
         entry_character_mappings=tuple(entry_character_mappings or []),
+        system_prompts=tuple(system_prompts or []),
     )
 
 
@@ -343,6 +347,52 @@ def test_export_registry_sidecar_includes_dataset_relevant_characters_only(
                     "source_role_label": "Emma",
                 },
             ),
+        ),
+    )
+
+
+def test_export_registry_sidecar_includes_active_system_prompt_templates(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    session = session_factory()
+    try:
+        session.add_all([
+            SystemPromptTemplate(
+                slug="group_scene_intro",
+                name="Group Scene Intro",
+                content="You are playing Emma in a group scene.",
+                description="Standard group RP opening",
+                is_active=True,
+            ),
+            SystemPromptTemplate(
+                slug="inactive_prompt",
+                name="Inactive Prompt",
+                content="Hidden prompt",
+                is_active=False,
+            ),
+        ])
+        session.commit()
+    finally:
+        session.close()
+
+    dataset_path = tmp_path / "training_set.jsonl"
+    result = export_registry_sidecar(
+        dataset_path=str(dataset_path),
+        entries=[],
+        dataset_uuid="dataset-uuid-1",
+    )
+
+    assert result.ok is True
+    sidecar = read_sidecar(sidecar_path_for_dataset(dataset_path))
+    assert sidecar.system_prompts == (
+        SidecarSystemPrompt(
+            slug="group_scene_intro",
+            name="Group Scene Intro",
+            content="You are playing Emma in a group scene.",
+            description="Standard group RP opening",
+            is_active=True,
         ),
     )
 
@@ -626,6 +676,86 @@ def test_import_registry_sidecar_can_defer_entry_character_mappings(
     try:
         assert session.query(Character).filter_by(slug="scott").count() == 1
         assert session.query(EntryCharacterTurn).count() == 0
+    finally:
+        session.close()
+
+
+def test_import_registry_sidecar_creates_system_prompt_templates(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    registry = _registry(
+        system_prompts=[
+            SidecarSystemPrompt(
+                slug="group_scene_intro",
+                name="Group Scene Intro",
+                content="You are playing Emma in a group scene.",
+                description="Standard group RP opening",
+            )
+        ],
+    )
+
+    result = import_registry_sidecar(registry=registry)
+
+    assert result.ok is True
+    assert result.system_prompts_created == ["group_scene_intro"]
+    session = session_factory()
+    try:
+        prompt = session.query(SystemPromptTemplate).filter_by(
+            slug="group_scene_intro"
+        ).one()
+        assert prompt.name == "Group Scene Intro"
+        assert prompt.content == "You are playing Emma in a group scene."
+        assert prompt.description == "Standard group RP opening"
+        assert prompt.is_active is True
+    finally:
+        session.close()
+
+
+def test_import_registry_sidecar_skips_existing_system_prompt_template(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    session = session_factory()
+    try:
+        session.add(
+            SystemPromptTemplate(
+                slug="group_scene_intro",
+                name="Local Group Scene",
+                content="Local prompt wins.",
+                is_active=True,
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    result = import_registry_sidecar(
+        registry=_registry(
+            system_prompts=[
+                SidecarSystemPrompt(
+                    slug="group_scene_intro",
+                    name="Sidecar Group Scene",
+                    content="Sidecar prompt should not overwrite.",
+                )
+            ],
+        )
+    )
+
+    assert result.ok is True
+    assert result.system_prompts_created == []
+    assert result.warnings == [
+        "System prompt template 'group_scene_intro' already exists and was skipped."
+    ]
+    session = session_factory()
+    try:
+        prompt = session.query(SystemPromptTemplate).filter_by(
+            slug="group_scene_intro"
+        ).one()
+        assert prompt.name == "Local Group Scene"
+        assert prompt.content == "Local prompt wins."
     finally:
         session.close()
 

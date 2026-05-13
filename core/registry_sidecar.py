@@ -82,6 +82,17 @@ class SidecarCharacter:
 
 
 @dataclass(frozen=True)
+class SidecarSystemPrompt:
+    """Serializable system prompt template record."""
+
+    slug: str
+    name: str
+    content: str
+    description: str | None = None
+    is_active: bool = True
+
+
+@dataclass(frozen=True)
 class SidecarEntryCharacterMapping:
     """Serializable per-entry character turn mappings."""
 
@@ -100,6 +111,7 @@ class SidecarRegistry:
     aliases: tuple[SidecarAlias, ...] = ()
     characters: tuple[SidecarCharacter, ...] = ()
     entry_character_mappings: tuple[SidecarEntryCharacterMapping, ...] = ()
+    system_prompts: tuple[SidecarSystemPrompt, ...] = ()
 
 
 class SidecarValidationError(ValueError):
@@ -117,6 +129,7 @@ def build_sidecar_registry(
     tag_usage_counts: dict[str, int],
     characters=(),
     entry_character_mappings=(),
+    system_prompts=(),
 ) -> SidecarRegistry:
     """Build a registry sidecar from already-queried registry data."""
 
@@ -139,6 +152,10 @@ def build_sidecar_registry(
             _coerce_entry_character_mapping(mapping)
             for mapping in entry_character_mappings
         ),
+        system_prompts=tuple(
+            _coerce_system_prompt(prompt)
+            for prompt in system_prompts
+        ),
     )
 
 
@@ -159,6 +176,7 @@ def sidecar_to_dict(registry: SidecarRegistry) -> dict[str, Any]:
             }
             for mapping in registry.entry_character_mappings
         ],
+        "system_prompts": [asdict(prompt) for prompt in registry.system_prompts],
     }
 
 
@@ -212,6 +230,10 @@ def parse_sidecar_dict(data: dict) -> SidecarRegistry:
         _parse_entry_character_mapping(item)
         for item in _optional_list(data, "entry_character_mappings")
     )
+    system_prompts = tuple(
+        _parse_system_prompt(item)
+        for item in _optional_list(data, "system_prompts")
+    )
 
     return SidecarRegistry(
         metadata=metadata,
@@ -221,6 +243,7 @@ def parse_sidecar_dict(data: dict) -> SidecarRegistry:
         aliases=aliases,
         characters=characters,
         entry_character_mappings=entry_character_mappings,
+        system_prompts=system_prompts,
     )
 
 
@@ -292,6 +315,19 @@ def _coerce_entry_character_mapping(mapping) -> SidecarEntryCharacterMapping:
     return SidecarEntryCharacterMapping(
         entry_uuid=str(_get_value(mapping, "entry_uuid")),
         turns=tuple(dict(turn) for turn in _get_value(mapping, "turns", ())),
+    )
+
+
+def _coerce_system_prompt(prompt) -> SidecarSystemPrompt:
+    if isinstance(prompt, SidecarSystemPrompt):
+        return prompt
+    description = _get_value(prompt, "description", None)
+    return SidecarSystemPrompt(
+        slug=str(_get_value(prompt, "slug")),
+        name=str(_get_value(prompt, "name")),
+        content=str(_get_value(prompt, "content")),
+        description=str(description) if description is not None else None,
+        is_active=bool(_get_value(prompt, "is_active", True)),
     )
 
 
@@ -378,6 +414,23 @@ def _parse_entry_character_mapping(data: dict) -> SidecarEntryCharacterMapping:
     return SidecarEntryCharacterMapping(
         entry_uuid=_required_str(data, "entry_uuid"),
         turns=tuple(_parse_character_turn(turn) for turn in turns),
+    )
+
+
+def _parse_system_prompt(data: dict) -> SidecarSystemPrompt:
+    if not isinstance(data, dict):
+        raise SidecarValidationError("Each system prompt must be an object.")
+    description = data.get("description")
+    if description is not None and not isinstance(description, str):
+        raise SidecarValidationError(
+            "System prompt description must be a string or null."
+        )
+    return SidecarSystemPrompt(
+        slug=_required_str(data, "slug"),
+        name=_required_str(data, "name"),
+        content=_required_str(data, "content"),
+        description=description,
+        is_active=_optional_bool(data, "is_active", True),
     )
 
 

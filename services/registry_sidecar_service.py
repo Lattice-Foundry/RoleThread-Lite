@@ -7,7 +7,14 @@ from uuid import uuid4
 
 from core.dataset import TAGS, get_entry_tags
 from core.loreforge_meta import get_dataset_uuid_for_entries, get_entry_uuid
-from core.models import Character, EntryCharacterTurn, Tag, TagCategory, TagLifecycleMetadata
+from core.models import (
+    Character,
+    EntryCharacterTurn,
+    SystemPromptTemplate,
+    Tag,
+    TagCategory,
+    TagLifecycleMetadata,
+)
 from core.registry_sidecar import (
     SidecarRegistry,
     build_sidecar_registry,
@@ -58,6 +65,7 @@ class RegistrySidecarImportResult:
     aliases_imported: list[str] = field(default_factory=list)
     characters_created: list[str] = field(default_factory=list)
     character_mappings_imported: list[str] = field(default_factory=list)
+    system_prompts_created: list[str] = field(default_factory=list)
     conflicts: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
@@ -124,6 +132,7 @@ def export_registry_sidecar(
                 if character["slug"] in character_slugs
             ],
             entry_character_mappings=character_mappings,
+            system_prompts=_query_system_prompts(),
             dataset_uuid=resolved_dataset_uuid,
             dataset_filename=Path(dataset_path).name,
             entry_count=len(entries),
@@ -201,6 +210,7 @@ def import_registry_sidecar(
         session.flush()
         _merge_aliases(session, registry, result)
         _merge_characters(session, registry, result)
+        _merge_system_prompts(session, registry, result)
         session.flush()
         if include_entry_character_mappings:
             mapping_valid_entry_uuids = valid_entry_uuids
@@ -350,6 +360,29 @@ def _query_entry_character_mappings(entry_uuids: set[str]) -> list[dict]:
         return [
             {"entry_uuid": entry_uuid, "turns": turns}
             for entry_uuid, turns in mappings_by_uuid.items()
+        ]
+    finally:
+        session.close()
+
+
+def _query_system_prompts() -> list[dict]:
+    session = SessionLocal()
+    try:
+        prompts = (
+            session.query(SystemPromptTemplate)
+            .filter_by(is_active=True)
+            .order_by(SystemPromptTemplate.name, SystemPromptTemplate.slug)
+            .all()
+        )
+        return [
+            {
+                "slug": prompt.slug,
+                "name": prompt.name,
+                "content": prompt.content,
+                "description": prompt.description,
+                "is_active": prompt.is_active,
+            }
+            for prompt in prompts
         ]
     finally:
         session.close()
@@ -591,6 +624,34 @@ def _merge_characters(
         result.characters_created.append(character.slug)
 
 
+def _merge_system_prompts(
+    session,
+    registry: SidecarRegistry,
+    result: RegistrySidecarImportResult,
+) -> None:
+    for prompt in registry.system_prompts:
+        existing = (
+            session.query(SystemPromptTemplate)
+            .filter_by(slug=prompt.slug)
+            .first()
+        )
+        if existing is not None:
+            result.warnings.append(
+                f"System prompt template '{prompt.slug}' already exists and was skipped."
+            )
+            continue
+        session.add(
+            SystemPromptTemplate(
+                slug=prompt.slug,
+                name=prompt.name,
+                content=prompt.content,
+                description=prompt.description,
+                is_active=prompt.is_active,
+            )
+        )
+        result.system_prompts_created.append(prompt.slug)
+
+
 def _merge_character_mappings(
     session,
     registry: SidecarRegistry,
@@ -764,6 +825,7 @@ def _import_success_message(result: RegistrySidecarImportResult) -> str:
         + len(result.aliases_imported)
         + len(result.characters_created)
         + len(result.character_mappings_imported)
+        + len(result.system_prompts_created)
     )
     if changed == 0:
         return "Registry sidecar already matches the current registry."
@@ -774,5 +836,6 @@ def _import_success_message(result: RegistrySidecarImportResult) -> str:
         f"{count_phrase(len(result.tags_promoted), 'promoted tag')}, "
         f"{count_phrase(len(result.aliases_imported), 'alias', 'aliases')}, "
         f"{count_phrase(len(result.characters_created), 'character')}, "
-        f"{count_phrase(len(result.character_mappings_imported), 'entry mapping')}."
+        f"{count_phrase(len(result.character_mappings_imported), 'entry mapping')}, "
+        f"{count_phrase(len(result.system_prompts_created), 'system prompt template')}."
     )

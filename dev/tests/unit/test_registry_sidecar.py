@@ -13,6 +13,7 @@ from core.registry_sidecar import (
     SidecarEntryCharacterMapping,
     SidecarMetadata,
     SidecarRegistry,
+    SidecarSystemPrompt,
     SidecarTag,
     SidecarValidationError,
     build_sidecar_registry,
@@ -107,6 +108,15 @@ def _sample_registry() -> SidecarRegistry:
                 ),
             )
         ],
+        system_prompts=[
+            SidecarSystemPrompt(
+                slug="group_scene_intro",
+                name="Group Scene Intro",
+                content="You are playing Emma in a group scene.",
+                description="Standard group RP opening",
+                is_active=True,
+            )
+        ],
     )
 
 
@@ -154,6 +164,15 @@ def test_build_sidecar_registry_and_to_dict_shape():
                     "source_role_label": "Scott",
                 }
             ],
+        }
+    ]
+    assert data["system_prompts"] == [
+        {
+            "slug": "group_scene_intro",
+            "name": "Group Scene Intro",
+            "content": "You are playing Emma in a group scene.",
+            "description": "Standard group RP opening",
+            "is_active": True,
         }
     ]
 
@@ -269,6 +288,7 @@ def test_parse_sidecar_defaults_optional_collections_and_metadata():
     assert parsed.aliases == ()
     assert parsed.characters == ()
     assert parsed.entry_character_mappings == ()
+    assert parsed.system_prompts == ()
 
 
 def test_build_sidecar_registry_defaults_optional_tag_and_alias_fields():
@@ -345,6 +365,37 @@ def test_sidecar_registry_coerces_character_sections():
     )
 
 
+def test_sidecar_registry_coerces_system_prompt_sections():
+    registry = build_sidecar_registry(
+        categories=[],
+        tags=[],
+        aliases=[],
+        system_prompts=[
+            {
+                "slug": "group_scene_intro",
+                "name": "Group Scene Intro",
+                "content": "Prompt content",
+                "description": "Reusable group opener",
+                "is_active": True,
+            }
+        ],
+        dataset_uuid="dataset-uuid-1",
+        dataset_filename="training_set.jsonl",
+        entry_count=0,
+        tag_usage_counts={},
+    )
+
+    assert registry.system_prompts == (
+        SidecarSystemPrompt(
+            slug="group_scene_intro",
+            name="Group Scene Intro",
+            content="Prompt content",
+            description="Reusable group opener",
+            is_active=True,
+        ),
+    )
+
+
 def test_parse_sidecar_rejects_invalid_character_mapping_turn():
     data = sidecar_to_dict(_sample_registry())
     data["entry_character_mappings"] = [
@@ -355,6 +406,19 @@ def test_parse_sidecar_rejects_invalid_character_mapping_turn():
     ]
 
     with pytest.raises(SidecarValidationError, match="character_slug"):
+        parse_sidecar_dict(data)
+
+
+def test_parse_sidecar_rejects_invalid_system_prompt():
+    data = sidecar_to_dict(_sample_registry())
+    data["system_prompts"] = [
+        {
+            "slug": "group_scene_intro",
+            "name": "Group Scene Intro",
+        }
+    ]
+
+    with pytest.raises(SidecarValidationError, match="content"):
         parse_sidecar_dict(data)
 
 
