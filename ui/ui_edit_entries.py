@@ -15,6 +15,7 @@ from core.dataset import (
     validate_entry,
 )
 from core.character_display import build_character_display_cache, get_turn_display_names
+from core.entry_search import EntrySearchOptions, filter_entries_by_search
 from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
 from core.tag_registry import (
     get_tag_registry_snapshot,
@@ -45,6 +46,8 @@ from ui.browser_helpers import (
     slice_visible_pairs,
 )
 from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
+from ui.entry_search_controls import render_entry_search_controls
+from ui.entry_search_state import ENTRY_SEARCH_QUERY_KEY, get_entry_search_options
 from ui.ui_components import (
     calculate_exchange_metrics,
     render_conversation_preview,
@@ -66,6 +69,28 @@ _BROWSER_STATE_KEYS = (
     "edit_entry_page",
     "edit_entries_per_page",
 )
+
+
+def apply_edit_entry_filters(
+    entry_pairs: list[tuple[str, dict]],
+    *,
+    filter_tags: list[str],
+    tag_match_mode: str,
+    search_query: str,
+    search_options: EntrySearchOptions,
+) -> list[tuple[str, dict]]:
+    """Apply Edit Entries filters in order: tags first, then entry search."""
+
+    tag_filtered_pairs = filter_entry_pairs_by_tags(
+        entry_pairs,
+        selected_tags=filter_tags,
+        match_mode=tag_match_mode,
+    )
+    return filter_entries_by_search(
+        tag_filtered_pairs,
+        search_query,
+        search_options,
+    )
 
 
 # ── Edit buffer helpers ────────────────────────────────────────────────────────
@@ -528,10 +553,16 @@ def render_edit_entries_page() -> None:
         )
 
     # ── Apply filter ───────────────────────────────────────────────────────────
-    _ee_filtered_pairs = filter_entry_pairs_by_tags(
+    render_entry_search_controls()
+    _ee_search_query = st.session_state.get(ENTRY_SEARCH_QUERY_KEY, "")
+    _ee_search_options = get_entry_search_options()
+
+    _ee_filtered_pairs = apply_edit_entry_filters(
         _ee_all_pairs,
-        selected_tags=_ee_filter_tags,
-        match_mode=_ee_match_mode,
+        filter_tags=_ee_filter_tags,
+        tag_match_mode=_ee_match_mode,
+        search_query=_ee_search_query,
+        search_options=_ee_search_options,
     )
 
     # ── Pagination ─────────────────────────────────────────────────────────────
@@ -557,8 +588,14 @@ def render_edit_entries_page() -> None:
     _ee_total_filtered = len(_ee_filtered_pairs)
     _ee_total_all = len(_ee_all_pairs)
 
+    _ee_search_active = bool(str(_ee_search_query or "").strip())
     if _ee_total_filtered == 0:
-        st.info("No entries match the current filters.")
+        if _ee_search_active and _ee_filter_tags:
+            st.info("No entries match the current filters and search.")
+        elif _ee_search_active:
+            st.info("No entries match the current search.")
+        else:
+            st.info("No entries match the current filters.")
         return
 
     _ee_pagination = calculate_pagination(
@@ -587,7 +624,10 @@ def render_edit_entries_page() -> None:
             end=_ee_end,
             total_filtered=_ee_total_filtered,
             total_all=_ee_total_all,
-            filtered=bool(_ee_filter_tags),
+            filtered=bool(_ee_filter_tags) or _ee_search_active,
+            filtered_label=(
+                "matching entries" if _ee_search_active else "filtered entries"
+            ),
         )
     )
 
