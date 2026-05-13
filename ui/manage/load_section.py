@@ -6,11 +6,12 @@ import streamlit as st
 
 from core.dataset import load_dataset_with_summary, save_dataset
 from core.preferences import get_initial_dir
-from core.working_copy import canonical_training_dataset_path
+from core.working_copy import canonical_training_dataset_path, rename_working_dataset
 from services.dataset_service import save_repaired_entries_service
 from services.registry_sidecar_service import export_registry_sidecar
+from ui.entry_search_state import ENTRY_SEARCH_DATASET_KEY
 from ui.file_dialogs import JSONL_TYPES, browse_open_file, path_input, safe_saveas_filename
-from ui.flash_messages import render_flash_messages
+from ui.flash_messages import enqueue_flash, render_flash_messages
 from ui.manage.load_summary import render_load_errors, render_load_format_summary
 from ui.session_state import (
     apply_dataset_operation_result,
@@ -55,6 +56,7 @@ def _render_load_controls() -> None:
         _render_load_button(load_path)
     with col_new:
         _render_new_dataset_button()
+    _render_rename_controls()
 
 
 def _render_load_button(load_path: str) -> None:
@@ -152,6 +154,62 @@ def _render_new_dataset_button() -> None:
         new_path = _save_current_before_switch(new_path)
     if new_path:
         _create_new_dataset(new_path)
+
+
+def _render_rename_controls() -> None:
+    loaded_path = st.session_state.get("loaded_path")
+    if not loaded_path:
+        return
+
+    current_path = Path(loaded_path)
+    st.caption(f"Loaded dataset: `{loaded_path}`")
+    with st.expander("Rename dataset"):
+        new_name = st.text_input(
+            "New dataset name",
+            value=current_path.stem,
+            key="manage_rename_dataset_name",
+            help="Use only letters, numbers, dashes, and underscores.",
+        )
+        unchanged = new_name.strip() == current_path.stem
+        if st.button(
+            "Rename",
+            width="stretch",
+            disabled=not new_name.strip() or unchanged,
+        ):
+            _rename_loaded_dataset(new_name.strip())
+
+
+def _rename_loaded_dataset(new_name: str) -> None:
+    loaded_path = st.session_state.get("loaded_path")
+    if not loaded_path:
+        st.error("No dataset is loaded.")
+        return
+    try:
+        result = rename_working_dataset(loaded_path, new_name)
+    except Exception as exc:
+        st.error(f"Dataset rename failed: {exc}")
+        return
+
+    new_path = result.new_path
+    st.session_state.loaded_path = new_path
+    st.session_state["manage_load_path_pending"] = new_path
+    st.session_state[ENTRY_SEARCH_DATASET_KEY] = str(Path(new_path).expanduser())
+    working_copy = st.session_state.get("working_copy_summary")
+    if (
+        isinstance(working_copy, dict)
+        and _same_dataset_path(working_copy.get("working_path"), result.old_path)
+    ):
+        st.session_state.working_copy_summary = {
+            **working_copy,
+            "working_path": new_path,
+            "sidecar_path": result.new_sidecar_path or working_copy.get("sidecar_path"),
+        }
+    update_prefs({
+        "last_loaded_dataset_path": new_path,
+        "last_open_directory": str(Path(new_path).parent),
+    })
+    enqueue_flash("success", f"Dataset renamed to `{Path(new_path).stem}`.")
+    st.rerun()
 
 
 def _save_current_before_switch(new_path: str) -> str:

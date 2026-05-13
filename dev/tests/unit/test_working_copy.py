@@ -1,10 +1,18 @@
 import json
 
-from core.registry_sidecar import sidecar_path_for_dataset
+import pytest
+
+from core.registry_sidecar import (
+    build_sidecar_registry,
+    read_sidecar,
+    sidecar_path_for_dataset,
+    write_sidecar,
+)
 from core.working_copy import (
     canonical_training_dataset_path,
     create_dataset_working_copy,
     migrate_training_dataset_to_subfolder,
+    rename_working_dataset,
 )
 
 
@@ -151,3 +159,67 @@ def test_canonical_training_dataset_path_leaves_external_paths_unchanged(tmp_pat
     )
 
     assert result == external_path.resolve()
+
+
+def test_rename_working_dataset_updates_folder_files_and_sidecar_filename(tmp_path):
+    working_dir = tmp_path / "training_data"
+    dataset_dir = working_dir / "old_name"
+    dataset_dir.mkdir(parents=True)
+    dataset_path = dataset_dir / "old_name.jsonl"
+    dataset_path.write_text(json.dumps({"messages": [], "tags": []}) + "\n", encoding="utf-8")
+    sidecar_path = sidecar_path_for_dataset(dataset_path)
+    write_sidecar(
+        build_sidecar_registry(
+            categories=[],
+            tags=[],
+            aliases=[],
+            dataset_uuid="dataset-uuid",
+            dataset_filename="old_name.jsonl",
+            entry_count=0,
+            tag_usage_counts={},
+        ),
+        sidecar_path,
+    )
+
+    result = rename_working_dataset(
+        dataset_path,
+        "new_name",
+        working_dir=working_dir,
+    )
+
+    new_path = working_dir / "new_name" / "new_name.jsonl"
+    new_sidecar = sidecar_path_for_dataset(new_path)
+    assert result.old_path == str(dataset_path.resolve())
+    assert result.new_path == str(new_path)
+    assert result.sidecar_renamed is True
+    assert new_path.exists()
+    assert new_sidecar.exists()
+    assert not dataset_path.exists()
+    assert not sidecar_path.exists()
+    assert read_sidecar(new_sidecar).dataset_info.filename == "new_name.jsonl"
+
+
+def test_rename_working_dataset_rejects_existing_target_folder(tmp_path):
+    working_dir = tmp_path / "training_data"
+    dataset_dir = working_dir / "old_name"
+    dataset_dir.mkdir(parents=True)
+    dataset_path = dataset_dir / "old_name.jsonl"
+    dataset_path.write_text("{}\n", encoding="utf-8")
+    (working_dir / "new_name").mkdir()
+
+    with pytest.raises(FileExistsError):
+        rename_working_dataset(dataset_path, "new_name", working_dir=working_dir)
+
+    assert dataset_path.exists()
+
+
+def test_rename_working_dataset_rejects_noncanonical_source(tmp_path):
+    working_dir = tmp_path / "training_data"
+    source_path = working_dir / "old_name.jsonl"
+    working_dir.mkdir()
+    source_path.write_text("{}\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="canonical"):
+        rename_working_dataset(source_path, "new_name", working_dir=working_dir)
+
+    assert source_path.exists()

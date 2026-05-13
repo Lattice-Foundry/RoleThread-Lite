@@ -141,3 +141,46 @@ def test_create_new_dataset_writes_current_sidecar_schema(monkeypatch, tmp_path)
     assert sidecar_data != {}
     assert sidecar_data["metadata"]["kind"] == "loreforge.tag_registry"
     assert sidecar_data["dataset"]["dataset_uuid"] == "dataset-uuid"
+
+
+def test_rename_loaded_dataset_updates_session_paths(monkeypatch, tmp_path):
+    old_path = tmp_path / "training_data" / "old_name" / "old_name.jsonl"
+    new_path = tmp_path / "training_data" / "new_name" / "new_name.jsonl"
+    state = FakeSessionState(
+        prefs={},
+        loaded_path=str(old_path),
+        working_copy_summary={
+            "original_path": str(tmp_path / "source" / "old_name.jsonl"),
+            "working_path": str(old_path),
+            "sidecar_path": str(old_path.with_name("old_name.registry.json")),
+        },
+    )
+    monkeypatch.setattr(load_section, "st", _fake_streamlit(state))
+    monkeypatch.setattr(
+        load_section,
+        "rename_working_dataset",
+        lambda loaded_path, new_name: SimpleNamespace(
+            old_path=str(old_path),
+            new_path=str(new_path),
+            new_sidecar_path=str(new_path.with_name("new_name.registry.json")),
+        ),
+    )
+    prefs_updates = []
+    monkeypatch.setattr(load_section, "update_prefs", lambda updates: prefs_updates.append(updates))
+    flashes = []
+    monkeypatch.setattr(load_section, "enqueue_flash", lambda level, message: flashes.append((level, message)))
+
+    load_section._rename_loaded_dataset("new_name")
+
+    assert state.loaded_path == str(new_path)
+    assert state["manage_load_path_pending"] == str(new_path)
+    assert state["entry_search_dataset_identifier"] == str(new_path)
+    assert state.working_copy_summary["working_path"] == str(new_path)
+    assert state.working_copy_summary["sidecar_path"] == str(new_path.with_name("new_name.registry.json"))
+    assert prefs_updates == [
+        {
+            "last_loaded_dataset_path": str(new_path),
+            "last_open_directory": str(new_path.parent),
+        }
+    ]
+    assert flashes == [("success", "Dataset renamed to `new_name`.")]
