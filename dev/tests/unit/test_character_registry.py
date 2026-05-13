@@ -11,6 +11,8 @@ from core.character_registry import (
     deactivate_character,
     delete_characters,
     delete_entry_character_turns,
+    find_entries_referencing_character,
+    find_inactive_character_prompt_references,
     get_all_characters,
     get_character_display_for_entries,
     get_character_display_for_entry,
@@ -133,6 +135,51 @@ def test_collect_character_candidates_handles_mixed_standard_and_custom_roles():
 
     assert [candidate.source_role_label for candidate in report.candidates] == ["Kai"]
     assert report.candidates[0].suggested_training_role is None
+
+
+def _system_prompt_entry(entry_uuid: str, system_prompt: str) -> dict:
+    return {
+        LOREFORGE_META_KEY: {"native": True, "entry_uuid": entry_uuid},
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello"},
+        ],
+        "tags": [],
+    }
+
+
+def test_find_entries_referencing_character_matches_system_prompt_by_name():
+    entries = [
+        _system_prompt_entry("entry-1", "Kai is present in this scene."),
+        _system_prompt_entry("entry-2", "Scott is present in this scene."),
+    ]
+
+    assert find_entries_referencing_character(entries, "Kai") == ["entry-1"]
+
+
+def test_find_entries_referencing_character_is_case_insensitive():
+    entries = [_system_prompt_entry("entry-1", "kai is present in this scene.")]
+
+    assert find_entries_referencing_character(entries, "Kai") == ["entry-1"]
+
+
+def test_find_entries_referencing_character_returns_empty_when_missing():
+    entries = [_system_prompt_entry("entry-1", "Scott is present in this scene.")]
+
+    assert find_entries_referencing_character(entries, "Kai") == []
+
+
+def test_find_inactive_character_prompt_references_uses_inactive_registry(character_db):
+    create_character("Kai")
+    create_character("Scott")
+    delete_characters(["Kai"])
+    entries = [
+        _system_prompt_entry("entry-1", "Kai and Scott are present."),
+        _system_prompt_entry("entry-2", "Scott is present."),
+    ]
+
+    assert find_inactive_character_prompt_references(entries) == {"Kai": ["entry-1"]}
 
 
 def test_normalize_known_character_roles_uses_existing_source_labels(character_db):

@@ -44,6 +44,7 @@ CHATML_WRONG_ROLE = "chatml.wrong_role"
 CHATML_EMPTY_CONTENT = "chatml.empty_content"
 CHATML_ROLE_CANONICALIZATION = "chatml.role_canonicalization"
 CHATML_CONTENT_WHITESPACE = "chatml.content_whitespace"
+CHARACTER_INACTIVE_REFERENCE_IN_PROMPT = "character.inactive_reference_in_prompt"
 
 SHAREGPT_MISSING_CONVERSATIONS = "sharegpt.missing_conversations"
 SHAREGPT_CONVERSATIONS_NOT_LIST = "sharegpt.conversations_not_list"

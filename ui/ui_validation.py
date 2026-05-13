@@ -11,6 +11,8 @@ from core.dataset import (
     clear_validate_entry_cache,
     summarize_entry_analysis,
 )
+from core.character_registry import find_inactive_character_prompt_references
+from core.entry_analysis import CHARACTER_INACTIVE_REFERENCE_IN_PROMPT
 from core.loreforge_meta import get_entry_uuid
 from core.text_helpers import count_phrase
 from core.validation_actions import (
@@ -67,6 +69,7 @@ def render_validation_page() -> None:
             _render_group(group)
 
     _render_character_mapping_section(entries)
+    _render_inactive_character_prompt_reference_section(entries)
 
 
 def _render_summary(
@@ -390,6 +393,35 @@ def _execute_character_mapping(role_mappings: dict[str, str]) -> None:
         f"{created_note}{backup_note}",
     )
     st.rerun()
+
+
+def _render_inactive_character_prompt_reference_section(entries: list[dict]) -> None:
+    references = find_inactive_character_prompt_references(entries)
+    if not references:
+        return
+
+    st.divider()
+    st.markdown("**Inactive Character Prompt References**")
+    st.caption(
+        "Some system prompts still mention deactivated characters. "
+        f"Diagnostic code: `{CHARACTER_INACTIVE_REFERENCE_IN_PROMPT}`."
+    )
+    for display_name, entry_uuids in sorted(
+        references.items(),
+        key=lambda item: item[0].casefold(),
+    ):
+        st.warning(
+            f"Inactive character '{display_name}' appears in "
+            f"{count_phrase(len(entry_uuids), 'system prompt')}. "
+            "Use Entry Search to review."
+        )
+        with st.expander(f"Entries referencing {display_name}", expanded=False):
+            for entry_uuid in entry_uuids[:25]:
+                st.caption(f"Entry UUID: {entry_uuid}")
+            if len(entry_uuids) > 25:
+                st.caption(
+                    f"{count_phrase(len(entry_uuids) - 25, 'additional entry', 'additional entries')} hidden."
+                )
 
 
 def _clear_pending_fix() -> None:

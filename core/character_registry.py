@@ -201,6 +201,54 @@ def normalize_known_character_roles(entries: list[dict]) -> KnownCharacterNormal
     )
 
 
+def find_entries_referencing_character(
+    entries: list[dict],
+    character_display_name: str,
+) -> list[str]:
+    """Return entry UUIDs whose first system prompt mentions character_display_name."""
+
+    needle = str(character_display_name or "").strip().casefold()
+    if not needle:
+        return []
+
+    matched_entry_uuids: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        entry_uuid = get_entry_uuid(entry)
+        if not entry_uuid:
+            continue
+        messages = entry.get("messages")
+        if not isinstance(messages, list) or not messages:
+            continue
+        system_message = messages[0]
+        if not isinstance(system_message, dict):
+            continue
+        content = system_message.get("content")
+        if not isinstance(content, str):
+            continue
+        if needle in content.casefold():
+            matched_entry_uuids.append(entry_uuid)
+    return matched_entry_uuids
+
+
+def find_inactive_character_prompt_references(
+    entries: list[dict],
+) -> dict[str, list[str]]:
+    """Return inactive character display names mapped to referenced entry UUIDs."""
+
+    inactive_characters = get_inactive_characters()
+    references: dict[str, list[str]] = {}
+    for character in inactive_characters:
+        matched_entry_uuids = find_entries_referencing_character(
+            entries,
+            character.display_name,
+        )
+        if matched_entry_uuids:
+            references[character.display_name] = matched_entry_uuids
+    return references
+
+
 def _known_character_role_map() -> dict[str, dict[str, str]]:
     session = SessionLocal()
     try:

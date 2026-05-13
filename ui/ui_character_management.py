@@ -6,6 +6,7 @@ import streamlit as st
 from core.character_registry import (
     create_character,
     delete_characters,
+    find_entries_referencing_character,
     get_all_characters,
     get_character_usage_counts,
     get_inactive_characters,
@@ -82,6 +83,10 @@ def _render_bulk_actions(characters, selected: set[str]) -> None:
     with confirm_col:
         if st.button("Confirm Delete", type="primary"):
             deleted = delete_characters(pending)
+            _enqueue_deleted_character_prompt_reference_warnings(
+                deleted,
+                characters,
+            )
             set_character_selection_state(st.session_state, characters, set())
             _clear_delete_confirmation()
             enqueue_flash(
@@ -227,6 +232,34 @@ def _render_inactive_characters() -> None:
                             f"Reactivated \"{character.display_name}\"."
                         )
                     st.rerun()
+
+
+def _enqueue_deleted_character_prompt_reference_warnings(
+    deleted_slugs: list[str],
+    characters,
+) -> None:
+    loaded_entries = st.session_state.get("loaded_entries", [])
+    if not loaded_entries:
+        return
+
+    characters_by_slug = {character.slug: character for character in characters}
+    for slug in deleted_slugs:
+        character = characters_by_slug.get(slug)
+        if character is None:
+            continue
+        matching_entry_uuids = find_entries_referencing_character(
+            loaded_entries,
+            character.display_name,
+        )
+        if not matching_entry_uuids:
+            continue
+        enqueue_flash(
+            "warning",
+            f"Character '{character.display_name}' deactivated. "
+            f"{count_phrase(len(matching_entry_uuids), 'entry', 'entries')} "
+            f"have system prompts referencing '{character.display_name}'. "
+            "Use Entry Search to review.",
+        )
 
 
 def _format_date(value) -> str:
