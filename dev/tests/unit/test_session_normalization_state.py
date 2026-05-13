@@ -2,8 +2,9 @@ import json
 import shutil
 from types import SimpleNamespace
 
-import core.load_pipeline as load_pipeline
+import core.load_pipeline as core_load_pipeline
 from services import dataset_service
+import services.load_pipeline_service as load_pipeline
 import ui.session_state as session_state
 from core.dataset import load_dataset_with_summary
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT
@@ -41,13 +42,9 @@ def _patch_state(monkeypatch):
         "ensure_tags_exist_for_dataset",
         lambda entries: SimpleNamespace(created_count=0, created_slugs=[]),
     )
+    monkeypatch.setattr(core_load_pipeline, "get_tag_by_slug_any_status", lambda slug: None)
     monkeypatch.setattr(
-        load_pipeline,
-        "get_tag_by_slug_any_status",
-        lambda slug: None,
-    )
-    monkeypatch.setattr(
-        load_pipeline,
+        core_load_pipeline,
         "get_current_tag_lifecycle_metadata",
         lambda slug: {},
     )
@@ -316,13 +313,15 @@ def test_set_loaded_entries_creates_working_copy_for_foreign_dataset(tmp_path, m
     working_path = tmp_path / "working" / "foreign.jsonl"
     monkeypatch.setattr(
         load_pipeline,
-        "create_dataset_working_copy",
-        lambda dataset_path: SimpleNamespace(
-            original_path=str(path),
-            working_path=str(working_path),
-            created=True,
-            sidecar_copied=True,
-            sidecar_path=str(tmp_path / "working" / "foreign.registry.json"),
+        "prepare_foreign_working_copy",
+        lambda dataset_path, *, dataset_is_native: (
+            {
+                "original_path": str(path),
+                "working_path": str(working_path),
+                "sidecar_copied": True,
+                "sidecar_path": str(tmp_path / "working" / "foreign.registry.json"),
+            },
+            str(working_path),
         ),
     )
 
@@ -354,8 +353,11 @@ def test_set_loaded_entries_does_not_copy_native_dataset(tmp_path, monkeypatch):
     assert normalization.dataset_is_native is True
     monkeypatch.setattr(
         load_pipeline,
-        "create_dataset_working_copy",
-        lambda dataset_path: copy_calls.append(dataset_path),
+        "prepare_foreign_working_copy",
+        lambda dataset_path, *, dataset_is_native: (
+            (copy_calls.append(dataset_path) if not dataset_is_native else None),
+            dataset_path,
+        ),
     )
 
     effective_path = session_state.set_loaded_entries(
@@ -446,7 +448,7 @@ def test_set_loaded_entries_builds_pending_trust_for_imported_archived_tags(monk
     entry["tags"] = ["some_custom_tag"]
 
     monkeypatch.setattr(
-        load_pipeline,
+        core_load_pipeline,
         "get_tag_by_slug_any_status",
         lambda slug: SimpleNamespace(
             name="Some Custom Tag",
@@ -455,7 +457,7 @@ def test_set_loaded_entries_builds_pending_trust_for_imported_archived_tags(monk
         ),
     )
     monkeypatch.setattr(
-        load_pipeline,
+        core_load_pipeline,
         "get_current_tag_lifecycle_metadata",
         lambda slug: {"archive_origin": ARCHIVE_ORIGIN_IMPORTED},
     )
@@ -510,7 +512,7 @@ def test_pending_trust_includes_sidecar_hints(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        load_pipeline,
+        core_load_pipeline,
         "get_tag_by_slug_any_status",
         lambda slug: SimpleNamespace(
             name="Sidecar Tag",
@@ -519,7 +521,7 @@ def test_pending_trust_includes_sidecar_hints(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        load_pipeline,
+        core_load_pipeline,
         "get_current_tag_lifecycle_metadata",
         lambda slug: {"archive_origin": ARCHIVE_ORIGIN_IMPORTED},
     )

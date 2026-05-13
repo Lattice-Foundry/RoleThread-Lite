@@ -1,11 +1,12 @@
 import json
 from types import SimpleNamespace
 
-import core.load_pipeline as load_pipeline
+import core.load_pipeline as core_load_pipeline
 from core.dataset import load_dataset_with_summary
 from core.format_conversion import FORMAT_SHAREGPT
 from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid, is_native_entry
 from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
+import services.load_pipeline_service as load_pipeline
 
 
 def _entry(tags=None):
@@ -26,8 +27,12 @@ def _patch_pipeline_defaults(monkeypatch):
         "ensure_tags_exist_for_dataset",
         lambda entries: SimpleNamespace(created_count=0, created_slugs=[]),
     )
-    monkeypatch.setattr(load_pipeline, "get_tag_by_slug_any_status", lambda slug: None)
-    monkeypatch.setattr(load_pipeline, "get_current_tag_lifecycle_metadata", lambda slug: {})
+    monkeypatch.setattr(core_load_pipeline, "get_tag_by_slug_any_status", lambda slug: None)
+    monkeypatch.setattr(
+        core_load_pipeline,
+        "get_current_tag_lifecycle_metadata",
+        lambda slug: {},
+    )
     monkeypatch.setattr(
         load_pipeline,
         "resolve_tag_lifecycle",
@@ -93,13 +98,15 @@ def test_pipeline_creates_foreign_working_copy(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         load_pipeline,
-        "create_dataset_working_copy",
-        lambda dataset_path: SimpleNamespace(
-            original_path=str(path),
-            working_path=str(working_path),
-            created=True,
-            sidecar_copied=False,
-            sidecar_path=None,
+        "prepare_foreign_working_copy",
+        lambda dataset_path, *, dataset_is_native: (
+            {
+                "original_path": str(path),
+                "working_path": str(working_path),
+                "sidecar_copied": False,
+                "sidecar_path": None,
+            },
+            str(working_path),
         ),
     )
 
@@ -208,7 +215,7 @@ def test_pipeline_builds_pending_trust_for_imported_archived_tags(monkeypatch):
     entry = _entry(tags=["archived_import"])
 
     monkeypatch.setattr(
-        load_pipeline,
+        core_load_pipeline,
         "get_tag_by_slug_any_status",
         lambda slug: SimpleNamespace(
             name="Archived Import",
@@ -217,7 +224,7 @@ def test_pipeline_builds_pending_trust_for_imported_archived_tags(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        load_pipeline,
+        core_load_pipeline,
         "get_current_tag_lifecycle_metadata",
         lambda slug: {"archive_origin": ARCHIVE_ORIGIN_IMPORTED},
     )

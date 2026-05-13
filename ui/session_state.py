@@ -14,7 +14,6 @@ from core.dataset import (
     get_entry_index_by_uuid,
     TagNormalizationSummary,
 )
-from core.load_pipeline import finalize_loaded_entries
 from core.loreforge_meta import get_entry_uuid
 from core.preferences import save_preferences
 from services.dataset_service import (
@@ -23,6 +22,7 @@ from services.dataset_service import (
     save_repaired_entries_service,
     save_quick_edit_service,
 )
+from services.load_pipeline_service import finalize_loaded_entries
 from ui.message_scaffolding import scaffold_editable_messages
 from ui.flash_messages import enqueue_flash
 
