@@ -23,7 +23,7 @@ from ui.ui_create import init_editor_state, render_create_page
 from ui.ui_edit_entries import render_edit_entries_page
 from ui.ui_export import render_export_page
 from ui.ui_tag_management import render_tag_management_page
-from ui.ui_manage import render_manage_page
+from ui.manage import render_manage_page
 from ui.ui_merge import render_merge_page
 from ui.ui_settings import render_settings_page
 from ui.ui_stats import render_stats_page
