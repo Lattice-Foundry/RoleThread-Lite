@@ -1,7 +1,7 @@
 """Pure dataset helpers for JSONL entries.
 
-This module owns entry validation, JSONL persistence, tag helpers, temporary
-entry registries, statistics, and merge logic. It must stay Streamlit-free.
+This module owns entry validation, JSONL persistence, tag helpers, UUID
+lookups, statistics, and merge logic. It must stay Streamlit-free.
 """
 import hashlib
 import json
@@ -969,7 +969,7 @@ def filter_entry_pairs_by_tags(
     match_mode: str,
     untagged_key: str = "__untagged__",
 ) -> list[tuple[str, dict]]:
-    """Return only (entry_id, entry) pairs that pass the tag filter."""
+    """Return only (entry_uuid, entry) pairs that pass the tag filter."""
     if not selected_tags:
         return pairs
     return [
@@ -978,7 +978,7 @@ def filter_entry_pairs_by_tags(
     ]
 
 
-# ── Temp-ID registry helpers ───────────────────────────────────────────────────
+# ── Entry UUID lookup helpers ──────────────────────────────────────────────────
 
 def build_uuid_index(entries: list[dict]) -> dict[str, int]:
     """Build an entry UUID to source-index lookup for loaded entries."""

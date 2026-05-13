@@ -35,7 +35,7 @@ def update_prefs(updates: dict) -> None:
     save_preferences(st.session_state.prefs)
 
 
-# ── Registry / session helpers ─────────────────────────────────────────────────
+# UUID / session helpers
 
 def ensure_entry_indexes() -> None:
     """Ensure UUID indexes are consistent with loaded_entries.

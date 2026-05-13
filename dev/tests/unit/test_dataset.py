@@ -643,7 +643,7 @@ def test_filter_entries_by_tags_filters_correctly():
     assert filtered == [entries[0]]
 
 
-def test_filter_entry_pairs_by_tags_preserves_entry_ids_and_order():
+def test_filter_entry_pairs_by_tags_preserves_entry_uuids_and_order():
     entries = [_entry(tags=["alpha"]), _entry(tags=["beta"]), _entry(tags=["alpha"])]
     pairs = [("first", entries[0]), ("second", entries[1]), ("third", entries[2])]
 

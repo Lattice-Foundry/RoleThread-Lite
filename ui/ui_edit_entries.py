@@ -329,7 +329,7 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
             cancel_full_edit()
         return
 
-    # ── Guard: entry disappeared from registry ─────────────────────────────────
+    # Guard: selected entry is no longer loaded
     current_entry = get_loaded_entry_by_uuid(entry_uuid)
     if current_entry is None:
         st.error("Selected entry could not be found.")
