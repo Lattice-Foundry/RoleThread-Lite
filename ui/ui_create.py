@@ -93,11 +93,17 @@ def apply_entry_mode_transition(state, prefix: str, mode: str) -> str:
     mode_key = entry_mode_key(prefix)
     previous_key = f"_{mode_key}_previous"
     previous_mode = state.get(previous_key, state.get(mode_key, ENTRY_MODE_STANDARD))
-    state[mode_key] = mode
     if mode != previous_mode and mode == ENTRY_MODE_STANDARD:
         clear_character_state_values(state, prefix)
     state[previous_key] = mode
     return mode
+
+
+def on_entry_mode_changed(prefix: str) -> None:
+    """Apply mode transition cleanup from a Streamlit widget callback."""
+
+    mode = st.session_state.get(entry_mode_key(prefix), ENTRY_MODE_STANDARD)
+    apply_entry_mode_transition(st.session_state, prefix, mode)
 
 
 def remove_last_exchange_state(state, prefix: str) -> bool:
@@ -240,8 +246,10 @@ def render_entry_mode_toggle(prefix: str) -> str:
         format_func=lambda value: "Standard" if value == ENTRY_MODE_STANDARD else "Group",
         horizontal=True,
         key=mode_key,
+        on_change=on_entry_mode_changed,
+        args=(prefix,),
     )
-    return apply_entry_mode_transition(st.session_state, prefix, mode)
+    return mode
 
 
 # ── Turn builder ───────────────────────────────────────────────────────────────

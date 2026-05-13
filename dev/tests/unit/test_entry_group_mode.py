@@ -157,7 +157,6 @@ def test_mode_switch_to_standard_preserves_content_and_clears_character_state():
     apply_entry_mode_transition(state, "create", ENTRY_MODE_STANDARD)
 
     assert state["create_turn_0"] == "Keep this"
-    assert state["create_entry_mode"] == ENTRY_MODE_STANDARD
     assert "_create_entry_mode_previous" in state
     assert "create_character_0" not in state
     assert "create_pending_character_0" not in state
@@ -177,7 +176,6 @@ def test_mode_switch_back_and_forth_does_not_accumulate_stale_character_state():
     apply_entry_mode_transition(state, "full_edit", ENTRY_MODE_GROUP)
 
     assert state["full_edit_turn_0"] == "Still here"
-    assert state["full_edit_entry_mode"] == ENTRY_MODE_GROUP
     assert "full_edit_character_0" not in state
 
 
