@@ -2,6 +2,7 @@ import json
 import shutil
 from types import SimpleNamespace
 
+import core.load_pipeline as load_pipeline
 from services import dataset_service
 import ui.session_state as session_state
 from core.dataset import load_dataset_with_summary
@@ -36,27 +37,27 @@ def _patch_state(monkeypatch):
     fake_state = FakeSessionState()
     monkeypatch.setattr(session_state, "st", SimpleNamespace(session_state=fake_state))
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "ensure_tags_exist_for_dataset",
         lambda entries: SimpleNamespace(created_count=0, created_slugs=[]),
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "get_tag_by_slug_any_status",
         lambda slug: None,
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "get_current_tag_lifecycle_metadata",
         lambda slug: {},
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "resolve_tag_lifecycle",
         lambda slug: SimpleNamespace(should_rewrite_slug=False, resolved_slug=slug),
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "normalize_known_character_roles",
         lambda entries: SimpleNamespace(
             entries=entries,
@@ -66,7 +67,7 @@ def _patch_state(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "upsert_character_mappings",
         lambda mappings: {"entries": 0, "turns": 0},
     )
@@ -131,13 +132,13 @@ def test_set_loaded_entries_rewrites_stale_aliases_before_adoption(monkeypatch):
     adoption_entries = []
 
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "ensure_tags_exist_for_dataset",
         lambda entries: adoption_entries.append(entries)
         or SimpleNamespace(created_count=0, created_slugs=[]),
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "resolve_tag_lifecycle",
         lambda slug: SimpleNamespace(
             should_rewrite_slug=slug == "old_tag",
@@ -226,7 +227,7 @@ def test_set_loaded_entries_applies_known_character_role_mappings(monkeypatch):
     upsert_calls = []
 
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "normalize_known_character_roles",
         lambda entries: SimpleNamespace(
             entries=mapped_entries,
@@ -236,7 +237,7 @@ def test_set_loaded_entries_applies_known_character_role_mappings(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "upsert_character_mappings",
         lambda mappings: upsert_calls.append(mappings) or {"entries": 1, "turns": 1},
     )
@@ -269,7 +270,7 @@ def test_set_loaded_entries_creates_working_copy_for_foreign_dataset(tmp_path, m
     assert errors == []
     working_path = tmp_path / "working" / "foreign.jsonl"
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "create_dataset_working_copy",
         lambda dataset_path: SimpleNamespace(
             original_path=str(path),
@@ -307,7 +308,7 @@ def test_set_loaded_entries_does_not_copy_native_dataset(tmp_path, monkeypatch):
     assert errors == []
     assert normalization.dataset_is_native is True
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "create_dataset_working_copy",
         lambda dataset_path: copy_calls.append(dataset_path),
     )
@@ -347,14 +348,14 @@ def test_set_loaded_entries_imports_sibling_sidecar_before_tag_adoption(tmp_path
             errors=[],
         )
 
-    monkeypatch.setattr(session_state, "read_sidecar", lambda path: registry)
+    monkeypatch.setattr(load_pipeline, "read_sidecar", lambda path: registry)
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "import_registry_sidecar",
         fake_import_registry_sidecar,
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "ensure_tags_exist_for_dataset",
         lambda entries: call_order.append("adoption")
         or SimpleNamespace(created_count=0, created_slugs=[]),
@@ -376,12 +377,12 @@ def test_set_loaded_entries_keeps_loading_when_sidecar_read_fails(tmp_path, monk
     adoption_called = []
 
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "read_sidecar",
         lambda path: (_ for _ in ()).throw(ValueError("broken sidecar")),
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "ensure_tags_exist_for_dataset",
         lambda entries: adoption_called.append(True)
         or SimpleNamespace(created_count=0, created_slugs=[]),
@@ -400,7 +401,7 @@ def test_set_loaded_entries_builds_pending_trust_for_imported_archived_tags(monk
     entry["tags"] = ["some_custom_tag"]
 
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "get_tag_by_slug_any_status",
         lambda slug: SimpleNamespace(
             name="Some Custom Tag",
@@ -409,7 +410,7 @@ def test_set_loaded_entries_builds_pending_trust_for_imported_archived_tags(monk
         ),
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "get_current_tag_lifecycle_metadata",
         lambda slug: {"archive_origin": ARCHIVE_ORIGIN_IMPORTED},
     )
@@ -447,9 +448,9 @@ def test_pending_trust_includes_sidecar_hints(tmp_path, monkeypatch):
         ),
     )
 
-    monkeypatch.setattr(session_state, "read_sidecar", lambda path: registry)
+    monkeypatch.setattr(load_pipeline, "read_sidecar", lambda path: registry)
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "import_registry_sidecar",
         lambda *, registry, entries: SimpleNamespace(
             ok=True,
@@ -464,7 +465,7 @@ def test_pending_trust_includes_sidecar_hints(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "get_tag_by_slug_any_status",
         lambda slug: SimpleNamespace(
             name="Sidecar Tag",
@@ -473,7 +474,7 @@ def test_pending_trust_includes_sidecar_hints(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        session_state,
+        load_pipeline,
         "get_current_tag_lifecycle_metadata",
         lambda slug: {"archive_origin": ARCHIVE_ORIGIN_IMPORTED},
     )
