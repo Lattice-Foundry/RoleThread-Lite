@@ -5,6 +5,14 @@ import core.load_pipeline as core_load_pipeline
 from core.dataset import load_dataset_with_summary
 from core.format_conversion import FORMAT_SHAREGPT
 from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid, is_native_entry
+from core.registry_sidecar import (
+    SidecarDatasetInfo,
+    SidecarMetadata,
+    SidecarRegistry,
+    read_sidecar,
+    sidecar_path_for_dataset,
+    write_sidecar,
+)
 from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
 import services.load_pipeline_service as load_pipeline
 
@@ -122,6 +130,98 @@ def test_pipeline_creates_foreign_working_copy(tmp_path, monkeypatch):
     assert get_entry_uuid(result.entries[0]) is not None
     assert is_native_entry(result.entries[0]) is False
     assert set(result.entries[0][LOREFORGE_META_KEY]) == {"entry_uuid"}
+
+
+def test_pipeline_loads_empty_dataset_without_sidecar_as_initialization(
+    tmp_path,
+    monkeypatch,
+):
+    _patch_pipeline_defaults(monkeypatch)
+    training_dir = tmp_path / "training_data"
+    monkeypatch.setattr(
+        "core.working_copy.get_default_training_data_dir",
+        lambda: training_dir,
+    )
+    path = tmp_path / "empty.jsonl"
+    path.write_text("", encoding="utf-8")
+    summary, errors = load_dataset_with_summary(str(path))
+
+    result = load_pipeline.finalize_loaded_entries(
+        summary.entries,
+        dataset_path=str(path),
+        normalization_summary=summary,
+    )
+
+    assert errors == []
+    assert result.entries == []
+    assert result.dataset_is_native is False
+    assert result.sidecar_import_summary is None
+    assert result.pending_tag_trust == {}
+    assert result.effective_dataset_path == str(
+        training_dir / "empty" / "empty.jsonl"
+    )
+    assert (training_dir / "empty" / "empty.jsonl").exists()
+
+
+def test_pipeline_loads_empty_dataset_with_sidecar_and_preserves_sidecar_uuid(
+    tmp_path,
+    monkeypatch,
+):
+    _patch_pipeline_defaults(monkeypatch)
+    training_dir = tmp_path / "training_data"
+    monkeypatch.setattr(
+        "core.working_copy.get_default_training_data_dir",
+        lambda: training_dir,
+    )
+    path = tmp_path / "empty_with_sidecar.jsonl"
+    path.write_text("", encoding="utf-8")
+    write_sidecar(
+        SidecarRegistry(
+            metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00+00:00"),
+            dataset_info=SidecarDatasetInfo(
+                dataset_uuid="empty-sidecar-uuid",
+                filename="empty_with_sidecar.jsonl",
+            ),
+        ),
+        sidecar_path_for_dataset(path),
+    )
+
+    imported_dataset_uuids = []
+
+    def fake_import_sidecar(*, registry, entries):
+        imported_dataset_uuids.append(registry.dataset_info.dataset_uuid)
+        assert entries == []
+        return SimpleNamespace(
+            ok=True,
+            message="Registry sidecar already matches the current registry.",
+            categories_created=[],
+            tags_created=[],
+            tags_promoted=[],
+            aliases_imported=[],
+            characters_created=[],
+            character_mappings_imported=[],
+            conflicts=[],
+            warnings=[],
+            errors=[],
+        )
+
+    monkeypatch.setattr(load_pipeline, "import_registry_sidecar", fake_import_sidecar)
+    summary, errors = load_dataset_with_summary(str(path))
+
+    result = load_pipeline.finalize_loaded_entries(
+        summary.entries,
+        dataset_path=str(path),
+        normalization_summary=summary,
+    )
+
+    copied_sidecar = sidecar_path_for_dataset(
+        training_dir / "empty_with_sidecar" / "empty_with_sidecar.jsonl"
+    )
+    assert errors == []
+    assert result.entries == []
+    assert result.sidecar_import_summary["ok"] is True
+    assert imported_dataset_uuids == ["empty-sidecar-uuid"]
+    assert read_sidecar(copied_sidecar).dataset_info.dataset_uuid == "empty-sidecar-uuid"
 
 
 def test_pipeline_preserves_existing_uuid_without_trust_stamp(monkeypatch):

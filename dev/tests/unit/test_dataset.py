@@ -1011,6 +1011,7 @@ def test_load_dataset_with_summary_reports_native_dataset_signature(tmp_path):
             "version": "0.1.0",
             "native": True,
             "validated_at": "2026-05-11T12:00:00Z",
+            "dataset_uuid": "dataset-uuid-1",
         },
     }
     path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
@@ -1020,6 +1021,38 @@ def test_load_dataset_with_summary_reports_native_dataset_signature(tmp_path):
     assert errors == []
     assert summary.dataset_is_native is True
     assert summary.entries[0][LOREFORGE_META_KEY]["native"] is True
+
+
+def test_load_dataset_with_summary_treats_legacy_native_without_dataset_uuid_as_foreign(
+    tmp_path,
+):
+    path = tmp_path / "legacy_native.jsonl"
+    entry = {
+        **_entry(tags=["greeting"]),
+        LOREFORGE_META_KEY: {
+            "version": "0.6.0",
+            "native": True,
+            "validated_at": "2026-05-11T12:00:00Z",
+        },
+    }
+    path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert summary.dataset_is_native is False
+
+
+def test_load_dataset_with_summary_empty_file_is_safe_initialization(tmp_path):
+    path = tmp_path / "empty.jsonl"
+    path.write_text("", encoding="utf-8")
+
+    summary, errors = load_dataset_with_summary(str(path))
+
+    assert errors == []
+    assert summary.entries == []
+    assert summary.dataset_is_native is False
+    assert summary.diagnostics.entries_analyzed == 0
 
 
 def test_load_dataset_with_summary_reports_foreign_dataset_when_partially_stamped(tmp_path):

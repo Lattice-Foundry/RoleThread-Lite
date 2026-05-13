@@ -25,9 +25,13 @@ def is_native_entry(entry: dict) -> bool:
 
 
 def is_native_dataset(entries: list[dict]) -> bool:
-    """Return True only when all loaded entries are signed as native."""
+    """Return True only when all entries are signed and share dataset identity."""
 
-    return bool(entries) and all(is_native_entry(entry) for entry in entries)
+    return (
+        bool(entries)
+        and all(is_native_entry(entry) for entry in entries)
+        and get_dataset_uuid_for_entries(entries) is not None
+    )
 
 
 def get_entry_uuid(entry: dict) -> str | None:

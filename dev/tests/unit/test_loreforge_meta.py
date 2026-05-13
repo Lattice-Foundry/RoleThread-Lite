@@ -33,13 +33,23 @@ def test_native_entry_detection_requires_loreforge_signature():
 
 
 def test_native_dataset_requires_all_entries_to_be_native():
-    native = {LOREFORGE_META_KEY: {"native": True}}
+    native = {LOREFORGE_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-1"}}
     foreign = {"messages": [], "tags": []}
 
     assert is_native_dataset([native, native]) is True
     assert is_native_dataset([native, foreign]) is False
     assert is_native_dataset([foreign]) is False
     assert is_native_dataset([]) is False
+
+
+def test_native_dataset_requires_shared_dataset_uuid():
+    old_native = {LOREFORGE_META_KEY: {"native": True}}
+    first = {LOREFORGE_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-1"}}
+    second = {LOREFORGE_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-2"}}
+
+    assert is_native_entry(old_native) is True
+    assert is_native_dataset([old_native]) is False
+    assert is_native_dataset([first, second]) is False
 
 
 def test_stamp_entry_marks_copy_as_native_loreforge_data():

@@ -7,6 +7,14 @@ from types import SimpleNamespace
 
 from core.dataset import load_dataset, save_dataset
 from core.loreforge_meta import LOREFORGE_META_KEY, get_dataset_uuid_for_entries, get_entry_uuid
+from core.registry_sidecar import (
+    SidecarDatasetInfo,
+    SidecarMetadata,
+    SidecarRegistry,
+    read_sidecar,
+    sidecar_path_for_dataset,
+    write_sidecar,
+)
 from core.version import LOREFORGE_VERSION
 import core.tag_resolution as tag_resolution
 from services import dataset_service
@@ -240,6 +248,56 @@ def test_create_entry_service_backup_failure_blocks_append(tmp_path, monkeypatch
     assert result.backup_path is None
     assert "Failed to create dataset backup" in result.message
     assert _read_entries(path) == original_entries
+
+
+def test_create_entry_service_first_entry_into_empty_dataset_creates_dataset_uuid_and_sidecar(
+    tmp_path,
+):
+    path = _write_dataset(tmp_path, [])
+
+    result = create_entry_service(
+        dataset_path=str(path),
+        entries=[],
+        new_entry=_entry(tags=[]),
+        backup_enabled=False,
+    )
+
+    dataset_uuid = get_dataset_uuid_for_entries(result.entries)
+    sidecar = read_sidecar(sidecar_path_for_dataset(path))
+    assert result.ok is True
+    assert dataset_uuid is not None
+    assert sidecar.dataset_info.dataset_uuid == dataset_uuid
+    assert sidecar.dataset_info.entry_count == 1
+    assert _read_entries(path) == result.entries
+
+
+def test_create_entry_service_first_entry_into_empty_dataset_uses_existing_sidecar_uuid(
+    tmp_path,
+):
+    path = _write_dataset(tmp_path, [])
+    write_sidecar(
+        SidecarRegistry(
+            metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00+00:00"),
+            dataset_info=SidecarDatasetInfo(
+                dataset_uuid="empty-sidecar-uuid",
+                filename=path.name,
+            ),
+        ),
+        sidecar_path_for_dataset(path),
+    )
+
+    result = create_entry_service(
+        dataset_path=str(path),
+        entries=[],
+        new_entry=_entry(tags=[]),
+        backup_enabled=False,
+    )
+
+    sidecar = read_sidecar(sidecar_path_for_dataset(path))
+    assert result.ok is True
+    assert get_dataset_uuid_for_entries(result.entries) == "empty-sidecar-uuid"
+    assert sidecar.dataset_info.dataset_uuid == "empty-sidecar-uuid"
+    assert sidecar.dataset_info.entry_count == 1
 
 
 def test_create_entry_service_missing_dataset_path_fails_safely():

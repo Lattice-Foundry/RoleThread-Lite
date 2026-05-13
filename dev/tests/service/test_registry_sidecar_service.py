@@ -359,6 +359,22 @@ def test_export_registry_sidecar_failure_is_structured(tmp_path, monkeypatch):
     assert result.path is None
 
 
+def test_export_registry_sidecar_generates_uuid_for_empty_dataset_without_sidecar(
+    tmp_path,
+    monkeypatch,
+):
+    _session_factory(tmp_path, monkeypatch)
+    dataset_path = tmp_path / "empty.jsonl"
+
+    result = export_registry_sidecar(dataset_path=str(dataset_path), entries=[])
+
+    assert result.ok is True
+    sidecar = read_sidecar(sidecar_path_for_dataset(dataset_path))
+    assert sidecar.dataset_info.dataset_uuid
+    assert sidecar.dataset_info.filename == "empty.jsonl"
+    assert sidecar.dataset_info.entry_count == 0
+
+
 def test_export_registry_sidecar_preserves_existing_sidecar_uuid_for_empty_dataset(
     tmp_path,
     monkeypatch,

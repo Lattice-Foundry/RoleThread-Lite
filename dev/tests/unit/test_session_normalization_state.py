@@ -343,7 +343,7 @@ def test_set_loaded_entries_does_not_copy_native_dataset(tmp_path, monkeypatch):
     path = tmp_path / "native.jsonl"
     entry = {
         **_entry_without_tags(),
-        LOREFORGE_META_KEY: {"native": True},
+        LOREFORGE_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-1"},
     }
     path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
     normalization, errors = load_dataset_with_summary(str(path))
