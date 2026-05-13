@@ -8,6 +8,7 @@ from pathlib import Path
 import streamlit as st
 
 from core.backups import auto_backups_enabled
+from core.cloud_sync import save_backup_config_from_settings
 from core.dataset import (
     build_uuid_index,
     get_entry_by_uuid,
@@ -34,6 +35,12 @@ def update_prefs(updates: dict) -> None:
     """Update st.session_state.prefs in place and persist to disk."""
     st.session_state.prefs.update(updates)
     save_preferences(st.session_state.prefs)
+    if set(updates) & {
+        "backup_destination_type",
+        "backup_destination_custom_path",
+        "cloud_backup_last_sync_at",
+    }:
+        save_backup_config_from_settings(st.session_state.prefs)
 
 
 # UUID / session helpers

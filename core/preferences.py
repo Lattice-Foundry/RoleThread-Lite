@@ -34,6 +34,9 @@ DEFAULTS: dict = {
     "auto_backups_enabled": True,
     "backup_directory": str(get_backups_dir()),
     "backups_per_dataset": 25,
+    "backup_destination_type": "local",
+    "backup_destination_custom_path": "",
+    "cloud_backup_last_sync_at": "",
     "auto_correct_validation_errors": True,
 }
 

@@ -4,6 +4,15 @@ from pathlib import Path
 import streamlit as st
 
 from core.dataset import DEFAULT_SYSTEM_PROMPT
+from core.cloud_sync import (
+    BACKUP_DESTINATION_CUSTOM,
+    BACKUP_DESTINATION_LOCAL,
+    BACKUP_DESTINATION_ONEDRIVE,
+    default_onedrive_backup_path,
+    save_backup_config_from_settings,
+    sync_configured_backups_to_cloud,
+)
+from core.platform import IS_WINDOWS
 from core.preferences import export_settings, import_settings
 from ui.file_dialogs import (
     browse_directory,
@@ -108,6 +117,8 @@ def render_settings_page() -> None:
         on_change=_persist_backups_per_dataset,
         help="Older backups are automatically pruned after successful backup creation.",
     )
+
+    _render_cloud_backup_settings()
 
     st.divider()
     st.subheader("Data Normalization")
@@ -219,7 +230,120 @@ def _apply_preferences_to_session(prefs: dict) -> None:
     st.session_state.auto_backups_enabled = prefs.get("auto_backups_enabled", True)
     st.session_state.backup_directory = prefs.get("backup_directory", "")
     st.session_state.backups_per_dataset = prefs.get("backups_per_dataset", 25)
+    st.session_state.backup_destination_type = prefs.get(
+        "backup_destination_type",
+        BACKUP_DESTINATION_LOCAL,
+    )
+    st.session_state.backup_destination_custom_path = prefs.get(
+        "backup_destination_custom_path",
+        "",
+    )
+    save_backup_config_from_settings(prefs)
     st.session_state.auto_correct_validation_errors = prefs.get(
         "auto_correct_validation_errors",
         prefs.get("auto_normalize_on_load", True),
     )
+
+
+def _render_cloud_backup_settings() -> None:
+    """Render optional cloud backup destination controls."""
+
+    st.markdown("**Cloud Backup Destination**")
+    destination_options = [
+        ("Local (default)", BACKUP_DESTINATION_LOCAL),
+    ]
+    if IS_WINDOWS:
+        destination_options.append(
+            ("OneDrive (auto-detected)", BACKUP_DESTINATION_ONEDRIVE)
+        )
+    destination_options.append(("Custom Path", BACKUP_DESTINATION_CUSTOM))
+
+    current_type = st.session_state.prefs.get(
+        "backup_destination_type",
+        BACKUP_DESTINATION_LOCAL,
+    )
+    option_values = [value for _, value in destination_options]
+    if current_type not in option_values:
+        current_type = BACKUP_DESTINATION_LOCAL
+    option_labels = [label for label, _ in destination_options]
+
+    selected_label = st.radio(
+        "Cloud destination",
+        option_labels,
+        index=option_values.index(current_type),
+        key="_cloud_backup_destination_radio",
+        horizontal=True,
+        help="Cloud sync mirrors local backups on demand and when the app exits.",
+    )
+    selected_type = dict(destination_options)[selected_label]
+    if selected_type != current_type:
+        st.session_state.backup_destination_type = selected_type
+        update_prefs({"backup_destination_type": selected_type})
+        save_backup_config_from_settings(st.session_state.prefs)
+        st.rerun()
+
+    if selected_type == BACKUP_DESTINATION_ONEDRIVE:
+        destination = default_onedrive_backup_path()
+        if destination is None:
+            st.warning("OneDrive was not detected. Use Custom Path for another sync folder.")
+        else:
+            try:
+                destination.mkdir(parents=True, exist_ok=True)
+            except Exception as exc:
+                st.warning(f"OneDrive backup folder could not be created: {exc}")
+            else:
+                st.caption(f"Cloud backups will sync to `{destination}`.")
+
+    if selected_type == BACKUP_DESTINATION_CUSTOM:
+        current_custom_path = st.session_state.prefs.get(
+            "backup_destination_custom_path",
+            "",
+        )
+        custom_path = path_input(
+            "Custom cloud backup folder",
+            state_key="_cloud_backup_custom_path_input",
+            browse_fn=browse_directory,
+            browse_kwargs={
+                "title": "Select cloud backup folder",
+                "dir_key": "backup_destination_custom_path",
+            },
+            default=current_custom_path,
+        )
+        if st.button("Save Cloud Backup Folder", width="stretch"):
+            try:
+                raw_path = custom_path.strip()
+                if not raw_path:
+                    raise ValueError("Cloud backup folder cannot be empty.")
+                target = Path(raw_path).expanduser()
+                target.mkdir(parents=True, exist_ok=True)
+                normalized = str(target.resolve())
+                st.session_state.backup_destination_custom_path = normalized
+                st.session_state["_cloud_backup_custom_path_input"] = normalized
+                update_prefs({"backup_destination_custom_path": normalized})
+                save_backup_config_from_settings(st.session_state.prefs)
+                st.success("Cloud backup folder updated.")
+            except Exception as exc:
+                st.error(f"Could not update cloud backup folder: {exc}")
+
+    last_sync = st.session_state.prefs.get("cloud_backup_last_sync_at") or ""
+    if last_sync:
+        st.caption(f"Last cloud sync: `{last_sync}`")
+
+    sync_disabled = selected_type == BACKUP_DESTINATION_LOCAL
+    if st.button("Sync to Cloud Now", width="stretch", disabled=sync_disabled):
+        result = sync_configured_backups_to_cloud()
+        if result.ok:
+            _apply_preferences_to_session({
+                **st.session_state.prefs,
+                "cloud_backup_last_sync_at": result.synced_at
+                or st.session_state.prefs.get("cloud_backup_last_sync_at", ""),
+            })
+            st.success(result.message)
+            if result.destination_path:
+                st.caption(f"Destination: `{result.destination_path}`")
+            for warning in result.warnings:
+                st.warning(warning)
+        else:
+            st.warning(result.message)
+            for error in result.errors:
+                st.caption(error)

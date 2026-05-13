@@ -20,6 +20,9 @@ EXPECTED_DEFAULT_KEYS = {
     "auto_backups_enabled",
     "backup_directory",
     "backups_per_dataset",
+    "backup_destination_type",
+    "backup_destination_custom_path",
+    "cloud_backup_last_sync_at",
     "auto_correct_validation_errors",
 }
 

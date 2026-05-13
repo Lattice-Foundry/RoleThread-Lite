@@ -30,6 +30,12 @@ def _enable_foreign_keys(dbapi_connection, connection_record):
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
+def get_db_path():
+    """Return the configured SQLite database path."""
+
+    return _DB_PATH
+
+
 # ── Table creation ─────────────────────────────────────────────────────────────
 def init_db() -> None:
     """Create all SQLAlchemy-mapped tables if they do not already exist."""

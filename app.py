@@ -3,10 +3,16 @@
 Owns app startup, session initialization, sidebar navigation, and page
 dispatch. Page rendering belongs in ui modules.
 """
+import atexit
 from pathlib import Path
 
 import streamlit as st
 
+from core.cloud_sync import (
+    get_cloud_restore_candidate,
+    restore_cloud_backup,
+    sync_configured_backups_to_cloud,
+)
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset_with_summary
 from core.preferences import load_preferences
 from ui.session_state import (
@@ -79,6 +85,57 @@ section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled):hover {
 </style>
 """, unsafe_allow_html=True)
 
+# ── Cloud backup startup hooks ────────────────────────────────────────────────
+def _sync_cloud_backups_on_exit() -> None:
+    """Best-effort cloud backup sync for Streamlit process shutdown."""
+
+    result = sync_configured_backups_to_cloud()
+    if not result.ok:
+        print(result.message)
+
+
+def _register_cloud_sync_on_exit() -> None:
+    if st.session_state.get("_cloud_sync_atexit_registered"):
+        return
+    atexit.register(_sync_cloud_backups_on_exit)
+    st.session_state["_cloud_sync_atexit_registered"] = True
+
+
+def _render_cloud_restore_prompt() -> None:
+    candidate = st.session_state.get("_cloud_restore_candidate")
+    if candidate is None and not st.session_state.get("_cloud_restore_checked"):
+        candidate_path = get_cloud_restore_candidate()
+        st.session_state["_cloud_restore_checked"] = True
+        if candidate_path is not None:
+            candidate = str(candidate_path)
+            st.session_state["_cloud_restore_candidate"] = candidate
+
+    if not candidate or st.session_state.get("_cloud_restore_dismissed"):
+        return
+
+    st.info(f"Found LoreForge backup data at `{candidate}`. Restore settings and registry?")
+    restore_col, skip_col = st.columns([1, 1])
+    with restore_col:
+        if st.button("Restore Cloud Backup", key="_restore_cloud_backup"):
+            result = restore_cloud_backup(candidate)
+            if result.ok:
+                st.success(result.message)
+                st.session_state["_cloud_restore_dismissed"] = True
+                st.rerun()
+            else:
+                st.warning(result.message)
+                for error in result.errors:
+                    st.caption(error)
+    with skip_col:
+        if st.button("Skip Restore", key="_skip_cloud_restore"):
+            st.session_state["_cloud_restore_dismissed"] = True
+            st.rerun()
+
+
+_register_cloud_sync_on_exit()
+_render_cloud_restore_prompt()
+
+
 # ── One-time session initialisation ───────────────────────────────────────────
 if "prefs" not in st.session_state:
     prefs = load_preferences()
@@ -115,6 +172,14 @@ if "prefs" not in st.session_state:
     st.session_state.auto_backups_enabled = prefs.get("auto_backups_enabled", True)
     st.session_state.backup_directory = prefs.get("backup_directory", "")
     st.session_state.backups_per_dataset = prefs.get("backups_per_dataset", 25)
+    st.session_state.backup_destination_type = prefs.get(
+        "backup_destination_type",
+        "local",
+    )
+    st.session_state.backup_destination_custom_path = prefs.get(
+        "backup_destination_custom_path",
+        "",
+    )
     st.session_state.auto_correct_validation_errors = prefs.get(
         "auto_correct_validation_errors",
         # Compatibility fallback for preference files created before the
