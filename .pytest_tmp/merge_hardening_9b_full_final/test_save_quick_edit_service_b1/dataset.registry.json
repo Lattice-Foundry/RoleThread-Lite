@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "schema_version": 1,
+    "kind": "loreforge.tag_registry",
+    "exported_at": "2026-05-13T14:25:13.364101+00:00",
+    "app_name": "LoreForge Lite",
+    "app_version": "0.7.11"
+  },
+  "dataset": {
+    "dataset_uuid": "af23a066-cce9-43dd-943f-e75d91127ae8",
+    "filename": "dataset.jsonl",
+    "entry_count": 1,
+    "tag_usage_counts": {}
+  },
+  "categories": [],
+  "tags": [],
+  "aliases": [],
+  "characters": [],
+  "entry_character_mappings": []
+}

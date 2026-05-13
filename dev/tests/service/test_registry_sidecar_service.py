@@ -592,6 +592,44 @@ def test_import_registry_sidecar_creates_characters_and_mappings(tmp_path, monke
         session.close()
 
 
+def test_import_registry_sidecar_can_defer_entry_character_mappings(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    registry = _registry(
+        characters=[SidecarCharacter(slug="scott", display_name="Scott")],
+        entry_character_mappings=[
+            SidecarEntryCharacterMapping(
+                entry_uuid="entry-1",
+                turns=(
+                    {
+                        "turn_index": 1,
+                        "character_slug": "scott",
+                        "training_role": "user",
+                        "source_role_label": "Scott",
+                    },
+                ),
+            )
+        ],
+    )
+
+    result = import_registry_sidecar(
+        registry=registry,
+        include_entry_character_mappings=False,
+    )
+
+    assert result.ok is True
+    assert result.characters_created == ["scott"]
+    assert result.character_mappings_imported == []
+    session = session_factory()
+    try:
+        assert session.query(Character).filter_by(slug="scott").count() == 1
+        assert session.query(EntryCharacterTurn).count() == 0
+    finally:
+        session.close()
+
+
 def test_import_registry_sidecar_character_mappings_are_idempotent(
     tmp_path,
     monkeypatch,

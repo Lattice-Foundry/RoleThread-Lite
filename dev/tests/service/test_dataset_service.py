@@ -5,6 +5,9 @@ import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from core.dataset import load_dataset, save_dataset
 from core.loreforge_meta import (
     LOREFORGE_META_KEY,
@@ -13,15 +16,23 @@ from core.loreforge_meta import (
     stamp_entries,
 )
 from core.registry_sidecar import (
+    SidecarAlias,
+    SidecarCategory,
+    SidecarCharacter,
     SidecarDatasetInfo,
+    SidecarEntryCharacterMapping,
     SidecarMetadata,
     SidecarRegistry,
+    SidecarTag,
     read_sidecar,
     sidecar_path_for_dataset,
     write_sidecar,
 )
+from core.models import Base, Character, EntryCharacterTurn, Tag, TagCategory
+import core.tag_registry as tag_registry
 from core.version import LOREFORGE_VERSION
 import core.tag_resolution as tag_resolution
+import services.registry_sidecar_service as registry_sidecar_service
 from services import dataset_service
 from services.dataset_service import (
     clear_tags_bulk_service,
@@ -136,6 +147,26 @@ def _force_backup_failure(monkeypatch):
         raise RuntimeError("backup failed")
 
     monkeypatch.setattr(dataset_service, "create_dataset_backup", fail_backup)
+
+
+def _registry_session_factory(tmp_path, monkeypatch):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'merge_registry.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    monkeypatch.setattr(tag_registry, "engine", engine)
+    monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(registry_sidecar_service, "engine", engine)
+    monkeypatch.setattr(registry_sidecar_service, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_resolution, "SessionLocal", session_factory)
+    monkeypatch.setattr(
+        registry_sidecar_service,
+        "create_db_backup",
+        lambda *, engine: tmp_path / "db_backup.sqlite",
+    )
+    return session_factory
 
 
 def test_dataset_service_has_no_streamlit_import_or_session_state_usage():
@@ -1083,7 +1114,7 @@ def test_save_merged_entries_service_does_not_reuse_existing_output_sidecar_uuid
     existing_sidecar_uuid = "existing-output-sidecar-uuid"
     write_sidecar(
         SidecarRegistry(
-            metadata=SidecarMetadata(),
+            metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00Z"),
             dataset_info=SidecarDatasetInfo(
                 dataset_uuid=existing_sidecar_uuid,
                 filename=path.name,
@@ -1125,6 +1156,121 @@ def test_save_merged_entries_service_canonicalizes_alias_tags(tmp_path, monkeypa
     assert result.ok is True
     assert result.entries[0]["tags"] == ["new_tag", "kept_tag"]
     assert _read_entries(path)[0]["tags"] == ["new_tag", "kept_tag"]
+
+
+def test_save_merged_entries_service_imports_source_sidecar_registry_metadata(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _registry_session_factory(tmp_path, monkeypatch)
+    source_path = tmp_path / "source.jsonl"
+    output_path = tmp_path / "merged.jsonl"
+    source_entries = [_entry(tags=["slowburn"])]
+    save_dataset(str(source_path), source_entries)
+    source_sidecar_path = sidecar_path_for_dataset(source_path)
+    write_sidecar(
+        SidecarRegistry(
+            metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00Z"),
+            dataset_info=SidecarDatasetInfo(
+                dataset_uuid="source-dataset-uuid",
+                filename=source_path.name,
+            ),
+            categories=(
+                SidecarCategory(
+                    slug="behavior",
+                    name="Behavior",
+                    sort_order=0,
+                    is_builtin=True,
+                ),
+            ),
+            tags=(
+                SidecarTag(
+                    slug="slow_burn",
+                    name="Slow Burn",
+                    category_slug="behavior",
+                    status="active",
+                ),
+            ),
+            aliases=(
+                SidecarAlias(
+                    old_slug="slowburn",
+                    new_slug="slow_burn",
+                    action="rename",
+                    metadata={"resolver_behavior": "map_to_target"},
+                ),
+            ),
+            characters=(
+                SidecarCharacter(slug="scott", display_name="Scott"),
+            ),
+        ),
+        source_sidecar_path,
+    )
+    original_source_text = source_path.read_text(encoding="utf-8")
+    original_sidecar_text = source_sidecar_path.read_text(encoding="utf-8")
+
+    result = save_merged_entries_service(
+        dataset_path=str(output_path),
+        entries=source_entries,
+        source_paths=[str(source_path)],
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    assert result.source_sidecar_summary.found_count == 1
+    assert result.source_sidecar_summary.imported_count == 1
+    assert result.source_sidecar_summary.categories_created == ["behavior"]
+    assert result.source_sidecar_summary.tags_created == ["slow_burn"]
+    assert result.source_sidecar_summary.aliases_imported == ["slowburn"]
+    assert result.source_sidecar_summary.characters_created == ["scott"]
+    assert result.entries[0]["tags"] == ["slow_burn"]
+    output_sidecar = read_sidecar(sidecar_path_for_dataset(output_path))
+    assert [category.slug for category in output_sidecar.categories] == ["behavior"]
+    assert [tag.slug for tag in output_sidecar.tags] == ["slow_burn"]
+    assert [alias.old_slug for alias in output_sidecar.aliases] == ["slowburn"]
+    assert [character.slug for character in output_sidecar.characters] == ["scott"]
+    assert output_sidecar.entry_character_mappings == ()
+    assert source_path.read_text(encoding="utf-8") == original_source_text
+    assert source_sidecar_path.read_text(encoding="utf-8") == original_sidecar_text
+
+    session = session_factory()
+    try:
+        assert session.query(TagCategory).filter_by(slug="behavior").count() == 1
+        assert session.query(Tag).filter_by(slug="slow_burn").count() == 1
+        assert session.query(Character).filter_by(slug="scott").count() == 1
+        assert session.query(EntryCharacterTurn).count() == 0
+    finally:
+        session.close()
+
+
+def test_save_merged_entries_service_skips_missing_and_bad_source_sidecars(
+    tmp_path,
+    monkeypatch,
+):
+    _registry_session_factory(tmp_path, monkeypatch)
+    missing_source = tmp_path / "missing_sidecar.jsonl"
+    bad_source = tmp_path / "bad_sidecar.jsonl"
+    output_path = tmp_path / "merged.jsonl"
+    entries = [_entry(tags=["merged"])]
+    save_dataset(str(missing_source), entries)
+    save_dataset(str(bad_source), entries)
+    bad_sidecar_path = sidecar_path_for_dataset(bad_source)
+    bad_sidecar_path.write_text("{not valid json}", encoding="utf-8")
+
+    result = save_merged_entries_service(
+        dataset_path=str(output_path),
+        entries=entries,
+        source_paths=[str(missing_source), str(bad_source)],
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    summary = result.source_sidecar_summary
+    assert summary.source_count == 2
+    assert summary.found_count == 1
+    assert summary.imported_count == 0
+    assert summary.missing_paths == [str(sidecar_path_for_dataset(missing_source))]
+    assert summary.failed_paths == [str(bad_sidecar_path)]
+    assert summary.errors
 
 
 def test_save_merged_entries_service_overwrite_backup_enabled_and_disabled(tmp_path, monkeypatch):

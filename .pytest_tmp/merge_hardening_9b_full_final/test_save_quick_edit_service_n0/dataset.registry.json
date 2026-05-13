@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "schema_version": 1,
+    "kind": "loreforge.tag_registry",
+    "exported_at": "2026-05-13T14:25:13.387984+00:00",
+    "app_name": "LoreForge Lite",
+    "app_version": "0.7.11"
+  },
+  "dataset": {
+    "dataset_uuid": "be16291c-e7c3-4018-b93f-28ad796aa8d8",
+    "filename": "dataset.jsonl",
+    "entry_count": 1,
+    "tag_usage_counts": {
+      "slow_burn": 1
+    }
+  },
+  "categories": [
+    {
+      "slug": "behavior",
+      "name": "Behavior",
+      "sort_order": 0,
+      "is_active": true,
+      "is_builtin": true
+    }
+  ],
+  "tags": [
+    {
+      "slug": "slow_burn",
+      "name": "Slow Burn",
+      "category_slug": "behavior",
+      "sort_order": 5,
+      "status": "active",
+      "is_active": true,
+      "is_builtin": false,
+      "lifecycle": {
+        "hide_reason": "hidden_from_archive",
+        "lifecycle_state": "hidden",
+        "visible_badge": null
+      }
+    }
+  ],
+  "aliases": [],
+  "characters": [],
+  "entry_character_mappings": []
+}

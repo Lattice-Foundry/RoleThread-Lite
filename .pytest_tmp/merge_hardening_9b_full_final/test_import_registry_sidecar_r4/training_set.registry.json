@@ -1,0 +1,1 @@
+{"metadata": {"schema_version": 1, "kind": "loreforge.tag_registry", "exported_at": "2026-05-11T00:00:00+00:00"}, "dataset": {"filename": "training_set.jsonl"}, "categories": [{"slug": "behavior", "name": "Behavior", "sort_order": 0, "is_active": true, "is_builtin": true}], "tags": [], "aliases": []}

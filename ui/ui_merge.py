@@ -73,6 +73,7 @@ def render_merge_page() -> None:
                 result = save_merged_entries_service(
                     dataset_path=p,
                     entries=merged,
+                    source_paths=paths,
                     backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
                 )
                 if result.ok and result.entries is not None:
@@ -84,6 +85,7 @@ def render_merge_page() -> None:
                         prune_selection_to_loaded_entries()
                     _backup_note = " Backup created." if result.backup_path else ""
                     st.success(f"Merged dataset saved to `{saved_path}`.{_backup_note}")
+                    _render_source_sidecar_summary(result.source_sidecar_summary)
 
                     st.download_button(
                         "Download merged JSONL",
@@ -96,6 +98,29 @@ def render_merge_page() -> None:
                         st.error(err)
                     if not result.errors:
                         st.error(result.message)
+
+
+def _render_source_sidecar_summary(summary) -> None:
+    if summary is None or summary.source_count == 0:
+        return
+    if summary.imported_count:
+        st.caption(
+            "Imported registry metadata from "
+            f"{summary.imported_count} source sidecar"
+            f"{'' if summary.imported_count == 1 else 's'}."
+        )
+    if summary.failed_paths:
+        st.warning(
+            "Some source sidecars could not be imported. "
+            "Merge continued with available registry metadata."
+        )
+        for error in summary.errors[:3]:
+            st.caption(f"Source sidecar warning: {error}")
+    if summary.conflicts:
+        st.warning(
+            f"{len(summary.conflicts)} source sidecar registry conflict"
+            f"{'' if len(summary.conflicts) == 1 else 's'} detected."
+        )
 
 
 def _merged_download_payload(entries: list[dict]) -> bytes:

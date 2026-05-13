@@ -14,6 +14,7 @@ from uuid import uuid4
 from core.backups import create_dataset_backup
 from core.dataset import (
     canonicalize_entry_tag_aliases,
+    load_dataset,
     normalize_dataset_entries,
     normalize_dataset_tags,
     normalize_entry_tags,
@@ -44,6 +45,7 @@ class DatasetOperationResult:
     dataset_path: str | None = None
     sidecar_ok: bool = True
     sidecar_message: str | None = None
+    source_sidecar_summary: "SourceSidecarImportSummary | None" = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,27 @@ class DatasetSaveResult:
     entries: list[dict]
     sidecar_ok: bool = True
     sidecar_message: str | None = None
+
+
+@dataclass
+class SourceSidecarImportSummary:
+    """Summary of source sidecars discovered during merge."""
+
+    source_count: int = 0
+    found_count: int = 0
+    imported_count: int = 0
+    missing_paths: list[str] = field(default_factory=list)
+    imported_paths: list[str] = field(default_factory=list)
+    failed_paths: list[str] = field(default_factory=list)
+    categories_created: list[str] = field(default_factory=list)
+    tags_created: list[str] = field(default_factory=list)
+    tags_promoted: list[str] = field(default_factory=list)
+    aliases_imported: list[str] = field(default_factory=list)
+    characters_created: list[str] = field(default_factory=list)
+    character_slugs: list[str] = field(default_factory=list)
+    conflicts: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
 
 def _copy_entries(entries: list[dict]) -> list[dict]:
@@ -81,6 +104,7 @@ def _save_dataset_with_sidecar(
     entries: list[dict],
     *,
     dataset_uuid: str | None = None,
+    extra_character_slugs: set[str] | None = None,
 ) -> DatasetSaveResult:
     target_path = _prepare_dataset_save_path(dataset_path)
     resolved_dataset_uuid = dataset_uuid or _dataset_uuid_for_save(target_path, entries)
@@ -89,7 +113,14 @@ def _save_dataset_with_sidecar(
     sidecar_ok = True
     sidecar_message = None
     try:
-        sidecar_status = _write_registry_sidecar(target_path, stamped_entries)
+        if extra_character_slugs:
+            sidecar_status = _write_registry_sidecar(
+                target_path,
+                stamped_entries,
+                extra_character_slugs=extra_character_slugs,
+            )
+        else:
+            sidecar_status = _write_registry_sidecar(target_path, stamped_entries)
         if sidecar_status is not None:
             sidecar_ok, sidecar_message = sidecar_status
     except Exception:
@@ -111,7 +142,12 @@ def _prepare_dataset_save_path(dataset_path: str) -> str:
     return str(canonical_training_dataset_path(source))
 
 
-def _write_registry_sidecar(dataset_path: str, entries: list[dict]) -> tuple[bool, str | None]:
+def _write_registry_sidecar(
+    dataset_path: str,
+    entries: list[dict],
+    *,
+    extra_character_slugs: set[str] | None = None,
+) -> tuple[bool, str | None]:
     try:
         # Lazy import avoids making every dataset service import initialize sidecar/registry queries.
         from services.registry_sidecar_service import export_registry_sidecar
@@ -120,6 +156,7 @@ def _write_registry_sidecar(dataset_path: str, entries: list[dict]) -> tuple[boo
             dataset_path=dataset_path,
             entries=entries,
             dataset_uuid=get_dataset_uuid_for_entries(entries),
+            extra_character_slugs=extra_character_slugs,
         )
     except Exception:
         traceback.print_exc()
@@ -148,6 +185,67 @@ def _sidecar_result_fields(save_result: DatasetSaveResult) -> dict:
         "sidecar_ok": save_result.sidecar_ok,
         "sidecar_message": save_result.sidecar_message,
     }
+
+
+def _import_source_sidecars(source_paths: list[str] | None) -> SourceSidecarImportSummary:
+    summary = SourceSidecarImportSummary(source_count=len(source_paths or []))
+    if not source_paths:
+        return summary
+
+    for raw_path in source_paths:
+        source_path = Path(raw_path)
+        source_sidecar_path = sidecar_path_for_dataset(source_path)
+        if not source_sidecar_path.exists():
+            summary.missing_paths.append(str(source_sidecar_path))
+            continue
+
+        summary.found_count += 1
+        entries, parse_errors = load_dataset(str(source_path))
+        if parse_errors:
+            summary.warnings.append(
+                f"Source sidecar {source_sidecar_path} was imported without "
+                f"dataset UUID validation because source parse warnings were present."
+            )
+        try:
+            registry = read_sidecar(source_sidecar_path)
+            import_result = _import_registry_sidecar(
+                registry=registry,
+                entries=entries if entries else None,
+                include_entry_character_mappings=False,
+            )
+        except Exception as exc:
+            traceback.print_exc()
+            summary.failed_paths.append(str(source_sidecar_path))
+            summary.errors.append(f"{source_sidecar_path}: {exc}")
+            continue
+
+        if import_result.ok:
+            summary.imported_count += 1
+            summary.imported_paths.append(str(source_sidecar_path))
+            summary.character_slugs.extend(
+                character.slug for character in registry.characters
+            )
+            summary.categories_created.extend(import_result.categories_created)
+            summary.tags_created.extend(import_result.tags_created)
+            summary.tags_promoted.extend(import_result.tags_promoted)
+            summary.aliases_imported.extend(import_result.aliases_imported)
+            summary.characters_created.extend(import_result.characters_created)
+            summary.conflicts.extend(import_result.conflicts)
+            summary.warnings.extend(import_result.warnings)
+        else:
+            summary.failed_paths.append(str(source_sidecar_path))
+            summary.errors.extend(
+                f"{source_sidecar_path}: {error}"
+                for error in (import_result.errors or [import_result.message])
+            )
+
+    return summary
+
+
+def _import_registry_sidecar(**kwargs):
+    from services.registry_sidecar_service import import_registry_sidecar
+
+    return import_registry_sidecar(**kwargs)
 
 
 def _valid_index(entries: list[dict], index: int) -> bool:
@@ -643,6 +741,7 @@ def save_merged_entries_service(
     *,
     dataset_path: str,
     entries: list[dict],
+    source_paths: list[str] | None = None,
     backup_enabled: bool = True,
     backup_reason: str = "before_merge_save",
 ) -> DatasetOperationResult:
@@ -660,7 +759,6 @@ def save_merged_entries_service(
         )
 
     proposed_entries = normalize_dataset_entries(entries).entries
-    proposed_entries = _canonicalize_alias_tags(proposed_entries)
     backup_path: str | None = None
     target = Path(dataset_path)
 
@@ -680,11 +778,15 @@ def save_merged_entries_service(
             )
         backup_path = str(created_backup)
 
+    source_sidecar_summary = _import_source_sidecars(source_paths)
+    proposed_entries = _canonicalize_alias_tags(proposed_entries)
+
     try:
         save_result = _save_dataset_with_sidecar(
             dataset_path,
             proposed_entries,
             dataset_uuid=str(uuid4()),
+            extra_character_slugs=set(source_sidecar_summary.character_slugs),
         )
         saved_path = save_result.dataset_path
         proposed_entries = save_result.entries
@@ -702,6 +804,7 @@ def save_merged_entries_service(
         backup_path=backup_path,
         affected_count=len(proposed_entries),
         dataset_path=saved_path,
+        source_sidecar_summary=source_sidecar_summary,
         **_sidecar_result_fields(save_result),
     )
 

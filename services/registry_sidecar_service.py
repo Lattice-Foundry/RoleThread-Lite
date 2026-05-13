@@ -69,6 +69,7 @@ def export_registry_sidecar(
     dataset_path: str,
     entries: list[dict],
     dataset_uuid: str | None = None,
+    extra_character_slugs: set[str] | None = None,
 ) -> RegistrySidecarExportResult:
     """Export the current DB tag registry as a sidecar next to a dataset path."""
     if not dataset_path:
@@ -96,6 +97,7 @@ def export_registry_sidecar(
             for mapping in character_mappings
             for turn in mapping["turns"]
         }
+        character_slugs.update(extra_character_slugs or set())
         tags = _query_tags()
         tags = [tag for tag in tags if tag["slug"] in included_slugs]
         category_slugs = {
@@ -147,6 +149,7 @@ def import_registry_sidecar(
     sidecar_path: str | Path | None = None,
     registry: SidecarRegistry | None = None,
     entries: list[dict] | None = None,
+    include_entry_character_mappings: bool = True,
 ) -> RegistrySidecarImportResult:
     """Merge a registry sidecar into the current DB registry."""
     if registry is None:
@@ -198,12 +201,13 @@ def import_registry_sidecar(
         _merge_aliases(session, registry, result)
         _merge_characters(session, registry, result)
         session.flush()
-        _merge_character_mappings(
-            session,
-            registry,
-            result,
-            valid_entry_uuids=_entry_uuids(entries) if entries is not None else None,
-        )
+        if include_entry_character_mappings:
+            _merge_character_mappings(
+                session,
+                registry,
+                result,
+                valid_entry_uuids=_entry_uuids(entries) if entries is not None else None,
+            )
 
         session.commit()
         result.ok = not result.errors
