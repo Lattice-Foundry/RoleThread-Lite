@@ -18,7 +18,6 @@ from core.dataset import (
 )
 from core.loreforge_meta import stamp_entries
 from core.tag_registry import (
-    _MAX_ACTIVE_CATEGORIES,
     SessionLocal,
     create_db_backup,
     engine,
@@ -37,6 +36,7 @@ from core.tag_resolution import resolve_tag_lifecycle
 from core.tag_constants import (
     ARCHIVE_ORIGIN_IMPORTED,
     LIFECYCLE_STATE_ACTIVE,
+    MAX_ACTIVE_CATEGORIES,
     TAG_ALIAS_METADATA_ACTIONS,
     TAG_CURRENT_METADATA_ACTIONS,
     TAG_LIFECYCLE_METADATA_ARCHIVE,
@@ -353,11 +353,11 @@ def create_custom_category(name: str) -> tuple[bool, str]:
                 return False, f"A category with slug '{slug}' already exists."
 
             active_count = session.query(TagCategory).filter_by(is_active=True).count()
-            if active_count >= _MAX_ACTIVE_CATEGORIES:
+            if active_count >= MAX_ACTIVE_CATEGORIES:
                 return (
                     False,
                     f"Category limit reached. "
-                    f"This version supports {_MAX_ACTIVE_CATEGORIES} active categories.",
+                    f"This version supports {MAX_ACTIVE_CATEGORIES} active categories.",
                 )
 
             max_order: int = session.query(func.max(TagCategory.sort_order)).scalar() or 0

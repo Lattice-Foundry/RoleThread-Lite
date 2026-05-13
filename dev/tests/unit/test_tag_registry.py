@@ -25,6 +25,7 @@ from core.tag_constants import (
     TAG_RESOLUTION_HIDDEN,
     TAG_RESOLUTION_RETIRED,
     TAG_RESOLUTION_UNKNOWN,
+    MAX_ACTIVE_CATEGORIES,
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
     TAG_STATUS_HIDDEN,
@@ -972,7 +973,7 @@ def test_tag_registry_snapshot_matches_existing_read_helpers(tag_db):
     assert snapshot.default_category_slugs == {
         tag_registry.slugify_tag_name(name) for name in tag_registry.TAGS
     }
-    assert snapshot.max_active_categories == tag_registry._MAX_ACTIVE_CATEGORIES
+    assert snapshot.max_active_categories == MAX_ACTIVE_CATEGORIES
 
 
 def test_tag_registry_snapshot_is_frozen(tag_db):

@@ -25,6 +25,7 @@ from core.tag_constants import (
     ARCHIVE_ORIGIN_IMPORTED,
     ARCHIVE_REASON_UNKNOWN_IMPORT,
     ARCHIVE_REASON_USER_SOFT_DELETE,
+    MAX_ACTIVE_CATEGORIES,
     TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
     TAG_LIFECYCLE_METADATA_IMPORT_UNCATEGORIZED,
     TAG_RESOLUTION_ARCHIVED,
@@ -656,10 +657,6 @@ def get_tag_by_slug_any_status(slug: str) -> Tag | None:
 
 # ── Write helpers (additive-only) ─────────────────────────────────────────────
 
-# Hard ceiling on active categories to keep the UI manageable.
-_MAX_ACTIVE_CATEGORIES = 10
-
-
 def get_tag_registry_snapshot(
     untagged_key: str = "__untagged__",
 ) -> TagRegistrySnapshot:
@@ -790,7 +787,7 @@ def get_tag_registry_snapshot(
             tag_category_map=tag_category_map,
             visible_archived_tags=visible_archived_tags,
             default_category_slugs={slugify_tag_name(name) for name in TAGS},
-            max_active_categories=_MAX_ACTIVE_CATEGORIES,
+            max_active_categories=MAX_ACTIVE_CATEGORIES,
         )
     finally:
         session.close()
