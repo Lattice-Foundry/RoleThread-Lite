@@ -18,6 +18,7 @@ from core.dataset import (
     normalize_dataset_entries,
     summarize_entry_analysis,
 )
+from core.loreforge_meta import ensure_entry_uuid
 from core.registry_sidecar import read_sidecar, sidecar_path_for_dataset
 from core.tag_metadata import get_current_tag_lifecycle_metadata
 from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
@@ -59,20 +60,25 @@ def finalize_loaded_entries(
 
     Pipeline order:
     1. Use the provided load summary or normalize the given entries.
-    2. Create a protected working copy for foreign source files.
-    3. Locate, read, and import a sibling registry sidecar.
-    4. Canonicalize stale tag aliases in loaded entries.
-    5. Apply trusted character-role mappings already known to the DB.
-    6. Persist trusted character turn mappings created during normalization.
-    7. Collect remaining custom-role character candidates.
-    8. Refresh typed diagnostics if entries changed after core load analysis.
-    9. Adopt unknown dataset tags into the registry/archive.
-    10. Build the pending tag-trust map for imported archived tags.
-    11. Return entries, effective path, summaries, candidates, and trust data.
+    2. Assign stable entry UUIDs without changing native/trust status.
+    3. Create a protected working copy for foreign source files.
+    4. Locate, read, and import a sibling registry sidecar.
+    5. Canonicalize stale tag aliases in loaded entries.
+    6. Apply trusted character-role mappings already known to the DB.
+    7. Persist trusted character turn mappings created during normalization.
+    8. Collect remaining custom-role character candidates.
+    9. Refresh typed diagnostics if entries changed after core load analysis.
+    10. Adopt unknown dataset tags into the registry/archive.
+    11. Build the pending tag-trust map for imported archived tags.
+    12. Return entries, effective path, summaries, candidates, and trust data.
     """
 
     normalization = normalization_summary or normalize_dataset_entries(entries)
     entries_changed_after_analysis = normalization_summary is None
+    normalization.entries = [
+        ensure_entry_uuid(entry) if isinstance(entry, dict) else entry
+        for entry in normalization.entries
+    ]
 
     working_copy_summary, effective_dataset_path = prepare_foreign_working_copy(
         dataset_path,

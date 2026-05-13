@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import core.load_pipeline as load_pipeline
 from core.dataset import load_dataset_with_summary
 from core.format_conversion import FORMAT_SHAREGPT
+from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid, is_native_entry
 from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
 
 
@@ -111,6 +112,25 @@ def test_pipeline_creates_foreign_working_copy(tmp_path, monkeypatch):
     assert result.effective_dataset_path == str(working_path)
     assert result.working_copy_summary["original_path"] == str(path)
     assert result.dataset_is_native is False
+    assert get_entry_uuid(result.entries[0]) is not None
+    assert is_native_entry(result.entries[0]) is False
+    assert set(result.entries[0][LOREFORGE_META_KEY]) == {"entry_uuid"}
+
+
+def test_pipeline_preserves_existing_uuid_without_trust_stamp(monkeypatch):
+    _patch_pipeline_defaults(monkeypatch)
+    entry = _entry()
+    entry[LOREFORGE_META_KEY] = {
+        "version": "0.5.9",
+        "entry_uuid": "existing-entry-uuid",
+    }
+
+    result = load_pipeline.finalize_loaded_entries([entry])
+
+    assert get_entry_uuid(result.entries[0]) == "existing-entry-uuid"
+    assert result.entries[0][LOREFORGE_META_KEY]["version"] == "0.5.9"
+    assert "native" not in result.entries[0][LOREFORGE_META_KEY]
+    assert "validated_at" not in result.entries[0][LOREFORGE_META_KEY]
 
 
 def test_pipeline_canonicalizes_aliases_before_adoption(monkeypatch):

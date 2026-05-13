@@ -79,6 +79,10 @@ def test_ensure_entry_uuid_adds_uuid_without_mutating_original():
 
     assert get_entry_uuid(entry) is None
     assert get_entry_uuid(entry_with_uuid) is not None
+    assert entry_with_uuid[LOREFORGE_META_KEY] == {
+        "entry_uuid": get_entry_uuid(entry_with_uuid),
+    }
+    assert is_native_entry(entry_with_uuid) is False
     assert entry_with_uuid is not entry
 
 
@@ -88,6 +92,23 @@ def test_ensure_entry_uuid_preserves_existing_uuid():
     entry_with_uuid = ensure_entry_uuid(entry)
 
     assert get_entry_uuid(entry_with_uuid) == "existing-entry-uuid"
+
+
+def test_ensure_entry_uuid_preserves_partial_loreforge_metadata():
+    entry = {
+        LOREFORGE_META_KEY: {
+            "version": "0.5.9",
+            "custom_note": "keep me",
+        }
+    }
+
+    entry_with_uuid = ensure_entry_uuid(entry)
+
+    assert get_entry_uuid(entry_with_uuid) is not None
+    assert entry_with_uuid[LOREFORGE_META_KEY]["version"] == "0.5.9"
+    assert entry_with_uuid[LOREFORGE_META_KEY]["custom_note"] == "keep me"
+    assert "native" not in entry_with_uuid[LOREFORGE_META_KEY]
+    assert "validated_at" not in entry_with_uuid[LOREFORGE_META_KEY]
 
 
 def test_native_entry_detection_does_not_require_entry_uuid():
