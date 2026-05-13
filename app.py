@@ -27,6 +27,7 @@ from ui.manage import render_manage_page
 from ui.ui_merge import render_merge_page
 from ui.ui_settings import render_settings_page
 from ui.ui_stats import render_stats_page
+from ui.ui_system_prompts import render_system_prompts_page
 from ui.ui_validation import render_validation_page
 
 # ── Page config ────────────────────────────────────────────────────────────────
@@ -175,6 +176,7 @@ _NAV_SECTIONS = [
     ("Metadata", [
         ("Tag Management",        "Tag Management"),
         ("Character Management",  "Character Management"),
+        ("System Prompts",        "System Prompts"),
     ]),
     ("Analytics", [
         ("Statistics",      "Statistics"),
@@ -219,6 +221,8 @@ elif page == "Tag Management":
     render_tag_management_page()
 elif page == "Character Management":
     render_character_management_page()
+elif page == "System Prompts":
+    render_system_prompts_page()
 elif page == "Statistics":
     render_stats_page()
 elif page == "Settings":
