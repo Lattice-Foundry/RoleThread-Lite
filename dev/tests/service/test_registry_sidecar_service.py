@@ -66,7 +66,10 @@ def _registry(
 ) -> SidecarRegistry:
     return SidecarRegistry(
         metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00+00:00"),
-        dataset_info=SidecarDatasetInfo(filename="training_set.jsonl"),
+        dataset_info=SidecarDatasetInfo(
+            dataset_uuid="dataset-uuid-1",
+            filename="training_set.jsonl",
+        ),
         categories=tuple(categories or []),
         tags=tuple(tags or []),
         aliases=tuple(aliases or []),
@@ -166,8 +169,14 @@ def test_export_registry_sidecar_writes_registry_file(tmp_path, monkeypatch):
     result = export_registry_sidecar(
         dataset_path=str(dataset_path),
         entries=[
-            {"tags": ["slow_burn", "deleted_tag"]},
-            {"tags": ["slow_burn"]},
+            {
+                "_loreforge": {"native": True, "dataset_uuid": "dataset-uuid-1"},
+                "tags": ["slow_burn", "deleted_tag"],
+            },
+            {
+                "_loreforge": {"native": True, "dataset_uuid": "dataset-uuid-1"},
+                "tags": ["slow_burn"],
+            },
         ],
     )
 
@@ -176,6 +185,7 @@ def test_export_registry_sidecar_writes_registry_file(tmp_path, monkeypatch):
     assert result.message == "Registry sidecar written to training_set.registry.json."
 
     sidecar = read_sidecar(sidecar_path_for_dataset(dataset_path))
+    assert sidecar.dataset_info.dataset_uuid == "dataset-uuid-1"
     assert sidecar.dataset_info.filename == "training_set.jsonl"
     assert sidecar.dataset_info.entry_count == 2
     assert sidecar.dataset_info.tag_usage_counts == {
@@ -236,7 +246,12 @@ def test_export_registry_sidecar_follows_aliases_for_dataset_relevance(tmp_path,
     dataset_path = tmp_path / "training_set.jsonl"
     result = export_registry_sidecar(
         dataset_path=str(dataset_path),
-        entries=[{"tags": ["old_tag", "active_tag"]}],
+        entries=[
+            {
+                "_loreforge": {"native": True, "dataset_uuid": "dataset-uuid-1"},
+                "tags": ["old_tag", "active_tag"],
+            }
+        ],
     )
 
     assert result.ok is True
@@ -291,7 +306,11 @@ def test_export_registry_sidecar_includes_dataset_relevant_characters_only(
         dataset_path=str(dataset_path),
         entries=[
             {
-                "_loreforge": {"native": True, "entry_uuid": "entry-1"},
+                "_loreforge": {
+                    "native": True,
+                    "dataset_uuid": "dataset-uuid-1",
+                    "entry_uuid": "entry-1",
+                },
                 "tags": [],
             }
         ],
@@ -338,6 +357,31 @@ def test_export_registry_sidecar_failure_is_structured(tmp_path, monkeypatch):
     assert result.message == "Could not export registry sidecar: disk full"
     assert result.errors == ["disk full"]
     assert result.path is None
+
+
+def test_export_registry_sidecar_preserves_existing_sidecar_uuid_for_empty_dataset(
+    tmp_path,
+    monkeypatch,
+):
+    _session_factory(tmp_path, monkeypatch)
+    dataset_path = tmp_path / "training_set.jsonl"
+    existing_sidecar = SidecarRegistry(
+        metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00+00:00"),
+        dataset_info=SidecarDatasetInfo(
+            dataset_uuid="existing-dataset-uuid",
+            filename="training_set.jsonl",
+        ),
+    )
+    registry_sidecar_service.write_sidecar(
+        existing_sidecar,
+        sidecar_path_for_dataset(dataset_path),
+    )
+
+    result = export_registry_sidecar(dataset_path=str(dataset_path), entries=[])
+
+    assert result.ok is True
+    sidecar = read_sidecar(sidecar_path_for_dataset(dataset_path))
+    assert sidecar.dataset_info.dataset_uuid == "existing-dataset-uuid"
 
 
 def test_export_registry_sidecar_rejects_missing_dataset_path():
@@ -394,6 +438,34 @@ def test_import_registry_sidecar_creates_categories_tags_and_aliases(tmp_path, m
         session.close()
 
 
+def test_import_registry_sidecar_rejects_dataset_uuid_mismatch(tmp_path, monkeypatch):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+
+    result = import_registry_sidecar(
+        registry=_registry(categories=[_category()]),
+        entries=[
+            {
+                "_loreforge": {
+                    "native": True,
+                    "dataset_uuid": "different-dataset-uuid",
+                    "entry_uuid": "entry-1",
+                }
+            }
+        ],
+    )
+
+    assert result.ok is False
+    assert result.errors == [
+        "Sidecar dataset UUID does not match the loaded dataset "
+        "(dataset-uuid-1 != different-dataset-uuid)."
+    ]
+    session = session_factory()
+    try:
+        assert session.query(TagCategory).count() == 0
+    finally:
+        session.close()
+
+
 def test_import_registry_sidecar_creates_characters_and_mappings(tmp_path, monkeypatch):
     session_factory = _session_factory(tmp_path, monkeypatch)
     registry = _registry(
@@ -424,7 +496,15 @@ def test_import_registry_sidecar_creates_characters_and_mappings(tmp_path, monke
 
     result = import_registry_sidecar(
         registry=registry,
-        entries=[{"_loreforge": {"native": True, "entry_uuid": "entry-1"}}],
+        entries=[
+            {
+                "_loreforge": {
+                    "native": True,
+                    "dataset_uuid": "dataset-uuid-1",
+                    "entry_uuid": "entry-1",
+                }
+            }
+        ],
     )
 
     assert result.ok is True
@@ -490,7 +570,15 @@ def test_import_registry_sidecar_reuses_existing_character_and_replaces_mapping(
                 )
             ],
         ),
-        entries=[{"_loreforge": {"native": True, "entry_uuid": "entry-1"}}],
+        entries=[
+            {
+                "_loreforge": {
+                    "native": True,
+                    "dataset_uuid": "dataset-uuid-1",
+                    "entry_uuid": "entry-1",
+                }
+            }
+        ],
     )
 
     assert result.ok is True
@@ -526,7 +614,15 @@ def test_import_registry_sidecar_skips_mapping_for_unloaded_entry(tmp_path, monk
                 )
             ],
         ),
-        entries=[{"_loreforge": {"native": True, "entry_uuid": "entry-1"}}],
+        entries=[
+            {
+                "_loreforge": {
+                    "native": True,
+                    "dataset_uuid": "dataset-uuid-1",
+                    "entry_uuid": "entry-1",
+                }
+            }
+        ],
     )
 
     assert result.ok is True
@@ -564,7 +660,15 @@ def test_import_registry_sidecar_skips_mapping_for_missing_character(
                 )
             ],
         ),
-        entries=[{"_loreforge": {"native": True, "entry_uuid": "entry-1"}}],
+        entries=[
+            {
+                "_loreforge": {
+                    "native": True,
+                    "dataset_uuid": "dataset-uuid-1",
+                    "entry_uuid": "entry-1",
+                }
+            }
+        ],
     )
 
     assert result.ok is True
@@ -863,5 +967,5 @@ def test_import_registry_sidecar_reads_from_file(tmp_path, monkeypatch):
 
     result = import_registry_sidecar(sidecar_path=path)
 
-    assert result.ok is True
-    assert result.categories_created == ["behavior"]
+    assert result.ok is False
+    assert "dataset_uuid" in result.errors[0]

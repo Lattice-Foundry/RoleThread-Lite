@@ -3,9 +3,10 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import traceback
+from uuid import uuid4
 
 from core.dataset import TAGS, get_entry_tags
-from core.loreforge_meta import get_entry_uuid
+from core.loreforge_meta import get_dataset_uuid_for_entries, get_entry_uuid
 from core.models import Character, EntryCharacterTurn, Tag, TagCategory, TagLifecycleMetadata
 from core.registry_sidecar import (
     SidecarRegistry,
@@ -67,6 +68,7 @@ def export_registry_sidecar(
     *,
     dataset_path: str,
     entries: list[dict],
+    dataset_uuid: str | None = None,
 ) -> RegistrySidecarExportResult:
     """Export the current DB tag registry as a sidecar next to a dataset path."""
     if not dataset_path:
@@ -78,6 +80,12 @@ def export_registry_sidecar(
 
     try:
         output_path = sidecar_path_for_dataset(Path(dataset_path))
+        resolved_dataset_uuid = (
+            dataset_uuid
+            or get_dataset_uuid_for_entries(entries)
+            or _existing_sidecar_dataset_uuid(output_path)
+            or str(uuid4())
+        )
         usage_counts = _tag_usage_counts(entries)
         included_slugs = set(usage_counts)
         raw_slugs = _raw_tag_slugs(entries)
@@ -114,6 +122,7 @@ def export_registry_sidecar(
                 if character["slug"] in character_slugs
             ],
             entry_character_mappings=character_mappings,
+            dataset_uuid=resolved_dataset_uuid,
             dataset_filename=Path(dataset_path).name,
             entry_count=len(entries),
             tag_usage_counts=usage_counts,
@@ -155,6 +164,18 @@ def import_registry_sidecar(
                 ok=False,
                 message=f"Could not import registry sidecar: {exc}",
                 errors=[str(exc)],
+            )
+
+    if entries is not None:
+        entry_dataset_uuid = get_dataset_uuid_for_entries(entries)
+        if entry_dataset_uuid and registry.dataset_info.dataset_uuid != entry_dataset_uuid:
+            return RegistrySidecarImportResult(
+                ok=False,
+                message="Could not import registry sidecar.",
+                errors=[
+                    "Sidecar dataset UUID does not match the loaded dataset "
+                    f"({registry.dataset_info.dataset_uuid} != {entry_dataset_uuid})."
+                ],
             )
 
     session = tag_registry.SessionLocal()
@@ -379,6 +400,15 @@ def _entry_uuids(entries: list[dict] | None) -> set[str]:
         for entry in (entries or [])
         if (entry_uuid := get_entry_uuid(entry))
     }
+
+
+def _existing_sidecar_dataset_uuid(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    try:
+        return read_sidecar(path).dataset_info.dataset_uuid
+    except Exception:
+        return None
 
 
 def _canonical_tag_slug(tag: str) -> str:

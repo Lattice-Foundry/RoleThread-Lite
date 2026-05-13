@@ -30,6 +30,7 @@ class SidecarMetadata:
 class SidecarDatasetInfo:
     """Dataset details useful for matching sidecars to JSONL files."""
 
+    dataset_uuid: str
     filename: str
     entry_count: int = 0
     tag_usage_counts: dict[str, int] = field(default_factory=dict)
@@ -110,6 +111,7 @@ def build_sidecar_registry(
     categories,
     tags,
     aliases,
+    dataset_uuid: str,
     dataset_filename: str,
     entry_count: int,
     tag_usage_counts: dict[str, int],
@@ -118,11 +120,15 @@ def build_sidecar_registry(
 ) -> SidecarRegistry:
     """Build a registry sidecar from already-queried registry data."""
 
+    if not isinstance(dataset_uuid, str) or not dataset_uuid:
+        raise SidecarValidationError("Missing or invalid 'dataset_uuid' string.")
     return SidecarRegistry(
         metadata=SidecarMetadata(exported_at=_utc_timestamp()),
         dataset_info=SidecarDatasetInfo(
+            dataset_uuid=str(dataset_uuid),
             filename=str(dataset_filename),
             entry_count=int(entry_count),
+            # Snapshot/diagnostic metadata only. Entry tags remain authoritative.
             tag_usage_counts={str(k): int(v) for k, v in tag_usage_counts.items()},
         ),
         categories=tuple(_coerce_category(category) for category in categories),
@@ -184,6 +190,7 @@ def parse_sidecar_dict(data: dict) -> SidecarRegistry:
 
     dataset_data = _required_mapping(data, "dataset")
     dataset_info = SidecarDatasetInfo(
+        dataset_uuid=_required_str(dataset_data, "dataset_uuid"),
         filename=_required_str(dataset_data, "filename"),
         entry_count=_optional_int(dataset_data, "entry_count", 0),
         tag_usage_counts=_coerce_usage_counts(

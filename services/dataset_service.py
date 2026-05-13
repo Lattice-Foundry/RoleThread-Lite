@@ -21,7 +21,8 @@ from core.dataset import (
     set_entry_system_prompt,
     validate_entry,
 )
-from core.loreforge_meta import stamp_entries
+from core.loreforge_meta import get_dataset_uuid_for_entries, stamp_entries
+from core.registry_sidecar import read_sidecar, sidecar_path_for_dataset
 from core.role_normalization import normalize_entry_roles
 from core.working_copy import (
     canonical_training_dataset_path,
@@ -75,7 +76,8 @@ def _canonicalize_alias_tags(entries: list[dict]) -> list[dict]:
 
 def _save_dataset_with_sidecar(dataset_path: str, entries: list[dict]) -> DatasetSaveResult:
     target_path = _prepare_dataset_save_path(dataset_path)
-    stamped_entries = stamp_entries(entries)
+    dataset_uuid = _dataset_uuid_for_save(target_path, entries)
+    stamped_entries = stamp_entries(entries, dataset_uuid=dataset_uuid)
     save_dataset(target_path, stamped_entries)
     sidecar_ok = True
     sidecar_message = None
@@ -106,7 +108,11 @@ def _write_registry_sidecar(dataset_path: str, entries: list[dict]) -> tuple[boo
     try:
         from services.registry_sidecar_service import export_registry_sidecar
 
-        result = export_registry_sidecar(dataset_path=dataset_path, entries=entries)
+        result = export_registry_sidecar(
+            dataset_path=dataset_path,
+            entries=entries,
+            dataset_uuid=get_dataset_uuid_for_entries(entries),
+        )
     except Exception:
         traceback.print_exc()
         return False, "Registry sidecar could not be updated."
@@ -114,6 +120,19 @@ def _write_registry_sidecar(dataset_path: str, entries: list[dict]) -> tuple[boo
         print(result.message)
         return False, result.message
     return True, None
+
+
+def _dataset_uuid_for_save(dataset_path: str, entries: list[dict]) -> str | None:
+    dataset_uuid = get_dataset_uuid_for_entries(entries)
+    if dataset_uuid:
+        return dataset_uuid
+    sidecar_path = sidecar_path_for_dataset(Path(dataset_path))
+    if not sidecar_path.exists():
+        return None
+    try:
+        return read_sidecar(sidecar_path).dataset_info.dataset_uuid
+    except Exception:
+        return None
 
 
 def _sidecar_result_fields(save_result: DatasetSaveResult) -> dict:

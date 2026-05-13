@@ -2,6 +2,8 @@ import core.version as version
 from core.loreforge_meta import (
     LOREFORGE_META_KEY,
     ensure_entry_uuid,
+    get_dataset_uuid,
+    get_dataset_uuid_for_entries,
     get_entry_uuid,
     get_loreforge_meta,
     is_native_dataset,
@@ -50,10 +52,11 @@ def test_stamp_entry_marks_copy_as_native_loreforge_data():
     assert stamped[LOREFORGE_META_KEY]["native"] is True
     assert stamped[LOREFORGE_META_KEY]["validated_at"].endswith("Z")
     assert get_entry_uuid(stamped) is not None
+    assert get_dataset_uuid(stamped) is not None
     assert is_native_entry(stamped) is True
 
 
-def test_stamp_entry_preserves_existing_entry_uuid():
+def test_stamp_entry_preserves_existing_entry_and_dataset_uuid():
     entry = {
         "messages": [],
         "tags": [],
@@ -62,14 +65,24 @@ def test_stamp_entry_preserves_existing_entry_uuid():
             "native": True,
             "validated_at": "2026-05-11T12:00:00Z",
             "entry_uuid": "existing-entry-uuid",
+            "dataset_uuid": "existing-dataset-uuid",
         },
     }
 
     stamped = stamp_entry(entry)
 
     assert get_entry_uuid(stamped) == "existing-entry-uuid"
+    assert get_dataset_uuid(stamped) == "existing-dataset-uuid"
     assert get_entry_uuid(entry) == "existing-entry-uuid"
     assert stamped[LOREFORGE_META_KEY]["version"] == version.LOREFORGE_VERSION
+
+
+def test_stamp_entry_accepts_dataset_uuid_override():
+    entry = {"messages": [], "tags": []}
+
+    stamped = stamp_entry(entry, dataset_uuid="dataset-uuid-1")
+
+    assert get_dataset_uuid(stamped) == "dataset-uuid-1"
 
 
 def test_ensure_entry_uuid_adds_uuid_without_mutating_original():
@@ -119,11 +132,29 @@ def test_native_entry_detection_does_not_require_entry_uuid():
 
 
 def test_stamp_entries_marks_each_dict_entry():
-    entries = [{"messages": [], "tags": []}]
+    entries = [{"messages": [], "tags": []}, {"messages": [], "tags": []}]
 
     stamped_entries = stamp_entries(entries)
 
     assert stamped_entries is not entries
     assert stamped_entries[0] is not entries[0]
     assert get_entry_uuid(stamped_entries[0]) is not None
+    assert get_entry_uuid(stamped_entries[1]) is not None
+    assert get_dataset_uuid_for_entries(stamped_entries) is not None
+    assert get_dataset_uuid(stamped_entries[0]) == get_dataset_uuid(stamped_entries[1])
     assert is_native_dataset(stamped_entries) is True
+
+
+def test_stamp_entries_preserves_existing_shared_dataset_uuid():
+    entries = [
+        {
+            "messages": [],
+            "tags": [],
+            LOREFORGE_META_KEY: {"dataset_uuid": "existing-dataset-uuid"},
+        },
+        {"messages": [], "tags": []},
+    ]
+
+    stamped_entries = stamp_entries(entries)
+
+    assert get_dataset_uuid_for_entries(stamped_entries) == "existing-dataset-uuid"

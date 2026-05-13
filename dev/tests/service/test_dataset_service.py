@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from core.dataset import load_dataset, save_dataset
-from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid
+from core.loreforge_meta import LOREFORGE_META_KEY, get_dataset_uuid_for_entries, get_entry_uuid
 from core.version import LOREFORGE_VERSION
 import core.tag_resolution as tag_resolution
 from services import dataset_service
@@ -90,6 +90,7 @@ def _assert_stamped(entries):
         assert entry[LOREFORGE_META_KEY]["native"] is True
         assert entry[LOREFORGE_META_KEY]["validated_at"].endswith("Z")
         assert get_entry_uuid(entry) is not None
+    assert get_dataset_uuid_for_entries(entries) is not None
 
 
 def _backup_recorder(monkeypatch, tmp_path):

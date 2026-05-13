@@ -27,6 +27,7 @@ from core.version import LOREFORGE_VERSION
 
 def _sample_registry() -> SidecarRegistry:
     return build_sidecar_registry(
+        dataset_uuid="dataset-uuid-1",
         dataset_filename="training_set.jsonl",
         entry_count=3,
         tag_usage_counts={"slow_burn": 2, "deleted_tag": 1},
@@ -119,6 +120,7 @@ def test_build_sidecar_registry_and_to_dict_shape():
     assert data["metadata"]["app_name"] == "LoreForge Lite"
     assert data["metadata"]["app_version"] == LOREFORGE_VERSION
     assert data["dataset"] == {
+        "dataset_uuid": "dataset-uuid-1",
         "filename": "training_set.jsonl",
         "entry_count": 3,
         "tag_usage_counts": {"slow_burn": 2, "deleted_tag": 1},
@@ -211,6 +213,14 @@ def test_parse_sidecar_rejects_missing_required_fields():
         parse_sidecar_dict(data)
 
 
+def test_parse_sidecar_rejects_legacy_dataset_without_uuid():
+    data = sidecar_to_dict(_sample_registry())
+    del data["dataset"]["dataset_uuid"]
+
+    with pytest.raises(SidecarValidationError, match="dataset_uuid"):
+        parse_sidecar_dict(data)
+
+
 def test_parse_sidecar_defaults_optional_collections_and_metadata():
     data = {
         "metadata": {
@@ -219,6 +229,7 @@ def test_parse_sidecar_defaults_optional_collections_and_metadata():
             "exported_at": "2026-05-11T00:00:00+00:00",
         },
         "dataset": {
+            "dataset_uuid": "dataset-uuid-1",
             "filename": "training_set.jsonl",
         },
         "tags": [
@@ -237,6 +248,7 @@ def test_parse_sidecar_defaults_optional_collections_and_metadata():
         exported_at="2026-05-11T00:00:00+00:00",
     )
     assert parsed.dataset_info == SidecarDatasetInfo(
+        dataset_uuid="dataset-uuid-1",
         filename="training_set.jsonl",
         entry_count=0,
         tag_usage_counts={},
@@ -264,6 +276,7 @@ def test_build_sidecar_registry_defaults_optional_tag_and_alias_fields():
         categories=[],
         tags=[{"slug": "slow_burn", "name": "Slow Burn"}],
         aliases=[{"old_slug": "old_tag", "action": "hide"}],
+        dataset_uuid="dataset-uuid-1",
         dataset_filename="training_set.jsonl",
         entry_count=0,
         tag_usage_counts={},
@@ -303,6 +316,7 @@ def test_sidecar_registry_coerces_character_sections():
                 ],
             }
         ],
+        dataset_uuid="dataset-uuid-1",
         dataset_filename="training_set.jsonl",
         entry_count=1,
         tag_usage_counts={},
