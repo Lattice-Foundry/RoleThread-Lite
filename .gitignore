@@ -2,7 +2,7 @@
 .pytest_cache/
 .streamlit/
 .pytest_tmp/
-pytest_tmp_* 
+pytest_tmp_*/
 .cache/
 __pycache__/
 trainer/
