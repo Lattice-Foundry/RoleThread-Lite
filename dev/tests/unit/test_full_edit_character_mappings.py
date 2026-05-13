@@ -124,3 +124,21 @@ def test_load_full_edit_buffer_with_only_inactive_mapping_stays_group_unassigned
     assert loaded is True
     assert state[entry_mode_key("full_edit")] == "group"
     assert state["full_edit_character_0"] == ""
+
+
+def test_split_button_visible_only_for_multiple_complete_exchanges():
+    assert edit_entries._split_button_visible([
+        {"role": "user"},
+        {"role": "assistant"},
+    ]) is False
+    assert edit_entries._split_button_visible([
+        {"role": "user"},
+        {"role": "assistant"},
+        {"role": "user"},
+        {"role": "assistant"},
+    ]) is True
+    assert edit_entries._split_button_visible([
+        {"role": "user"},
+        {"role": "assistant"},
+        {"role": "user"},
+    ]) is False

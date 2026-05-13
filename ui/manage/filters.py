@@ -42,6 +42,7 @@ class ManageFilterResult:
     current_page: int
     start: int
     end: int
+    filtered_pairs: list[tuple[str, dict]]
     visible_pairs: list[tuple[str, dict]]
     character_display_cache: dict[str, dict[int, str]]
     search_query: str
@@ -212,6 +213,7 @@ def render_filters(
         current_page=pagination.page,
         start=pagination.start,
         end=pagination.end,
+        filtered_pairs=filtered_pairs,
         visible_pairs=visible_pairs,
         character_display_cache=character_display_cache,
         search_query=search_query,

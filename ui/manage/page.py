@@ -46,6 +46,7 @@ def render_manage_page() -> None:
         return
 
     render_actions(
+        filtered_pairs=filter_result.filtered_pairs,
         visible_pairs=filter_result.visible_pairs,
         filter_tags=filter_result.filter_tags,
         match_mode=filter_result.match_mode,

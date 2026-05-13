@@ -12,7 +12,11 @@ import traceback
 from uuid import uuid4
 
 from core.backups import create_dataset_backup
-from core.character_registry import delete_entry_character_turns, set_entry_character_turns
+from core.character_registry import (
+    delete_entry_character_turns,
+    get_entry_character_turns,
+    set_entry_character_turns,
+)
 from core.dataset import (
     canonicalize_entry_tag_aliases,
     load_dataset,
@@ -26,6 +30,7 @@ from core.dataset import (
 )
 from core.loreforge_meta import (
     LOREFORGE_META_KEY,
+    ensure_entry_uuid,
     get_dataset_uuid_for_entries,
     get_entry_uuid,
     stamp_entries,
@@ -339,6 +344,93 @@ def _replace_entry_at_index(
     proposed_entries = _copy_entries(entries)
     proposed_entries[index] = copy.deepcopy(new_entry)
     return proposed_entries
+
+
+def _entry_with_fresh_uuid(entry: dict) -> dict:
+    """Return a copy of entry with a new entry UUID and no dataset identity drift."""
+
+    proposed = copy.deepcopy(entry)
+    metadata = proposed.get(LOREFORGE_META_KEY)
+    if not isinstance(metadata, dict):
+        metadata = {}
+    metadata = dict(metadata)
+    metadata.pop("dataset_uuid", None)
+    metadata["entry_uuid"] = str(uuid4())
+    proposed[LOREFORGE_META_KEY] = metadata
+    return ensure_entry_uuid(proposed)
+
+
+def _non_system_messages(entry: dict) -> list[dict]:
+    messages = entry.get("messages") if isinstance(entry, dict) else None
+    if not isinstance(messages, list):
+        return []
+    return [
+        copy.deepcopy(message)
+        for message in messages
+        if isinstance(message, dict) and message.get("role") != "system"
+    ]
+
+
+def _system_message(entry: dict) -> dict:
+    messages = entry.get("messages") if isinstance(entry, dict) else None
+    if isinstance(messages, list):
+        for message in messages:
+            if isinstance(message, dict) and message.get("role") == "system":
+                return copy.deepcopy(message)
+    return {"role": "system", "content": ""}
+
+
+def _dedupe_tags_preserving_order(entries: list[dict]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for entry in entries:
+        tags = entry.get("tags") if isinstance(entry, dict) else None
+        if not isinstance(tags, list):
+            continue
+        for tag in tags:
+            if isinstance(tag, str) and tag not in seen:
+                seen.add(tag)
+                merged.append(tag)
+    return merged
+
+
+def _mapping_to_dict(mapping, *, turn_index: int) -> dict | None:
+    character = getattr(mapping, "character", None)
+    character_slug = getattr(character, "slug", None)
+    if not character_slug:
+        return None
+    return {
+        "turn_index": turn_index,
+        "character_slug": character_slug,
+        "training_role": getattr(mapping, "training_role", "") or "",
+        "source_role_label": getattr(mapping, "source_role_label", None),
+    }
+
+
+def _apply_character_mapping_replacements(
+    save_result: DatasetSaveResult,
+    replacements: list[tuple[str, list[dict]]],
+) -> tuple[DatasetSaveResult, list[str]]:
+    warnings: list[str] = []
+    if not replacements:
+        return save_result, warnings
+
+    try:
+        for entry_uuid, turns in replacements:
+            set_entry_character_turns(entry_uuid, turns)
+    except Exception as exc:
+        traceback.print_exc()
+        warnings.append(f"Character mappings could not be updated: {exc}")
+        return save_result, warnings
+
+    sidecar_ok, sidecar_message = _write_registry_sidecar(
+        save_result.dataset_path,
+        save_result.entries,
+    )
+    if not sidecar_ok:
+        save_result.sidecar_ok = False
+        save_result.sidecar_message = sidecar_message
+    return save_result, warnings
 
 
 def _create_backup_if_enabled(
@@ -800,6 +892,280 @@ def delete_entries_service(
         backup_path=backup_path,
         affected_count=len(normalized_indices),
         dataset_path=saved_path,
+        **_sidecar_result_fields(save_result),
+    )
+
+
+def split_entry_service(
+    *,
+    dataset_path: str,
+    entry_uuid: str,
+    split_points: list[int],
+    entries: list[dict],
+    backup_enabled: bool = True,
+    backup_reason: str = "before_entry_split",
+) -> DatasetOperationResult:
+    """Replace one entry with multiple entries split at exchange boundaries."""
+
+    errors = _validate_dataset_path(dataset_path)
+    if not entry_uuid:
+        errors.append("No entry selected for splitting.")
+    entry_index = None
+    for index, entry in enumerate(entries):
+        if get_entry_uuid(entry) == entry_uuid:
+            entry_index = index
+            break
+    if entry_index is None:
+        errors.append("Could not find the selected entry.")
+    if not split_points:
+        errors.append("Choose at least one split point.")
+    if errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not split entry.",
+            errors=errors,
+        )
+
+    original_entry = entries[entry_index]
+    turns = _non_system_messages(original_entry)
+    if len(turns) < 4 or len(turns) % 2 != 0:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not split entry.",
+            errors=["Entry must contain at least two complete exchanges to split."],
+        )
+
+    exchange_count = len(turns) // 2
+    boundaries = sorted({point for point in split_points if isinstance(point, int)})
+    invalid_points = [
+        point for point in boundaries if point <= 0 or point >= exchange_count
+    ]
+    if invalid_points:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not split entry.",
+            errors=[f"Invalid split point: {invalid_points[0]}"],
+        )
+
+    system_message = _system_message(original_entry)
+    tags = copy.deepcopy(original_entry.get("tags", []))
+    turn_boundaries = [0] + [point * 2 for point in boundaries] + [len(turns)]
+    existing_mappings = get_entry_character_turns(entry_uuid)
+    mappings_by_original_index = {
+        getattr(mapping, "turn_index", -1): mapping
+        for mapping in existing_mappings
+    }
+
+    split_entries: list[dict] = []
+    pending_mappings_by_segment: list[list[dict]] = []
+    for segment_index in range(len(turn_boundaries) - 1):
+        start_offset = turn_boundaries[segment_index]
+        end_offset = turn_boundaries[segment_index + 1]
+        segment_turns = copy.deepcopy(turns[start_offset:end_offset])
+        segment_entry = _entry_with_fresh_uuid({
+            "messages": [copy.deepcopy(system_message)] + segment_turns,
+            "tags": copy.deepcopy(tags),
+        })
+        validation_errors = validate_entry(segment_entry)
+        if validation_errors:
+            return DatasetOperationResult(
+                ok=False,
+                message="Split entry validation failed.",
+                errors=validation_errors,
+            )
+        split_entries.append(segment_entry)
+
+        segment_mappings: list[dict] = []
+        for local_offset in range(end_offset - start_offset):
+            original_turn_index = 1 + start_offset + local_offset
+            mapping = mappings_by_original_index.get(original_turn_index)
+            if mapping is None:
+                continue
+            mapping_dict = _mapping_to_dict(mapping, turn_index=1 + local_offset)
+            if mapping_dict is not None:
+                segment_mappings.append(mapping_dict)
+        pending_mappings_by_segment.append(segment_mappings)
+
+    proposed_entries = _copy_entries(entries)
+    proposed_entries[entry_index:entry_index + 1] = split_entries
+    proposed_entries = _normalize_entries(proposed_entries)
+
+    try:
+        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
+    except Exception as exc:
+        traceback.print_exc()
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+    try:
+        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
+        saved_path = save_result.dataset_path
+        proposed_entries = save_result.entries
+        replacements = []
+        for offset, turns_for_segment in enumerate(pending_mappings_by_segment):
+            saved_entry_uuid = get_entry_uuid(proposed_entries[entry_index + offset])
+            if saved_entry_uuid:
+                replacements.append((saved_entry_uuid, turns_for_segment))
+        save_result, warnings = _apply_character_mapping_replacements(
+            save_result,
+            replacements,
+        )
+        try:
+            delete_entry_character_turns(entry_uuid)
+        except Exception as exc:
+            warnings.append(f"Original character mappings could not be cleared: {exc}")
+    except Exception as exc:
+        traceback.print_exc()
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save split entries: {exc}",
+        )
+
+    return DatasetOperationResult(
+        ok=True,
+        message=f"Split entry into {len(split_entries)} entries.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=len(split_entries),
+        dataset_path=saved_path,
+        warnings=warnings,
+        **_sidecar_result_fields(save_result),
+    )
+
+
+def join_entries_service(
+    *,
+    dataset_path: str,
+    entry_uuids: list[str],
+    entries: list[dict],
+    backup_enabled: bool = True,
+    backup_reason: str = "before_entry_join",
+) -> DatasetOperationResult:
+    """Replace selected entries with one joined multi-turn conversation."""
+
+    errors = _validate_dataset_path(dataset_path)
+    if len(entry_uuids or []) < 2:
+        errors.append("Select at least two entries to join.")
+
+    uuid_to_index = {
+        entry_uuid: index
+        for index, entry in enumerate(entries)
+        if (entry_uuid := get_entry_uuid(entry))
+    }
+    selected_indices: list[int] = []
+    seen_uuids: set[str] = set()
+    for entry_uuid in entry_uuids or []:
+        if entry_uuid in seen_uuids:
+            continue
+        seen_uuids.add(entry_uuid)
+        index = uuid_to_index.get(entry_uuid)
+        if index is None:
+            errors.append(f"Could not find selected entry: {entry_uuid}")
+        else:
+            selected_indices.append(index)
+    if errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not join entries.",
+            errors=errors,
+        )
+
+    selected_entries = [entries[index] for index in selected_indices]
+    system_message = _system_message(selected_entries[0])
+    joined_turns: list[dict] = []
+    pending_mappings: list[dict] = []
+    next_turn_index = 1
+    system_prompts_differ = False
+    first_system_content = system_message.get("content", "")
+
+    for selected_entry in selected_entries:
+        if _system_message(selected_entry).get("content", "") != first_system_content:
+            system_prompts_differ = True
+        entry_uuid = get_entry_uuid(selected_entry)
+        mappings_by_original_index = {
+            getattr(mapping, "turn_index", -1): mapping
+            for mapping in get_entry_character_turns(entry_uuid or "")
+        }
+        turns = _non_system_messages(selected_entry)
+        for local_offset, turn in enumerate(turns):
+            joined_turns.append(copy.deepcopy(turn))
+            mapping = mappings_by_original_index.get(1 + local_offset)
+            if mapping is not None:
+                mapping_dict = _mapping_to_dict(mapping, turn_index=next_turn_index)
+                if mapping_dict is not None:
+                    pending_mappings.append(mapping_dict)
+            next_turn_index += 1
+
+    joined_entry = _entry_with_fresh_uuid({
+        "messages": [copy.deepcopy(system_message)] + joined_turns,
+        "tags": _dedupe_tags_preserving_order(selected_entries),
+    })
+    validation_errors = validate_entry(joined_entry)
+    if validation_errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Joined entry validation failed.",
+            errors=validation_errors,
+        )
+
+    first_selected_index = min(selected_indices)
+    selected_index_set = set(selected_indices)
+    proposed_entries: list[dict] = []
+    inserted_joined_entry = False
+    for index, entry in enumerate(entries):
+        if index == first_selected_index:
+            proposed_entries.append(joined_entry)
+            inserted_joined_entry = True
+        if index in selected_index_set:
+            continue
+        proposed_entries.append(copy.deepcopy(entry))
+    if not inserted_joined_entry:
+        proposed_entries.append(joined_entry)
+    proposed_entries = _normalize_entries(proposed_entries)
+
+    try:
+        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
+    except Exception as exc:
+        traceback.print_exc()
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+    try:
+        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
+        saved_path = save_result.dataset_path
+        proposed_entries = save_result.entries
+        joined_uuid = get_entry_uuid(proposed_entries[first_selected_index])
+        replacements = [(joined_uuid, pending_mappings)] if joined_uuid else []
+        save_result, mapping_warnings = _apply_character_mapping_replacements(
+            save_result,
+            replacements,
+        )
+        warnings = list(mapping_warnings)
+        for removed_uuid in seen_uuids:
+            try:
+                delete_entry_character_turns(removed_uuid)
+            except Exception as exc:
+                warnings.append(f"Old character mappings could not be cleared: {exc}")
+    except Exception as exc:
+        traceback.print_exc()
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to save joined entry: {exc}",
+        )
+
+    if system_prompts_differ:
+        warnings.append("System prompts differed; the first selected system prompt was used.")
+
+    return DatasetOperationResult(
+        ok=True,
+        message=f"Joined {len(selected_indices)} entries.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=1,
+        dataset_path=saved_path,
+        warnings=warnings,
         **_sidecar_result_fields(save_result),
     )
 
