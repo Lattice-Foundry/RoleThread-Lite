@@ -330,6 +330,7 @@ def test_set_and_get_entry_character_turns(character_db):
         (1, "user"),
         (2, "assistant"),
     ]
+    assert [mapping.character.slug for mapping in stored] == ["scott", "emma"]
     assert get_character_display_for_entry("entry-1") == {
         1: "Scott",
         2: "Emma",

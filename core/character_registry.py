@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sqlalchemy.orm import joinedload
+
 from core.db import SessionLocal
 from core.format_conversion import detect_custom_role_pattern
 from core.loreforge_meta import ensure_entry_uuid, get_entry_uuid
@@ -549,6 +551,7 @@ def get_entry_character_turns(entry_uuid: str) -> list[EntryCharacterTurn]:
     try:
         mappings = (
             session.query(EntryCharacterTurn)
+            .options(joinedload(EntryCharacterTurn.character))
             .join(Character)
             .filter(EntryCharacterTurn.entry_uuid == entry_uuid)
             .order_by(EntryCharacterTurn.turn_index)

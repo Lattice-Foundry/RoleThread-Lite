@@ -15,6 +15,7 @@ from core.dataset import (
     validate_entry,
 )
 from core.character_display import build_character_display_cache, get_turn_display_names
+from core.character_registry import get_entry_character_turns
 from core.entry_search import EntrySearchOptions, filter_entries_by_search
 from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
 from core.tag_registry import (
@@ -63,6 +64,8 @@ from ui.ui_components import (
 )
 from ui.ui_create import (
     ENTRY_MODE_GROUP,
+    ENTRY_MODE_STANDARD,
+    character_state_key,
     collect_group_character_turn_mappings,
     clear_character_state_values,
     entry_mode_key,
@@ -170,6 +173,35 @@ def _editor_turn_display_names(entry: dict) -> dict[int, str]:
     return editor_display_names
 
 
+def apply_existing_character_mappings_to_full_edit_state(state, mappings) -> int:
+    """Load existing entry-character mappings into full-edit turn state."""
+
+    applied = 0
+    for mapping in mappings:
+        editor_turn_index = getattr(mapping, "turn_index", -1) - 1
+        if editor_turn_index < 0:
+            continue
+        character = getattr(mapping, "character", None)
+        character_slug = getattr(character, "slug", None) or getattr(
+            mapping,
+            "character_slug",
+            None,
+        )
+        if not character_slug:
+            continue
+        state[character_state_key("full_edit", editor_turn_index)] = character_slug
+        applied += 1
+    return applied
+
+
+def set_full_edit_mode_state(state, mode: str) -> None:
+    """Set Full Edit mode and its previous-mode guard together."""
+
+    mode_key = entry_mode_key("full_edit")
+    state[mode_key] = mode
+    state[f"_{mode_key}_previous"] = mode
+
+
 def load_full_edit_buffer(
     entry_uuid: str,
     active_registry: dict[str, list[str]],
@@ -208,6 +240,14 @@ def load_full_edit_buffer(
     st.session_state["full_edit_unknown_tags"] = [
         t for t in buf["tags"] if t not in all_known
     ]
+    set_full_edit_mode_state(st.session_state, ENTRY_MODE_STANDARD)
+
+    mappings = get_entry_character_turns(entry_uuid)
+    if mappings and apply_existing_character_mappings_to_full_edit_state(
+        st.session_state,
+        mappings,
+    ):
+        set_full_edit_mode_state(st.session_state, ENTRY_MODE_GROUP)
 
     return True
 
