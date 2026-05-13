@@ -14,6 +14,7 @@ from core.text_helpers import count_phrase
 from ui.session_state import apply_dataset_operation_result, update_prefs, ensure_entry_indexes
 from services.dataset_service import create_entry_service
 from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
+from ui.system_prompt_selector import render_system_prompt_template_selector
 from ui.ui_components import (
     _NON_STANDARD_ROLE_COLOR,
     _ROLE_COLOR,
@@ -288,13 +289,21 @@ def render_create_page() -> None:
     def _persist_system_prompt():
         update_prefs({"last_system_prompt": st.session_state.sys_prompt_input})
 
-    st.session_state.system_prompt = st.text_area(
+    st.session_state.setdefault("sys_prompt_input", st.session_state.system_prompt)
+    render_system_prompt_template_selector(
+        target_key="sys_prompt_input",
+        select_key="create_system_prompt_template",
+        mirror_keys=("system_prompt",),
+        on_apply=lambda content: update_prefs({"last_system_prompt": content}),
+    )
+
+    st.text_area(
         "Default system prompt (applied to every entry)",
-        value=st.session_state.system_prompt,
         height=100,
         key="sys_prompt_input",
         on_change=_persist_system_prompt,
     )
+    st.session_state.system_prompt = st.session_state.get("sys_prompt_input", "")
 
     st.divider()
     st.subheader("New Entry")

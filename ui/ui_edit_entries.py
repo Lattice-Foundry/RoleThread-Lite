@@ -46,6 +46,7 @@ from ui.browser_helpers import (
     slice_visible_pairs,
 )
 from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
+from ui.system_prompt_selector import render_system_prompt_template_selector
 from ui.entry_search_controls import (
     entry_search_has_enabled_scope,
     format_entry_search_no_results_message,
@@ -376,6 +377,10 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
     # ── System prompt ──────────────────────────────────────────────────────────
     st.divider()
     st.subheader("System Prompt")
+    render_system_prompt_template_selector(
+        target_key="full_edit_system_prompt",
+        select_key="full_edit_system_prompt_template",
+    )
     st.text_area(
         "System Prompt",
         key="full_edit_system_prompt",
