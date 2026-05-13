@@ -12,7 +12,6 @@ from core.character_registry import (
 )
 from core.dataset import (
     TagNormalizationSummary,
-    build_entry_registry,
     canonicalize_entry_tag_aliases,
     get_entry_tags,
     normalize_dataset_entries,
@@ -40,7 +39,6 @@ class LoadPipelineResult:
     effective_dataset_path: str | None
     dataset_source_format: str
     dataset_is_native: bool
-    entry_registry: dict
     tag_normalization_summary: dict
     normalization_pending: bool
     working_copy_summary: dict | None
@@ -136,7 +134,6 @@ def finalize_loaded_entries(
         effective_dataset_path=effective_dataset_path,
         dataset_source_format=normalization.source_format,
         dataset_is_native=normalization.dataset_is_native,
-        entry_registry=build_entry_registry(normalization.entries),
         tag_normalization_summary=tag_summary,
         normalization_pending=normalization.changed_entries > 0,
         working_copy_summary=working_copy_summary,

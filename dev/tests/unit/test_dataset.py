@@ -8,10 +8,8 @@ import core.dataset as dataset
 from core.dataset import (
     add_tags_to_entry,
     analyze_entry,
-    append_registry_id,
     append_to_dataset,
     build_dataset_stats,
-    build_entry_registry,
     build_uuid_index,
     canonicalize_entry_tag_aliases,
     clear_validate_entry_cache,
@@ -23,26 +21,20 @@ from core.dataset import (
     filter_entry_pairs_by_tags,
     get_available_filter_tags,
     get_entry_messages,
-    get_entry_pairs,
     get_entry_tags,
     get_entry_by_uuid,
     get_entry_index_by_uuid,
-    get_index_for_entry_id,
     get_role_messages,
     get_used_tags,
     has_untagged_entries,
     load_dataset,
     load_dataset_with_summary,
     make_entry,
-    make_temp_entry_id,
     merge_datasets,
     normalize_dataset_entries,
     normalize_dataset_tags,
     normalize_entry_message_fields,
     normalize_entry_tags,
-    rebuild_id_to_index,
-    registry_is_valid,
-    remove_registry_id,
     remove_tags_from_entry,
     replace_entry_tags,
     save_dataset,
@@ -658,118 +650,6 @@ def test_filter_entry_pairs_by_tags_preserves_entry_ids_and_order():
     filtered = filter_entry_pairs_by_tags(pairs, ["alpha"], "Any selected tags")
 
     assert filtered == [("first", entries[0]), ("third", entries[2])]
-
-
-def test_make_temp_entry_id_is_zero_padded_and_stable():
-    assert make_temp_entry_id(1) == "tmp_000001"
-    assert make_temp_entry_id(42) == "tmp_000042"
-
-
-def test_build_entry_registry_length_and_id_to_index_match_entries():
-    entries = [_entry(), _entry(), _entry()]
-    registry = build_entry_registry(entries)
-
-    assert registry["ids"] == ["tmp_000001", "tmp_000002", "tmp_000003"]
-    assert registry["id_to_index"] == {
-        "tmp_000001": 0,
-        "tmp_000002": 1,
-        "tmp_000003": 2,
-    }
-    assert registry["next_id"] == 4
-
-
-def test_rebuild_id_to_index_maps_ids_to_source_indices():
-    assert rebuild_id_to_index(["tmp_000002", "tmp_000004"]) == {
-        "tmp_000002": 0,
-        "tmp_000004": 1,
-    }
-
-
-def test_registry_is_valid_accepts_consistent_registry():
-    entries = [_entry(), _entry()]
-    registry = build_entry_registry(entries)
-
-    assert registry_is_valid(registry, entries) is True
-
-
-def test_registry_is_valid_rejects_wrong_length():
-    entries = [_entry(), _entry()]
-    registry = build_entry_registry(entries)
-    registry["ids"].pop()
-    registry["id_to_index"] = rebuild_id_to_index(registry["ids"])
-
-    assert registry_is_valid(registry, entries) is False
-
-
-def test_registry_is_valid_rejects_duplicate_ids():
-    entries = [_entry(), _entry()]
-    registry = {
-        "ids": ["tmp_000001", "tmp_000001"],
-        "id_to_index": {"tmp_000001": 1},
-        "next_id": 2,
-    }
-
-    assert registry_is_valid(registry, entries) is False
-
-
-def test_registry_is_valid_rejects_bad_id_to_index():
-    entries = [_entry(), _entry()]
-    registry = build_entry_registry(entries)
-    registry["id_to_index"]["tmp_000001"] = 99
-
-    assert registry_is_valid(registry, entries) is False
-
-
-def test_registry_is_valid_rejects_missing_or_invalid_next_id():
-    entries = [_entry()]
-    registry = build_entry_registry(entries)
-    registry["next_id"] = 0
-
-    assert registry_is_valid(registry, entries) is False
-
-
-def test_append_registry_id_increments_next_id_and_updates_mapping():
-    registry = build_entry_registry([_entry()])
-
-    new_id = append_registry_id(registry)
-
-    assert new_id == "tmp_000002"
-    assert registry["ids"] == ["tmp_000001", "tmp_000002"]
-    assert registry["id_to_index"] == {"tmp_000001": 0, "tmp_000002": 1}
-    assert registry["next_id"] == 3
-
-
-def test_remove_registry_id_rebuilds_mapping():
-    registry = build_entry_registry([_entry(), _entry(), _entry()])
-
-    removed = remove_registry_id(registry, "tmp_000002")
-
-    assert removed is True
-    assert registry["ids"] == ["tmp_000001", "tmp_000003"]
-    assert registry["id_to_index"] == {"tmp_000001": 0, "tmp_000003": 1}
-
-
-def test_remove_registry_id_returns_false_for_missing_id():
-    registry = build_entry_registry([_entry()])
-
-    assert remove_registry_id(registry, "tmp_999999") is False
-
-
-def test_get_index_for_entry_id_returns_index_or_none():
-    registry = build_entry_registry([_entry(), _entry()])
-
-    assert get_index_for_entry_id(registry, "tmp_000002") == 1
-    assert get_index_for_entry_id(registry, "missing") is None
-
-
-def test_get_entry_pairs_pairs_ids_with_entries_in_source_order():
-    entries = [_entry(tags=["first"]), _entry(tags=["second"])]
-    registry = build_entry_registry(entries)
-
-    assert get_entry_pairs(entries, registry) == [
-        ("tmp_000001", entries[0]),
-        ("tmp_000002", entries[1]),
-    ]
 
 
 def test_build_uuid_index_maps_entry_uuids_to_source_indices():
