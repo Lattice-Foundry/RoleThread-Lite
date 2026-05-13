@@ -1,7 +1,7 @@
 """Tag Management page — additive-only custom tag and category creation."""
 import streamlit as st
 
-from core.dataset import build_entry_registry, get_entry_tags
+from core.dataset import build_entry_registry, build_uuid_index, get_entry_tags
 from core.tag_registry import (
     get_tag_registry_snapshot,
     prettify_tag_name,
@@ -417,6 +417,9 @@ def render_tag_management_page() -> None:
                             st.session_state.entry_registry = build_entry_registry(
                                 _result.entries
                             )
+                            st.session_state.uuid_to_index = build_uuid_index(
+                                _result.entries
+                            )
                         enqueue_flash("success", _result.message)
                         st.session_state.pop("tm_editing_tag_slug", None)
                         st.session_state.pop("tm_pending_tag_edit", None)
@@ -467,6 +470,9 @@ def render_tag_management_page() -> None:
                         if _result.entries is not None:
                             st.session_state.loaded_entries = _result.entries
                             st.session_state.entry_registry = build_entry_registry(
+                                _result.entries
+                            )
+                            st.session_state.uuid_to_index = build_uuid_index(
                                 _result.entries
                             )
                         enqueue_flash("success", _result.message)

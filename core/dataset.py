@@ -19,7 +19,7 @@ from core.format_conversion import (
     convert_records_to_chatml,
     detect_records_format,
 )
-from core.loreforge_meta import is_native_dataset
+from core.loreforge_meta import get_entry_uuid, is_native_dataset
 from core.role_normalization import normalize_entry_roles_with_count
 from core.entry_analysis import (
     AnalysisSeverity,
@@ -1062,6 +1062,35 @@ def get_index_for_entry_id(registry: dict, entry_id: str) -> int | None:
 def get_entry_pairs(entries: list[dict], registry: dict) -> list[tuple[str, dict]]:
     """Return [(entry_id, entry), ...] in source order."""
     return list(zip(registry["ids"], entries))
+
+
+def build_uuid_index(entries: list[dict]) -> dict[str, int]:
+    """Build an entry UUID to source-index lookup for loaded entries."""
+
+    uuid_to_index: dict[str, int] = {}
+    for index, entry in enumerate(entries):
+        entry_uuid = get_entry_uuid(entry) if isinstance(entry, dict) else None
+        if entry_uuid:
+            uuid_to_index[entry_uuid] = index
+    return uuid_to_index
+
+
+def get_entry_index_by_uuid(entries: list[dict], entry_uuid: str) -> int | None:
+    """Return the source list index for an entry UUID, or None if missing."""
+
+    index = build_uuid_index(entries).get(entry_uuid)
+    if index is None or not (0 <= index < len(entries)):
+        return None
+    return index
+
+
+def get_entry_by_uuid(entries: list[dict], entry_uuid: str) -> dict | None:
+    """Return the entry for the given UUID, or None if not found."""
+
+    index = get_entry_index_by_uuid(entries, entry_uuid)
+    if index is None:
+        return None
+    return entries[index]
 
 
 def build_dataset_stats(

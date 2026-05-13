@@ -7,6 +7,7 @@ from typing import Any
 import streamlit as st
 
 from core.dataset import (
+    build_uuid_index,
     build_entry_registry,
     clear_validate_entry_cache,
     summarize_entry_analysis,
@@ -237,6 +238,7 @@ def _execute_pending_fix(pending: dict) -> None:
     apply_dataset_operation_result(result)
     st.session_state.loaded_entries = persisted_entries
     st.session_state.entry_registry = build_entry_registry(persisted_entries)
+    st.session_state.uuid_to_index = build_uuid_index(persisted_entries)
     clear_validate_entry_cache()
     _refresh_diagnostic_summary(persisted_entries)
     _clear_pending_fix()
@@ -370,6 +372,7 @@ def _execute_character_mapping(role_mappings: dict[str, str]) -> None:
     apply_dataset_operation_result(result)
     st.session_state.loaded_entries = persisted_entries
     st.session_state.entry_registry = build_entry_registry(persisted_entries)
+    st.session_state.uuid_to_index = build_uuid_index(persisted_entries)
     clear_validate_entry_cache()
     _refresh_diagnostic_summary(persisted_entries)
     st.session_state.pop("character_candidates", None)

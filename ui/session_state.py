@@ -9,8 +9,11 @@ import streamlit as st
 
 from core.backups import auto_backups_enabled
 from core.dataset import (
+    build_uuid_index,
     build_entry_registry,
+    get_entry_by_uuid,
     get_entry_pairs,
+    get_entry_index_by_uuid,
     get_index_for_entry_id,
     rebuild_id_to_index,
     registry_is_valid,
@@ -46,6 +49,8 @@ def ensure_entry_registry() -> None:
     entries = st.session_state.get("loaded_entries", [])
     if not registry_is_valid(st.session_state.get("entry_registry"), entries):
         st.session_state.entry_registry = build_entry_registry(entries)
+    if st.session_state.get("uuid_to_index") != build_uuid_index(entries):
+        st.session_state.uuid_to_index = build_uuid_index(entries)
 
 
 def set_loaded_entries(
@@ -63,6 +68,7 @@ def set_loaded_entries(
     st.session_state.loaded_entries = result.entries
     st.session_state.dataset_source_format = result.dataset_source_format
     st.session_state.entry_registry = result.entry_registry
+    st.session_state.uuid_to_index = build_uuid_index(result.entries)
     st.session_state.tag_normalization_summary = result.tag_normalization_summary
     st.session_state.dataset_is_native = result.dataset_is_native
     st.session_state.normalization_pending = result.normalization_pending
@@ -179,6 +185,7 @@ def persist_loaded_normalization(dataset_path: str) -> DatasetOperationResult:
         apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
         st.session_state.entry_registry = build_entry_registry(result.entries)
+        st.session_state.uuid_to_index = build_uuid_index(result.entries)
         clear_normalization_pending()
         _enqueue_sidecar_warning_if_needed(result)
     return result
@@ -217,6 +224,23 @@ def get_loaded_entry_index_by_id(entry_id: str) -> int | None:
     if idx is None or not (0 <= idx < len(entries)):
         return None
     return idx
+
+
+def get_loaded_entry_by_uuid(entry_uuid: str) -> dict | None:
+    """Return the entry for the given stable UUID, or None if not found."""
+
+    entries = st.session_state.loaded_entries
+    return get_entry_by_uuid(entries, entry_uuid)
+
+
+def get_loaded_entry_index_by_uuid(entry_uuid: str) -> int | None:
+    """Return the current source index for entry_uuid, or None if not found."""
+
+    entries = st.session_state.loaded_entries
+    index = st.session_state.get("uuid_to_index", {}).get(entry_uuid)
+    if index is None or not (0 <= index < len(entries)):
+        return get_entry_index_by_uuid(entries, entry_uuid)
+    return index
 
 
 def get_all_entry_pairs() -> list[tuple[str, dict]]:
@@ -315,6 +339,7 @@ def delete_selected_entries() -> tuple[int, list[str], bool]:
             "ids": proposed_ids,
             "id_to_index": rebuild_id_to_index(proposed_ids),
         }
+        st.session_state.uuid_to_index = build_uuid_index(result.entries)
         clear_selected_entries()
         _enqueue_sidecar_warning_if_needed(result)
         return result.affected_count, failures, result.backup_path is not None
@@ -404,4 +429,5 @@ def save_quick_edit(entry_id: str, entry: dict) -> DatasetOperationResult:
         apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
         ensure_entry_registry()
+        st.session_state.uuid_to_index = build_uuid_index(result.entries)
     return result

@@ -12,6 +12,7 @@ from core.dataset import (
     append_to_dataset,
     build_dataset_stats,
     build_entry_registry,
+    build_uuid_index,
     canonicalize_entry_tag_aliases,
     clear_validate_entry_cache,
     count_exchanges,
@@ -24,6 +25,8 @@ from core.dataset import (
     get_entry_messages,
     get_entry_pairs,
     get_entry_tags,
+    get_entry_by_uuid,
+    get_entry_index_by_uuid,
     get_index_for_entry_id,
     get_role_messages,
     get_used_tags,
@@ -767,6 +770,31 @@ def test_get_entry_pairs_pairs_ids_with_entries_in_source_order():
         ("tmp_000001", entries[0]),
         ("tmp_000002", entries[1]),
     ]
+
+
+def test_build_uuid_index_maps_entry_uuids_to_source_indices():
+    entries = [
+        {**_entry(), LOREFORGE_META_KEY: {"entry_uuid": "entry-1"}},
+        {**_entry(), LOREFORGE_META_KEY: {"entry_uuid": "entry-2"}},
+        _entry(),
+    ]
+
+    assert build_uuid_index(entries) == {
+        "entry-1": 0,
+        "entry-2": 1,
+    }
+
+
+def test_uuid_lookup_helpers_return_entry_index_and_entry():
+    entries = [
+        {**_entry(tags=["first"]), LOREFORGE_META_KEY: {"entry_uuid": "entry-1"}},
+        {**_entry(tags=["second"]), LOREFORGE_META_KEY: {"entry_uuid": "entry-2"}},
+    ]
+
+    assert get_entry_index_by_uuid(entries, "entry-2") == 1
+    assert get_entry_by_uuid(entries, "entry-2") == entries[1]
+    assert get_entry_index_by_uuid(entries, "missing") is None
+    assert get_entry_by_uuid(entries, "missing") is None
 
 
 def test_save_then_load_dataset_roundtrip_preserves_entries(tmp_path):

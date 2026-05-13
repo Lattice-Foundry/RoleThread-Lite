@@ -7,7 +7,7 @@ from services import dataset_service
 import ui.session_state as session_state
 from core.dataset import load_dataset_with_summary
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT
-from core.loreforge_meta import LOREFORGE_META_KEY
+from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid
 from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
 from services.dataset_service import DatasetOperationResult
 
@@ -259,6 +259,50 @@ def test_set_loaded_entries_clears_character_candidates_when_none(monkeypatch):
 
     assert "character_candidates" not in state
     assert state.tag_normalization_summary["character_candidate_count"] == 0
+
+
+def test_set_loaded_entries_builds_uuid_index_and_lookup_helpers(monkeypatch):
+    state = _patch_state(monkeypatch)
+
+    session_state.set_loaded_entries([_entry_without_tags(), _entry_without_tags()])
+
+    first_uuid = get_entry_uuid(state.loaded_entries[0])
+    second_uuid = get_entry_uuid(state.loaded_entries[1])
+    assert state.uuid_to_index == {
+        first_uuid: 0,
+        second_uuid: 1,
+    }
+    assert session_state.get_loaded_entry_index_by_uuid(second_uuid) == 1
+    assert session_state.get_loaded_entry_by_uuid(second_uuid) == state.loaded_entries[1]
+    assert session_state.get_loaded_entry_index_by_uuid("missing") is None
+    assert session_state.get_loaded_entry_by_uuid("missing") is None
+
+
+def test_delete_selected_entries_rebuilds_uuid_index(monkeypatch):
+    state = _patch_state(monkeypatch)
+    state.prefs = {}
+    state.loaded_path = "dataset.jsonl"
+    session_state.set_loaded_entries([_entry_without_tags(), _entry_without_tags()])
+    second_uuid = get_entry_uuid(state.loaded_entries[1])
+    state.selected_entry_ids = {"tmp_000001"}
+
+    monkeypatch.setattr(
+        session_state,
+        "delete_entries_service",
+        lambda **kwargs: DatasetOperationResult(
+            ok=True,
+            message="Deleted.",
+            entries=[state.loaded_entries[1]],
+            affected_count=1,
+        ),
+    )
+
+    deleted_count, failures, backup_created = session_state.delete_selected_entries()
+
+    assert deleted_count == 1
+    assert failures == []
+    assert backup_created is False
+    assert state.uuid_to_index == {second_uuid: 0}
 
 
 def test_set_loaded_entries_creates_working_copy_for_foreign_dataset(tmp_path, monkeypatch):
