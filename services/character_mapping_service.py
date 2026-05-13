@@ -203,6 +203,7 @@ def _ensure_characters(role_mappings: dict[str, str]) -> list[str]:
 
 def _write_sidecar_after_mapping(dataset_path: str, entries: list[dict]) -> None:
     try:
+        # Lazy import keeps character mapping independent from registry sidecar setup.
         from services.registry_sidecar_service import export_registry_sidecar
 
         result = export_registry_sidecar(dataset_path=dataset_path, entries=entries)

@@ -9,6 +9,7 @@ import core.tag_registry as tag_registry
 import core.tag_migrations as tag_migrations
 import core.tag_metadata as tag_metadata
 import core.tag_resolution as tag_resolution
+import services.tag_lifecycle_service as tag_lifecycle_service
 from core.dataset import normalize_dataset_tags
 from core.tag_constants import (
     TAG_LIFECYCLE_METADATA_ARCHIVE,
@@ -51,8 +52,15 @@ def tag_db(tmp_path, monkeypatch):
     monkeypatch.setattr(tag_metadata, "SessionLocal", session_factory)
     monkeypatch.setattr(tag_resolution, "SessionLocal", session_factory)
     monkeypatch.setattr(tag_migrations, "engine", engine)
+    monkeypatch.setattr(tag_lifecycle_service, "engine", engine)
+    monkeypatch.setattr(tag_lifecycle_service, "SessionLocal", session_factory)
     monkeypatch.setattr(
         tag_registry,
+        "create_db_backup",
+        lambda *, engine: tmp_path / "db_backup.sqlite",
+    )
+    monkeypatch.setattr(
+        tag_lifecycle_service,
         "create_db_backup",
         lambda *, engine: tmp_path / "db_backup.sqlite",
     )
@@ -1196,7 +1204,7 @@ def test_custom_tag_backup_failure_aborts_mutation(tag_db, monkeypatch):
     def fail_backup(*, engine):
         raise OSError("backup failed")
 
-    monkeypatch.setattr(tag_registry, "create_db_backup", fail_backup)
+    monkeypatch.setattr(tag_lifecycle_service, "create_db_backup", fail_backup)
 
     ok, message = create_custom_tag(category_id, "Slow Burn")
 

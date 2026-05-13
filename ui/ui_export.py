@@ -91,6 +91,7 @@ def render_export_page() -> None:
                     export_format=_export_format,
                     clean_export=clean_export,
                 )
+                # Export writes a user-selected output file, not the protected working dataset.
                 save_dataset(_p, _out)
                 success_message = f"Exported {len(_out)} entries to `{Path(_p).resolve()}`."
                 if include_sidecar:

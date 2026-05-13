@@ -65,6 +65,7 @@ def _normalize_entries(entries: list[dict]) -> list[dict]:
 
 
 def _canonicalize_alias_tags(entries: list[dict]) -> list[dict]:
+    # Lazy import keeps dataset mutation services independent from registry setup at import time.
     from core.tag_resolution import resolve_tag_lifecycle
 
     canonical_entries, _summary = canonicalize_entry_tag_aliases(
@@ -106,6 +107,7 @@ def _prepare_dataset_save_path(dataset_path: str) -> str:
 
 def _write_registry_sidecar(dataset_path: str, entries: list[dict]) -> tuple[bool, str | None]:
     try:
+        # Lazy import avoids making every dataset service import initialize sidecar/registry queries.
         from services.registry_sidecar_service import export_registry_sidecar
 
         result = export_registry_sidecar(

@@ -33,7 +33,7 @@ from core.tag_constants import (
 from core.tag_normalization import normalize_tag
 from core.tag_resolution import resolve_tag_lifecycle
 from core.text_helpers import count_phrase
-import core.tag_registry as tag_registry
+from core.tag_registry import SessionLocal, create_db_backup, engine
 
 
 @dataclass
@@ -178,14 +178,14 @@ def import_registry_sidecar(
                 ],
             )
 
-    session = tag_registry.SessionLocal()
+    session = SessionLocal()
     result = RegistrySidecarImportResult(
         ok=False,
         message="Could not import registry sidecar.",
     )
     try:
         try:
-            backup_path = tag_registry.create_db_backup(engine=tag_registry.engine)
+            backup_path = create_db_backup(engine=engine)
             result.db_backup_path = str(backup_path)
         except Exception as exc:
             traceback.print_exc()
@@ -222,7 +222,7 @@ def import_registry_sidecar(
 
 def _query_categories() -> list[dict]:
     default_slugs = {normalize_tag(category_name).slug for category_name in TAGS}
-    session = tag_registry.SessionLocal()
+    session = SessionLocal()
     try:
         categories = (
             session.query(TagCategory)
@@ -244,7 +244,7 @@ def _query_categories() -> list[dict]:
 
 
 def _query_tags() -> list[dict]:
-    session = tag_registry.SessionLocal()
+    session = SessionLocal()
     try:
         tags = (
             session.query(Tag)
@@ -271,7 +271,7 @@ def _query_tags() -> list[dict]:
 
 
 def _query_aliases() -> list[dict]:
-    session = tag_registry.SessionLocal()
+    session = SessionLocal()
     try:
         rows = (
             session.query(TagLifecycleMetadata)
@@ -294,7 +294,7 @@ def _query_aliases() -> list[dict]:
 
 
 def _query_characters() -> list[dict]:
-    session = tag_registry.SessionLocal()
+    session = SessionLocal()
     try:
         characters = (
             session.query(Character)
@@ -319,7 +319,7 @@ def _query_entry_character_mappings(entry_uuids: set[str]) -> list[dict]:
     if not entry_uuids:
         return []
 
-    session = tag_registry.SessionLocal()
+    session = SessionLocal()
     try:
         rows = (
             session.query(EntryCharacterTurn)

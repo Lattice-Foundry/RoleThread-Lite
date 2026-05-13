@@ -47,7 +47,14 @@ def _session_factory(tmp_path, monkeypatch):
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(registry_sidecar_service, "engine", engine)
+    monkeypatch.setattr(registry_sidecar_service, "SessionLocal", session_factory)
     monkeypatch.setattr(tag_resolution, "SessionLocal", session_factory)
+    monkeypatch.setattr(
+        registry_sidecar_service,
+        "create_db_backup",
+        lambda *, engine: tmp_path / "db_backup.sqlite",
+    )
     monkeypatch.setattr(
         tag_registry,
         "create_db_backup",
@@ -969,7 +976,7 @@ def test_import_registry_sidecar_creates_backup_before_mutation(tmp_path, monkey
             session.close()
         return tmp_path / "db_backup.sqlite"
 
-    monkeypatch.setattr(tag_registry, "create_db_backup", fake_backup)
+    monkeypatch.setattr(registry_sidecar_service, "create_db_backup", fake_backup)
 
     result = import_registry_sidecar(registry=_registry(categories=[_category()]))
 
@@ -988,7 +995,7 @@ def test_import_registry_sidecar_backup_failure_fails_closed(tmp_path, monkeypat
     def fail_backup(*, engine):
         raise OSError("backup failed")
 
-    monkeypatch.setattr(tag_registry, "create_db_backup", fail_backup)
+    monkeypatch.setattr(registry_sidecar_service, "create_db_backup", fail_backup)
 
     result = import_registry_sidecar(registry=_registry(categories=[_category()]))
 

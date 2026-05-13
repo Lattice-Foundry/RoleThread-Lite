@@ -17,7 +17,14 @@ from core.dataset import (
     set_entry_tags,
 )
 from core.loreforge_meta import stamp_entries
-import core.tag_registry as tag_registry
+from core.tag_registry import (
+    _MAX_ACTIVE_CATEGORIES,
+    SessionLocal,
+    create_db_backup,
+    engine,
+    prettify_tag_name,
+    slugify_tag_name,
+)
 from core.tag_metadata import (
     build_active_assigned_metadata,
     build_deleted_archive_metadata,
@@ -81,7 +88,7 @@ class LifecyclePipeline:
         self.saved_entries: list[dict] | None = None
 
     def __enter__(self):
-        self.session = tag_registry.SessionLocal()
+        self.session = SessionLocal()
         return self
 
     def __exit__(self, exc_type, exc, traceback):
@@ -126,9 +133,7 @@ class LifecyclePipeline:
 
     def create_db_backup(self, *, failure_fields: dict):
         try:
-            self.db_backup_path = tag_registry.create_db_backup(
-                engine=tag_registry.engine
-            )
+            self.db_backup_path = create_db_backup(engine=engine)
         except Exception as exc:
             traceback.print_exc()
             return self.result(
@@ -257,7 +262,7 @@ def _is_imported_archived_tag(session, tag: Tag) -> bool:
 
 def _tag_label(tag: Tag | None, slug: str) -> str:
     """Return a user-facing tag label for service messages."""
-    return tag.name if tag is not None else tag_registry.prettify_tag_name(slug)
+    return tag.name if tag is not None else prettify_tag_name(slug)
 
 
 def _validate_dataset_path(dataset_path: str) -> list[str]:
@@ -335,11 +340,11 @@ def create_custom_category(name: str) -> tuple[bool, str]:
     if not name:
         return False, "Category name cannot be empty."
 
-    slug = tag_registry.slugify_tag_name(name)
+    slug = slugify_tag_name(name)
     if not slug:
         return False, "Could not generate a valid slug from the provided name."
 
-    display_name = tag_registry.prettify_tag_name(slug)
+    display_name = prettify_tag_name(slug)
 
     with LifecyclePipeline() as pipeline:
         session = pipeline.session
@@ -348,11 +353,11 @@ def create_custom_category(name: str) -> tuple[bool, str]:
                 return False, f"A category with slug '{slug}' already exists."
 
             active_count = session.query(TagCategory).filter_by(is_active=True).count()
-            if active_count >= tag_registry._MAX_ACTIVE_CATEGORIES:
+            if active_count >= _MAX_ACTIVE_CATEGORIES:
                 return (
                     False,
                     f"Category limit reached. "
-                    f"This version supports {tag_registry._MAX_ACTIVE_CATEGORIES} active categories.",
+                    f"This version supports {_MAX_ACTIVE_CATEGORIES} active categories.",
                 )
 
             max_order: int = session.query(func.max(TagCategory.sort_order)).scalar() or 0
@@ -386,11 +391,11 @@ def create_custom_tag(category_id: int, name: str) -> tuple[bool, str]:
     if not name:
         return False, "Tag name cannot be empty."
 
-    slug = tag_registry.slugify_tag_name(name)
+    slug = slugify_tag_name(name)
     if not slug:
         return False, "Could not generate a valid slug from the provided name."
 
-    display_name = tag_registry.prettify_tag_name(slug)
+    display_name = prettify_tag_name(slug)
 
     with LifecyclePipeline() as pipeline:
         session = pipeline.session
@@ -631,7 +636,7 @@ def rename_custom_category(
                 ok=False,
                 message="Could not rename category.",
                 errors=[
-                    f"Category not found: {tag_registry.prettify_tag_name(normalized_old)}"
+                    f"Category not found: {prettify_tag_name(normalized_old)}"
                 ],
                 category_slug=normalized_old,
                 new_slug=normalized_new.slug,
@@ -778,7 +783,7 @@ def delete_empty_custom_category(
                 ok=False,
                 message="Could not delete category.",
                 errors=[
-                    f"Category not found: {tag_registry.prettify_tag_name(normalized_slug)}"
+                    f"Category not found: {prettify_tag_name(normalized_slug)}"
                 ],
                 category_slug=normalized_slug,
             )
@@ -897,7 +902,7 @@ def edit_active_tag(
             return TagLifecycleOperationResult(
                 ok=False,
                 message="Could not edit tag.",
-                errors=[f"Tag not found: {tag_registry.prettify_tag_name(normalized_old)}"],
+                errors=[f"Tag not found: {prettify_tag_name(normalized_old)}"],
                 old_slug=normalized_old,
                 new_slug=normalized_new.slug,
                 category_slug=normalized_category,
@@ -1169,7 +1174,7 @@ def delete_active_tag(
             return TagLifecycleOperationResult(
                 ok=False,
                 message="Could not delete tag.",
-                errors=[f"Tag not found: {tag_registry.prettify_tag_name(normalized_slug)}"],
+                errors=[f"Tag not found: {prettify_tag_name(normalized_slug)}"],
                 old_slug=normalized_slug,
             )
 

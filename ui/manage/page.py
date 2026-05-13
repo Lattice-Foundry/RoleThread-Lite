@@ -461,6 +461,8 @@ def _save_current_before_switch(new_path: str) -> str:
 def _create_new_dataset(new_path: str) -> None:
     try:
         new_path = str(canonical_training_dataset_path(new_path))
+        # New dataset bootstrap has no existing contents to protect; create the
+        # empty JSONL and sibling sidecar directly, then normal service saves take over.
         save_dataset(new_path, [])
         sidecar_result = export_registry_sidecar(
             dataset_path=new_path,

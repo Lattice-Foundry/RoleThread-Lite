@@ -48,8 +48,15 @@ def tag_lifecycle_db(tmp_path, monkeypatch):
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(tag_registry, "engine", engine)
     monkeypatch.setattr(tag_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(tag_lifecycle_service, "engine", engine)
+    monkeypatch.setattr(tag_lifecycle_service, "SessionLocal", session_factory)
     monkeypatch.setattr(tag_metadata, "SessionLocal", session_factory)
     monkeypatch.setattr(tag_resolution, "SessionLocal", session_factory)
+    monkeypatch.setattr(
+        tag_lifecycle_service,
+        "create_db_backup",
+        lambda *, engine: tmp_path / "db_backup.sqlite",
+    )
     monkeypatch.setattr(
         tag_registry,
         "create_db_backup",
@@ -375,7 +382,7 @@ def test_assign_backup_failure_fails_closed(tag_lifecycle_db, monkeypatch):
     def fail_backup(*, engine):
         raise OSError("backup blocked")
 
-    monkeypatch.setattr(tag_registry, "create_db_backup", fail_backup)
+    monkeypatch.setattr(tag_lifecycle_service, "create_db_backup", fail_backup)
 
     result = assign_archived_imported_tags_to_category(
         tag_slugs=["slow_burn"],
@@ -519,7 +526,7 @@ def test_rename_custom_category_backup_failure_fails_closed(
     def fail_backup(*, engine):
         raise OSError("db backup blocked")
 
-    monkeypatch.setattr(tag_registry, "create_db_backup", fail_backup)
+    monkeypatch.setattr(tag_lifecycle_service, "create_db_backup", fail_backup)
 
     result = rename_custom_category(
         category_slug="story_shape",
@@ -638,7 +645,7 @@ def test_delete_custom_category_backup_failure_fails_closed(
     def fail_backup(*, engine):
         raise OSError("db backup blocked")
 
-    monkeypatch.setattr(tag_registry, "create_db_backup", fail_backup)
+    monkeypatch.setattr(tag_lifecycle_service, "create_db_backup", fail_backup)
 
     result = delete_empty_custom_category(category_slug="story_shape")
 
@@ -1140,7 +1147,7 @@ def test_delete_backup_failures_fail_closed(tag_lifecycle_db, tmp_path, monkeypa
     def fail_db_backup(*, engine):
         raise OSError("db backup blocked")
 
-    monkeypatch.setattr(tag_registry, "create_db_backup", fail_db_backup)
+    monkeypatch.setattr(tag_lifecycle_service, "create_db_backup", fail_db_backup)
 
     db_failure = delete_active_tag(
         tag_slug="source_tag",
@@ -1413,7 +1420,7 @@ def test_rename_backup_failures_fail_closed(tag_lifecycle_db, tmp_path, monkeypa
     def fail_db_backup(*, engine):
         raise OSError("db backup blocked")
 
-    monkeypatch.setattr(tag_registry, "create_db_backup", fail_db_backup)
+    monkeypatch.setattr(tag_lifecycle_service, "create_db_backup", fail_db_backup)
 
     db_failure = edit_active_tag(
         old_slug="source_tag",
