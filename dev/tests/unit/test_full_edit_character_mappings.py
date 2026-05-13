@@ -55,6 +55,24 @@ def test_apply_existing_character_mappings_uses_system_offset():
     assert "full_edit_character_-1" not in state
 
 
+def test_apply_existing_character_mappings_handles_inactive_character_as_unassigned():
+    state = FakeSessionState()
+    mappings = [
+        SimpleNamespace(
+            turn_index=1,
+            character=SimpleNamespace(slug="deleted", is_active=False),
+        ),
+    ]
+
+    applied = edit_entries.apply_existing_character_mappings_to_full_edit_state(
+        state,
+        mappings,
+    )
+
+    assert applied == 1
+    assert state["full_edit_character_0"] == ""
+
+
 def test_load_full_edit_buffer_loads_mappings_and_switches_to_group(monkeypatch):
     state = _patch_full_edit_state(
         monkeypatch,
@@ -88,3 +106,21 @@ def test_load_full_edit_buffer_without_mappings_stays_standard(monkeypatch):
     assert state[entry_mode_key("full_edit")] == "standard"
     assert state["_full_edit_entry_mode_previous"] == "standard"
     assert "full_edit_character_0" not in state
+
+
+def test_load_full_edit_buffer_with_only_inactive_mapping_stays_group_unassigned(monkeypatch):
+    state = _patch_full_edit_state(
+        monkeypatch,
+        [
+            SimpleNamespace(
+                turn_index=1,
+                character=SimpleNamespace(slug="deleted", is_active=False),
+            ),
+        ],
+    )
+
+    loaded = edit_entries.load_full_edit_buffer("entry-uuid", {"cat": ["known"]})
+
+    assert loaded is True
+    assert state[entry_mode_key("full_edit")] == "group"
+    assert state["full_edit_character_0"] == ""

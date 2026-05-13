@@ -1,7 +1,10 @@
 from types import SimpleNamespace
 
 from ui.ui_create import (
+    ENTRY_MODE_GROUP,
+    ENTRY_MODE_STANDARD,
     apply_pending_character_assignment,
+    apply_entry_mode_transition,
     character_state_key,
     clear_character_state_values,
     default_character_slug_for_turn,
@@ -9,6 +12,7 @@ from ui.ui_create import (
     group_character_display_names_from_state,
     matching_character_slug,
     pending_character_state_key,
+    remove_last_exchange_state,
 )
 
 
@@ -138,3 +142,86 @@ def test_group_character_display_names_uses_live_dropdown_state():
         turns,
         characters,
     ) == {0: "Scott", 1: "Emma"}
+
+
+def test_mode_switch_to_standard_preserves_content_and_clears_character_state():
+    state = {
+        "create_entry_mode": ENTRY_MODE_GROUP,
+        "_create_entry_mode_previous": ENTRY_MODE_GROUP,
+        "create_turn_0": "Keep this",
+        "create_character_0": "scott",
+        "create_pending_character_0": "scott",
+        "create_new_character_0": "Scott",
+    }
+
+    apply_entry_mode_transition(state, "create", ENTRY_MODE_STANDARD)
+
+    assert state["create_turn_0"] == "Keep this"
+    assert state["create_entry_mode"] == ENTRY_MODE_STANDARD
+    assert "_create_entry_mode_previous" in state
+    assert "create_character_0" not in state
+    assert "create_pending_character_0" not in state
+    assert "create_new_character_0" not in state
+
+
+def test_mode_switch_back_and_forth_does_not_accumulate_stale_character_state():
+    state = {
+        "full_edit_entry_mode": ENTRY_MODE_STANDARD,
+        "_full_edit_entry_mode_previous": ENTRY_MODE_STANDARD,
+        "full_edit_turn_0": "Still here",
+    }
+
+    apply_entry_mode_transition(state, "full_edit", ENTRY_MODE_GROUP)
+    state["full_edit_character_0"] = "emma"
+    apply_entry_mode_transition(state, "full_edit", ENTRY_MODE_STANDARD)
+    apply_entry_mode_transition(state, "full_edit", ENTRY_MODE_GROUP)
+
+    assert state["full_edit_turn_0"] == "Still here"
+    assert state["full_edit_entry_mode"] == ENTRY_MODE_GROUP
+    assert "full_edit_character_0" not in state
+
+
+def test_remove_last_exchange_cleans_removed_character_state_only():
+    state = {
+        "create_turns": [
+            {"role": "user"},
+            {"role": "assistant"},
+            {"role": "user"},
+            {"role": "assistant"},
+        ],
+        "create_turn_0": "One",
+        "create_turn_1": "Two",
+        "create_turn_2": "Three",
+        "create_turn_3": "Four",
+        "create_character_0": "scott",
+        "create_character_1": "emma",
+        "create_character_2": "kai",
+        "create_character_3": "yuki",
+        "create_pending_character_3": "yuki",
+        "create_new_character_3": "Yuki",
+    }
+
+    assert remove_last_exchange_state(state, "create") is True
+
+    assert state["create_turns"] == [{"role": "user"}, {"role": "assistant"}]
+    assert state["create_turn_0"] == "One"
+    assert state["create_turn_1"] == "Two"
+    assert state["create_character_0"] == "scott"
+    assert state["create_character_1"] == "emma"
+    assert "create_turn_2" not in state
+    assert "create_turn_3" not in state
+    assert "create_character_2" not in state
+    assert "create_character_3" not in state
+    assert "create_pending_character_3" not in state
+    assert "create_new_character_3" not in state
+
+
+def test_remove_last_exchange_keeps_single_exchange_unchanged():
+    state = {
+        "create_turns": [{"role": "user"}, {"role": "assistant"}],
+        "create_character_0": "scott",
+    }
+
+    assert remove_last_exchange_state(state, "create") is False
+    assert state["create_turns"] == [{"role": "user"}, {"role": "assistant"}]
+    assert state["create_character_0"] == "scott"

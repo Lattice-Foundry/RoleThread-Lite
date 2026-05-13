@@ -176,22 +176,29 @@ def _editor_turn_display_names(entry: dict) -> dict[int, str]:
 def apply_existing_character_mappings_to_full_edit_state(state, mappings) -> int:
     """Load existing entry-character mappings into full-edit turn state."""
 
-    applied = 0
+    mapped_turns = 0
     for mapping in mappings:
         editor_turn_index = getattr(mapping, "turn_index", -1) - 1
         if editor_turn_index < 0:
             continue
+        character_key = character_state_key("full_edit", editor_turn_index)
         character = getattr(mapping, "character", None)
+        if character is not None and getattr(character, "is_active", True) is False:
+            state[character_key] = ""
+            mapped_turns += 1
+            continue
         character_slug = getattr(character, "slug", None) or getattr(
             mapping,
             "character_slug",
             None,
         )
         if not character_slug:
+            state[character_key] = ""
+            mapped_turns += 1
             continue
-        state[character_state_key("full_edit", editor_turn_index)] = character_slug
-        applied += 1
-    return applied
+        state[character_key] = character_slug
+        mapped_turns += 1
+    return mapped_turns
 
 
 def set_full_edit_mode_state(state, mode: str) -> None:

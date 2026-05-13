@@ -642,6 +642,91 @@ def test_import_registry_sidecar_creates_characters_and_mappings(tmp_path, monke
         session.close()
 
 
+def test_group_entry_sidecar_round_trip_reconstructs_characters_and_mappings(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    session = session_factory()
+    try:
+        scott = Character(slug="scott", display_name="Scott", is_active=True)
+        emma = Character(slug="emma", display_name="Emma", is_active=True)
+        session.add_all([scott, emma])
+        session.flush()
+        session.add_all([
+            EntryCharacterTurn(
+                entry_uuid="entry-1",
+                turn_index=1,
+                character_id=scott.id,
+                training_role="user",
+                source_role_label="Scott",
+            ),
+            EntryCharacterTurn(
+                entry_uuid="entry-1",
+                turn_index=2,
+                character_id=emma.id,
+                training_role="assistant",
+                source_role_label="Emma",
+            ),
+        ])
+        session.commit()
+    finally:
+        session.close()
+
+    dataset_path = tmp_path / "training_set.jsonl"
+    entries = [
+        {
+            "_loreforge": {
+                "native": True,
+                "dataset_uuid": "dataset-uuid-1",
+                "entry_uuid": "entry-1",
+            },
+            "messages": [
+                {"role": "system", "content": "System"},
+                {"role": "user", "content": "Hi"},
+                {"role": "assistant", "content": "Hello"},
+            ],
+            "tags": [],
+        }
+    ]
+    export_result = export_registry_sidecar(dataset_path=str(dataset_path), entries=entries)
+    assert export_result.ok is True
+    sidecar = read_sidecar(sidecar_path_for_dataset(dataset_path))
+
+    import_engine = create_engine(
+        f"sqlite:///{tmp_path / 'registry_sidecar_import.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(import_engine)
+    import_session_factory = sessionmaker(
+        bind=import_engine,
+        autocommit=False,
+        autoflush=False,
+    )
+    monkeypatch.setattr(registry_sidecar_service, "SessionLocal", import_session_factory)
+
+    import_result = import_registry_sidecar(registry=sidecar, entries=entries)
+
+    assert import_result.ok is True
+    assert import_result.characters_created == ["emma", "scott"]
+    assert import_result.character_mappings_imported == ["entry-1"]
+    session = import_session_factory()
+    try:
+        characters = {character.slug: character for character in session.query(Character)}
+        assert set(characters) == {"emma", "scott"}
+        mappings = (
+            session.query(EntryCharacterTurn)
+            .order_by(EntryCharacterTurn.turn_index)
+            .all()
+        )
+        assert [(mapping.turn_index, mapping.character.slug) for mapping in mappings] == [
+            (1, "scott"),
+            (2, "emma"),
+        ]
+    finally:
+        session.close()
+
+
 def test_import_registry_sidecar_can_defer_entry_character_mappings(
     tmp_path,
     monkeypatch,

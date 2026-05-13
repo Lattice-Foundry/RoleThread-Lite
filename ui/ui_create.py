@@ -87,6 +87,37 @@ def clear_character_state_values(state, prefix: str) -> None:
         state.pop(key, None)
 
 
+def apply_entry_mode_transition(state, prefix: str, mode: str) -> str:
+    """Persist an editor mode transition and clear group state when leaving it."""
+
+    mode_key = entry_mode_key(prefix)
+    previous_key = f"_{mode_key}_previous"
+    previous_mode = state.get(previous_key, state.get(mode_key, ENTRY_MODE_STANDARD))
+    state[mode_key] = mode
+    if mode != previous_mode and mode == ENTRY_MODE_STANDARD:
+        clear_character_state_values(state, prefix)
+    state[previous_key] = mode
+    return mode
+
+
+def remove_last_exchange_state(state, prefix: str) -> bool:
+    """Remove the final exchange and its per-turn editor state."""
+
+    turns_key = f"{prefix}_turns"
+    turns = list(state.get(turns_key, []))
+    if len(turns) <= 2:
+        return False
+
+    removed_start = len(turns) - 2
+    state[turns_key] = turns[:-2]
+    for turn_index in (removed_start, removed_start + 1):
+        state.pop(f"{prefix}_turn_{turn_index}", None)
+        state.pop(character_state_key(prefix, turn_index), None)
+        state.pop(pending_character_state_key(prefix, turn_index), None)
+        state.pop(f"{prefix}_new_character_{turn_index}", None)
+    return True
+
+
 def matching_character_slug(name: str, characters) -> str:
     """Return the slug for a character matching a configured display name."""
 
@@ -202,9 +233,7 @@ def render_entry_mode_toggle(prefix: str) -> str:
     """Render the Standard/Group editor mode toggle."""
 
     mode_key = entry_mode_key(prefix)
-    previous_key = f"_{mode_key}_previous"
     st.session_state.setdefault(mode_key, ENTRY_MODE_STANDARD)
-    previous_mode = st.session_state.get(previous_key, st.session_state[mode_key])
     mode = st.radio(
         "Entry mode",
         options=[ENTRY_MODE_STANDARD, ENTRY_MODE_GROUP],
@@ -212,10 +241,7 @@ def render_entry_mode_toggle(prefix: str) -> str:
         horizontal=True,
         key=mode_key,
     )
-    if mode != previous_mode and mode == ENTRY_MODE_STANDARD:
-        clear_character_state_values(st.session_state, prefix)
-    st.session_state[previous_key] = mode
-    return mode
+    return apply_entry_mode_transition(st.session_state, prefix, mode)
 
 
 # ── Turn builder ───────────────────────────────────────────────────────────────
@@ -350,14 +376,7 @@ def render_turn_builder(
                 st.session_state[f"_{prefix}_tags_backup_{_cat}"] = list(
                     st.session_state.get(f"{prefix}_tags_{_cat}", [])
                 )
-            _n = len(st.session_state[f"{prefix}_turns"])
-            st.session_state[f"{prefix}_turns"] = st.session_state[f"{prefix}_turns"][:-2]
-            for _k in [f"{prefix}_turn_{_n - 2}", f"{prefix}_turn_{_n - 1}"]:
-                st.session_state.pop(_k, None)
-            for _idx in (_n - 2, _n - 1):
-                st.session_state.pop(character_state_key(prefix, _idx), None)
-                st.session_state.pop(pending_character_state_key(prefix, _idx), None)
-                st.session_state.pop(f"{prefix}_new_character_{_idx}", None)
+            remove_last_exchange_state(st.session_state, prefix)
             st.rerun()
 
     # ── Exchange count caption ─────────────────────────────────────────────────
