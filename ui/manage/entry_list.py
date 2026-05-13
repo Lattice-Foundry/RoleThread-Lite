@@ -35,18 +35,18 @@ def render_entry_list(
 ) -> None:
     """Render visible entries and pagination controls."""
 
-    for sync_id, _entry in visible_pairs:
-        st.session_state[f"select_{sync_id}"] = (
-            sync_id in st.session_state.selected_entry_ids
+    for entry_uuid, _entry in visible_pairs:
+        st.session_state[f"select_{entry_uuid}"] = (
+            entry_uuid in st.session_state.selected_entry_uuids
         )
 
-    def _on_checkbox_change(entry_id: str) -> None:
+    def _on_checkbox_change(entry_uuid: str) -> None:
         st.session_state["manage_select_all_mode"] = False
         toggle_entry_selection(
-            entry_id, st.session_state[f"select_{entry_id}"]
+            entry_uuid, st.session_state[f"select_{entry_uuid}"]
         )
 
-    for display_index, (entry_id, entry) in enumerate(visible_pairs, start=start):
+    for display_index, (entry_uuid, entry) in enumerate(visible_pairs, start=start):
         errs = validate_entry(entry)
         has_notification_issue = has_entry_notification_issue(entry, errs)
         label = format_entry_summary_label(
@@ -57,24 +57,24 @@ def render_entry_list(
             tag_label_map=tag_label_map,
         )
         col_cb, col_entry = st.columns([1, 20])
-        is_quick_edit = st.session_state.get("quick_edit_entry_id") == entry_id
+        is_quick_edit = st.session_state.get("quick_edit_entry_uuid") == entry_uuid
         with col_cb:
             st.checkbox(
                 "Select",
-                key=f"select_{entry_id}",
+                key=f"select_{entry_uuid}",
                 on_change=_on_checkbox_change,
-                args=(entry_id,),
+                args=(entry_uuid,),
                 label_visibility="collapsed",
             )
         with col_entry:
             with st.expander(label, expanded=is_quick_edit):
-                st.caption(f"Temp ID: {entry_id}")
+                st.caption(f"Entry UUID: {entry_uuid}")
 
                 if is_quick_edit:
-                    _render_quick_edit(entry_id, entry)
+                    _render_quick_edit(entry_uuid, entry)
                 else:
                     _render_entry_preview(
-                        entry_id=entry_id,
+                        entry_uuid=entry_uuid,
                         entry=entry,
                         errors=errs,
                         tag_snapshot=tag_snapshot,
@@ -92,7 +92,7 @@ def render_entry_list(
             st.rerun()
 
 
-def _render_quick_edit(entry_id: str, entry: dict) -> None:
+def _render_quick_edit(entry_uuid: str, entry: dict) -> None:
     st.markdown("**Quick Edit Messages**")
     messages = entry.get("messages", [])
     if not isinstance(messages, list):
@@ -108,18 +108,18 @@ def _render_quick_edit(entry_id: str, entry: dict) -> None:
         if role in ("user", "assistant"):
             st.text_area(
                 f"{role.upper()} message {exchange_num}",
-                key=f"quick_edit_{entry_id}_{message_index}",
+                key=f"quick_edit_{entry_uuid}_{message_index}",
                 height=120,
             )
     col_save_qe, col_cancel_qe = st.columns(2)
     with col_save_qe:
         if st.button(
             "Save Quick Edit",
-            key=f"btn_save_qe_{entry_id}",
+            key=f"btn_save_qe_{entry_uuid}",
             type="primary",
             width="stretch",
         ):
-            quick_result = save_quick_edit(entry_id, entry)
+            quick_result = save_quick_edit(entry_uuid, entry)
             if quick_result.ok:
                 cancel_quick_edit()
                 backup_note = " Backup created." if quick_result.backup_path else ""
@@ -136,7 +136,7 @@ def _render_quick_edit(entry_id: str, entry: dict) -> None:
     with col_cancel_qe:
         if st.button(
             "Cancel",
-            key=f"btn_cancel_qe_{entry_id}",
+            key=f"btn_cancel_qe_{entry_uuid}",
             width="stretch",
         ):
             cancel_quick_edit()
@@ -145,7 +145,7 @@ def _render_quick_edit(entry_id: str, entry: dict) -> None:
 
 def _render_entry_preview(
     *,
-    entry_id: str,
+    entry_uuid: str,
     entry: dict,
     errors: list[str],
     tag_snapshot: Any,
@@ -154,16 +154,16 @@ def _render_entry_preview(
     if requires_full_edit_for_quick_edit(entry):
         if st.button(
             "Requires Full Edit",
-            key=f"btn_requires_full_edit_{entry_id}",
+            key=f"btn_requires_full_edit_{entry_uuid}",
         ):
             st.session_state.page = "Edit Entries"
-            start_full_edit(entry_id, tag_snapshot.active_registry)
+            start_full_edit(entry_uuid, tag_snapshot.active_registry)
     else:
         st.button(
             "Quick Edit",
-            key=f"btn_quick_edit_{entry_id}",
+            key=f"btn_quick_edit_{entry_uuid}",
             on_click=start_quick_edit,
-            args=(entry_id, entry),
+            args=(entry_uuid, entry),
         )
     if errors:
         for err in errors:

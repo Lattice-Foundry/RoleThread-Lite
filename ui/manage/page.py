@@ -24,7 +24,7 @@ from ui.manage.filters import render_filters
 from ui.session_state import (
     apply_dataset_operation_result,
     clear_selected_entries,
-    ensure_entry_registry,
+    ensure_entry_indexes,
     ensure_selection_state,
     get_all_entry_pairs,
     persist_loaded_normalization,
@@ -268,7 +268,7 @@ def _same_dataset_path(left: str | None, right: str | None) -> bool:
 def render_manage_page() -> None:
     """Render the Manage Dataset page."""
     clear_validate_entry_cache()
-    ensure_entry_registry()
+    ensure_entry_indexes()
     ensure_selection_state()
     tag_snapshot = get_tag_registry_snapshot(untagged_key=_UNTAGGED)
     stale_last_path_notice = st.empty()

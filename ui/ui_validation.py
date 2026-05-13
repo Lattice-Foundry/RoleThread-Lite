@@ -8,7 +8,6 @@ import streamlit as st
 
 from core.dataset import (
     build_uuid_index,
-    build_entry_registry,
     clear_validate_entry_cache,
     summarize_entry_analysis,
 )
@@ -24,13 +23,13 @@ from core.validation_actions import (
 from services.character_mapping_service import apply_character_mapping_service
 from services.dataset_service import save_repaired_entries_service
 from ui.flash_messages import enqueue_dataset_result_flash, enqueue_flash, render_flash_messages
-from ui.session_state import apply_dataset_operation_result, ensure_entry_registry
+from ui.session_state import apply_dataset_operation_result, ensure_entry_indexes
 
 
 def render_validation_page() -> None:
     """Render auto-fixable validation issues for the loaded dataset."""
 
-    ensure_entry_registry()
+    ensure_entry_indexes()
     st.subheader("Validation")
     render_flash_messages()
 
@@ -237,7 +236,6 @@ def _execute_pending_fix(pending: dict) -> None:
     persisted_entries = result.entries or repaired_entries
     apply_dataset_operation_result(result)
     st.session_state.loaded_entries = persisted_entries
-    st.session_state.entry_registry = build_entry_registry(persisted_entries)
     st.session_state.uuid_to_index = build_uuid_index(persisted_entries)
     clear_validate_entry_cache()
     _refresh_diagnostic_summary(persisted_entries)
@@ -371,7 +369,6 @@ def _execute_character_mapping(role_mappings: dict[str, str]) -> None:
     persisted_entries = result.entries or st.session_state.get("loaded_entries", [])
     apply_dataset_operation_result(result)
     st.session_state.loaded_entries = persisted_entries
-    st.session_state.entry_registry = build_entry_registry(persisted_entries)
     st.session_state.uuid_to_index = build_uuid_index(persisted_entries)
     clear_validate_entry_cache()
     _refresh_diagnostic_summary(persisted_entries)

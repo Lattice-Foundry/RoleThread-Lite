@@ -10,16 +10,12 @@ import streamlit as st
 from core.backups import auto_backups_enabled
 from core.dataset import (
     build_uuid_index,
-    build_entry_registry,
     get_entry_by_uuid,
-    get_entry_pairs,
     get_entry_index_by_uuid,
-    get_index_for_entry_id,
-    rebuild_id_to_index,
-    registry_is_valid,
     TagNormalizationSummary,
 )
 from core.load_pipeline import finalize_loaded_entries
+from core.loreforge_meta import get_entry_uuid
 from core.preferences import save_preferences
 from services.dataset_service import (
     DatasetOperationResult,
@@ -41,14 +37,12 @@ def update_prefs(updates: dict) -> None:
 
 # ── Registry / session helpers ─────────────────────────────────────────────────
 
-def ensure_entry_registry() -> None:
-    """Ensure entry_registry exists and is consistent with loaded_entries.
+def ensure_entry_indexes() -> None:
+    """Ensure UUID indexes are consistent with loaded_entries.
 
     Rebuilds silently if missing or invalid — safe to call anywhere.
     """
     entries = st.session_state.get("loaded_entries", [])
-    if not registry_is_valid(st.session_state.get("entry_registry"), entries):
-        st.session_state.entry_registry = build_entry_registry(entries)
     if st.session_state.get("uuid_to_index") != build_uuid_index(entries):
         st.session_state.uuid_to_index = build_uuid_index(entries)
 
@@ -67,7 +61,6 @@ def set_loaded_entries(
     clear_dataset_scoped_state()
     st.session_state.loaded_entries = result.entries
     st.session_state.dataset_source_format = result.dataset_source_format
-    st.session_state.entry_registry = result.entry_registry
     st.session_state.uuid_to_index = build_uuid_index(result.entries)
     st.session_state.tag_normalization_summary = result.tag_normalization_summary
     st.session_state.dataset_is_native = result.dataset_is_native
@@ -115,11 +108,11 @@ def clear_dataset_scoped_state() -> None:
 def clear_entry_edit_state() -> None:
     """Clear Quick Edit and Full Edit UI state without triggering a rerun."""
 
-    st.session_state.quick_edit_entry_id = None
+    st.session_state.quick_edit_entry_uuid = None
     st.session_state.edit_entries_mode = "browser"
     for key in (
-        "editing_entry_id",
-        "full_edit_entry_id",
+        "editing_entry_uuid",
+        "full_edit_entry_uuid",
         "full_edit_system_prompt",
         "full_edit_turns",
         "full_edit_planned_exchanges",
@@ -184,7 +177,6 @@ def persist_loaded_normalization(dataset_path: str) -> DatasetOperationResult:
     if result.ok and result.entries is not None:
         apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
-        st.session_state.entry_registry = build_entry_registry(result.entries)
         st.session_state.uuid_to_index = build_uuid_index(result.entries)
         clear_normalization_pending()
         _enqueue_sidecar_warning_if_needed(result)
@@ -206,26 +198,6 @@ def apply_dataset_operation_result(result: DatasetOperationResult) -> None:
         })
 
 
-def get_loaded_entry_by_id(entry_id: str) -> dict | None:
-    """Return the entry for the given temp ID, or None if not found."""
-    ensure_entry_registry()
-    idx = get_index_for_entry_id(st.session_state.entry_registry, entry_id)
-    if idx is None:
-        return None
-    entries = st.session_state.loaded_entries
-    return entries[idx] if 0 <= idx < len(entries) else None
-
-
-def get_loaded_entry_index_by_id(entry_id: str) -> int | None:
-    """Return the current source index for entry_id, or None if not found."""
-    ensure_entry_registry()
-    idx = get_index_for_entry_id(st.session_state.entry_registry, entry_id)
-    entries = st.session_state.loaded_entries
-    if idx is None or not (0 <= idx < len(entries)):
-        return None
-    return idx
-
-
 def get_loaded_entry_by_uuid(entry_uuid: str) -> dict | None:
     """Return the entry for the given stable UUID, or None if not found."""
 
@@ -237,6 +209,7 @@ def get_loaded_entry_index_by_uuid(entry_uuid: str) -> int | None:
     """Return the current source index for entry_uuid, or None if not found."""
 
     entries = st.session_state.loaded_entries
+    ensure_entry_indexes()
     index = st.session_state.get("uuid_to_index", {}).get(entry_uuid)
     if index is None or not (0 <= index < len(entries)):
         return get_entry_index_by_uuid(entries, entry_uuid)
@@ -244,77 +217,94 @@ def get_loaded_entry_index_by_uuid(entry_uuid: str) -> int | None:
 
 
 def get_all_entry_pairs() -> list[tuple[str, dict]]:
-    """Return [(entry_id, entry), ...] for all loaded entries."""
-    ensure_entry_registry()
-    return get_entry_pairs(st.session_state.loaded_entries, st.session_state.entry_registry)
+    """Return [(entry_uuid, entry), ...] for all loaded entries."""
+
+    ensure_entry_indexes()
+    pairs: list[tuple[str, dict]] = []
+    for entry in st.session_state.get("loaded_entries", []):
+        entry_uuid = get_entry_uuid(entry) if isinstance(entry, dict) else None
+        if entry_uuid:
+            pairs.append((entry_uuid, entry))
+    return pairs
 
 
 # ── Selection helpers ──────────────────────────────────────────────────────────
 
 def ensure_selection_state() -> None:
-    """Ensure selected_entry_ids exists as a set in session state."""
-    if not isinstance(st.session_state.get("selected_entry_ids"), set):
-        st.session_state.selected_entry_ids = set()
+    """Ensure selected_entry_uuids exists as a set in session state."""
+    if not isinstance(st.session_state.get("selected_entry_uuids"), set):
+        st.session_state.selected_entry_uuids = set()
 
 
 def clear_selected_entries() -> None:
-    """Clear all selected entry IDs."""
-    st.session_state.selected_entry_ids = set()
+    """Clear all selected entry UUIDs."""
+    st.session_state.selected_entry_uuids = set()
 
 
-def toggle_entry_selection(entry_id: str, selected: bool) -> None:
-    """Add or remove entry_id from selected_entry_ids."""
+def toggle_entry_selection(entry_uuid: str, selected: bool) -> None:
+    """Add or remove entry_uuid from selected_entry_uuids."""
     ensure_selection_state()
     if selected:
-        st.session_state.selected_entry_ids.add(entry_id)
+        st.session_state.selected_entry_uuids.add(entry_uuid)
     else:
-        st.session_state.selected_entry_ids.discard(entry_id)
+        st.session_state.selected_entry_uuids.discard(entry_uuid)
 
 
 def select_visible_entries(visible_pairs: list[tuple[str, dict]]) -> None:
-    """Add all visible (current-page) entry IDs to selected_entry_ids."""
+    """Add all visible (current-page) entry UUIDs to selected_entry_uuids."""
     ensure_selection_state()
-    for entry_id, _ in visible_pairs:
-        st.session_state.selected_entry_ids.add(entry_id)
+    for entry_uuid, _ in visible_pairs:
+        st.session_state.selected_entry_uuids.add(entry_uuid)
 
 
-def get_selected_entry_ids() -> list[str]:
-    """Return selected IDs as a list."""
+def get_selected_entry_uuids() -> list[str]:
+    """Return selected UUIDs as a list."""
     ensure_selection_state()
-    return list(st.session_state.selected_entry_ids)
+    return list(st.session_state.selected_entry_uuids)
 
 
 def prune_selection_to_loaded_entries() -> None:
-    """Remove selected IDs that no longer exist in the current registry.
+    """Remove selected UUIDs that no longer exist in the loaded entries.
 
-    Call after loading, creating, deleting, or any registry rebuild.
+    Call after loading, creating, deleting, or any index rebuild.
     """
     ensure_selection_state()
-    ensure_entry_registry()
-    valid_ids = set(st.session_state.entry_registry.get("ids", []))
-    st.session_state.selected_entry_ids &= valid_ids
+    ensure_entry_indexes()
+    valid_uuids = set(st.session_state.get("uuid_to_index", {}))
+    st.session_state.selected_entry_uuids &= valid_uuids
 
 
 def delete_selected_entries() -> tuple[int, list[str], bool]:
-    """Delete selected entries by temp ID and persist to disk.
+    """Delete selected entries by UUID and persist to disk.
 
     Clears selection only if the save succeeds.
-    Returns (count_deleted, list_of_failed_ids, backup_created).
+    Returns (count_deleted, list_of_failed_uuids, backup_created).
     """
-    ensure_entry_registry()
-    ids_to_delete = set(get_selected_entry_ids())
-    current_ids = st.session_state.entry_registry.get("ids", [])
-    current_id_set = set(current_ids)
-    failures = [entry_id for entry_id in ids_to_delete if entry_id not in current_id_set]
-    attempted_ids = [entry_id for entry_id in current_ids if entry_id in ids_to_delete]
+    ensure_entry_indexes()
+    uuids_to_delete = set(get_selected_entry_uuids())
+    entries = st.session_state.get("loaded_entries", [])
+    current_uuids = [
+        entry_uuid
+        for entry in entries
+        if isinstance(entry, dict)
+        for entry_uuid in [get_entry_uuid(entry)]
+        if entry_uuid
+    ]
+    current_uuid_set = set(current_uuids)
+    failures = [
+        entry_uuid
+        for entry_uuid in uuids_to_delete
+        if entry_uuid not in current_uuid_set
+    ]
+    attempted_uuids = [
+        entry_uuid for entry_uuid in current_uuids if entry_uuid in uuids_to_delete
+    ]
 
-    proposed_ids: list[str] = []
     delete_indices: list[int] = []
-    for index, entry_id in enumerate(current_ids):
-        if entry_id in ids_to_delete:
+    for index, entry in enumerate(entries):
+        entry_uuid = get_entry_uuid(entry) if isinstance(entry, dict) else None
+        if entry_uuid in uuids_to_delete:
             delete_indices.append(index)
-            continue
-        proposed_ids.append(entry_id)
 
     if delete_indices:
         result = delete_entries_service(
@@ -328,17 +318,12 @@ def delete_selected_entries() -> tuple[int, list[str], bool]:
                 st.error(err)
             if not result.errors:
                 st.error(result.message)
-            return 0, attempted_ids + failures, False
+            return 0, attempted_uuids + failures, False
         if result.entries is None:
             st.error("Delete operation did not return updated entries.")
-            return 0, attempted_ids + failures, False
+            return 0, attempted_uuids + failures, False
         apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
-        st.session_state.entry_registry = {
-            **st.session_state.entry_registry,
-            "ids": proposed_ids,
-            "id_to_index": rebuild_id_to_index(proposed_ids),
-        }
         st.session_state.uuid_to_index = build_uuid_index(result.entries)
         clear_selected_entries()
         _enqueue_sidecar_warning_if_needed(result)
@@ -358,42 +343,42 @@ def _enqueue_sidecar_warning_if_needed(result: DatasetOperationResult) -> None:
 
 # ── Quick-edit helpers ─────────────────────────────────────────────────────────
 
-def start_quick_edit(entry_id: str, entry: dict) -> None:
-    """Enter quick edit mode for entry_id.
+def start_quick_edit(entry_uuid: str, entry: dict) -> None:
+    """Enter quick edit mode for entry_uuid.
 
-    Sets quick_edit_entry_id and pre-loads each user/assistant message into
+    Sets quick_edit_entry_uuid and pre-loads each user/assistant message into
     its text-area session-state key so the widget opens with current content.
     """
-    st.session_state.quick_edit_entry_id = entry_id
+    st.session_state.quick_edit_entry_uuid = entry_uuid
     messages = entry.get("messages", [])
     if not isinstance(messages, list):
         messages = []
     for idx, msg in enumerate(scaffold_editable_messages(messages)):
         if isinstance(msg, dict) and msg.get("role") in ("user", "assistant"):
-            st.session_state[f"quick_edit_{entry_id}_{idx}"] = msg.get("content", "")
+            st.session_state[f"quick_edit_{entry_uuid}_{idx}"] = msg.get("content", "")
 
 
 def cancel_quick_edit() -> None:
     """Exit quick edit mode without saving."""
-    entry_id = st.session_state.get("quick_edit_entry_id")
-    st.session_state.quick_edit_entry_id = None
+    entry_uuid = st.session_state.get("quick_edit_entry_uuid")
+    st.session_state.quick_edit_entry_uuid = None
     # Remove stale text-area keys for the closed entry so re-opening starts fresh
-    if entry_id:
+    if entry_uuid:
         keys_to_drop = [
             k for k in list(st.session_state.keys())
-            if k.startswith(f"quick_edit_{entry_id}_")
+            if k.startswith(f"quick_edit_{entry_uuid}_")
         ]
         for k in keys_to_drop:
             st.session_state.pop(k, None)
 
 
-def save_quick_edit(entry_id: str, entry: dict) -> DatasetOperationResult:
+def save_quick_edit(entry_uuid: str, entry: dict) -> DatasetOperationResult:
     """Read edited message content from session state, then delegate saving.
 
     Updates only user/assistant message content.
     System message, role names, tags, and message order are preserved.
     """
-    entry_index = get_loaded_entry_index_by_id(entry_id)
+    entry_index = get_loaded_entry_index_by_uuid(entry_uuid)
     if entry_index is None:
         return DatasetOperationResult(
             ok=False,
@@ -412,7 +397,7 @@ def save_quick_edit(entry_id: str, entry: dict) -> DatasetOperationResult:
         role = msg.get("role")
         if role in ("user", "assistant"):
             new_content = st.session_state.get(
-                f"quick_edit_{entry_id}_{msg_index}", msg.get("content", "")
+                f"quick_edit_{entry_uuid}_{msg_index}", msg.get("content", "")
             )
             updated_msgs.append({**msg, "content": new_content})
         else:
@@ -428,6 +413,5 @@ def save_quick_edit(entry_id: str, entry: dict) -> DatasetOperationResult:
     if result.ok and result.entries is not None:
         apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
-        ensure_entry_registry()
         st.session_state.uuid_to_index = build_uuid_index(result.entries)
     return result

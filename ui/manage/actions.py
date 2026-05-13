@@ -19,10 +19,10 @@ from ui.session_state import (
     apply_dataset_operation_result,
     clear_selected_entries,
     delete_selected_entries,
-    ensure_entry_registry,
-    get_loaded_entry_by_id,
-    get_loaded_entry_index_by_id,
-    get_selected_entry_ids,
+    ensure_entry_indexes,
+    get_loaded_entry_by_uuid,
+    get_loaded_entry_index_by_uuid,
+    get_selected_entry_uuids,
     prune_selection_to_loaded_entries,
     select_visible_entries,
 )
@@ -54,8 +54,8 @@ def render_actions(
             st.session_state["manage_select_all_mode"] = False
             clear_selected_entries()
 
-    selected_ids = get_selected_entry_ids()
-    total_selected = len(selected_ids)
+    selected_uuids = get_selected_entry_uuids()
+    total_selected = len(selected_uuids)
     st.caption(
         format_browser_status_caption(
             start=start,
@@ -102,9 +102,9 @@ def render_actions(
                 _delete_selected(per_page)
 
     if st.session_state.get("pending_delete_selected"):
-        pending_sel_ids = get_selected_entry_ids()
+        pending_sel_uuids = get_selected_entry_uuids()
         selected_entry_phrase = count_phrase(
-            len(pending_sel_ids),
+            len(pending_sel_uuids),
             "selected entry",
             "selected entries",
         )
@@ -120,9 +120,9 @@ def render_actions(
                 st.rerun()
 
     if st.session_state.get("pending_system_prompt_edit"):
-        _render_system_prompt_editor(total_selected, selected_ids)
+        _render_system_prompt_editor(total_selected, selected_uuids)
 
-    _render_tag_editor(selected_ids, tag_snapshot)
+    _render_tag_editor(selected_uuids, tag_snapshot)
 
 
 def _delete_selected(per_page: int) -> None:
@@ -148,7 +148,7 @@ def _delete_selected(per_page: int) -> None:
 
 def _render_system_prompt_editor(
     total_selected: int,
-    selected_ids: list[str],
+    selected_uuids: list[str],
 ) -> None:
     st.info(
         "Replace the system prompt for "
@@ -171,8 +171,8 @@ def _render_system_prompt_editor(
         ):
             indices = [
                 idx for idx in (
-                    get_loaded_entry_index_by_id(selected_id)
-                    for selected_id in selected_ids
+                    get_loaded_entry_index_by_uuid(selected_uuid)
+                    for selected_uuid in selected_uuids
                 )
                 if idx is not None
             ]
@@ -188,7 +188,7 @@ def _render_system_prompt_editor(
             if sys_result.ok and sys_result.entries is not None:
                 apply_dataset_operation_result(sys_result)
                 st.session_state.loaded_entries = sys_result.entries
-                ensure_entry_registry()
+                ensure_entry_indexes()
                 backup_note = " Backup created." if sys_result.backup_path else ""
                 st.session_state.pop("pending_system_prompt_edit", None)
                 enqueue_dataset_result_flash(
@@ -207,8 +207,8 @@ def _render_system_prompt_editor(
             st.rerun()
 
 
-def _render_tag_editor(selected_ids: list[str], tag_snapshot: Any) -> None:
-    selected_count = len(selected_ids)
+def _render_tag_editor(selected_uuids: list[str], tag_snapshot: Any) -> None:
+    selected_count = len(selected_uuids)
     if selected_count < 1:
         return
 
@@ -218,8 +218,8 @@ def _render_tag_editor(selected_ids: list[str], tag_snapshot: Any) -> None:
 
     if selected_count == 1:
         st.markdown("**Quick Tag Edit**")
-        entry_id = selected_ids[0]
-        entry = get_loaded_entry_by_id(entry_id)
+        entry_uuid = selected_uuids[0]
+        entry = get_loaded_entry_by_uuid(entry_uuid)
         if entry is None:
             return
         current_tags = get_entry_tags(entry)
@@ -230,10 +230,10 @@ def _render_tag_editor(selected_ids: list[str], tag_snapshot: Any) -> None:
             options=options,
             default=current_tags,
             format_func=lambda tag: tag_label_map.get(tag, prettify_tag_name(tag)),
-            key=f"single_quick_tags_{entry_id}",
+            key=f"single_quick_tags_{entry_uuid}",
         )
         if st.button("Save Tags", key="btn_save_single_tags"):
-            idx = get_loaded_entry_index_by_id(entry_id)
+            idx = get_loaded_entry_index_by_uuid(entry_uuid)
             if idx is not None:
                 tag_result = replace_single_entry_tags_service(
                     dataset_path=st.session_state.get("loaded_path", ""),
@@ -247,7 +247,7 @@ def _render_tag_editor(selected_ids: list[str], tag_snapshot: Any) -> None:
                 if tag_result.ok and tag_result.entries is not None:
                     apply_dataset_operation_result(tag_result)
                     st.session_state.loaded_entries = tag_result.entries
-                    ensure_entry_registry()
+                    ensure_entry_indexes()
                     backup_note = " Backup created." if tag_result.backup_path else ""
                     enqueue_dataset_result_flash(
                         f"{tag_result.message}{backup_note}",
@@ -264,7 +264,7 @@ def _render_tag_editor(selected_ids: list[str], tag_snapshot: Any) -> None:
 
     elif selected_count >= 2:
         _render_bulk_tag_editor(
-            selected_ids=selected_ids,
+            selected_uuids=selected_uuids,
             selected_count=selected_count,
             all_slugs=all_slugs,
             tag_label_map=tag_label_map,
@@ -273,7 +273,7 @@ def _render_tag_editor(selected_ids: list[str], tag_snapshot: Any) -> None:
 
 def _render_bulk_tag_editor(
     *,
-    selected_ids: list[str],
+    selected_uuids: list[str],
     selected_count: int,
     all_slugs: list[str],
     tag_label_map: dict[str, str],
@@ -293,7 +293,7 @@ def _render_bulk_tag_editor(
             disabled=not bulk_chosen,
             width="stretch",
         ):
-            indices = _selected_indices(selected_ids)
+            indices = _selected_indices(selected_uuids)
             bulk_result = replace_tags_bulk_service(
                 dataset_path=st.session_state.get("loaded_path", ""),
                 entries=st.session_state.loaded_entries,
@@ -310,7 +310,7 @@ def _render_bulk_tag_editor(
             key="btn_bulk_clear_tags",
             width="stretch",
         ):
-            indices = _selected_indices(selected_ids)
+            indices = _selected_indices(selected_uuids)
             bulk_result = clear_tags_bulk_service(
                 dataset_path=st.session_state.get("loaded_path", ""),
                 entries=st.session_state.loaded_entries,
@@ -322,11 +322,11 @@ def _render_bulk_tag_editor(
             _handle_bulk_tag_result(bulk_result)
 
 
-def _selected_indices(selected_ids: list[str]) -> list[int]:
+def _selected_indices(selected_uuids: list[str]) -> list[int]:
     return [
         idx for idx in (
-            get_loaded_entry_index_by_id(selected_id)
-            for selected_id in selected_ids
+            get_loaded_entry_index_by_uuid(selected_uuid)
+            for selected_uuid in selected_uuids
         )
         if idx is not None
     ]
@@ -336,7 +336,7 @@ def _handle_bulk_tag_result(bulk_result) -> None:
     if bulk_result.ok and bulk_result.entries is not None:
         apply_dataset_operation_result(bulk_result)
         st.session_state.loaded_entries = bulk_result.entries
-        ensure_entry_registry()
+        ensure_entry_indexes()
         backup_note = " Backup created." if bulk_result.backup_path else ""
         enqueue_dataset_result_flash(
             f"{bulk_result.message}{backup_note}",

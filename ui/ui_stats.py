@@ -5,7 +5,8 @@ import streamlit as st
 
 from core.dataset import build_dataset_stats
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT, FORMAT_UNKNOWN
-from ui.session_state import ensure_entry_registry
+from core.loreforge_meta import get_entry_uuid
+from ui.session_state import ensure_entry_indexes
 from core.tag_registry import get_tag_registry_snapshot
 
 
@@ -20,7 +21,7 @@ def _format_source_format(source_format: str) -> str:
 
 def render_stats_page() -> None:
     """Render the Statistics page."""
-    ensure_entry_registry()
+    ensure_entry_indexes()
     _stat_entries = st.session_state.loaded_entries
 
     if not _stat_entries:
@@ -137,10 +138,13 @@ def render_stats_page() -> None:
     _v2.metric("Invalid Entries", _s["invalid_count"])
 
     if _s["invalid_rows"]:
-        _stat_ids = st.session_state.entry_registry.get("ids", [])
         _df_val = pd.DataFrame([
             {
-                "Temp ID": _stat_ids[r["entry"] - 1] if r["entry"] - 1 < len(_stat_ids) else "—",
+                "Entry UUID": (
+                    get_entry_uuid(_stat_entries[r["entry"] - 1])
+                    if r["entry"] - 1 < len(_stat_entries)
+                    else "—"
+                ),
                 "Entry": r["entry"],
                 "Error Count": r["error_count"],
                 "Errors": "; ".join(r["errors"]),

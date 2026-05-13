@@ -143,7 +143,7 @@ def render_filters(
     )
     visible_pairs = slice_visible_pairs(filtered_pairs, pagination)
     character_display_cache = build_character_display_cache([
-        entry for _entry_id, entry in visible_pairs
+        entry for _entry_uuid, entry in visible_pairs
     ])
     if pagination.is_show_all_capped:
         st.warning(

@@ -24,10 +24,10 @@ from core.text_helpers import count_phrase
 from ui.session_state import (
     apply_dataset_operation_result,
     clear_entry_edit_state,
-    ensure_entry_registry,
+    ensure_entry_indexes,
     get_all_entry_pairs,
-    get_loaded_entry_by_id,
-    get_loaded_entry_index_by_id,
+    get_loaded_entry_by_uuid,
+    get_loaded_entry_index_by_uuid,
 )
 from ui.message_scaffolding import scaffold_user_assistant_turns
 from ui.entry_edit_helpers import has_entry_notification_issue
@@ -132,7 +132,7 @@ def _editor_turn_display_names(entry: dict) -> dict[int, str]:
 
 
 def load_full_edit_buffer(
-    entry_id: str,
+    entry_uuid: str,
     active_registry: dict[str, list[str]],
 ) -> bool:
     """Load entry data into full_edit_* session-state keys.
@@ -141,14 +141,14 @@ def load_full_edit_buffer(
     Unknown tags (not found in any DB registry category) are stored separately
     in full_edit_unknown_tags and are never discarded.
     """
-    entry = get_loaded_entry_by_id(entry_id)
+    entry = get_loaded_entry_by_uuid(entry_uuid)
     if entry is None:
         return False
 
     buf = entry_to_edit_buffer(entry)
 
     # ── Scalar keys ───────────────────────────────────────────────────────────
-    st.session_state["full_edit_entry_id"] = entry_id
+    st.session_state["full_edit_entry_uuid"] = entry_uuid
     st.session_state["full_edit_system_prompt"] = buf["system_prompt"]
     st.session_state["full_edit_turns"] = [{"role": t["role"]} for t in buf["turns"]]
     st.session_state["full_edit_planned_exchanges"] = buf["planned_exchanges"]
@@ -175,7 +175,7 @@ def load_full_edit_buffer(
 # ── Full-edit mode helpers ─────────────────────────────────────────────────────
 
 def start_full_edit(
-    entry_id: str,
+    entry_uuid: str,
     active_registry: dict[str, list[str]],
 ) -> None:
     """Load edit buffer, snapshot browser state, enter workspace, and rerun.
@@ -183,14 +183,14 @@ def start_full_edit(
     If the entry cannot be loaded, shows an inline error and does not enter
     workspace mode — the browser continues rendering normally below.
     """
-    if not load_full_edit_buffer(entry_id, active_registry):
-        st.error(f"Could not load entry `{entry_id}` for editing.")
+    if not load_full_edit_buffer(entry_uuid, active_registry):
+        st.error(f"Could not load entry `{entry_uuid}` for editing.")
         return
 
     st.session_state["_ee_browser_snapshot"] = {
         k: st.session_state.get(k) for k in _BROWSER_STATE_KEYS
     }
-    st.session_state.editing_entry_id = entry_id
+    st.session_state.editing_entry_uuid = entry_uuid
     st.session_state.edit_entries_mode = "workspace"
     st.rerun()
 
@@ -199,12 +199,12 @@ def cancel_full_edit() -> None:
     """Clear the edit buffer, restore browser state, and return to browser mode."""
     # ── Clear fixed full_edit keys ─────────────────────────────────────────────
     for _k in (
-        "full_edit_entry_id",
+        "full_edit_entry_uuid",
         "full_edit_system_prompt",
         "full_edit_turns",
         "full_edit_planned_exchanges",
         "full_edit_unknown_tags",
-        "editing_entry_id",
+        "editing_entry_uuid",
     ):
         st.session_state.pop(_k, None)
 
@@ -241,10 +241,10 @@ def save_full_edit(active_registry: dict[str, list[str]]) -> bool:
     in that path).  On any failure: shows an error, leaves workspace open,
     returns False.
     """
-    entry_id = st.session_state.get("full_edit_entry_id") or st.session_state.get(
-        "editing_entry_id"
+    entry_uuid = st.session_state.get("full_edit_entry_uuid") or st.session_state.get(
+        "editing_entry_uuid"
     )
-    if not entry_id:
+    if not entry_uuid:
         st.error("No entry selected for editing.")
         return False
 
@@ -279,7 +279,7 @@ def save_full_edit(active_registry: dict[str, list[str]]) -> bool:
             st.error(err)
         return False
 
-    entry_index = get_loaded_entry_index_by_id(entry_id)
+    entry_index = get_loaded_entry_index_by_uuid(entry_uuid)
     if entry_index is None:
         st.error("Could not find the selected entry.")
         return False
@@ -301,7 +301,7 @@ def save_full_edit(active_registry: dict[str, list[str]]) -> bool:
     if result.entries is not None:
         apply_dataset_operation_result(result)
         st.session_state.loaded_entries = result.entries
-        ensure_entry_registry()
+        ensure_entry_indexes()
 
     # ── Success: flash message + cleanup + return to browser ──────────────────
     _backup_note = " Backup created." if result.backup_path else ""
@@ -320,17 +320,17 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
     populated from the full_edit_* session-state buffer.  Includes Save Edits
     and Cancel / Back buttons.
     """
-    entry_id = st.session_state.get("editing_entry_id")
+    entry_uuid = st.session_state.get("editing_entry_uuid")
 
     # ── Guard: no entry selected ───────────────────────────────────────────────
-    if not entry_id:
+    if not entry_uuid:
         st.warning("No entry selected for editing.")
         if st.button("Back to Edit Entries", key="btn_back_no_id"):
             cancel_full_edit()
         return
 
     # ── Guard: entry disappeared from registry ─────────────────────────────────
-    current_entry = get_loaded_entry_by_id(entry_id)
+    current_entry = get_loaded_entry_by_uuid(entry_uuid)
     if current_entry is None:
         st.error("Selected entry could not be found.")
         if st.button("Back to Edit Entries", key="btn_back_not_found"):
@@ -339,7 +339,7 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
 
     # ── Header ─────────────────────────────────────────────────────────────────
     st.subheader("Full Edit Entry")
-    st.caption(f"Temp ID: {entry_id}")
+    st.caption(f"Entry UUID: {entry_uuid}")
     if st.button("Back to Entry List", key="btn_back_full_edit_top"):
         reset_full_edit_to_browser()
 
@@ -444,7 +444,7 @@ def render_edit_entries_page() -> None:
     otherwise renders the existing browser view.
     """
     clear_validate_entry_cache()
-    ensure_entry_registry()
+    ensure_entry_indexes()
     _tag_snapshot = get_tag_registry_snapshot(untagged_key=_UNTAGGED)
     render_flash_messages()
 
@@ -572,7 +572,7 @@ def render_edit_entries_page() -> None:
     _ee_end = _ee_pagination.end
     _ee_visible_pairs = slice_visible_pairs(_ee_filtered_pairs, _ee_pagination)
     _ee_character_display_cache = build_character_display_cache([
-        entry for _entry_id, entry in _ee_visible_pairs
+        entry for _entry_uuid, entry in _ee_visible_pairs
     ])
     if _ee_pagination.is_show_all_capped:
         st.warning(
@@ -592,7 +592,7 @@ def render_edit_entries_page() -> None:
     )
 
     # ── Entry list ─────────────────────────────────────────────────────────────
-    for _ee_i, (_ee_entry_id, _ee_entry) in enumerate(
+    for _ee_i, (_ee_entry_uuid, _ee_entry) in enumerate(
         _ee_visible_pairs, start=_ee_start
     ):
         _ee_errs = validate_entry(_ee_entry)
@@ -605,9 +605,9 @@ def render_edit_entries_page() -> None:
             tag_label_map=_ee_label_map,
         )
         with st.expander(_ee_label):
-            st.caption(f"Temp ID: {_ee_entry_id}")
-            if st.button("Edit Entry", key=f"btn_full_edit_{_ee_entry_id}"):
-                start_full_edit(_ee_entry_id, _tag_snapshot.active_registry)
+            st.caption(f"Entry UUID: {_ee_entry_uuid}")
+            if st.button("Edit Entry", key=f"btn_full_edit_{_ee_entry_uuid}"):
+                start_full_edit(_ee_entry_uuid, _tag_snapshot.active_registry)
             if _ee_errs:
                 for _ee_err in _ee_errs:
                     st.error(_ee_err)
