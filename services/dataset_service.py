@@ -9,6 +9,7 @@ import copy
 from dataclasses import dataclass, field
 from pathlib import Path
 import traceback
+from uuid import uuid4
 
 from core.backups import create_dataset_backup
 from core.dataset import (
@@ -75,10 +76,15 @@ def _canonicalize_alias_tags(entries: list[dict]) -> list[dict]:
     return canonical_entries
 
 
-def _save_dataset_with_sidecar(dataset_path: str, entries: list[dict]) -> DatasetSaveResult:
+def _save_dataset_with_sidecar(
+    dataset_path: str,
+    entries: list[dict],
+    *,
+    dataset_uuid: str | None = None,
+) -> DatasetSaveResult:
     target_path = _prepare_dataset_save_path(dataset_path)
-    dataset_uuid = _dataset_uuid_for_save(target_path, entries)
-    stamped_entries = stamp_entries(entries, dataset_uuid=dataset_uuid)
+    resolved_dataset_uuid = dataset_uuid or _dataset_uuid_for_save(target_path, entries)
+    stamped_entries = stamp_entries(entries, dataset_uuid=resolved_dataset_uuid)
     save_dataset(target_path, stamped_entries)
     sidecar_ok = True
     sidecar_message = None
@@ -654,6 +660,7 @@ def save_merged_entries_service(
         )
 
     proposed_entries = normalize_dataset_entries(entries).entries
+    proposed_entries = _canonicalize_alias_tags(proposed_entries)
     backup_path: str | None = None
     target = Path(dataset_path)
 
@@ -674,7 +681,11 @@ def save_merged_entries_service(
         backup_path = str(created_backup)
 
     try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
+        save_result = _save_dataset_with_sidecar(
+            dataset_path,
+            proposed_entries,
+            dataset_uuid=str(uuid4()),
+        )
         saved_path = save_result.dataset_path
         proposed_entries = save_result.entries
     except Exception as exc:

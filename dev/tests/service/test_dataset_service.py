@@ -6,7 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from core.dataset import load_dataset, save_dataset
-from core.loreforge_meta import LOREFORGE_META_KEY, get_dataset_uuid_for_entries, get_entry_uuid
+from core.loreforge_meta import (
+    LOREFORGE_META_KEY,
+    get_dataset_uuid_for_entries,
+    get_entry_uuid,
+    stamp_entries,
+)
 from core.registry_sidecar import (
     SidecarDatasetInfo,
     SidecarMetadata,
@@ -1027,6 +1032,99 @@ def test_save_merged_entries_service_saves_new_output_and_preserves_metadata(tmp
     _assert_stamped(result.entries)
     assert entries == original_entries
     assert _read_entries(path) == result.entries
+
+
+def test_save_merged_entries_service_forces_new_dataset_uuid_for_single_source_dataset(
+    tmp_path,
+):
+    path = tmp_path / "merged.jsonl"
+    source_uuid = "source-dataset-uuid"
+    entries = stamp_entries([_entry(tags=["merged"])], dataset_uuid=source_uuid)
+
+    result = save_merged_entries_service(
+        dataset_path=str(path),
+        entries=entries,
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    merged_uuid = get_dataset_uuid_for_entries(result.entries)
+    assert merged_uuid is not None
+    assert merged_uuid != source_uuid
+    sidecar = read_sidecar(sidecar_path_for_dataset(path))
+    assert sidecar.dataset_info.dataset_uuid == merged_uuid
+
+
+def test_save_merged_entries_service_forces_new_dataset_uuid_for_multiple_sources(
+    tmp_path,
+):
+    path = tmp_path / "merged.jsonl"
+    source_one = stamp_entries([_entry(user="One", tags=["one"])], dataset_uuid="source-one")
+    source_two = stamp_entries([_entry(user="Two", tags=["two"])], dataset_uuid="source-two")
+
+    result = save_merged_entries_service(
+        dataset_path=str(path),
+        entries=source_one + source_two,
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    merged_uuid = get_dataset_uuid_for_entries(result.entries)
+    assert merged_uuid is not None
+    assert merged_uuid not in {"source-one", "source-two"}
+    sidecar = read_sidecar(sidecar_path_for_dataset(path))
+    assert sidecar.dataset_info.dataset_uuid == merged_uuid
+
+
+def test_save_merged_entries_service_does_not_reuse_existing_output_sidecar_uuid(
+    tmp_path,
+):
+    path = tmp_path / "merged.jsonl"
+    existing_sidecar_uuid = "existing-output-sidecar-uuid"
+    write_sidecar(
+        SidecarRegistry(
+            metadata=SidecarMetadata(),
+            dataset_info=SidecarDatasetInfo(
+                dataset_uuid=existing_sidecar_uuid,
+                filename=path.name,
+            ),
+        ),
+        sidecar_path_for_dataset(path),
+    )
+
+    result = save_merged_entries_service(
+        dataset_path=str(path),
+        entries=[_entry(tags=["merged"])],
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    merged_uuid = get_dataset_uuid_for_entries(result.entries)
+    assert merged_uuid is not None
+    assert merged_uuid != existing_sidecar_uuid
+    sidecar = read_sidecar(sidecar_path_for_dataset(path))
+    assert sidecar.dataset_info.dataset_uuid == merged_uuid
+
+
+def test_save_merged_entries_service_canonicalizes_alias_tags(tmp_path, monkeypatch):
+    path = tmp_path / "merged.jsonl"
+
+    def fake_resolve_tag_lifecycle(tag):
+        if tag == "old_tag":
+            return SimpleNamespace(should_rewrite_slug=True, resolved_slug="new_tag")
+        return SimpleNamespace(should_rewrite_slug=False, resolved_slug=tag)
+
+    monkeypatch.setattr(tag_resolution, "resolve_tag_lifecycle", fake_resolve_tag_lifecycle)
+
+    result = save_merged_entries_service(
+        dataset_path=str(path),
+        entries=[_entry(tags=["old_tag", "new_tag", "kept_tag"])],
+        backup_enabled=False,
+    )
+
+    assert result.ok is True
+    assert result.entries[0]["tags"] == ["new_tag", "kept_tag"]
+    assert _read_entries(path)[0]["tags"] == ["new_tag", "kept_tag"]
 
 
 def test_save_merged_entries_service_overwrite_backup_enabled_and_disabled(tmp_path, monkeypatch):

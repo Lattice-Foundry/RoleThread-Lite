@@ -85,10 +85,9 @@ def render_merge_page() -> None:
                     _backup_note = " Backup created." if result.backup_path else ""
                     st.success(f"Merged dataset saved to `{saved_path}`.{_backup_note}")
 
-                    content = "\n".join(json.dumps(e, ensure_ascii=False) for e in merged)
                     st.download_button(
                         "Download merged JSONL",
-                        data=content.encode("utf-8"),
+                        data=_merged_download_payload(result.entries),
                         file_name=Path(saved_path).name,
                         mime="application/jsonlines",
                     )
@@ -97,3 +96,10 @@ def render_merge_page() -> None:
                         st.error(err)
                     if not result.errors:
                         st.error(result.message)
+
+
+def _merged_download_payload(entries: list[dict]) -> bytes:
+    """Return JSONL bytes for already-saved merge entries."""
+
+    content = "\n".join(json.dumps(entry, ensure_ascii=False) for entry in entries)
+    return content.encode("utf-8")
