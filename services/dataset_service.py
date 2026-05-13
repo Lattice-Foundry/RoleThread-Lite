@@ -732,6 +732,8 @@ def create_entry_service(
     dataset_path: str,
     entries: list[dict],
     new_entry: dict,
+    backup_enabled: bool = True,
+    backup_reason: str = "before_create_entry",
 ) -> DatasetOperationResult:
     """Validate and append one newly created entry."""
 
@@ -765,6 +767,14 @@ def create_entry_service(
     proposed_entries.append(entry_to_append)
     proposed_entries = _normalize_entries(proposed_entries)
     try:
+        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
+    except Exception as exc:
+        traceback.print_exc()
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+    try:
         save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
         saved_path = save_result.dataset_path
         proposed_entries = save_result.entries
@@ -779,6 +789,7 @@ def create_entry_service(
         ok=True,
         message="Entry appended.",
         entries=proposed_entries,
+        backup_path=backup_path,
         affected_count=1,
         dataset_path=saved_path,
         **_sidecar_result_fields(save_result),

@@ -142,6 +142,7 @@ def test_create_entry_service_appends_valid_entry_and_preserves_metadata(tmp_pat
         dataset_path=str(path),
         entries=existing,
         new_entry=new_entry,
+        backup_enabled=False,
     )
 
     assert result.ok is True
@@ -167,6 +168,7 @@ def test_create_entry_service_auto_corrects_role_typos_before_validation(tmp_pat
             ],
             "tags": ["custom"],
         },
+        backup_enabled=False,
     )
 
     assert result.ok is True
@@ -186,12 +188,57 @@ def test_create_entry_service_invalid_entry_blocks_save_and_preserves_disk(tmp_p
         dataset_path=str(path),
         entries=existing,
         new_entry=_malformed_entry(),
+        backup_enabled=False,
     )
 
     assert result.ok is False
     assert result.entries is None
     assert result.errors
     assert _read_entries(path) == existing
+
+
+def test_create_entry_service_creates_backup_before_append(tmp_path, monkeypatch):
+    existing = [_entry(tags=["existing"])]
+    path = _write_dataset(tmp_path, existing)
+    backups = _backup_recorder(monkeypatch, tmp_path)
+
+    result = create_entry_service(
+        dataset_path=str(path),
+        entries=existing,
+        new_entry=_entry(tags=["custom"]),
+    )
+
+    assert result.ok is True
+    assert len(backups) == 1
+    assert result.backup_path == str(backups[0])
+    assert _read_entries(backups[0]) == existing
+    assert _read_entries(path) == result.entries
+    assert len(result.entries) == 2
+
+
+def test_create_entry_service_backup_failure_blocks_append(tmp_path, monkeypatch):
+    existing = [_entry(tags=["existing"])]
+    path = _write_dataset(tmp_path, existing)
+    original_entries = copy.deepcopy(existing)
+    _force_backup_failure(monkeypatch)
+
+    monkeypatch.setattr(
+        dataset_service,
+        "_write_registry_sidecar",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("sidecar should not write")),
+    )
+
+    result = create_entry_service(
+        dataset_path=str(path),
+        entries=existing,
+        new_entry=_entry(tags=["custom"]),
+    )
+
+    assert result.ok is False
+    assert result.entries is None
+    assert result.backup_path is None
+    assert "Failed to create dataset backup" in result.message
+    assert _read_entries(path) == original_entries
 
 
 def test_create_entry_service_missing_dataset_path_fails_safely():
