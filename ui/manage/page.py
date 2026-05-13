@@ -55,6 +55,9 @@ def render_manage_page() -> None:
         end=filter_result.end,
         total_filtered=filter_result.total_filtered,
         total_all=filter_result.total_all,
+        search_query=filter_result.search_query,
+        search_active=filter_result.search_active,
+        search_options=filter_result.search_options,
         tag_snapshot=tag_snapshot,
     )
     render_entry_list(

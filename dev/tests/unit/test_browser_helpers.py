@@ -194,6 +194,23 @@ def test_format_browser_status_caption_filtered_with_selection():
     )
 
 
+def test_format_browser_status_caption_supports_matching_entry_label():
+    caption = format_browser_status_caption(
+        start=0,
+        end=10,
+        total_filtered=12,
+        total_all=300,
+        filtered=True,
+        selected_count=2,
+        filtered_label="matching entries",
+    )
+
+    assert (
+        caption
+        == "Showing 1\u201310 of 12 matching entries (300 total) | 2 of 12 selected"
+    )
+
+
 def test_normalize_untagged_selection_strips_untagged_from_select_all():
     selected = normalize_untagged_selection(
         selected_tags=["alpha", "beta", "__untagged__"],

@@ -149,13 +149,14 @@ def format_browser_status_caption(
     total_all: int,
     filtered: bool,
     selected_count: int | None = None,
+    filtered_label: str = "filtered entries",
 ) -> str:
     """Format the browser status caption text."""
     display_start = 0 if total_filtered == 0 else start + 1
     if filtered:
         caption = (
             f"Showing {display_start}\u2013{end} of {total_filtered} "
-            f"filtered entries ({total_all} total)"
+            f"{filtered_label} ({total_all} total)"
         )
         selected_total = total_filtered
     else:

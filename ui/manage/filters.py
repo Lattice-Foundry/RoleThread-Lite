@@ -6,6 +6,7 @@ import streamlit as st
 
 from core.character_display import build_character_display_cache
 from core.dataset import filter_entry_pairs_by_tags
+from core.entry_search import EntrySearchOptions, filter_entries_by_search
 from core.tag_registry import prettify_tag_name
 from ui.browser_helpers import (
     DEFAULT_PAGE_SIZE,
@@ -15,6 +16,11 @@ from ui.browser_helpers import (
     calculate_pagination,
     normalize_untagged_selection,
     slice_visible_pairs,
+)
+from ui.entry_search_controls import render_entry_search_controls
+from ui.entry_search_state import (
+    ENTRY_SEARCH_QUERY_KEY,
+    get_entry_search_options,
 )
 
 
@@ -33,10 +39,35 @@ class ManageFilterResult:
     end: int
     visible_pairs: list[tuple[str, dict]]
     character_display_cache: dict[str, dict[int, str]]
+    search_query: str
+    search_active: bool
+    search_options: EntrySearchOptions
 
     @property
     def has_entries(self) -> bool:
         return bool(self.visible_pairs)
+
+
+def apply_manage_entry_filters(
+    entry_pairs: list[tuple[str, dict]],
+    *,
+    filter_tags: list[str],
+    tag_match_mode: str,
+    search_query: str,
+    search_options: EntrySearchOptions,
+) -> list[tuple[str, dict]]:
+    """Apply Manage filters in order: tags first, then entry search."""
+
+    tag_filtered_pairs = filter_entry_pairs_by_tags(
+        entry_pairs,
+        selected_tags=filter_tags,
+        match_mode=tag_match_mode,
+    )
+    return filter_entries_by_search(
+        tag_filtered_pairs,
+        search_query,
+        search_options,
+    )
 
 
 def render_filters(
@@ -106,10 +137,16 @@ def render_filters(
             on_change=_reset_page,
         )
 
-    filtered_pairs = filter_entry_pairs_by_tags(
+    render_entry_search_controls()
+    search_query = st.session_state.get(ENTRY_SEARCH_QUERY_KEY, "")
+    search_options = get_entry_search_options()
+
+    filtered_pairs = apply_manage_entry_filters(
         all_pairs,
-        selected_tags=filter_tags,
-        match_mode=match_mode,
+        filter_tags=filter_tags,
+        tag_match_mode=match_mode,
+        search_query=search_query,
+        search_options=search_options,
     )
 
     saved_per_page = st.session_state.get("entries_per_page", DEFAULT_PAGE_SIZE)
@@ -134,8 +171,14 @@ def render_filters(
     total_filtered = len(filtered_pairs)
     total_all = len(all_pairs)
 
+    search_active = bool(str(search_query or "").strip())
     if total_filtered == 0:
-        st.info("No entries match the current filters.")
+        if search_active and filter_tags:
+            st.info("No entries match the current filters and search.")
+        elif search_active:
+            st.info("No entries match the current search.")
+        else:
+            st.info("No entries match the current filters.")
         return None
 
     pagination = calculate_pagination(
@@ -165,4 +208,7 @@ def render_filters(
         end=pagination.end,
         visible_pairs=visible_pairs,
         character_display_cache=character_display_cache,
+        search_query=search_query,
+        search_active=search_active,
+        search_options=search_options,
     )

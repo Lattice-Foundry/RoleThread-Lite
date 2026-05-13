@@ -4,6 +4,7 @@ from typing import Any
 import streamlit as st
 
 from core.backups import auto_backups_enabled
+from core.entry_search import EntrySearchOptions
 from core.text_helpers import count_phrase
 from services.dataset_service import replace_system_prompt_bulk_service
 from ui.browser_helpers import format_browser_status_caption
@@ -32,6 +33,9 @@ def render_actions(
     end: int,
     total_filtered: int,
     total_all: int,
+    search_query: str,
+    search_active: bool,
+    search_options: EntrySearchOptions,
     tag_snapshot: Any,
 ) -> None:
     """Render selection actions and tag-edit controls."""
@@ -39,6 +43,9 @@ def render_actions(
     view_fingerprint = (
         tuple(sorted(filter_tags)),
         match_mode,
+        str(search_query or "").strip(),
+        search_options.scopes,
+        search_options.match_mode,
         st.session_state.entries_per_page,
         current_page,
     )
@@ -55,8 +62,9 @@ def render_actions(
             end=end,
             total_filtered=total_filtered,
             total_all=total_all,
-            filtered=bool(filter_tags),
+            filtered=bool(filter_tags) or search_active,
             selected_count=total_selected,
+            filtered_label="matching entries" if search_active else "filtered entries",
         )
     )
 
