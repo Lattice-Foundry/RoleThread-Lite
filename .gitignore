@@ -1,7 +1,7 @@
 .claude/
 .pytest_cache/
 .streamlit/
-.pytest_temp/
+.pytest_tmp/
 .cache/
 __pycache__/
 trainer/
@@ -11,6 +11,5 @@ notes/
 venv/
 app_data/preferences.json
 app_data/loreforge.db
-.pytest.ini
 *.pyc
 *.jsonl
