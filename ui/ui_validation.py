@@ -334,6 +334,8 @@ def _candidate_preview(candidate, entries: list[dict]) -> str | None:
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
             continue
+        # Defensive fallback for in-memory entries created outside the load
+        # pipeline; persisted datasets should have stable entry UUIDs.
         current_uuid = get_entry_uuid(entry) or f"entry_index:{index}"
         if current_uuid != entry_uuid:
             continue

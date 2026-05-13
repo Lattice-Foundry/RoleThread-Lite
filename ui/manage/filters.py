@@ -20,6 +20,8 @@ from ui.browser_helpers import (
 
 @dataclass(frozen=True)
 class ManageFilterResult:
+    """Current Manage Dataset filter and pagination state."""
+
     filter_tags: list[str]
     match_mode: str
     total_filtered: int

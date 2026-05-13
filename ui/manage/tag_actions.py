@@ -21,6 +21,8 @@ from ui.session_state import (
 
 
 def render_tag_editor(selected_uuids: list[str], tag_snapshot: Any) -> None:
+    """Render single-entry and bulk tag edit controls for selected entries."""
+
     selected_count = len(selected_uuids)
     if selected_count < 1:
         return

@@ -62,6 +62,8 @@ def collect_character_candidates(entries: list[dict]) -> CharacterCandidateRepor
     for entry_index, entry in enumerate(entries):
         if not isinstance(entry, dict):
             continue
+        # Defensive fallback for pre-UUID or direct unit-test entries. The load
+        # pipeline assigns real entry UUIDs before normal UI workflows use this.
         entry_uuid = get_entry_uuid(entry) or f"entry_index:{entry_index}"
         messages = entry.get("messages")
         if not isinstance(messages, list):

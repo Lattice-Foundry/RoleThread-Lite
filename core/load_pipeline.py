@@ -147,6 +147,8 @@ def build_tag_normalization_summary(
 
 
 def sidecar_error_summary(path: Path, *, message: str, error: str) -> dict:
+    """Return a session-facing summary for a failed sidecar import attempt."""
+
     return {
         "found": True,
         "ok": False,

@@ -76,6 +76,7 @@ def _load_dataset(path: str) -> None:
         "auto_correct_validation_errors",
         st.session_state.get("prefs", {}).get(
             "auto_correct_validation_errors",
+            # Compatibility fallback for older preference files.
             st.session_state.get("prefs", {}).get("auto_normalize_on_load", True),
         ),
     )

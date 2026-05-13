@@ -13,7 +13,10 @@ Current architecture target:
 Current tests cover:
 
 - browser helper calculations in `ui/browser_helpers.py`
-- dataset validation, tag filtering, registries, JSONL persistence, merge, and stats in `core/dataset.py`
+- dataset validation, tag filtering, JSONL persistence, merge, and stats in `core/dataset.py`
+- tag registry, lifecycle metadata, alias resolution, sidecar, and import/export behavior
+- character registry, character mappings, and character sidecar behavior
+- load pipeline, working-copy, dataset UUID, and entry UUID behavior
 - service-layer mutation workflows in `services/dataset_service.py`
 - backup creation, naming, retention, and configured directories in `core/backups.py`
 - local preferences and storage path helpers in `core/preferences.py` and `core/storage.py`
@@ -26,11 +29,9 @@ and brittle widget-level tests would slow down useful product iteration.
 Prefer pure helper and service tests until a UI flow is stable enough to merit
 automation.
 
-Broad database and tag-registry tests are still intentionally deferred for now.
-The tag system is expected to evolve with soft delete, archives,
-migration/rename workflows, unknown-tag repair, validation tooling, and future
-metadata integrity work. Keep DB/tag tests focused on contracts that are stable
-enough to protect.
+Broader end-to-end UI automation, performance/load tests, and installer-level
+checks remain deferred. Keep DB, sidecar, lifecycle, and service tests focused
+on stable contracts that protect local-first data safety.
 
 ## Setup
 

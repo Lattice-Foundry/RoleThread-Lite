@@ -1,4 +1,4 @@
-"""LoreForge Streamlit entry point.
+"""LoreForge Lite Streamlit entry point.
 
 Owns app startup, session initialization, sidebar navigation, and page
 dispatch. Page rendering belongs in ui modules.
@@ -31,10 +31,13 @@ from ui.ui_validation import render_validation_page
 
 # ── Page config ────────────────────────────────────────────────────────────────
 ensure_app_directories()
-st.set_page_config(page_title="LoreForge", layout="wide")
+st.set_page_config(page_title="LoreForge Lite", layout="wide")
 
 st.markdown(
-    "<h1 style='color:#1a73e8'>LoreForge — Narrative Intelligence Studio</h1>",
+    "<h1 style='color:#1a73e8'>LoreForge Lite</h1>"
+    "<p style='margin-top:-0.75rem;color:#5f6368;font-size:1.05rem'>"
+    "Local-First Dataset Crafting for Narrative AI"
+    "</p>",
     unsafe_allow_html=True,
 )
 
@@ -113,6 +116,8 @@ if "prefs" not in st.session_state:
     st.session_state.backups_per_dataset = prefs.get("backups_per_dataset", 25)
     st.session_state.auto_correct_validation_errors = prefs.get(
         "auto_correct_validation_errors",
+        # Compatibility fallback for preference files created before the
+        # validation setting was renamed from "auto normalize on load".
         prefs.get("auto_normalize_on_load", True),
     )
     st.session_state.page = "Create Entry"

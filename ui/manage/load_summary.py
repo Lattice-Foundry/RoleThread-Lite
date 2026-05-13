@@ -7,6 +7,8 @@ from core.text_helpers import count_phrase
 
 
 def format_source_format(source_format: str) -> str:
+    """Return a user-facing label for a detected source format."""
+
     labels = {
         FORMAT_CHATML: "ChatML",
         FORMAT_SHAREGPT: "ShareGPT",
@@ -24,6 +26,8 @@ def render_load_format_summary(
     correction_failed: bool = False,
     normalized_entries: int = 0,
 ) -> None:
+    """Render format, load, normalization, and follow-up notices."""
+
     source_format = normalization.source_format
     if source_format == FORMAT_SHAREGPT:
         st.info(
@@ -117,6 +121,8 @@ def render_load_format_summary(
 
 
 def render_sidecar_summary() -> None:
+    """Render sibling sidecar import results when they are user-visible."""
+
     sidecar_summary = st.session_state.get("sidecar_import_summary")
     if not sidecar_summary:
         return
@@ -160,6 +166,8 @@ def render_sidecar_summary() -> None:
 
 
 def render_pending_trust_summary() -> None:
+    """Render archived/imported tag notices after dataset load."""
+
     pending_trust = st.session_state.get("pending_tag_trust") or {}
     if not pending_trust:
         return
@@ -218,6 +226,8 @@ def render_load_errors(normalization, errors: list[str], entries: list[dict]) ->
 
 
 def render_entry_issue_summary(entries: list[dict]) -> None:
+    """Render the Manage Dataset validation issue count for loaded entries."""
+
     invalid_count = sum(1 for entry in entries if _entry_has_reportable_diagnostics(entry))
     if invalid_count:
         st.warning(

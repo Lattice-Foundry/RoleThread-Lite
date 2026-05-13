@@ -43,6 +43,9 @@ def load_preferences() -> dict:
                     "auto_correct_validation_errors" not in data
                     and "auto_normalize_on_load" in data
                 ):
+                    # Legacy preference key from the pre-0.5 normalization
+                    # setting; keep reading it so older local installs upgrade
+                    # without resetting the user's choice.
                     data["auto_correct_validation_errors"] = data["auto_normalize_on_load"]
                 return {**DEFAULTS, **data}
     except Exception:
