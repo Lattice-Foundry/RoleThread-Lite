@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from core.dataset import load_dataset, save_dataset
+from core.dataset import load_dataset, merge_datasets, save_dataset
 from core.loreforge_meta import (
     LOREFORGE_META_KEY,
     get_dataset_uuid_for_entries,
@@ -1387,6 +1387,127 @@ def test_save_merged_entries_service_skips_character_mapping_for_discarded_dupli
     try:
         assert session.query(EntryCharacterTurn).filter_by(
             entry_uuid=discarded_uuid
+        ).count() == 0
+    finally:
+        session.close()
+
+
+def test_merge_then_save_preserves_duplicate_tags_and_skips_discarded_mapping(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _registry_session_factory(tmp_path, monkeypatch)
+    session = session_factory()
+    try:
+        category = TagCategory(slug="behavior", name="Behavior")
+        session.add(category)
+        session.flush()
+        session.add_all([
+            Tag(
+                slug="first_tag",
+                name="First Tag",
+                category_id=category.id,
+                status="active",
+            ),
+            Tag(
+                slug="new_tag",
+                name="New Tag",
+                category_id=category.id,
+                status="active",
+            ),
+        ])
+        session.commit()
+    finally:
+        session.close()
+
+    def fake_resolve_tag_lifecycle(tag):
+        if tag == "old_tag":
+            return SimpleNamespace(should_rewrite_slug=True, resolved_slug="new_tag")
+        return SimpleNamespace(should_rewrite_slug=False, resolved_slug=tag)
+
+    monkeypatch.setattr(tag_resolution, "resolve_tag_lifecycle", fake_resolve_tag_lifecycle)
+
+    survivor_path = tmp_path / "survivor.jsonl"
+    duplicate_path = tmp_path / "duplicate.jsonl"
+    output_path = tmp_path / "merged.jsonl"
+    survivor_entries = stamp_entries(
+        [
+            _entry(
+                user="Same conversation",
+                assistant="Same reply",
+                tags=["first_tag"],
+            )
+        ],
+        dataset_uuid="survivor-dataset-uuid",
+    )
+    duplicate_entries = stamp_entries(
+        [
+            _entry(
+                user="Same conversation",
+                assistant="Same reply",
+                tags=["old_tag"],
+            )
+        ],
+        dataset_uuid="duplicate-dataset-uuid",
+    )
+    duplicate_uuid = get_entry_uuid(duplicate_entries[0])
+    save_dataset(str(survivor_path), survivor_entries)
+    save_dataset(str(duplicate_path), duplicate_entries)
+    write_sidecar(
+        SidecarRegistry(
+            metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00Z"),
+            dataset_info=SidecarDatasetInfo(
+                dataset_uuid="duplicate-dataset-uuid",
+                filename=duplicate_path.name,
+            ),
+            characters=(SidecarCharacter(slug="emma", display_name="Emma"),),
+            entry_character_mappings=(
+                SidecarEntryCharacterMapping(
+                    entry_uuid=duplicate_uuid,
+                    turns=(
+                        {
+                            "turn_index": 2,
+                            "character_slug": "emma",
+                            "training_role": "assistant",
+                            "source_role_label": "Emma",
+                        },
+                    ),
+                ),
+            ),
+        ),
+        sidecar_path_for_dataset(duplicate_path),
+    )
+
+    merged, stats = merge_datasets(
+        [str(survivor_path), str(duplicate_path)],
+        shuffle=False,
+    )
+    result = save_merged_entries_service(
+        dataset_path=str(output_path),
+        entries=merged,
+        source_paths=[str(survivor_path), str(duplicate_path)],
+        backup_enabled=False,
+    )
+
+    assert stats["duplicates_removed"] == 1
+    assert result.ok is True
+    assert result.entries[0]["tags"] == ["first_tag", "new_tag"]
+    assert result.source_sidecar_summary.character_mappings_imported == []
+    assert any(
+        duplicate_uuid in warning
+        for warning in result.source_sidecar_summary.warnings
+    )
+    output_sidecar = read_sidecar(sidecar_path_for_dataset(output_path))
+    assert output_sidecar.dataset_info.tag_usage_counts == {
+        "first_tag": 1,
+        "new_tag": 1,
+    }
+    assert [tag.slug for tag in output_sidecar.tags] == ["first_tag", "new_tag"]
+    assert output_sidecar.entry_character_mappings == ()
+    session = session_factory()
+    try:
+        assert session.query(EntryCharacterTurn).filter_by(
+            entry_uuid=duplicate_uuid
         ).count() == 0
     finally:
         session.close()

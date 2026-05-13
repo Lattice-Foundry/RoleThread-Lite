@@ -1118,7 +1118,8 @@ def build_dataset_stats(
 def merge_datasets(paths: list[str], shuffle: bool = True) -> tuple[list[dict], dict]:
     """Merge JSONL datasets while removing duplicate user/assistant exchanges."""
 
-    seen, merged = set(), []
+    seen: dict[str, dict] = {}
+    merged = []
     stats = {"total_loaded": 0, "duplicates_removed": 0, "parse_errors": []}
 
     for path in paths:
@@ -1134,11 +1135,32 @@ def merge_datasets(paths: list[str], shuffle: bool = True) -> tuple[list[dict], 
             key = json.dumps(msgs, ensure_ascii=False, sort_keys=True)
             if key in seen:
                 stats["duplicates_removed"] += 1
+                _merge_duplicate_entry_tags(seen[key], entry)
             else:
-                seen.add(key)
-                merged.append(entry)
+                survivor = deepcopy(entry)
+                seen[key] = survivor
+                merged.append(survivor)
 
     if shuffle:
         random.shuffle(merged)
 
     return merged, stats
+
+
+def _merge_duplicate_entry_tags(survivor: dict, duplicate: dict) -> None:
+    """Merge duplicate entry tags into the first-wins survivor in-place."""
+
+    survivor_tags = survivor.get("tags") if isinstance(survivor, dict) else None
+    duplicate_tags = duplicate.get("tags") if isinstance(duplicate, dict) else None
+    combined: list = []
+    if isinstance(survivor_tags, list):
+        _append_unique_raw_tags(combined, survivor_tags)
+    if isinstance(duplicate_tags, list):
+        _append_unique_raw_tags(combined, duplicate_tags)
+    survivor["tags"] = combined
+
+
+def _append_unique_raw_tags(target: list, tags: list) -> None:
+    for tag in tags:
+        if tag not in target:
+            target.append(tag)

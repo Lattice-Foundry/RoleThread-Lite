@@ -42,7 +42,7 @@ from core.dataset import (
     summarize_entry_analysis,
     validate_entry,
 )
-from core.loreforge_meta import LOREFORGE_META_KEY
+from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid, stamp_entries
 from core.entry_analysis import AnalysisSeverity, EntryAnalysisResult, EntryDiagnostic
 from core.format_conversion import (
     FORMAT_CHATML,
@@ -1266,9 +1266,54 @@ def test_merge_datasets_removes_duplicates_and_preserves_first_unique_entry(tmp_
 
     merged, stats = merge_datasets([str(path_one), str(path_two)], shuffle=False)
 
-    assert merged == [first, second]
+    expected_first = {**first, "tags": ["first", "duplicate"]}
+    assert merged == [expected_first, second]
     assert stats["total_loaded"] == 3
     assert stats["duplicates_removed"] == 1
+
+
+def test_merge_datasets_duplicate_entries_merge_tags_only_into_first_survivor(tmp_path):
+    path_one = tmp_path / "one.jsonl"
+    path_two = tmp_path / "two.jsonl"
+    first = stamp_entries(
+        [
+            _entry(
+                tags=["first", "shared"],
+                messages=[
+                    {"role": "system", "content": "First system"},
+                    {"role": "user", "content": "Same user"},
+                    {"role": "assistant", "content": "Same assistant"},
+                ],
+            )
+        ],
+        dataset_uuid="first-dataset",
+    )[0]
+    duplicate = stamp_entries(
+        [
+            _entry(
+                tags=["shared", "duplicate", "first"],
+                messages=[
+                    {"role": "system", "content": "Different system"},
+                    {"role": "user", "content": "Same user"},
+                    {"role": "assistant", "content": "Same assistant"},
+                ],
+            )
+        ],
+        dataset_uuid="duplicate-dataset",
+    )[0]
+    first_uuid = get_entry_uuid(first)
+    duplicate_uuid = get_entry_uuid(duplicate)
+    save_dataset(str(path_one), [first])
+    save_dataset(str(path_two), [duplicate])
+
+    merged, stats = merge_datasets([str(path_one), str(path_two)], shuffle=False)
+
+    assert len(merged) == 1
+    assert stats["duplicates_removed"] == 1
+    assert merged[0]["messages"] == first["messages"]
+    assert get_entry_uuid(merged[0]) == first_uuid
+    assert get_entry_uuid(merged[0]) != duplicate_uuid
+    assert merged[0]["tags"] == ["first", "shared", "duplicate"]
 
 
 def test_merge_datasets_collects_parse_errors_from_bad_input_files(tmp_path):

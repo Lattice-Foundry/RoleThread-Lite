@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "schema_version": 1,
+    "kind": "loreforge.tag_registry",
+    "exported_at": "2026-05-13T14:36:33.517467+00:00",
+    "app_name": "LoreForge Lite",
+    "app_version": "0.7.13"
+  },
+  "dataset": {
+    "dataset_uuid": "6d5a5d1b-1d73-447a-b856-89e54815c4ad",
+    "filename": "merged.jsonl",
+    "entry_count": 1,
+    "tag_usage_counts": {}
+  },
+  "categories": [],
+  "tags": [],
+  "aliases": [],
+  "characters": [
+    {
+      "slug": "emma",
+      "display_name": "Emma",
+      "description": null,
+      "is_active": true
+    }
+  ],
+  "entry_character_mappings": []
+}

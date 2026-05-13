@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "schema_version": 1,
+    "kind": "loreforge.tag_registry",
+    "exported_at": "2026-05-13T14:36:42.027866+00:00",
+    "app_name": "LoreForge Lite",
+    "app_version": "0.7.13"
+  },
+  "dataset": {
+    "dataset_uuid": "91a9a129-1376-4858-af5b-d484fd96a1ac",
+    "filename": "merged.jsonl",
+    "entry_count": 1,
+    "tag_usage_counts": {}
+  },
+  "categories": [],
+  "tags": [],
+  "aliases": [],
+  "characters": [
+    {
+      "slug": "scott",
+      "display_name": "Scott",
+      "description": null,
+      "is_active": true
+    }
+  ],
+  "entry_character_mappings": [
+    {
+      "entry_uuid": "e38db2c3-e7f8-4bdd-b656-1960c42ff9bd",
+      "turns": [
+        {
+          "turn_index": 1,
+          "character_slug": "scott",
+          "training_role": "user",
+          "source_role_label": "Scott"
+        }
+      ]
+    }
+  ]
+}

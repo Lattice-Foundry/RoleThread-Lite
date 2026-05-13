@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "schema_version": 1,
+    "kind": "loreforge.tag_registry",
+    "exported_at": "2026-05-13T14:37:24.230704+00:00",
+    "app_name": "LoreForge Lite",
+    "app_version": "0.7.13"
+  },
+  "dataset": {
+    "dataset_uuid": "6e2bba51-3e5e-4132-bde4-5c91fa52f4d2",
+    "filename": "merged.jsonl",
+    "entry_count": 1,
+    "tag_usage_counts": {}
+  },
+  "categories": [],
+  "tags": [],
+  "aliases": [],
+  "characters": [
+    {
+      "slug": "kai",
+      "display_name": "Kai",
+      "description": null,
+      "is_active": true
+    }
+  ],
+  "entry_character_mappings": []
+}

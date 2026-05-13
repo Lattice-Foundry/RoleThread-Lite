@@ -1,0 +1,59 @@
+{
+  "metadata": {
+    "schema_version": 1,
+    "kind": "loreforge.tag_registry",
+    "exported_at": "2026-05-13T14:37:24.184214+00:00",
+    "app_name": "LoreForge Lite",
+    "app_version": "0.7.13"
+  },
+  "dataset": {
+    "dataset_uuid": "70bfd11b-c40c-4807-8460-12650209f354",
+    "filename": "merged.jsonl",
+    "entry_count": 1,
+    "tag_usage_counts": {
+      "first_tag": 1,
+      "new_tag": 1
+    }
+  },
+  "categories": [
+    {
+      "slug": "behavior",
+      "name": "Behavior",
+      "sort_order": 0,
+      "is_active": true,
+      "is_builtin": true
+    }
+  ],
+  "tags": [
+    {
+      "slug": "first_tag",
+      "name": "First Tag",
+      "category_slug": "behavior",
+      "sort_order": 0,
+      "status": "active",
+      "is_active": true,
+      "is_builtin": false,
+      "lifecycle": {}
+    },
+    {
+      "slug": "new_tag",
+      "name": "New Tag",
+      "category_slug": "behavior",
+      "sort_order": 0,
+      "status": "active",
+      "is_active": true,
+      "is_builtin": false,
+      "lifecycle": {}
+    }
+  ],
+  "aliases": [],
+  "characters": [
+    {
+      "slug": "emma",
+      "display_name": "Emma",
+      "description": null,
+      "is_active": true
+    }
+  ],
+  "entry_character_mappings": []
+}

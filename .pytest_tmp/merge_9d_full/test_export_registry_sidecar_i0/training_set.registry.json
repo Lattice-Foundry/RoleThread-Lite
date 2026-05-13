@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "schema_version": 1,
+    "kind": "loreforge.tag_registry",
+    "exported_at": "2026-05-13T14:37:24.488816+00:00",
+    "app_name": "LoreForge Lite",
+    "app_version": "0.7.13"
+  },
+  "dataset": {
+    "dataset_uuid": "dataset-uuid-1",
+    "filename": "training_set.jsonl",
+    "entry_count": 1,
+    "tag_usage_counts": {}
+  },
+  "categories": [],
+  "tags": [],
+  "aliases": [],
+  "characters": [
+    {
+      "slug": "emma",
+      "display_name": "Emma",
+      "description": null,
+      "is_active": true
+    },
+    {
+      "slug": "scott",
+      "display_name": "Scott",
+      "description": null,
+      "is_active": true
+    }
+  ],
+  "entry_character_mappings": [
+    {
+      "entry_uuid": "entry-1",
+      "turns": [
+        {
+          "turn_index": 1,
+          "character_slug": "scott",
+          "training_role": "user",
+          "source_role_label": "Scott"
+        },
+        {
+          "turn_index": 2,
+          "character_slug": "emma",
+          "training_role": "assistant",
+          "source_role_label": "Emma"
+        }
+      ]
+    }
+  ]
+}
