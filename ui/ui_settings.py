@@ -184,7 +184,9 @@ def render_settings_page() -> None:
     )
 
     def _persist_preview_user_name():
-        st.session_state.preview_user_name = st.session_state["_preview_user_name_input"]
+        st.session_state.preview_user_name = st.session_state[
+            "_preview_human_display_name_input"
+        ]
         update_prefs({"preview_user_name": st.session_state.preview_user_name})
 
     def _persist_preview_assistant_name():
@@ -194,17 +196,19 @@ def render_settings_page() -> None:
     user_col, assistant_col, _preview_name_spacer = st.columns([1, 1, 2])
     with user_col:
         st.text_input(
-            "User Name",
+            "Human Display Name",
             value=st.session_state.preview_user_name,
-            key="_preview_user_name_input",
+            key="_preview_human_display_name_input",
             on_change=_persist_preview_user_name,
+            autocomplete="off",
         )
     with assistant_col:
         st.text_input(
-            "Assistant Name",
+            "Assistant Display Name",
             value=st.session_state.preview_assistant_name,
             key="_preview_assistant_name_input",
             on_change=_persist_preview_assistant_name,
+            autocomplete="off",
         )
 
     st.divider()
