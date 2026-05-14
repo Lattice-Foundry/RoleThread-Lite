@@ -705,7 +705,7 @@ def render_edit_entries_page() -> None:
             _ee_filter_state.clamped_selected_tags
         )
 
-    _ee_filter_col, _ee_mode_col = st.columns([3, 1])
+    _ee_filter_col, _ee_mode_col, _ee_filter_spacer = st.columns([1, 1, 2])
     with _ee_filter_col:
         _ee_filter_tags = st.multiselect(
             "Filter entries by tag",
@@ -735,7 +735,7 @@ def render_edit_entries_page() -> None:
         )
 
     # ── Apply filter ───────────────────────────────────────────────────────────
-    render_entry_search_controls(on_change=_ee_reset_page)
+    render_entry_search_controls(on_change=_ee_reset_page, compact_layout=True)
     _ee_search_query = st.session_state.get(ENTRY_SEARCH_QUERY_KEY, "")
     _ee_search_options = get_entry_search_options()
 
@@ -849,7 +849,7 @@ def render_edit_entries_page() -> None:
             )
 
     # ── Pagination buttons ─────────────────────────────────────────────────────
-    _ee_col_prev, _ee_col_next = st.columns(2)
+    _ee_col_prev, _ee_col_next, _ee_pagination_spacer = st.columns([1, 1, 2])
     with _ee_col_prev:
         if st.button(
             "Previous",
