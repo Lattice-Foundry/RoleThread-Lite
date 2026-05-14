@@ -27,6 +27,11 @@ from ui.entry_search_state import (
     ENTRY_SEARCH_QUERY_KEY,
     get_entry_search_options,
 )
+from ui.stats_navigation import (
+    STATS_FILTER_LABEL_KEY,
+    STATS_FILTER_UUIDS_KEY,
+    clear_stats_entry_filter,
+)
 
 
 @dataclass(frozen=True)
@@ -48,6 +53,9 @@ class ManageFilterResult:
     search_query: str
     search_active: bool
     search_options: EntrySearchOptions
+    stats_filter_active: bool
+    stats_filter_uuids: tuple[str, ...]
+    stats_filter_label: str
 
     @property
     def has_entries(self) -> bool:
@@ -61,19 +69,36 @@ def apply_manage_entry_filters(
     tag_match_mode: str,
     search_query: str,
     search_options: EntrySearchOptions,
+    stats_filter_uuids: set[str] | None = None,
 ) -> list[tuple[str, dict]]:
-    """Apply Manage filters in order: tags first, then entry search."""
+    """Apply Manage filters in order: tags, search, then optional Stats UUIDs."""
 
     tag_filtered_pairs = filter_entry_pairs_by_tags(
         entry_pairs,
         selected_tags=filter_tags,
         match_mode=tag_match_mode,
     )
-    return filter_entries_by_search(
+    search_filtered_pairs = filter_entries_by_search(
         tag_filtered_pairs,
         search_query,
         search_options,
     )
+    return apply_stats_uuid_filter(search_filtered_pairs, stats_filter_uuids)
+
+
+def apply_stats_uuid_filter(
+    entry_pairs: list[tuple[str, dict]],
+    entry_uuids: set[str] | None,
+) -> list[tuple[str, dict]]:
+    """Return only entries whose UUID was requested by a Stats deep link."""
+
+    if not entry_uuids:
+        return entry_pairs
+    return [
+        (entry_uuid, entry)
+        for entry_uuid, entry in entry_pairs
+        if entry_uuid in entry_uuids
+    ]
 
 
 def render_filters(
@@ -146,6 +171,14 @@ def render_filters(
     render_entry_search_controls(on_change=_reset_page)
     search_query = st.session_state.get(ENTRY_SEARCH_QUERY_KEY, "")
     search_options = get_entry_search_options()
+    stats_filter_uuids = set(st.session_state.get(STATS_FILTER_UUIDS_KEY, set()))
+    stats_filter_label = st.session_state.get(STATS_FILTER_LABEL_KEY, "")
+    stats_filter_active = bool(stats_filter_uuids)
+    if stats_filter_active:
+        _render_stats_filter_banner(
+            len(stats_filter_uuids),
+            stats_filter_label,
+        )
 
     filtered_pairs = apply_manage_entry_filters(
         all_pairs,
@@ -153,6 +186,7 @@ def render_filters(
         tag_match_mode=match_mode,
         search_query=search_query,
         search_options=search_options,
+        stats_filter_uuids=stats_filter_uuids,
     )
 
     saved_per_page = st.session_state.get("entries_per_page", DEFAULT_PAGE_SIZE)
@@ -179,13 +213,18 @@ def render_filters(
 
     search_active = is_entry_search_query_active(search_query)
     if total_filtered == 0:
-        st.info(
-            format_entry_search_no_results_message(
-                has_tag_filters=bool(filter_tags),
-                search_active=search_active,
-                scopes_enabled=entry_search_has_enabled_scope(search_options),
+        if stats_filter_active:
+            st.info(
+                "No entries match the active Stats filter with the current Manage filters."
             )
-        )
+        else:
+            st.info(
+                format_entry_search_no_results_message(
+                    has_tag_filters=bool(filter_tags),
+                    search_active=search_active,
+                    scopes_enabled=entry_search_has_enabled_scope(search_options),
+                )
+            )
         return None
 
     pagination = calculate_pagination(
@@ -219,4 +258,20 @@ def render_filters(
         search_query=search_query,
         search_active=search_active,
         search_options=search_options,
+        stats_filter_active=stats_filter_active,
+        stats_filter_uuids=tuple(sorted(stats_filter_uuids)),
+        stats_filter_label=stats_filter_label,
     )
+
+
+def _render_stats_filter_banner(entry_count: int, label: str) -> None:
+    message = f"Showing {entry_count} entr{'y' if entry_count == 1 else 'ies'} from Stats"
+    if label:
+        message = f"{message}: {label}"
+    banner_col, clear_col = st.columns([4, 1])
+    with banner_col:
+        st.info(message)
+    with clear_col:
+        if st.button("Clear Stats Filter", key="btn_clear_stats_filter", width="stretch"):
+            clear_stats_entry_filter()
+            st.rerun()

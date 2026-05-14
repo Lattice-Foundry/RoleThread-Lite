@@ -15,6 +15,7 @@ from core.loreforge_meta import get_entry_uuid
 from core.qualitative_analysis import DatasetQualityReport, analyze_dataset_quality
 from core.tag_registry import get_tag_registry_snapshot
 from ui.session_state import ensure_entry_indexes
+from ui.stats_navigation import navigate_to_entries
 
 
 def _format_source_format(source_format: str) -> str:
@@ -112,7 +113,11 @@ def _render_response_quality_card(report: DatasetQualityReport) -> None:
         st.write(f"Empty responses: **{score.empty_response_count}**")
         st.write(f"Placeholder responses: **{score.placeholder_count}**")
         st.write(f"User/assistant length ratio: **{score.user_assistant_length_ratio:.2f}**")
-        _render_affected_count(score.flagged_entry_uuids)
+        _render_affected_count(
+            score.flagged_entry_uuids,
+            label="Response Quality flagged entries",
+            key="response_quality",
+        )
 
 
 def _render_diversity_card(report: DatasetQualityReport) -> None:
@@ -125,7 +130,11 @@ def _render_diversity_card(report: DatasetQualityReport) -> None:
         st.write(f"Tag entropy: **{score.tag_entropy:.2f}**")
         st.write(f"Categories represented: **{score.category_coverage_count}**")
         st.write(f"Near-duplicate pairs: **{score.near_duplicate_count}**")
-        _render_affected_count(score.flagged_entry_uuids)
+        _render_affected_count(
+            score.flagged_entry_uuids,
+            label="Diversity flagged entries",
+            key="diversity",
+        )
 
 
 def _render_structure_card(report: DatasetQualityReport) -> None:
@@ -138,7 +147,11 @@ def _render_structure_card(report: DatasetQualityReport) -> None:
         st.write(f"Entries in 3-7 exchange range: **{score.in_optimal_range_percent:.1f}%**")
         st.write(f"Short system prompts: **{score.short_system_prompt_count}**")
         st.write(f"Missing system prompts: **{score.missing_system_prompt_count}**")
-        _render_affected_count(score.flagged_entry_uuids)
+        _render_affected_count(
+            score.flagged_entry_uuids,
+            label="Structure flagged entries",
+            key="structure",
+        )
 
 
 def _render_metadata_card(report: DatasetQualityReport) -> None:
@@ -150,12 +163,26 @@ def _render_metadata_card(report: DatasetQualityReport) -> None:
         st.write(f"Character mapping completeness: **{score.character_mapping_percent:.1f}%**")
         st.write(f"Sidecar present: **{_yes_no(score.sidecar_present)}**")
         st.write(f"Sidecar current: **{_yes_no(score.sidecar_current)}**")
-        _render_affected_count(score.flagged_entry_uuids)
+        _render_affected_count(
+            score.flagged_entry_uuids,
+            label="Metadata flagged entries",
+            key="metadata",
+        )
 
 
-def _render_affected_count(entry_uuids: tuple[str, ...]) -> None:
+def _render_affected_count(
+    entry_uuids: tuple[str, ...],
+    *,
+    label: str,
+    key: str,
+) -> None:
     if entry_uuids:
-        st.caption(f"{len(entry_uuids)} affected entr{'y' if len(entry_uuids) == 1 else 'ies'}")
+        count = len(entry_uuids)
+        if st.button(
+            f"View {count} affected entr{'y' if count == 1 else 'ies'}",
+            key=f"stats_deeplink_{key}",
+        ):
+            navigate_to_entries(entry_uuids, label)
 
 
 def _render_insights(report: DatasetQualityReport, entries: list[dict]) -> None:

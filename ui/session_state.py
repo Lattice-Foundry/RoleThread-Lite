@@ -121,6 +121,8 @@ _DATASET_SCOPED_STATE_KEYS = (
     "tm_pending_tag_delete",
     "tm_pending_tag_edit",
     "bulk_system_prompt_text",
+    "stats_filter_uuids",
+    "stats_filter_label",
 )
 
 

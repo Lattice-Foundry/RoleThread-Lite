@@ -5,7 +5,7 @@ from core.entry_search import (
     SEARCH_SCOPE_USER,
 )
 from ui.browser_helpers import MATCH_MODE_ANY, MATCH_MODE_EXACT, calculate_pagination, slice_visible_pairs
-from ui.manage.filters import apply_manage_entry_filters
+from ui.manage.filters import apply_manage_entry_filters, apply_stats_uuid_filter
 
 
 def _entry(*, tags=None, user="", assistant=""):
@@ -186,3 +186,34 @@ def test_manage_search_no_results_is_safe():
     )
 
     assert matches == []
+
+
+def test_stats_uuid_filter_limits_entries_and_preserves_order():
+    pairs = [
+        ("first", _entry(user="one")),
+        ("second", _entry(user="two")),
+        ("third", _entry(user="three")),
+    ]
+
+    matches = apply_stats_uuid_filter(pairs, {"third", "first"})
+
+    assert [entry_uuid for entry_uuid, _entry in matches] == ["first", "third"]
+
+
+def test_stats_uuid_filter_composes_after_tag_and_search_filters():
+    pairs = [
+        ("alpha-hit", _entry(tags=["alpha"], user="needle")),
+        ("alpha-other", _entry(tags=["alpha"], user="needle")),
+        ("beta-hit", _entry(tags=["beta"], user="needle")),
+    ]
+
+    matches = apply_manage_entry_filters(
+        pairs,
+        filter_tags=["alpha"],
+        tag_match_mode=MATCH_MODE_ANY,
+        search_query="needle",
+        search_options=EntrySearchOptions(),
+        stats_filter_uuids={"alpha-other", "beta-hit"},
+    )
+
+    assert [entry_uuid for entry_uuid, _entry in matches] == ["alpha-other"]

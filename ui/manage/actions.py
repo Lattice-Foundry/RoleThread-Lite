@@ -37,6 +37,8 @@ def render_actions(
     search_query: str,
     search_active: bool,
     search_options: EntrySearchOptions,
+    stats_filter_active: bool,
+    stats_filter_uuids: tuple[str, ...],
     tag_snapshot: Any,
 ) -> None:
     """Render selection actions and tag-edit controls."""
@@ -47,6 +49,7 @@ def render_actions(
         str(search_query or "").strip(),
         search_options.scopes,
         search_options.match_mode,
+        stats_filter_uuids,
         st.session_state.entries_per_page,
         current_page,
     )
@@ -63,9 +66,15 @@ def render_actions(
             end=end,
             total_filtered=total_filtered,
             total_all=total_all,
-            filtered=bool(filter_tags) or search_active,
+            filtered=bool(filter_tags) or search_active or stats_filter_active,
             selected_count=total_selected,
-            filtered_label="matching entries" if search_active else "filtered entries",
+            filtered_label=(
+                "matching entries"
+                if search_active
+                else "Stats entries"
+                if stats_filter_active
+                else "filtered entries"
+            ),
         )
     )
 
