@@ -45,6 +45,8 @@ from ui.theme import (
     COLOR_PRIMARY_HOVER,
     COLOR_PRIMARY_HOVER_BACKGROUND,
     COLOR_SIDEBAR_BACKGROUND,
+    COLOR_SIDEBAR_BUTTON_BORDER,
+    COLOR_SIDEBAR_BUTTON_TEXT,
     COLOR_SUBTITLE,
 )
 
@@ -84,20 +86,32 @@ button[kind="primary"]:not(:disabled):hover,
     border-color: {COLOR_PRIMARY_ACTIVE} !important;
     color: white !important;
 }}
-/* Active sidebar nav button — mint text, no background fill.
-   More specific selector overrides the general primary-button rule above. */
+/* Sidebar nav buttons: outline by default, mint fill for the active page. */
+section[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:not(:disabled),
+section[data-testid="stSidebar"] button[kind="secondary"]:not(:disabled) {{
+    background-color: transparent !important;
+    border-color: {COLOR_SIDEBAR_BUTTON_BORDER} !important;
+    color: {COLOR_SIDEBAR_BUTTON_TEXT} !important;
+    box-shadow: none !important;
+}}
+section[data-testid="stSidebar"] button[data-testid="baseButton-secondary"]:not(:disabled):hover,
+section[data-testid="stSidebar"] button[kind="secondary"]:not(:disabled):hover {{
+    background-color: {COLOR_PRIMARY_HOVER_BACKGROUND} !important;
+    border-color: {COLOR_PRIMARY} !important;
+    color: {COLOR_PRIMARY_HOVER} !important;
+}}
 section[data-testid="stSidebar"] button[data-testid="baseButton-primary"]:not(:disabled),
 section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled) {{
-    background-color: transparent !important;
-    border-color: transparent !important;
-    color: {COLOR_PRIMARY} !important;
+    background-color: {COLOR_PRIMARY} !important;
+    border-color: {COLOR_PRIMARY_HOVER} !important;
+    color: white !important;
     box-shadow: none !important;
 }}
 section[data-testid="stSidebar"] button[data-testid="baseButton-primary"]:not(:disabled):hover,
 section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled):hover {{
-    background-color: {COLOR_PRIMARY_HOVER_BACKGROUND} !important;
-    border-color: transparent !important;
-    color: {COLOR_PRIMARY_HOVER} !important;
+    background-color: {COLOR_PRIMARY_HOVER} !important;
+    border-color: {COLOR_PRIMARY_ACTIVE} !important;
+    color: white !important;
 }}
 /* Alerts size to their content with a useful floor for short messages. */
 div[data-testid="stAlert"] {{
