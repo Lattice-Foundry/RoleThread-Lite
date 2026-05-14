@@ -64,8 +64,8 @@ def render_tag_management_page() -> None:
         unsafe_allow_html=True,
     )
     st.info(
-        "Custom tag editing is intentionally conservative. Edit and Delete are "
-        "available for custom active tags; merge and migration tools will come later."
+        "Custom tags can be edited, renamed, or deleted. Built-in tags are "
+        "locked to maintain consistency across datasets."
     )
 
     # ── Flash message (shown at top, consumed on next render) ─────────────────
@@ -116,6 +116,7 @@ def render_tag_management_page() -> None:
             with st.expander(
                 f"{cat['name']} ({tag_count} tag{_plural})",
                 expanded=_is_category_renaming,
+                width=700,
             ):
                 st.caption(f"slug: {cat['slug']}")
                 if _is_custom_category:
@@ -298,58 +299,67 @@ def render_tag_management_page() -> None:
                                 st.empty()
                             continue
 
-                        _rename_col, _pipe_col, _delete_col, _detail_col = st.columns(
-                            [0.42, 0.06, 0.42, 9.1],
-                            gap="small",
-                        )
-                        with _rename_col:
-                            if not tag["is_builtin"] and st.button(
-                                "Edit",
-                                key=f"btn_tm_edit_{tag['slug']}",
-                                type="tertiary",
-                            ):
-                                st.session_state["tm_editing_tag_slug"] = tag["slug"]
-                                st.session_state[
-                                    f"tm_edit_name_input_{tag['slug']}"
-                                ] = tag["name"]
-                                st.session_state[
-                                    f"tm_edit_category_select_{tag['slug']}"
-                                ] = cat["name"]
-                                st.session_state.pop("tm_pending_tag_edit", None)
-                                st.session_state.pop("tm_pending_tag_delete", None)
-                                st.rerun()
-                        with _pipe_col:
+                        _action_col, _detail_col = st.columns([1.5, 8.5], gap="small")
+                        with _action_col:
                             if tag["is_builtin"]:
                                 st.empty()
                             else:
-                                st.markdown(
-                                    "<span style='color:#999'>|</span>",
-                                    unsafe_allow_html=True,
+                                _edit_link_col, _delete_link_col = st.columns(
+                                    [0.7, 1],
+                                    gap="small",
                                 )
-                        with _delete_col:
-                            if tag["is_builtin"]:
-                                st.empty()
-                            else:
-                                if st.button(
-                                    ":red[Delete]",
-                                    key=f"btn_tm_delete_{tag['slug']}",
-                                    type="tertiary",
-                                ):
-                                    _usage_count = sum(
-                                        1
-                                        for entry in st.session_state.get(
-                                            "loaded_entries", []
+                                with _edit_link_col:
+                                    if st.button(
+                                        "Edit",
+                                        key=f"btn_tm_edit_{tag['slug']}",
+                                        type="tertiary",
+                                    ):
+                                        st.session_state[
+                                            "tm_editing_tag_slug"
+                                        ] = tag["slug"]
+                                        st.session_state[
+                                            f"tm_edit_name_input_{tag['slug']}"
+                                        ] = tag["name"]
+                                        st.session_state[
+                                            f"tm_edit_category_select_{tag['slug']}"
+                                        ] = cat["name"]
+                                        st.session_state.pop(
+                                            "tm_pending_tag_edit",
+                                            None,
                                         )
-                                        if tag["slug"] in get_entry_tags(entry)
-                                    )
-                                    st.session_state["tm_pending_tag_delete"] = {
-                                        "tag_slug": tag["slug"],
-                                        "display_name": tag["name"],
-                                        "usage_count": _usage_count,
-                                    }
-                                    st.session_state.pop("tm_pending_tag_edit", None)
-                                    st.session_state.pop("tm_editing_tag_slug", None)
-                                    st.rerun()
+                                        st.session_state.pop(
+                                            "tm_pending_tag_delete",
+                                            None,
+                                        )
+                                        st.rerun()
+                                with _delete_link_col:
+                                    if st.button(
+                                        ":red[Delete]",
+                                        key=f"btn_tm_delete_{tag['slug']}",
+                                        type="tertiary",
+                                    ):
+                                        _usage_count = sum(
+                                            1
+                                            for entry in st.session_state.get(
+                                                "loaded_entries",
+                                                [],
+                                            )
+                                            if tag["slug"] in get_entry_tags(entry)
+                                        )
+                                        st.session_state["tm_pending_tag_delete"] = {
+                                            "tag_slug": tag["slug"],
+                                            "display_name": tag["name"],
+                                            "usage_count": _usage_count,
+                                        }
+                                        st.session_state.pop(
+                                            "tm_pending_tag_edit",
+                                            None,
+                                        )
+                                        st.session_state.pop(
+                                            "tm_editing_tag_slug",
+                                            None,
+                                        )
+                                        st.rerun()
                         with _detail_col:
                             st.markdown(
                                 f"**{tag['name']}** &nbsp; "
@@ -576,12 +586,14 @@ def render_tag_management_page() -> None:
             f"This version supports {_tag_snapshot.max_active_categories} active categories."
         )
 
-    _new_cat_name: str = st.text_input(
-        "Category Name",
-        key="tm_new_cat_name",
-        placeholder="e.g. Tone",
-        disabled=_at_limit,
-    )
+    _cat_name_col, _cat_name_spacer = st.columns([1, 1])
+    with _cat_name_col:
+        _new_cat_name: str = st.text_input(
+            "Category Name",
+            key="tm_new_cat_name",
+            placeholder="e.g. Tone",
+            disabled=_at_limit,
+        )
 
     # Live slug / display-name preview
     if _new_cat_name.strip():
@@ -591,20 +603,22 @@ def render_tag_management_page() -> None:
             f"slug: `{_cat_slug_preview}` · display name will be saved as: **{_cat_name_preview}**"
         )
 
-    if st.button(
-        "Create Category",
-        key="btn_tm_create_cat",
-        type="primary",
-        disabled=_at_limit or not _new_cat_name.strip(),
-        width="stretch",
-    ):
-        _ok, _msg = create_custom_category(_new_cat_name)
-        if _ok:
-            enqueue_flash("success", _msg)
-            st.session_state["_tm_clear_cat_name"] = True
-            st.rerun()
-        else:
-            st.error(_msg)
+    _cat_button_col, _cat_button_spacer = st.columns([1, 5])
+    with _cat_button_col:
+        if st.button(
+            "Create Category",
+            key="btn_tm_create_cat",
+            type="primary",
+            disabled=_at_limit or not _new_cat_name.strip(),
+            width="stretch",
+        ):
+            _ok, _msg = create_custom_category(_new_cat_name)
+            if _ok:
+                enqueue_flash("success", _msg)
+                st.session_state["_tm_clear_cat_name"] = True
+                st.rerun()
+            else:
+                st.error(_msg)
 
     # ── Section 3: Add Custom Tag ──────────────────────────────────────────────
     st.divider()
@@ -616,20 +630,24 @@ def render_tag_management_page() -> None:
         _cat_name_to_id: dict[str, int] = {cat["name"]: cat["id"] for cat in registry}
         _cat_names = list(_cat_name_to_id.keys())
 
-        _selected_cat_name: str | None = st.selectbox(
-            "Category",
-            options=_cat_names,
-            key="tm_tag_cat_select",
-        )
+        _cat_select_col, _cat_select_spacer = st.columns([1, 3])
+        with _cat_select_col:
+            _selected_cat_name: str | None = st.selectbox(
+                "Category",
+                options=_cat_names,
+                key="tm_tag_cat_select",
+            )
         _selected_cat_id: int | None = (
             _cat_name_to_id.get(_selected_cat_name) if _selected_cat_name else None
         )
 
-        _new_tag_name: str = st.text_input(
-            "Tag Name",
-            key="tm_new_tag_name",
-            placeholder="e.g. Playful Banter",
-        )
+        _tag_name_col, _tag_name_spacer = st.columns([1, 1])
+        with _tag_name_col:
+            _new_tag_name: str = st.text_input(
+                "Tag Name",
+                key="tm_new_tag_name",
+                placeholder="e.g. Playful Banter",
+            )
 
         # Live slug / display-name preview
         if _new_tag_name.strip():
@@ -639,20 +657,22 @@ def render_tag_management_page() -> None:
                 f"slug: `{_tag_slug_preview}` · display name will be saved as: **{_tag_name_preview}**"
             )
 
-        if st.button(
-            "Add Tag",
-            key="btn_tm_add_tag",
-            type="primary",
-            disabled=_selected_cat_id is None or not _new_tag_name.strip(),
-            width="stretch",
-        ):
-            _ok, _msg = create_custom_tag(_selected_cat_id, _new_tag_name)
-            if _ok:
-                enqueue_flash("success", _msg)
-                st.session_state["_tm_clear_tag_name"] = True
-                st.rerun()
-            else:
-                st.error(_msg)
+        _tag_button_col, _tag_button_spacer = st.columns([1, 5])
+        with _tag_button_col:
+            if st.button(
+                "Add Tag",
+                key="btn_tm_add_tag",
+                type="primary",
+                disabled=_selected_cat_id is None or not _new_tag_name.strip(),
+                width="stretch",
+            ):
+                _ok, _msg = create_custom_tag(_selected_cat_id, _new_tag_name)
+                if _ok:
+                    enqueue_flash("success", _msg)
+                    st.session_state["_tm_clear_tag_name"] = True
+                    st.rerun()
+                else:
+                    st.error(_msg)
 
     # Archived lifecycle tags
     st.divider()
@@ -714,11 +734,13 @@ def render_tag_management_page() -> None:
             if not _category_name_to_slug:
                 st.info("Create an active category before assigning archived tags.")
             else:
-                _selected_assign_category: str | None = st.selectbox(
-                    "Assign selected archived tags to",
-                    options=list(_category_name_to_slug.keys()),
-                    key="tm_archived_assign_category",
-                )
+                _assign_select_col, _assign_select_spacer = st.columns([1, 3])
+                with _assign_select_col:
+                    _selected_assign_category: str | None = st.selectbox(
+                        "Assign selected archived tags to",
+                        options=list(_category_name_to_slug.keys()),
+                        key="tm_archived_assign_category",
+                    )
                 _selected_archived_slugs = selected_assignable_archived_slugs(
                     archived_tags=_archived_tags,
                     selected_by_slug={
@@ -730,20 +752,23 @@ def render_tag_management_page() -> None:
                     },
                 )
 
-                if st.button(
-                    "Assign Selected",
-                    key="btn_tm_assign_archived",
-                    disabled=not _selected_archived_slugs
-                    or _selected_assign_category is None,
-                ):
-                    st.session_state["tm_pending_archived_assignment"] = {
-                        "tag_slugs": _selected_archived_slugs,
-                        "category_slug": _category_name_to_slug[
-                            _selected_assign_category
-                        ],
-                        "category_name": _selected_assign_category,
-                    }
-                    st.rerun()
+                _assign_button_col, _assign_button_spacer = st.columns([1, 5])
+                with _assign_button_col:
+                    if st.button(
+                        "Assign Selected",
+                        key="btn_tm_assign_archived",
+                        disabled=not _selected_archived_slugs
+                        or _selected_assign_category is None,
+                        width="stretch",
+                    ):
+                        st.session_state["tm_pending_archived_assignment"] = {
+                            "tag_slugs": _selected_archived_slugs,
+                            "category_slug": _category_name_to_slug[
+                                _selected_assign_category
+                            ],
+                            "category_name": _selected_assign_category,
+                        }
+                        st.rerun()
 
         _pending_assignment = st.session_state.get("tm_pending_archived_assignment")
         _selected_archived_slugs = selected_assignable_archived_slugs(
