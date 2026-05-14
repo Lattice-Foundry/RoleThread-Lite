@@ -26,21 +26,16 @@ def render_merge_page() -> None:
     elif "merge_input_paths" not in st.session_state:
         st.session_state["merge_input_paths"] = ""
 
-    col_area, col_add = st.columns([5, 1])
-    with col_area:
-        raw_paths = st.text_area(
-            "File paths to merge (one per line)",
-            placeholder="data/set1.jsonl\ndata/set2.jsonl\ndata/set3.jsonl",
-            height=120,
-            key="merge_input_paths",
-        )
+    raw_paths = st.text_area(
+        "File paths to merge (one per line)",
+        placeholder="data/set1.jsonl\ndata/set2.jsonl\ndata/set3.jsonl",
+        height=120,
+        key="merge_input_paths",
+    )
+    col_add, _col_add_spacer = st.columns([1, 3])
     with col_add:
-        st.write("")
-        st.write("")
-        if st.button("Add Files"):
+        if st.button("Add Files", width="stretch"):
             browse_open_multiple("merge_input_paths", "merge_input_paths_pending")
-
-    shuffle = st.checkbox("Randomly shuffle merged output", value=True)
 
     output_path = path_input(
         "Output file path",
@@ -48,9 +43,22 @@ def render_merge_page() -> None:
         browse_fn=browse_save_file,
         browse_kwargs={"default_name": "merged_dataset.jsonl"},
         default="merged_dataset.jsonl",
+        show_browse=False,
     )
 
-    if st.button("Merge", type="primary"):
+    col_browse, col_merge, col_shuffle, _col_merge_spacer = st.columns([1, 1, 1.5, 0.5])
+    with col_browse:
+        if st.button("Browse", key="browse_merge_output_path", width="stretch"):
+            browse_save_file(
+                "merge_output_path_pending",
+                default_name="merged_dataset.jsonl",
+            )
+    with col_merge:
+        merge_clicked = st.button("Merge", type="primary", width="stretch")
+    with col_shuffle:
+        shuffle = st.checkbox("Randomly shuffle merged output", value=True)
+
+    if merge_clicked:
         paths = [p.strip() for p in raw_paths.strip().splitlines() if p.strip()]
         if not paths:
             st.error("Enter at least one file path.")
