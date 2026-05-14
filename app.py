@@ -240,16 +240,13 @@ if "prefs" not in st.session_state:
     st.session_state.filter_tags = []
     st.session_state.filter_only_used = True
     st.session_state.filter_match_mode = MATCH_MODE_ANY
-    st.session_state.selected_entry_ids = set()
     st.session_state.confirm_delete_entries = prefs.get("confirm_delete_entries", True)
-    st.session_state.quick_edit_entry_id = None
     st.session_state.edit_entry_page = 0
     st.session_state.edit_entries_per_page = DEFAULT_PAGE_SIZE
     st.session_state.edit_filter_tags = []
     st.session_state.edit_filter_only_used = True
     st.session_state.edit_filter_match_mode = MATCH_MODE_ANY
     st.session_state.edit_entries_mode = "browser"
-    st.session_state.editing_entry_id = None
     init_editor_state("create")
     st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
     st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")

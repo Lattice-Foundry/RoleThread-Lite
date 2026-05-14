@@ -80,7 +80,7 @@ def finalize_loaded_entries(
         dataset_path,
         dataset_is_native=normalization.dataset_is_native,
     )
-    sidecar_summary, sidecar_tags, sidecar_categories = import_sibling_sidecar(
+    sidecar_summary, sidecar_tags, sidecar_categories = _import_sibling_sidecar(
         effective_dataset_path,
         normalization.entries,
     )
@@ -144,7 +144,7 @@ def finalize_loaded_entries(
     )
 
 
-def import_sibling_sidecar(
+def _import_sibling_sidecar(
     dataset_path: str | None,
     entries: list[dict] | None = None,
 ) -> tuple[dict | None, dict, dict]:

@@ -42,9 +42,7 @@ from core.tag_metadata import (
     archive_metadata_for_tag_dict,
     build_active_assigned_metadata,
     build_deleted_archive_metadata,
-    build_hidden_metadata,
     build_imported_archive_metadata,
-    build_merge_alias_metadata,
     build_rename_alias_metadata,
     clear_current_tag_lifecycle_metadata,
     clear_or_replace_tag_lifecycle_metadata,
@@ -378,20 +376,6 @@ def ensure_tags_exist_for_dataset(entries: list[dict]) -> TagAdoptionSummary:
         created_count=summary.created_count,
         created_slugs=summary.created_slugs,
     )
-
-
-def get_active_tag_categories() -> list[TagCategory]:
-    """Return all active TagCategory rows, ordered by sort_order then name."""
-    session = SessionLocal()
-    try:
-        return (
-            session.query(TagCategory)
-            .filter_by(is_active=True)
-            .order_by(TagCategory.sort_order, TagCategory.name)
-            .all()
-        )
-    finally:
-        session.close()
 
 
 def get_active_tags(category_id: int) -> list[Tag]:

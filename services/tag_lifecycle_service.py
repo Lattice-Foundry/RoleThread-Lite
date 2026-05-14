@@ -587,18 +587,6 @@ def assign_archived_imported_tags_to_category(
             )
 
 
-def assign_archived_imported_tag_to_category(
-    *,
-    tag_slug: str,
-    category_slug: str,
-) -> TagLifecycleOperationResult:
-    """Activate one archived/imported tag under an active category."""
-    return assign_archived_imported_tags_to_category(
-        tag_slugs=[tag_slug],
-        category_slug=category_slug,
-    )
-
-
 def rename_custom_category(
     *,
     category_slug: str,
