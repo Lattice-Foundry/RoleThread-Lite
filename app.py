@@ -93,6 +93,13 @@ section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled):hover {{
     border-color: transparent !important;
     color: {COLOR_PRIMARY_HOVER} !important;
 }}
+/* Alerts size to their content with a useful floor for short messages. */
+div[data-testid="stAlert"] {{
+    width: fit-content !important;
+    min-width: 25% !important;
+    max-width: 100% !important;
+    padding-right: 0.65rem !important;
+}}
 /* Warning alerts only — replace Streamlit's muddy yellow-green default. */
 div[data-testid="stAlert"]:has(div[data-testid="stAlertContentWarning"]) {{
     background-color: {COLOR_WARNING_BACKGROUND} !important;
