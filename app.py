@@ -44,6 +44,7 @@ from ui.theme import (
     COLOR_PRIMARY_ACTIVE,
     COLOR_PRIMARY_HOVER,
     COLOR_PRIMARY_HOVER_BACKGROUND,
+    COLOR_SIDEBAR_BACKGROUND,
     COLOR_SUBTITLE,
 )
 
@@ -61,6 +62,11 @@ st.markdown(
 
 st.markdown(f"""
 <style>
+/* Sidebar gets its own graphite shade, separate from input/card grey. */
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"] > div {{
+    background-color: {COLOR_SIDEBAR_BACKGROUND} !important;
+}}
 /* Primary button — enabled state only (:not(:disabled) keeps disabled grey) */
 button[data-testid="baseButton-primary"]:not(:disabled),
 button[kind="primary"]:not(:disabled),
