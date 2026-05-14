@@ -126,6 +126,27 @@ div[data-testid="stExpander"] details summary > span > :first-child * {{
     fill: {COLOR_PRIMARY} !important;
     stroke: {COLOR_PRIMARY} !important;
 }}
+/* Dropdown chevrons use BaseWeb select icons; keep them aligned with entry arrows. */
+div[data-baseweb="select"] [aria-hidden="true"] svg,
+div[data-baseweb="select"] svg[title="open"],
+div[data-testid="stSelectbox"] div[data-baseweb="select"] svg,
+div[data-testid="stMultiSelect"] div[data-baseweb="select"] svg {{
+    color: {COLOR_PRIMARY} !important;
+    fill: {COLOR_PRIMARY} !important;
+    stroke: {COLOR_PRIMARY} !important;
+}}
+/* Dropdown option hover/highlight only; button hover styling remains separate. */
+div[data-baseweb="popover"] div[role="option"]:hover,
+div[data-baseweb="popover"] li[role="option"]:hover,
+div[data-baseweb="popover"] div[role="option"][aria-selected="true"],
+div[data-baseweb="popover"] li[role="option"][aria-selected="true"],
+div[data-baseweb="menu"] div[role="option"]:hover,
+div[data-baseweb="menu"] li[role="option"]:hover,
+div[data-baseweb="menu"] div[role="option"][aria-selected="true"],
+div[data-baseweb="menu"] li[role="option"][aria-selected="true"] {{
+    background-color: {COLOR_PRIMARY_HOVER_BACKGROUND} !important;
+    color: {COLOR_PRIMARY} !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
