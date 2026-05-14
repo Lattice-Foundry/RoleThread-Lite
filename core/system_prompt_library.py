@@ -101,7 +101,7 @@ def update_system_prompt_template(
     content: str | None = None,
     description: str | None = None,
 ) -> SystemPromptTemplate:
-    """Update provided template fields without changing the existing slug."""
+    """Update provided template fields, regenerating slug when name changes."""
 
     normalized_slug, _display_name = normalize_system_prompt_name(slug)
     if not normalized_slug:
@@ -120,7 +120,21 @@ def update_system_prompt_template(
         if name is not None:
             if not isinstance(name, str) or not name.strip():
                 raise ValueError("System prompt template name cannot be empty.")
-            template.name = name.strip()
+            new_slug, new_display_name = normalize_system_prompt_name(name)
+            if not new_slug:
+                raise ValueError("System prompt template name cannot be empty.")
+            if new_slug != template.slug:
+                existing = (
+                    session.query(SystemPromptTemplate)
+                    .filter(SystemPromptTemplate.slug == new_slug)
+                    .first()
+                )
+                if existing is not None:
+                    raise ValueError(
+                        f"System prompt template already exists: {new_display_name}"
+                    )
+                template.slug = new_slug
+            template.name = new_display_name
         if content is not None:
             if not isinstance(content, str) or not content.strip():
                 raise ValueError("System prompt template content cannot be empty.")

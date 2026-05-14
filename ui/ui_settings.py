@@ -43,22 +43,31 @@ def render_settings_page() -> None:
         browse_fn=browse_directory,
         browse_kwargs={"title": "Select default dataset folder"},
         default=current_default_dir,
+        show_browse=False,
     )
 
-    if st.button("Save Default Dataset Folder", width="stretch"):
-        try:
-            raw_folder = folder_value.strip()
-            if not raw_folder:
-                raise ValueError("Default Dataset Folder cannot be empty.")
-            target = Path(raw_folder).expanduser()
-            target.mkdir(parents=True, exist_ok=True)
-            normalized = str(target.resolve())
-            st.session_state.default_dataset_directory = normalized
-            st.session_state["_default_dataset_dir_input"] = normalized
-            update_prefs({"default_dataset_directory": normalized})
-            st.success("Default Dataset Folder updated.")
-        except Exception as exc:
-            st.error(f"Could not update Default Dataset Folder: {exc}")
+    browse_col, save_col, _default_folder_spacer = st.columns([1, 1, 2])
+    with browse_col:
+        if st.button("Browse", key="browse_default_dataset_folder", width="stretch"):
+            browse_directory(
+                "_default_dataset_dir_input_pending",
+                title="Select default dataset folder",
+            )
+    with save_col:
+        if st.button("Save Default Dataset Folder", width="stretch"):
+            try:
+                raw_folder = folder_value.strip()
+                if not raw_folder:
+                    raise ValueError("Default Dataset Folder cannot be empty.")
+                target = Path(raw_folder).expanduser()
+                target.mkdir(parents=True, exist_ok=True)
+                normalized = str(target.resolve())
+                st.session_state.default_dataset_directory = normalized
+                st.session_state["_default_dataset_dir_input"] = normalized
+                update_prefs({"default_dataset_directory": normalized})
+                st.success("Default Dataset Folder updated.")
+            except Exception as exc:
+                st.error(f"Could not update Default Dataset Folder: {exc}")
 
     st.divider()
     st.subheader("Backup Settings")
@@ -87,7 +96,16 @@ def render_settings_page() -> None:
             "dir_key": "backup_directory",
         },
         default=current_backup_dir,
+        show_browse=False,
     )
+    backup_browse_col, _backup_browse_spacer = st.columns([1, 3])
+    with backup_browse_col:
+        if st.button("Browse", key="browse_local_backup_folder", width="stretch"):
+            browse_directory(
+                "_backup_dir_input_pending",
+                title="Select local backup folder",
+                dir_key="backup_directory",
+            )
     st.caption("Do not use a cloud-synced folder here. Use Cloud Backup below instead.")
     _render_local_backup_confirmation(backup_folder_value, current_backup_dir)
 
@@ -102,16 +120,18 @@ def render_settings_page() -> None:
         current_keep_count = 25
     current_keep_count = max(1, min(current_keep_count, 500))
 
-    st.number_input(
-        "Backups to Keep Per Dataset",
-        min_value=1,
-        max_value=500,
-        value=current_keep_count,
-        step=1,
-        key="_backups_per_dataset_input",
-        on_change=_persist_backups_per_dataset,
-        help="Older backups are automatically pruned after successful backup creation.",
-    )
+    keep_col, _keep_spacer = st.columns([0.55, 4])
+    with keep_col:
+        st.number_input(
+            "Backups to Keep Per Dataset",
+            min_value=1,
+            max_value=500,
+            value=current_keep_count,
+            step=1,
+            key="_backups_per_dataset_input",
+            on_change=_persist_backups_per_dataset,
+            help="Older backups are automatically pruned after successful backup creation.",
+        )
     st.caption("Applies to local backups. Cloud receives only the latest.")
 
     _render_cloud_backup_settings()
@@ -157,6 +177,11 @@ def render_settings_page() -> None:
 
     st.divider()
     st.subheader("Conversation Preview Settings")
+    st.caption(
+        "Default display names for conversation previews. These are cosmetic only "
+        "and don't affect training data. When using Group Chat mode, per-turn "
+        "character assignments override these defaults."
+    )
 
     def _persist_preview_user_name():
         st.session_state.preview_user_name = st.session_state["_preview_user_name_input"]
@@ -166,18 +191,21 @@ def render_settings_page() -> None:
         st.session_state.preview_assistant_name = st.session_state["_preview_assistant_name_input"]
         update_prefs({"preview_assistant_name": st.session_state.preview_assistant_name})
 
-    st.text_input(
-        "User Name",
-        value=st.session_state.preview_user_name,
-        key="_preview_user_name_input",
-        on_change=_persist_preview_user_name,
-    )
-    st.text_input(
-        "Assistant Name",
-        value=st.session_state.preview_assistant_name,
-        key="_preview_assistant_name_input",
-        on_change=_persist_preview_assistant_name,
-    )
+    user_col, assistant_col, _preview_name_spacer = st.columns([1, 1, 2])
+    with user_col:
+        st.text_input(
+            "User Name",
+            value=st.session_state.preview_user_name,
+            key="_preview_user_name_input",
+            on_change=_persist_preview_user_name,
+        )
+    with assistant_col:
+        st.text_input(
+            "Assistant Name",
+            value=st.session_state.preview_assistant_name,
+            key="_preview_assistant_name_input",
+            on_change=_persist_preview_assistant_name,
+        )
 
     st.divider()
     st.subheader("Settings Portability")
@@ -187,14 +215,24 @@ def render_settings_page() -> None:
         browse_fn=browse_settings_export_file,
         browse_kwargs={},
         default="",
+        show_browse=False,
     )
-    if st.button("Export Settings", width="stretch", disabled=not export_path.strip()):
-        try:
-            export_settings(export_path.strip())
-        except Exception as exc:
-            st.error(f"Could not export settings: {exc}")
-        else:
-            st.success(f"Settings exported to `{Path(export_path).expanduser()}`.")
+    export_browse_col, export_button_col, _export_spacer = st.columns([1, 1, 2])
+    with export_browse_col:
+        if st.button("Browse", key="browse_settings_export_path", width="stretch"):
+            browse_settings_export_file("_settings_export_path_pending")
+    with export_button_col:
+        if st.button(
+            "Export Settings",
+            width="stretch",
+            disabled=not export_path.strip(),
+        ):
+            try:
+                export_settings(export_path.strip())
+            except Exception as exc:
+                st.error(f"Could not export settings: {exc}")
+            else:
+                st.success(f"Settings exported to `{Path(export_path).expanduser()}`.")
 
     import_path = path_input(
         "Import settings path",
@@ -202,16 +240,26 @@ def render_settings_page() -> None:
         browse_fn=browse_settings_import_file,
         browse_kwargs={},
         default="",
+        show_browse=False,
     )
-    if st.button("Import Settings", width="stretch", disabled=not import_path.strip()):
-        try:
-            imported = import_settings(import_path.strip())
-        except Exception as exc:
-            st.error(f"Could not import settings: {exc}")
-        else:
-            _apply_preferences_to_session(imported)
-            st.success("Settings imported.")
-            st.rerun()
+    import_browse_col, import_button_col, _import_spacer = st.columns([1, 1, 2])
+    with import_browse_col:
+        if st.button("Browse", key="browse_settings_import_path", width="stretch"):
+            browse_settings_import_file("_settings_import_path_pending")
+    with import_button_col:
+        if st.button(
+            "Import Settings",
+            width="stretch",
+            disabled=not import_path.strip(),
+        ):
+            try:
+                imported = import_settings(import_path.strip())
+            except Exception as exc:
+                st.error(f"Could not import settings: {exc}")
+            else:
+                _apply_preferences_to_session(imported)
+                st.success("Settings imported.")
+                st.rerun()
 
 
 def _apply_preferences_to_session(prefs: dict) -> None:
@@ -329,12 +377,14 @@ def _render_cloud_backup_settings() -> None:
     elif "_cloud_provider_select" not in st.session_state:
         st.session_state["_cloud_provider_select"] = current_label
 
-    selected_label = st.selectbox(
-        "Cloud Provider",
-        option_labels,
-        key="_cloud_provider_select",
-        help="Cloud sync mirrors local backups on demand and when the app exits.",
-    )
+    provider_col, _provider_spacer = st.columns([1, 3])
+    with provider_col:
+        selected_label = st.selectbox(
+            "Cloud Provider",
+            option_labels,
+            key="_cloud_provider_select",
+            help="Cloud sync mirrors local backups on demand and when the app exits.",
+        )
     selected_type = dict(destination_options)[selected_label]
     if selected_type != current_type:
         _render_cloud_provider_confirmation(

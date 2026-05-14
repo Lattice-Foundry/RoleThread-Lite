@@ -124,7 +124,7 @@ def test_get_system_prompt_template_by_slug_normalizes_and_excludes_inactive(pro
     assert get_system_prompt_template_by_slug("group_scene") is None
 
 
-def test_update_system_prompt_template_changes_fields_without_changing_slug(prompt_db):
+def test_update_system_prompt_template_changes_fields_and_slug(prompt_db):
     create_system_prompt_template("Group Scene", "Old content", description="Old")
 
     updated = update_system_prompt_template(
@@ -134,12 +134,13 @@ def test_update_system_prompt_template_changes_fields_without_changing_slug(prom
         description="New notes",
     )
 
-    assert updated.slug == "group_scene"
+    assert updated.slug == "group_scene_revised"
     assert updated.name == "Group Scene Revised"
     assert updated.content == "New content"
     assert updated.description == "New notes"
 
-    fetched = get_system_prompt_template_by_slug("group_scene")
+    assert get_system_prompt_template_by_slug("group_scene") is None
+    fetched = get_system_prompt_template_by_slug("group_scene_revised")
     assert fetched.name == "Group Scene Revised"
     assert fetched.content == "New content"
 
@@ -153,6 +154,17 @@ def test_update_system_prompt_template_leaves_unprovided_fields_unchanged(prompt
     assert updated.name == "Group Scene"
     assert updated.content == "Updated"
     assert updated.description == "Notes"
+
+
+def test_update_system_prompt_template_rejects_slug_collision(prompt_db):
+    create_system_prompt_template("Group Scene", "Prompt")
+    create_system_prompt_template("Solo Scene", "Prompt")
+
+    with pytest.raises(ValueError, match="already exists"):
+        update_system_prompt_template("group_scene", name="Solo Scene")
+
+    assert get_system_prompt_template_by_slug("group_scene").name == "Group Scene"
+    assert get_system_prompt_template_by_slug("solo_scene").name == "Solo Scene"
 
 
 def test_update_system_prompt_template_rejects_missing_or_empty_fields(prompt_db):

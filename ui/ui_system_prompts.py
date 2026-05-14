@@ -23,8 +23,10 @@ def render_system_prompts_page() -> None:
     all_templates = get_all_system_prompt_templates(active_only=False)
     active_templates = [template for template in all_templates if template.is_active]
     inactive_templates = [template for template in all_templates if not template.is_active]
-    selected = st.session_state.setdefault("selected_system_prompt_slugs", set())
-    selected.intersection_update({template.slug for template in active_templates})
+    selected = reconcile_system_prompt_selection_state(
+        st.session_state,
+        active_templates,
+    )
 
     if active_templates:
         _render_bulk_actions(active_templates, selected)
@@ -44,13 +46,15 @@ def _render_bulk_actions(templates, selected: set[str]) -> None:
     col_select, col_clear, col_delete, _spacer = st.columns([1, 1, 1.2, 3])
     with col_select:
         if st.button("Select All", width="stretch"):
-            st.session_state.selected_system_prompt_slugs = {
-                template.slug for template in templates
-            }
+            set_system_prompt_selection_state(
+                st.session_state,
+                templates,
+                {template.slug for template in templates},
+            )
             st.rerun()
     with col_clear:
         if st.button("Deselect All", width="stretch"):
-            st.session_state.selected_system_prompt_slugs = set()
+            set_system_prompt_selection_state(st.session_state, templates, set())
             _clear_delete_confirmation()
             st.rerun()
     with col_delete:
@@ -122,7 +126,7 @@ def _render_template_row(template, selected: set[str]) -> None:
         is_selected = st.checkbox(
             "Select",
             value=template.slug in selected,
-            key=f"system_prompt_select_{template.slug}",
+            key=system_prompt_checkbox_key(template.slug),
             label_visibility="collapsed",
         )
     if is_selected:
@@ -189,35 +193,45 @@ def _render_edit_template(template) -> None:
 
 def _render_create_template() -> None:
     st.markdown("**Create System Prompt Template**")
-    name = st.text_input("Template name", key="new_system_prompt_name")
-    content = st.text_area(
-        "Content",
-        height=180,
-        key="new_system_prompt_content",
-    )
-    description = st.text_input(
-        "Description",
-        key="new_system_prompt_description",
-    )
-    if st.button(
-        "Create",
-        type="primary",
-        disabled=not name.strip() or not content.strip(),
-    ):
-        try:
-            template = create_system_prompt_template(
-                name,
-                content,
-                description=description.strip() or None,
-            )
-        except Exception as exc:
-            st.error(str(exc))
-            return
-        enqueue_flash(
-            "success",
-            f"Created system prompt template \"{template.name}\".",
+    name_col, _name_spacer = st.columns([1, 3])
+    with name_col:
+        name = st.text_input("Template name", key="new_system_prompt_name")
+
+    prompt_col, _prompt_spacer = st.columns([3, 1])
+    with prompt_col:
+        content = st.text_area(
+            "Content",
+            height=180,
+            key="new_system_prompt_content",
         )
-        st.rerun()
+        description = st.text_area(
+            "Description",
+            height=90,
+            key="new_system_prompt_description",
+        )
+
+    create_col, _create_spacer = st.columns([1, 5])
+    with create_col:
+        if st.button(
+            "Create",
+            type="primary",
+            disabled=not name.strip() or not content.strip(),
+            width="stretch",
+        ):
+            try:
+                template = create_system_prompt_template(
+                    name,
+                    content,
+                    description=description.strip() or None,
+                )
+            except Exception as exc:
+                st.error(str(exc))
+                return
+            enqueue_flash(
+                "success",
+                f"Created system prompt template \"{template.name}\".",
+            )
+            st.rerun()
 
 
 def _render_inactive_templates(inactive_templates) -> None:
@@ -258,3 +272,41 @@ def _format_date(value) -> str:
 
 def _clear_delete_confirmation() -> None:
     st.session_state.pop("pending_system_prompt_delete", None)
+
+
+def system_prompt_checkbox_key(slug: str) -> str:
+    """Return the widget key for a system prompt row selection checkbox."""
+
+    return f"system_prompt_select_{slug}"
+
+
+def reconcile_system_prompt_selection_state(state, templates) -> set[str]:
+    """Sync selected system prompt slugs from current checkbox widget state."""
+
+    active_slugs = {template.slug for template in templates}
+    stored_selection = (
+        set(state.get("selected_system_prompt_slugs", set())) & active_slugs
+    )
+    selected: set[str] = set()
+    for template in templates:
+        widget_key = system_prompt_checkbox_key(template.slug)
+        if widget_key not in state:
+            state[widget_key] = template.slug in stored_selection
+        if bool(state.get(widget_key)):
+            selected.add(template.slug)
+    state["selected_system_prompt_slugs"] = selected
+    return selected
+
+
+def set_system_prompt_selection_state(
+    state,
+    templates,
+    selected_slugs: set[str],
+) -> None:
+    """Set both selection storage and checkbox widget state for prompt templates."""
+
+    active_slugs = {template.slug for template in templates}
+    selected = set(selected_slugs) & active_slugs
+    state["selected_system_prompt_slugs"] = selected
+    for template in templates:
+        state[system_prompt_checkbox_key(template.slug)] = template.slug in selected
