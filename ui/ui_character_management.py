@@ -162,17 +162,19 @@ def _render_character_row(character, selected: set[str], usage_count: int) -> No
 def _render_edit_character(character) -> None:
     with st.container(border=True):
         st.markdown(f"**Edit {character.display_name}**")
-        name = st.text_input(
-            "Display name",
-            value=character.display_name,
-            key=f"character_name_input_{character.slug}",
-        )
-        description = st.text_area(
-            "Description",
-            value=character.description or "",
-            height=90,
-            key=f"character_description_input_{character.slug}",
-        )
+        field_col, _field_spacer = st.columns([1, 1])
+        with field_col:
+            name = st.text_input(
+                "Display name",
+                value=character.display_name,
+                key=f"character_name_input_{character.slug}",
+            )
+            description = st.text_area(
+                "Description",
+                value=character.description or "",
+                height=90,
+                key=f"character_description_input_{character.slug}",
+            )
         save_col, cancel_col, _spacer = st.columns([1, 1, 4])
         with save_col:
             if st.button("Save", type="primary", key=f"character_save_{character.slug}"):
@@ -196,22 +198,35 @@ def _render_edit_character(character) -> None:
 
 def _render_add_character() -> None:
     st.markdown("**Add Character**")
-    name = st.text_input("Character name", key="new_character_name")
-    description = st.text_area("Description", height=90, key="new_character_description")
-    if st.button("Add Character", type="primary", disabled=not name.strip()):
-        try:
-            character = create_character(
-                name,
-                description=description.strip() or None,
-            )
-        except Exception as exc:
-            st.error(str(exc))
-            return
-        enqueue_flash(
-            "success",
-            f"Added character \"{character.display_name}\"."
+    field_col, _field_spacer = st.columns([1, 1])
+    with field_col:
+        name = st.text_input("Character name", key="new_character_name")
+        description = st.text_area(
+            "Description",
+            height=90,
+            key="new_character_description",
         )
-        st.rerun()
+    button_col, _button_spacer = st.columns([1, 4])
+    with button_col:
+        if st.button(
+            "Add Character",
+            type="primary",
+            disabled=not name.strip(),
+            width="stretch",
+        ):
+            try:
+                character = create_character(
+                    name,
+                    description=description.strip() or None,
+                )
+            except Exception as exc:
+                st.error(str(exc))
+                return
+            enqueue_flash(
+                "success",
+                f"Added character \"{character.display_name}\"."
+            )
+            st.rerun()
 
 
 def _render_inactive_characters() -> None:
