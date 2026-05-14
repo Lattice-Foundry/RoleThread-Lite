@@ -115,6 +115,17 @@ div[data-testid="stAlert"]:has(div[data-testid="stAlertContentWarning"]) svg {{
     color: {COLOR_WARNING_ACCENT} !important;
     fill: {COLOR_WARNING_ACCENT} !important;
 }}
+/* Expander chevrons act as row arrows in dataset browsers. */
+div[data-testid="stExpander"] details summary svg,
+div[data-testid="stExpander"] details summary [data-testid="stExpanderToggleIcon"],
+div[data-testid="stExpander"] details summary [data-testid="stExpanderToggleIcon"] svg,
+div[data-testid="stExpander"] details summary button svg,
+div[data-testid="stExpander"] details summary > span > :first-child,
+div[data-testid="stExpander"] details summary > span > :first-child * {{
+    color: {COLOR_PRIMARY} !important;
+    fill: {COLOR_PRIMARY} !important;
+    stroke: {COLOR_PRIMARY} !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 

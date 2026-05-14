@@ -7,6 +7,16 @@ from dataclasses import dataclass
 
 from core.dataset import count_exchanges, get_available_filter_tags, get_entry_tags
 from core.tag_normalization import normalize_tag
+from ui.theme import (
+    COLOR_PRIMARY,
+    COLOR_USER,
+    COLOR_WARNING_ACCENT,
+    SCORE_COLOR_ATTENTION,
+    ENTRY_ROW_ATTENTION_MARKDOWN,
+    ENTRY_ROW_PRIMARY_MARKDOWN,
+    ENTRY_ROW_USER_MARKDOWN,
+    ENTRY_ROW_WARNING_MARKDOWN,
+)
 
 SHOW_ALL = "Show All"
 SHOW_ALL_MAX_ENTRIES = 1000
@@ -114,18 +124,43 @@ def format_entry_summary_label(
     """Format the browser expander label for one entry."""
     entry_tags = get_entry_tags(entry)
     tag_part = (
-        ", ".join(_format_tag_display_name(tag, tag_label_map) for tag in entry_tags)
+        ", ".join(
+            _escape_expander_label(_format_tag_display_name(tag, tag_label_map))
+            for tag in entry_tags
+        )
         if entry_tags
-        else "Untagged"
+        else _colored_expander_label("Untagged", COLOR_WARNING_ACCENT)
     )
     exchange_count = count_exchanges(entry)
     label = (
-        f"Entry {display_index + 1} | TAGS: {tag_part} | "
-        f"EXCHANGES: {exchange_count}"
+        f"Entry {display_index + 1} "
+        f"{_colored_expander_label('|', COLOR_PRIMARY)} "
+        f"{_colored_expander_label('TAGS:', COLOR_USER)} {tag_part} "
+        f"{_colored_expander_label('|', COLOR_PRIMARY)} "
+        f"{_colored_expander_label('EXCHANGES:', COLOR_USER)} "
+        f"{_colored_expander_label(str(exchange_count), SCORE_COLOR_ATTENTION)}"
     )
     if errors or has_issues:
         label += " \u26a0\ufe0f"
     return label
+
+
+def _colored_expander_label(text: str, color: str) -> str:
+    color_token_by_hex = {
+        COLOR_PRIMARY: ENTRY_ROW_PRIMARY_MARKDOWN,
+        COLOR_USER: ENTRY_ROW_USER_MARKDOWN,
+        COLOR_WARNING_ACCENT: ENTRY_ROW_WARNING_MARKDOWN,
+        SCORE_COLOR_ATTENTION: ENTRY_ROW_ATTENTION_MARKDOWN,
+    }
+    color_token = color_token_by_hex.get(color)
+    escaped_text = _escape_expander_label(text)
+    if not color_token:
+        return escaped_text
+    return f":{color_token}[{escaped_text}]"
+
+
+def _escape_expander_label(text: str) -> str:
+    return str(text).replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
 
 
 def _format_tag_display_name(

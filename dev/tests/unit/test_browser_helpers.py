@@ -276,7 +276,8 @@ def test_format_entry_summary_label_for_tagged_entry():
 
     assert (
         label
-        == "Entry 3 | TAGS: Slow Burn, Sex Toys | EXCHANGES: 1"
+        == "Entry 3 :green[|] :blue[TAGS:] Slow Burn, Sex Toys "
+        ":green[|] :blue[EXCHANGES:] :orange[1]"
     )
 
 
@@ -292,7 +293,8 @@ def test_format_entry_summary_label_uses_label_map_without_category_prefix():
 
     assert (
         label
-        == "Entry 1 | TAGS: Slow Burn, Sex Toys | EXCHANGES: 1"
+        == "Entry 1 :green[|] :blue[TAGS:] Slow Burn, Sex Toys "
+        ":green[|] :blue[EXCHANGES:] :orange[1]"
     )
 
 
@@ -302,7 +304,11 @@ def test_format_entry_summary_label_for_untagged_entry():
         entry=_entry(tags=[]),
     )
 
-    assert label == "Entry 1 | TAGS: Untagged | EXCHANGES: 1"
+    assert (
+        label
+        == "Entry 1 :green[|] :blue[TAGS:] :yellow[Untagged] "
+        ":green[|] :blue[EXCHANGES:] :orange[1]"
+    )
 
 
 def test_format_entry_summary_label_appends_warning_marker_for_errors():
