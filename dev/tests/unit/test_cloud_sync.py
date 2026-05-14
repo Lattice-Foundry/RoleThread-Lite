@@ -43,12 +43,12 @@ def test_backup_config_roundtrip(tmp_path, monkeypatch):
 
 
 def test_resolve_cloud_backup_destination_uses_custom_path(tmp_path):
-    destination = tmp_path / "Dropbox" / "LoreForge"
+    destination = tmp_path / "Dropbox"
 
     assert cloud_sync.resolve_cloud_backup_destination({
         "backup_destination_type": "dropbox",
         "backup_destination_custom_path": str(destination),
-    }) == destination
+    }) == destination / "LoreForge Lite" / "backups"
 
 
 def test_resolve_cloud_backup_destination_uses_onedrive_setting_before_detection(
@@ -59,7 +59,13 @@ def test_resolve_cloud_backup_destination_uses_onedrive_setting_before_detection
     assert cloud_sync.resolve_cloud_backup_destination({
         "backup_destination_type": "onedrive",
         "backup_destination_custom_path": str(destination),
-    }) == destination
+    }) == destination / "LoreForge Lite" / "backups"
+
+
+def test_cloud_backup_destination_path_does_not_double_append(tmp_path):
+    destination = tmp_path / "Dropbox" / "LoreForge Lite" / "backups"
+
+    assert cloud_sync.cloud_backup_destination_path(destination) == destination
 
 
 def test_detect_cloud_sync_provider_for_path_uses_onedrive_env(tmp_path, monkeypatch):

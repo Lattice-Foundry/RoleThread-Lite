@@ -54,6 +54,7 @@ BACKUP_CONFIG_KEYS = {
     "backup_destination_custom_path",
     "cloud_backup_last_sync_at",
 }
+LOREFORGE_CLOUD_BACKUP_SUBDIR = Path("LoreForge Lite") / "backups"
 
 
 @dataclass(frozen=True)
@@ -115,10 +116,10 @@ def resolve_cloud_backup_destination(settings: dict | None = None) -> Path | Non
     configured = str(settings.get("backup_destination_custom_path") or "").strip()
     if destination_type == BACKUP_DESTINATION_ONEDRIVE:
         if configured:
-            return Path(configured).expanduser()
+            return cloud_backup_destination_path(Path(configured).expanduser())
         return default_onedrive_backup_path()
     if destination_type != BACKUP_DESTINATION_LOCAL and configured:
-        return Path(configured).expanduser()
+        return cloud_backup_destination_path(Path(configured).expanduser())
     return None
 
 
@@ -130,11 +131,25 @@ def resolve_cloud_backup_destination_from_config(config: dict | None = None) -> 
     configured = str(config.get("backup_destination_custom_path") or "").strip()
     if destination_type == BACKUP_DESTINATION_ONEDRIVE:
         if configured:
-            return Path(configured).expanduser()
+            return cloud_backup_destination_path(Path(configured).expanduser())
         return default_onedrive_backup_path()
     if destination_type != BACKUP_DESTINATION_LOCAL and configured:
-        return Path(configured).expanduser()
+        return cloud_backup_destination_path(Path(configured).expanduser())
     return None
+
+
+def cloud_backup_destination_path(sync_root: str | Path) -> Path:
+    """Return LoreForge Lite's backup subfolder inside a provider sync root."""
+
+    root = Path(sync_root).expanduser()
+    root_tail = tuple(part.casefold() for part in root.parts[-2:])
+    expected_tail = tuple(
+        part.casefold()
+        for part in LOREFORGE_CLOUD_BACKUP_SUBDIR.parts
+    )
+    if root_tail == expected_tail:
+        return root
+    return root / LOREFORGE_CLOUD_BACKUP_SUBDIR
 
 
 def detect_cloud_sync_provider_for_path(path: str | Path) -> str | None:

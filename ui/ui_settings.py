@@ -12,6 +12,7 @@ from core.cloud_sync import (
     BACKUP_DESTINATION_ICLOUD_DRIVE,
     BACKUP_DESTINATION_LOCAL,
     BACKUP_DESTINATION_ONEDRIVE,
+    cloud_backup_destination_path,
     detect_cloud_sync_provider_for_path,
     save_backup_config_from_settings,
     sync_configured_backups_to_cloud,
@@ -352,7 +353,7 @@ def _render_cloud_backup_settings() -> None:
     if current_type == BACKUP_DESTINATION_ONEDRIVE and not default_path:
         detected = detect_onedrive_path()
         if detected is not None:
-            default_path = str(detected)
+            default_path = str(cloud_backup_destination_path(detected))
         else:
             st.warning("OneDrive was not detected. Choose another provider or browse to a sync folder.")
 
@@ -413,17 +414,24 @@ def _render_cloud_provider_confirmation(
     selected_type: str,
     current_label: str,
 ) -> None:
-    st.warning(f"Change cloud provider to {selected_label}?")
+    if selected_type == BACKUP_DESTINATION_LOCAL:
+        st.warning("Switch to local-only backups? Cloud sync will be disabled.")
+        confirm_label = "Confirm Local-Only Backups"
+    else:
+        st.warning(f"Change cloud provider to {selected_label}?")
+        confirm_label = "Confirm Cloud Provider"
     confirm_col, cancel_col = st.columns(2)
     with confirm_col:
-        if st.button("Confirm Cloud Provider", key="btn_confirm_cloud_provider"):
+        if st.button(confirm_label, key="btn_confirm_cloud_provider"):
             updates = {"backup_destination_type": selected_type}
             if selected_type == BACKUP_DESTINATION_LOCAL:
                 updates["backup_destination_custom_path"] = ""
             elif selected_type == BACKUP_DESTINATION_ONEDRIVE:
                 detected = detect_onedrive_path()
                 if detected is not None:
-                    updates["backup_destination_custom_path"] = str(detected)
+                    destination = cloud_backup_destination_path(detected)
+                    destination.mkdir(parents=True, exist_ok=True)
+                    updates["backup_destination_custom_path"] = str(destination.resolve())
                 else:
                     updates["backup_destination_custom_path"] = ""
             else:
@@ -468,15 +476,22 @@ def _render_cloud_path_confirmation(
     if current_path and proposed == current:
         return
 
-    st.warning(f"Use `{proposed}` as the {provider_name} sync folder?")
+    destination = cloud_backup_destination_path(proposed)
+    st.warning(
+        f"Use `{proposed}` as the {provider_name} sync folder? "
+        f"Backups will sync to `{destination}`."
+    )
     confirm_col, cancel_col = st.columns(2)
     with confirm_col:
         if st.button("Confirm Cloud Folder", key="btn_confirm_cloud_folder"):
             try:
-                normalized = _normalize_folder_path(
+                provider_root = _normalize_folder_path(
                     cloud_path,
                     label=f"{provider_name} sync folder",
                 )
+                destination = cloud_backup_destination_path(provider_root)
+                destination.mkdir(parents=True, exist_ok=True)
+                normalized = str(destination.resolve())
                 st.session_state.backup_destination_custom_path = normalized
                 st.session_state["_cloud_backup_custom_path_input_pending"] = normalized
                 update_prefs({"backup_destination_custom_path": normalized})
