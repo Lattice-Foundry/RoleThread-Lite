@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from hashlib import sha1
 from pathlib import Path
 
@@ -9,12 +10,13 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from core.dataset import build_dataset_stats
+from core.character_registry import get_character_display_for_entries
+from core.dataset import build_dataset_stats, count_exchanges
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT, FORMAT_UNKNOWN
 from core.loreforge_meta import get_entry_uuid
 from core.qualitative_analysis import DatasetQualityReport, analyze_dataset_quality
 from core.tag_registry import get_tag_registry_snapshot
-from ui.guidance import render_manage_dataset_cta
+from ui.guidance import render_manage_dataset_cta, render_page_cta
 from ui.session_state import ensure_entry_indexes
 from ui.stats_navigation import navigate_to_entries
 from ui.theme import score_color
@@ -53,8 +55,8 @@ def render_stats_page() -> None:
     )
 
     _render_quality_header(report)
-    _render_subscore_cards(report)
     _render_recommended_insight_actions(report)
+    _render_subscore_cards(report, entries, tag_snapshot.tag_label_map)
     _render_insights(report, entries)
     _render_dataset_overview(legacy_stats, entries)
 
@@ -103,49 +105,89 @@ def _render_recommended_insight_actions(report: DatasetQualityReport) -> None:
     if not recommendations:
         return
 
-    st.info("Recommended next actions:\n\n" + "\n".join(
-        f"- {recommendation}" for recommendation in recommendations[:3]
-    ))
+    st.subheader("Recommendations")
+    st.info(
+        "\n".join(
+            f"- {recommendation}" for recommendation in recommendations[:5]
+        )
+    )
 
 
 def _quality_recommendations(report: DatasetQualityReport) -> list[str]:
+    response = report.response_quality
+    diversity = report.diversity
+    structure = report.structure
+    metadata = report.metadata_integrity
+
     scored_actions = [
         (
-            report.response_quality.score,
-            "Response Quality is low - consider writing longer, more detailed assistant responses.",
+            response.score,
+            (
+                "Response Quality is low - average assistant response length is "
+                f"{response.avg_response_length:.1f} words. Aim for 50+ words on thin "
+                f"responses and expand the {response.short_response_count} short response"
+                f"{'' if response.short_response_count == 1 else 's'}."
+            ),
         ),
         (
-            report.diversity.score,
-            "Diversity is low - add varied system prompts, tags, or reduce near-duplicate entries.",
+            diversity.score,
+            (
+                "Diversity is low - the dataset has "
+                f"{diversity.unique_system_prompts} unique system prompt"
+                f"{'' if diversity.unique_system_prompts == 1 else 's'} across "
+                f"{report.total_entries} entries and {diversity.tag_coverage_percent:.1f}% "
+                "tag coverage. Add prompt variety, tag untagged entries, and review "
+                f"{diversity.near_duplicate_count} near-duplicate pair"
+                f"{'' if diversity.near_duplicate_count == 1 else 's'}."
+            ),
         ),
         (
-            report.structure.score,
-            "Structure needs attention - run Validation and review entries outside the 3-7 exchange range.",
+            structure.score,
+            (
+                "Structure needs attention - "
+                f"{structure.in_optimal_range_percent:.1f}% of entries are in the ideal "
+                "3-7 exchange range and "
+                f"{structure.invalid_entry_count} entr"
+                f"{'y is' if structure.invalid_entry_count == 1 else 'ies are'} invalid. "
+                "Run Validation, then use Join or Split to reshape outliers."
+            ),
         ),
         (
-            report.metadata_integrity.score,
-            "Metadata Integrity is low - tag untagged entries and save through LoreForge to refresh trusted metadata.",
+            metadata.score,
+            (
+                "Metadata Integrity is low - "
+                f"{metadata.tagged_entry_percent:.1f}% of entries are tagged and "
+                f"{metadata.native_stamp_percent:.1f}% have trusted LoreForge stamps. "
+                "Tag untagged entries and save through LoreForge to refresh metadata."
+            ),
         ),
     ]
-    return [
+    low_actions = [
         action
         for score, action in sorted(scored_actions, key=lambda item: item[0])
         if score < 18
     ]
+    if low_actions:
+        return low_actions
+    return [action for _score, action in sorted(scored_actions, key=lambda item: item[0])[:3]]
 
 
-def _render_subscore_cards(report: DatasetQualityReport) -> None:
+def _render_subscore_cards(
+    report: DatasetQualityReport,
+    entries: list[dict],
+    tag_label_map: dict[str, str],
+) -> None:
     st.subheader("Quality Breakdown")
     c1, c2, c3, c4 = st.columns(4)
 
     with c1:
         _render_response_quality_card(report)
     with c2:
-        _render_diversity_card(report)
+        _render_diversity_card(report, entries, tag_label_map)
     with c3:
         _render_structure_card(report)
     with c4:
-        _render_metadata_card(report)
+        _render_metadata_card(report, entries)
 
 
 def _render_response_quality_card(report: DatasetQualityReport) -> None:
@@ -165,7 +207,11 @@ def _render_response_quality_card(report: DatasetQualityReport) -> None:
         )
 
 
-def _render_diversity_card(report: DatasetQualityReport) -> None:
+def _render_diversity_card(
+    report: DatasetQualityReport,
+    entries: list[dict],
+    tag_label_map: dict[str, str],
+) -> None:
     score = report.diversity
     _render_subscore_value("Diversity", score.score)
     with st.expander("Metrics", expanded=False):
@@ -175,6 +221,7 @@ def _render_diversity_card(report: DatasetQualityReport) -> None:
         st.write(f"Tag entropy: **{score.tag_entropy:.2f}**")
         st.write(f"Categories represented: **{score.category_coverage_count}**")
         st.write(f"Near-duplicate pairs: **{score.near_duplicate_count}**")
+        _render_tag_imbalance_insight(entries, tag_label_map)
         _render_affected_count(
             score.flagged_entry_uuids,
             label="Diversity flagged entries",
@@ -199,7 +246,7 @@ def _render_structure_card(report: DatasetQualityReport) -> None:
         )
 
 
-def _render_metadata_card(report: DatasetQualityReport) -> None:
+def _render_metadata_card(report: DatasetQualityReport, entries: list[dict]) -> None:
     score = report.metadata_integrity
     _render_subscore_value("Metadata", score.score)
     with st.expander("Metrics", expanded=False):
@@ -208,6 +255,7 @@ def _render_metadata_card(report: DatasetQualityReport) -> None:
         st.write(f"Character mapping completeness: **{score.character_mapping_percent:.1f}%**")
         st.write(f"Sidecar present: **{_yes_no(score.sidecar_present)}**")
         st.write(f"Sidecar current: **{_yes_no(score.sidecar_current)}**")
+        _render_character_coverage_insight(entries)
         _render_affected_count(
             score.flagged_entry_uuids,
             label="Metadata flagged entries",
@@ -268,7 +316,7 @@ def _render_insights(report: DatasetQualityReport, entries: list[dict]) -> None:
     st.divider()
     st.subheader("Insights")
     _render_narrative_spectrum(report)
-    _render_exchange_depth_distribution(report)
+    _render_exchange_depth_distribution(report, entries)
     _render_response_length_distribution(report)
     _render_system_prompt_concentration(report, entries)
 
@@ -281,12 +329,33 @@ def _render_narrative_spectrum(report: DatasetQualityReport) -> None:
     middle.progress(min(max(insight.dialogue_ratio, 0.0), 1.0))
     right.caption("Pure Dialogue")
     st.write(
-        f"**{insight.spectrum_label}** · {insight.dialogue_ratio * 100:.0f}% dialogue density"
+        f"**{insight.spectrum_label}** - {insight.dialogue_ratio * 100:.0f}% dialogue density"
     )
     st.caption(insight.spectrum_description)
+    _render_narrative_ratio_distribution(report)
 
 
-def _render_exchange_depth_distribution(report: DatasetQualityReport) -> None:
+def _render_narrative_ratio_distribution(report: DatasetQualityReport) -> None:
+    rows = _narrative_ratio_distribution_rows(report.narrative_insight.per_entry_ratios)
+    if not rows:
+        return
+
+    st.caption("Per-entry dialogue density distribution")
+    df = pd.DataFrame(rows)
+    fig = px.bar(
+        df,
+        x="Dialogue Density",
+        y="Entries",
+        text="Entries",
+    )
+    fig.update_layout(showlegend=False, yaxis_title="Entries")
+    st.plotly_chart(fig, width="stretch")
+
+
+def _render_exchange_depth_distribution(
+    report: DatasetQualityReport,
+    entries: list[dict],
+) -> None:
     st.markdown("#### Exchange Depth Distribution")
     rows = _exchange_depth_rows(report.exchange_depth_distribution)
     if not rows:
@@ -304,6 +373,7 @@ def _render_exchange_depth_distribution(report: DatasetQualityReport) -> None:
     fig.update_layout(showlegend=True, yaxis_title="Entries")
     st.plotly_chart(fig, width="stretch")
     st.caption("The 3-7 exchange range is the target conversational depth for most entries.")
+    _render_split_candidate_insight(entries)
 
 
 def _render_response_length_distribution(report: DatasetQualityReport) -> None:
@@ -449,6 +519,60 @@ def _render_validation_table(stats: dict, entries: list[dict]) -> None:
     st.dataframe(df_val, width="stretch", hide_index=True)
 
 
+def _render_tag_imbalance_insight(
+    entries: list[dict],
+    tag_label_map: dict[str, str],
+) -> None:
+    rows = _top_tag_usage_rows(entries, tag_label_map)
+    if not rows:
+        st.caption("No tagged entries available for tag balance analysis.")
+        return
+
+    top = rows[0]
+    st.write(f"Top tag covers **{top['Share']}** of tagged entries.")
+    st.dataframe(
+        pd.DataFrame(rows[:5]),
+        width="stretch",
+        hide_index=True,
+    )
+
+
+def _render_character_coverage_insight(entries: list[dict]) -> None:
+    coverage = _character_coverage_rows(entries)
+    if not coverage["rows"]:
+        st.caption("No character mappings found in the loaded dataset.")
+        return
+
+    st.write(
+        f"Character mappings: **{coverage['mapped_entries']}** mapped / "
+        f"**{coverage['unmapped_entries']}** unmapped entries."
+    )
+    st.dataframe(
+        pd.DataFrame(coverage["rows"][:5]),
+        width="stretch",
+        hide_index=True,
+    )
+    render_page_cta("Review characters", "Character Management", key="stats_review_characters")
+
+
+def _render_split_candidate_insight(entries: list[dict]) -> None:
+    entry_uuids = _long_exchange_entry_uuids(entries)
+    if not entry_uuids:
+        return
+
+    count = len(entry_uuids)
+    st.info(
+        f"{count} entr{'y has' if count == 1 else 'ies have'} 8+ exchanges and may "
+        "benefit from splitting. Use the Split tool in Edit Entries to break long "
+        "conversations into focused training examples."
+    )
+    if st.button(
+        f"View {count} split candidate{'s' if count != 1 else ''}",
+        key="stats_view_split_candidates",
+    ):
+        navigate_to_entries(tuple(entry_uuids), "8+ exchange split candidates")
+
+
 def _exchange_depth_rows(distribution: dict[int, int]) -> list[dict]:
     rows: list[dict] = []
     eight_plus = 0
@@ -466,6 +590,96 @@ def _exchange_depth_rows(distribution: dict[int, int]) -> list[dict]:
     if eight_plus:
         rows.append({"Exchange Count": "8+", "Entries": eight_plus, "Range": "Review"})
     return rows
+
+
+def _narrative_ratio_distribution_rows(ratios: tuple[float, ...]) -> list[dict]:
+    if not ratios:
+        return []
+
+    bins = [
+        ("0-20%", 0.0, 0.2),
+        ("20-40%", 0.2, 0.4),
+        ("40-60%", 0.4, 0.6),
+        ("60-80%", 0.6, 0.8),
+        ("80-100%", 0.8, 1.01),
+    ]
+    rows: list[dict] = []
+    for label, lower, upper in bins:
+        rows.append(
+            {
+                "Dialogue Density": label,
+                "Entries": sum(1 for ratio in ratios if lower <= ratio < upper),
+            }
+        )
+    return rows
+
+
+def _top_tag_usage_rows(
+    entries: list[dict],
+    tag_label_map: dict[str, str],
+) -> list[dict]:
+    tag_counts: Counter[str] = Counter()
+    tagged_entry_count = 0
+
+    for entry in entries:
+        tags = entry.get("tags") if isinstance(entry, dict) else None
+        if not isinstance(tags, list):
+            continue
+        unique_tags = {
+            str(tag).strip()
+            for tag in tags
+            if isinstance(tag, str) and str(tag).strip()
+        }
+        if not unique_tags:
+            continue
+        tagged_entry_count += 1
+        tag_counts.update(unique_tags)
+
+    if not tag_counts or tagged_entry_count == 0:
+        return []
+
+    return [
+        {
+            "Tag": tag_label_map.get(tag, tag),
+            "Entries": count,
+            "Share": f"{count / tagged_entry_count * 100:.1f}%",
+        }
+        for tag, count in tag_counts.most_common(5)
+    ]
+
+
+def _character_coverage_rows(entries: list[dict]) -> dict[str, object]:
+    entry_uuids = {
+        entry_uuid
+        for entry in entries
+        if (entry_uuid := get_entry_uuid(entry))
+    }
+    display_by_entry = get_character_display_for_entries(entry_uuids)
+    mapped_entries = len(display_by_entry)
+    unmapped_entries = max(len(entry_uuids) - mapped_entries, 0)
+
+    character_turn_counts: Counter[str] = Counter()
+    for turn_display in display_by_entry.values():
+        character_turn_counts.update(turn_display.values())
+
+    rows = [
+        {"Character": character, "Mapped Turns": count}
+        for character, count in character_turn_counts.most_common()
+    ]
+    return {
+        "mapped_entries": mapped_entries,
+        "unmapped_entries": unmapped_entries,
+        "rows": rows,
+    }
+
+
+def _long_exchange_entry_uuids(entries: list[dict]) -> list[str]:
+    entry_uuids: list[str] = []
+    for entry in entries:
+        entry_uuid = get_entry_uuid(entry)
+        if entry_uuid and count_exchanges(entry) >= 8:
+            entry_uuids.append(entry_uuid)
+    return entry_uuids
 
 
 def _system_prompt_rows(entries: list[dict], report: DatasetQualityReport) -> list[dict]:
