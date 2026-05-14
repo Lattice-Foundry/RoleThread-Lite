@@ -217,6 +217,8 @@ def path_input(
     browse_fn,
     browse_kwargs: dict,
     default: str = "",
+    browse_below: bool = False,
+    show_browse: bool = True,
 ) -> str:
     """Render a text input + Browse button pair.
 
@@ -231,6 +233,17 @@ def path_input(
         st.session_state[state_key] = st.session_state.pop(pending_key)
     elif state_key not in st.session_state:
         st.session_state[state_key] = default
+
+    if not show_browse:
+        return st.text_input(label, key=state_key)
+
+    if browse_below:
+        value = st.text_input(label, key=state_key)
+        browse_col, _browse_spacer = st.columns([1, 3])
+        with browse_col:
+            if st.button("Browse", key=f"browse_{state_key}", width="stretch"):
+                browse_fn(pending_key, **browse_kwargs)
+        return value
 
     col_input, col_btn = st.columns([5, 1])
     with col_input:

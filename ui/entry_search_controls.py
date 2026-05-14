@@ -39,7 +39,7 @@ def format_entry_search_match_mode(match_mode: str) -> str:
     return MATCH_MODE_LABELS.get(match_mode, match_mode)
 
 
-def render_entry_search_controls(on_change=None) -> None:
+def render_entry_search_controls(on_change=None, *, compact_layout: bool = False) -> None:
     """Render reusable entry-search controls bound to shared session state."""
 
     init_entry_search_state()
@@ -47,6 +47,12 @@ def render_entry_search_controls(on_change=None) -> None:
 
     st.markdown("**Search Entries**")
     st.caption("Search applies after tag filters and before pagination.")
+
+    if compact_layout:
+        _render_stacked_scope_controls(on_change)
+        _render_compact_search_query_controls(on_change)
+        render_entry_search_summary()
+        return
 
     query_col, clear_col = st.columns([4, 1])
     with query_col:
@@ -65,6 +71,69 @@ def render_entry_search_controls(on_change=None) -> None:
             args=(on_change,),
         )
 
+    _render_horizontal_scope_controls(on_change)
+
+    st.radio(
+        "Match mode",
+        options=SEARCH_MATCH_MODES,
+        format_func=format_entry_search_match_mode,
+        horizontal=True,
+        key=ENTRY_SEARCH_MATCH_MODE_KEY,
+        on_change=on_change,
+    )
+
+    render_entry_search_summary()
+
+
+def _render_compact_search_query_controls(on_change) -> None:
+    query_col, mode_col, _query_spacer = st.columns([3, 1, 2])
+    with query_col:
+        st.text_input(
+            "Search query",
+            key=ENTRY_SEARCH_QUERY_KEY,
+            placeholder="Find conversation text...",
+            on_change=on_change,
+        )
+        clear_col, _clear_spacer = st.columns([1, 2])
+        with clear_col:
+            st.button(
+                "Clear Search",
+                key="entry_search_clear_button",
+                disabled=not is_entry_search_query_active(),
+                on_click=_clear_query_and_notify,
+                args=(on_change,),
+                width="stretch",
+            )
+    with mode_col:
+        st.radio(
+            "Match mode",
+            options=SEARCH_MATCH_MODES,
+            format_func=format_entry_search_match_mode,
+            horizontal=False,
+            key=ENTRY_SEARCH_MATCH_MODE_KEY,
+            on_change=on_change,
+        )
+
+
+def _render_stacked_scope_controls(on_change) -> None:
+    st.checkbox(
+        "Include System",
+        key=ENTRY_SEARCH_INCLUDE_SYSTEM_KEY,
+        on_change=on_change,
+    )
+    st.checkbox(
+        "Include User",
+        key=ENTRY_SEARCH_INCLUDE_USER_KEY,
+        on_change=on_change,
+    )
+    st.checkbox(
+        "Include Assistant",
+        key=ENTRY_SEARCH_INCLUDE_ASSISTANT_KEY,
+        on_change=on_change,
+    )
+
+
+def _render_horizontal_scope_controls(on_change) -> None:
     scope_cols = st.columns(3)
     with scope_cols[0]:
         st.checkbox(
@@ -84,17 +153,6 @@ def render_entry_search_controls(on_change=None) -> None:
             key=ENTRY_SEARCH_INCLUDE_ASSISTANT_KEY,
             on_change=on_change,
         )
-
-    st.radio(
-        "Match mode",
-        options=SEARCH_MATCH_MODES,
-        format_func=format_entry_search_match_mode,
-        horizontal=True,
-        key=ENTRY_SEARCH_MATCH_MODE_KEY,
-        on_change=on_change,
-    )
-
-    render_entry_search_summary()
 
 
 def render_entry_search_summary() -> None:

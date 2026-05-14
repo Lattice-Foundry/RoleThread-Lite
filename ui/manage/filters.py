@@ -141,7 +141,7 @@ def render_filters(
     if filter_state.selected_tags_changed:
         st.session_state["filter_tags"] = filter_state.clamped_selected_tags
 
-    filter_col, mode_col = st.columns([3, 1])
+    filter_col, mode_col, _filter_spacer = st.columns([1, 1, 2])
     with filter_col:
         filter_tags = st.multiselect(
             "Filter entries by tag",
@@ -168,7 +168,7 @@ def render_filters(
             on_change=_reset_page,
         )
 
-    render_entry_search_controls(on_change=_reset_page)
+    render_entry_search_controls(on_change=_reset_page, compact_layout=True)
     search_query = st.session_state.get(ENTRY_SEARCH_QUERY_KEY, "")
     search_options = get_entry_search_options()
     stats_filter_uuids = set(st.session_state.get(STATS_FILTER_UUIDS_KEY, set()))
@@ -195,7 +195,8 @@ def render_filters(
         if saved_per_page in PAGE_SIZE_OPTIONS
         else PAGE_SIZE_OPTIONS.index(DEFAULT_PAGE_SIZE)
     )
-    col_per_page, _col_per_page_spacer = st.columns([1, 3])
+    st.write("")
+    col_per_page, _col_per_page_spacer = st.columns([1, 5])
     with col_per_page:
         selected_per_page = st.selectbox(
             "Entries per page",

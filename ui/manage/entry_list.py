@@ -81,7 +81,7 @@ def render_entry_list(
                         character_display_cache=character_display_cache,
                     )
 
-    col_prev, col_next = st.columns(2)
+    col_prev, col_next, _pagination_spacer = st.columns([1, 1, 2])
     with col_prev:
         if st.button("Previous", disabled=(current_page == 0), width="stretch"):
             st.session_state.entry_page = current_page - 1

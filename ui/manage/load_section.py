@@ -49,14 +49,25 @@ def _render_load_controls() -> None:
         default=st.session_state.prefs.get("last_loaded_dataset_path")
         or st.session_state.loaded_path
         or "dataset.jsonl",
+        show_browse=False,
     )
 
-    col_load, col_new = st.columns(2)
+    col_browse, col_load, col_new, _load_spacer = st.columns([1, 1, 1, 1])
+    with col_browse:
+        _render_browse_button()
     with col_load:
         _render_load_button(load_path)
     with col_new:
         _render_new_dataset_button()
     _render_rename_controls()
+
+
+def _render_browse_button() -> None:
+    if st.button("Browse", key="browse_manage_load_path", width="stretch"):
+        browse_open_file(
+            "manage_load_path_pending",
+            pref_path_key="last_loaded_dataset_path",
+        )
 
 
 def _render_load_button(load_path: str) -> None:
@@ -65,8 +76,6 @@ def _render_load_button(load_path: str) -> None:
         st.session_state.get("loaded_path"),
         st.session_state.get("working_copy_summary"),
     )
-    if dataset_already_loaded:
-        st.caption("Dataset already loaded.")
     if st.button(
         "Load",
         width="stretch",
@@ -162,21 +171,23 @@ def _render_rename_controls() -> None:
         return
 
     current_path = Path(loaded_path)
-    st.caption(f"Loaded dataset: `{loaded_path}`")
-    with st.expander("Rename dataset"):
-        new_name = st.text_input(
-            "New dataset name",
-            value=current_path.stem,
-            key="manage_rename_dataset_name",
-            help="Use only letters, numbers, dashes, and underscores.",
-        )
-        unchanged = new_name.strip() == current_path.stem
-        if st.button(
-            "Rename",
-            width="stretch",
-            disabled=not new_name.strip() or unchanged,
-        ):
-            _rename_loaded_dataset(new_name.strip())
+    rename_col, _rename_spacer = st.columns([1, 1])
+    with rename_col:
+        with st.expander("Rename dataset"):
+            new_name = st.text_input(
+                "New dataset name",
+                value=current_path.stem,
+                key="manage_rename_dataset_name",
+                help="Use only letters, numbers, dashes, and underscores.",
+            )
+            unchanged = new_name.strip() == current_path.stem
+            if st.button(
+                "Rename",
+                width="stretch",
+                disabled=not new_name.strip() or unchanged,
+            ):
+                _rename_loaded_dataset(new_name.strip())
+    st.caption(f"Current loaded dataset: `{loaded_path}`")
 
 
 def _rename_loaded_dataset(new_name: str) -> None:
