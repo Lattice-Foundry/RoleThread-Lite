@@ -301,7 +301,7 @@ def render_turn_builder(
     ]
 
     # ── Planned exchanges number input ────────────────────────────────────────
-    _col_planned, _col_planned_spacer = st.columns([1, 3])
+    _col_planned, _col_planned_spacer = st.columns([0.55, 4])
     with _col_planned:
         st.number_input(
             "Planned exchanges",
@@ -331,12 +331,7 @@ def render_turn_builder(
 
     # ── Turn pair rendering loop ───────────────────────────────────────────────
     for _pair in range(0, len(st.session_state[f"{prefix}_turns"]), 2):
-        if show_exchange_numbers:
-            _col_label, _col_user, _col_asst = st.columns([0.65, 2, 2])
-            with _col_label:
-                st.caption(f"Exchange {_pair // 2 + 1}")
-        else:
-            _col_user, _col_asst = st.columns(2)
+        _col_user, _col_center, _col_asst = st.columns([2, 0.75, 2])
         for _col, _idx in ((_col_user, _pair), (_col_asst, _pair + 1)):
             if _idx >= len(st.session_state[f"{prefix}_turns"]):
                 break
@@ -365,12 +360,13 @@ def render_turn_builder(
                     height=150,
                     label_visibility="collapsed",
                 )
+        _exchange_number = _pair // 2 + 1
         if (
             exchange_divider_callback is not None
+            and _exchange_number >= 2
             and _pair + 2 < len(st.session_state[f"{prefix}_turns"])
         ):
-            exchange_divider_callback(_pair // 2 + 1)
-
+            exchange_divider_callback(_exchange_number)
     # ── Add / Remove Exchange buttons ─────────────────────────────────────────
     _add_label = (
         f"Add Exchange ({_remaining} Remaining)"
@@ -399,9 +395,6 @@ def render_turn_builder(
                 )
             remove_last_exchange_state(st.session_state, prefix)
             st.rerun()
-
-    # ── Exchange count caption ─────────────────────────────────────────────────
-    st.caption(f"Current exchanges: {_current_exchanges} / Planned: {_planned_exchanges}")
 
     return _turns_now
 
