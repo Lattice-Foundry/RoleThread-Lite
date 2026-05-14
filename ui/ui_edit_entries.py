@@ -428,7 +428,7 @@ def _render_live_split_divider(
 ) -> None:
     """Render one immediate split divider between exchanges."""
 
-    _user_space, middle, _assistant_space = st.columns([2, 0.75, 2])
+    _left_space, middle, _right_space = st.columns([2, 1, 2])
     with middle:
         if not st.button(
             f"Split @ Exchange {split_after_exchange}",

@@ -331,7 +331,7 @@ def render_turn_builder(
 
     # ── Turn pair rendering loop ───────────────────────────────────────────────
     for _pair in range(0, len(st.session_state[f"{prefix}_turns"]), 2):
-        _col_user, _col_center, _col_asst = st.columns([2, 0.75, 2])
+        _col_user, _col_asst = st.columns(2)
         for _col, _idx in ((_col_user, _pair), (_col_asst, _pair + 1)):
             if _idx >= len(st.session_state[f"{prefix}_turns"]):
                 break
