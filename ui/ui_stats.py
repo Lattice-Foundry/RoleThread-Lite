@@ -16,6 +16,7 @@ from core.qualitative_analysis import DatasetQualityReport, analyze_dataset_qual
 from core.tag_registry import get_tag_registry_snapshot
 from ui.session_state import ensure_entry_indexes
 from ui.stats_navigation import navigate_to_entries
+from ui.theme import score_color
 
 
 def _format_source_format(source_format: str) -> str:
@@ -61,7 +62,7 @@ def _loaded_dataset_path() -> Path | None:
 
 
 def _render_quality_header(report: DatasetQualityReport) -> None:
-    color = _score_color(report.composite_score)
+    color = score_color(report.composite_score, 100)
     st.markdown(
         f"""
         <div style="
@@ -76,7 +77,9 @@ def _render_quality_header(report: DatasetQualityReport) -> None:
                 <span style="font-size: 3rem; font-weight: 700; color: {color};">
                     {report.composite_score:.0f}
                 </span>
-                <span style="font-size: 1.35rem; font-weight: 600;">{report.grade}</span>
+                <span style="font-size: 1.35rem; font-weight: 600; color: {color};">
+                    {report.grade}
+                </span>
             </div>
         </div>
         """,
@@ -105,7 +108,7 @@ def _render_subscore_cards(report: DatasetQualityReport) -> None:
 
 def _render_response_quality_card(report: DatasetQualityReport) -> None:
     score = report.response_quality
-    st.metric("Response Quality", f"{score.score:.1f} / 25", _subscore_status(score.score))
+    _render_subscore_value("Response Quality", score.score)
     with st.expander("Metrics", expanded=False):
         st.write(f"Average response length: **{score.avg_response_length:.1f} words**")
         st.write(f"Median response length: **{score.median_response_length:.1f} words**")
@@ -122,7 +125,7 @@ def _render_response_quality_card(report: DatasetQualityReport) -> None:
 
 def _render_diversity_card(report: DatasetQualityReport) -> None:
     score = report.diversity
-    st.metric("Diversity", f"{score.score:.1f} / 25", _subscore_status(score.score))
+    _render_subscore_value("Diversity", score.score)
     with st.expander("Metrics", expanded=False):
         st.write(f"Unique system prompts: **{score.unique_system_prompts}**")
         st.write(f"Prompt diversity ratio: **{score.system_prompt_diversity_ratio:.2f}**")
@@ -139,7 +142,7 @@ def _render_diversity_card(report: DatasetQualityReport) -> None:
 
 def _render_structure_card(report: DatasetQualityReport) -> None:
     score = report.structure
-    st.metric("Structure", f"{score.score:.1f} / 25", _subscore_status(score.score))
+    _render_subscore_value("Structure", score.score)
     with st.expander("Metrics", expanded=False):
         st.write(f"Validation pass rate: **{score.validation_pass_rate:.1f}%**")
         st.write(f"Invalid entries: **{score.invalid_entry_count}**")
@@ -156,7 +159,7 @@ def _render_structure_card(report: DatasetQualityReport) -> None:
 
 def _render_metadata_card(report: DatasetQualityReport) -> None:
     score = report.metadata_integrity
-    st.metric("Metadata", f"{score.score:.1f} / 25", _subscore_status(score.score))
+    _render_subscore_value("Metadata", score.score)
     with st.expander("Metrics", expanded=False):
         st.write(f"Trusted stamp coverage: **{score.native_stamp_percent:.1f}%**")
         st.write(f"Tagged entries: **{score.tagged_entry_percent:.1f}%**")
@@ -183,6 +186,40 @@ def _render_affected_count(
             key=f"stats_deeplink_{key}",
         ):
             navigate_to_entries(entry_uuids, label)
+
+
+def _render_subscore_value(label: str, score: float) -> None:
+    color = score_color(score, 25)
+    status = _subscore_status(score)
+    st.markdown(
+        f"""
+        <div style="
+            border-left: 4px solid {color};
+            padding: 0.45rem 0 0.45rem 0.7rem;
+            margin-bottom: 0.35rem;
+        ">
+            <div style="font-size: 0.85rem; opacity: 0.78;">{label}</div>
+            <div style="display:flex; align-items:baseline; gap:0.45rem; flex-wrap:wrap;">
+                <span style="font-size:1.7rem; font-weight:700; color:{color};">
+                    {score:.1f}
+                </span>
+                <span style="font-size:0.85rem; opacity:0.75;">/ 25</span>
+                <span style="
+                    color:{color};
+                    border:1px solid {color};
+                    border-radius:999px;
+                    padding:0.08rem 0.45rem;
+                    font-size:0.78rem;
+                    font-weight:600;
+                    white-space:nowrap;
+                ">
+                    {status}
+                </span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _render_insights(report: DatasetQualityReport, entries: list[dict]) -> None:
@@ -431,26 +468,14 @@ def _truncate(text: str, max_length: int) -> str:
     return f"{clean[: max_length - 1].rstrip()}..."
 
 
-def _score_color(score: float) -> str:
-    if score >= 90:
-        return "#2E7D32"
-    if score >= 70:
-        return "#7CB342"
-    if score >= 50:
-        return "#FBC02D"
-    if score >= 30:
-        return "#F57C00"
-    return "#C62828"
-
-
 def _subscore_status(score: float) -> str:
-    if score >= 22.5:
+    if score >= 23:
         return "Excellent"
-    if score >= 17.5:
+    if score >= 18:
         return "Good"
-    if score >= 12.5:
+    if score >= 13:
         return "Fair"
-    if score >= 7.5:
+    if score >= 7:
         return "Needs Attention"
     return "Significant Issues"
 
