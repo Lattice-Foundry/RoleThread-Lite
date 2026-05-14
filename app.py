@@ -28,6 +28,8 @@ from ui.ui_character_management import render_character_management_page
 from ui.ui_create import init_editor_state, render_create_page
 from ui.ui_edit_entries import render_edit_entries_page
 from ui.ui_export import render_export_page
+from ui.ui_faq import render_faq_page
+from ui.ui_help import render_help_page
 from ui.ui_tag_management import render_tag_management_page
 from ui.manage import render_manage_page
 from ui.ui_merge import render_merge_page
@@ -249,6 +251,10 @@ _NAV_SECTIONS = [
     ("Settings", [
         ("Preferences",     "Settings"),
     ]),
+    ("Documentation", [
+        ("Help",            "Help"),
+        ("FAQ",             "FAQ"),
+    ]),
 ]
 
 for _sec_name, _sec_items in _NAV_SECTIONS:
@@ -292,3 +298,7 @@ elif page in ("Insights", "Statistics"):
     render_stats_page()
 elif page == "Settings":
     render_settings_page()
+elif page == "Help":
+    render_help_page()
+elif page == "FAQ":
+    render_faq_page()

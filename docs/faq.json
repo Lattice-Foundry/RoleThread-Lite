@@ -1,0 +1,14 @@
+[
+  {
+    "question": "What is LoreForge Lite?",
+    "answer": "LoreForge Lite is a local-first tool for crafting, validating, organizing, and exporting narrative AI training datasets."
+  },
+  {
+    "question": "Does LoreForge Lite send my data to the cloud?",
+    "answer": "No. LoreForge Lite is designed around local-first workflows. Optional cloud backup support copies your local backups only when you configure it."
+  },
+  {
+    "question": "Where will full documentation live?",
+    "answer": "Help topics and FAQ entries will live in the docs folder so the app can render them directly."
+  }
+]
