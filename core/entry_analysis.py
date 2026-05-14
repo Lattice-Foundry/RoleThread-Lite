@@ -2,6 +2,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from enum import StrEnum
+import re
 from typing import Any, ClassVar
 
 from core.loreforge_meta import LOREFORGE_META_KEY
@@ -44,6 +45,10 @@ CHATML_WRONG_ROLE = "chatml.wrong_role"
 CHATML_EMPTY_CONTENT = "chatml.empty_content"
 CHATML_ROLE_CANONICALIZATION = "chatml.role_canonicalization"
 CHATML_CONTENT_WHITESPACE = "chatml.content_whitespace"
+CHATML_DUPLICATE_SYSTEM_MESSAGE = "chatml.duplicate_system_message"
+CHATML_AI_REFUSAL_LANGUAGE = "chatml.ai_refusal_language"
+CHATML_SPLIT_CANDIDATE = "chatml.split_candidate"
+CHATML_FORMATTING_LEAKAGE = "chatml.formatting_leakage"
 CHARACTER_INACTIVE_REFERENCE_IN_PROMPT = "character.inactive_reference_in_prompt"
 
 SHAREGPT_MISSING_CONVERSATIONS = "sharegpt.missing_conversations"
@@ -59,6 +64,22 @@ SHAREGPT_MULTIPLE_SYSTEM_TURNS = "sharegpt.multiple_system_turns"
 SHAREGPT_NO_SYSTEM_TURN = "sharegpt.no_system_turn"
 
 SYSTEM_PROMPT_EDIT_GUIDANCE = " Use Modify System or Full Edit to correct."
+
+AI_REFUSAL_LANGUAGE_PATTERNS: tuple[str, ...] = (
+    "as an ai language model",
+    "i cannot assist",
+    "i'm just a language model",
+    "i don't have personal",
+    "i'm not able to",
+    "as an artificial intelligence",
+    "i must remind you that",
+    "it's important to note that i",
+)
+
+_MARKDOWN_BOLD_RE = re.compile(r"\*\*[^*\n][\s\S]*?[^*\n]\*\*")
+_MARKDOWN_HEADING_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+\S")
+_JSON_FRAGMENT_RE = re.compile(r"\{\s*\"[^\"]+\"\s*:")
+_WORD_RE = re.compile(r"\b[\w']+\b", re.UNICODE)
 
 
 @dataclass(frozen=True)
@@ -414,6 +435,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
             )
 
         diagnostics: list[EntryDiagnostic] = []
+        diagnostics.extend(self._duplicate_system_message_diagnostic(messages))
         if len(messages) < 3:
             diagnostics.append(
                 EntryDiagnostic(
@@ -575,9 +597,129 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
                         original_value=message.get("content", ""),
                     )
                 )
+            if normalized_role == "assistant" or actual_role == "assistant":
+                diagnostics.extend(
+                    self._assistant_quality_diagnostics(message, index)
+                )
             expected_role = "assistant" if expected_role == "user" else "user"
 
+        diagnostics.extend(self._split_candidate_diagnostic(messages))
         return tuple(diagnostics)
+
+    def _duplicate_system_message_diagnostic(
+        self,
+        messages: list,
+    ) -> tuple[EntryDiagnostic, ...]:
+        system_count = sum(
+            1
+            for message in messages
+            if isinstance(message, dict) and message.get("role") == "system"
+        )
+        if system_count <= 1:
+            return ()
+        return (
+            EntryDiagnostic(
+                code=CHATML_DUPLICATE_SYSTEM_MESSAGE,
+                severity=AnalysisSeverity.WARNING,
+                message=(
+                    f"Entry has {system_count} system messages - only the first is "
+                    "used for training. Remove extras or merge content."
+                ),
+                path=("messages",),
+                repair_kind=RepairKind.MANUAL,
+                original_value=system_count,
+            ),
+        )
+
+    def _assistant_quality_diagnostics(
+        self,
+        message: dict,
+        index: int,
+    ) -> tuple[EntryDiagnostic, ...]:
+        content = message.get("content")
+        if not isinstance(content, str) or not content.strip():
+            return ()
+
+        diagnostics: list[EntryDiagnostic] = []
+        lowered = content.casefold()
+        if any(pattern in lowered for pattern in AI_REFUSAL_LANGUAGE_PATTERNS):
+            diagnostics.append(
+                EntryDiagnostic(
+                    code=CHATML_AI_REFUSAL_LANGUAGE,
+                    severity=AnalysisSeverity.WARNING,
+                    message=(
+                        "Assistant response contains AI refusal/meta language that "
+                        "may degrade roleplay training quality."
+                    ),
+                    path=("messages", index, "content"),
+                    repair_kind=RepairKind.MANUAL,
+                    original_value=content,
+                )
+            )
+
+        if self._has_formatting_leakage(content):
+            diagnostics.append(
+                EntryDiagnostic(
+                    code=CHATML_FORMATTING_LEAKAGE,
+                    severity=AnalysisSeverity.INFO,
+                    message=(
+                        "Assistant response contains markdown/code formatting that "
+                        "may appear in model output during inference."
+                    ),
+                    path=("messages", index, "content"),
+                    repair_kind=RepairKind.MANUAL,
+                    original_value=content,
+                )
+            )
+        return tuple(diagnostics)
+
+    def _has_formatting_leakage(self, content: str) -> bool:
+        lowered = content.casefold()
+        return (
+            "```" in content
+            or _MARKDOWN_BOLD_RE.search(content) is not None
+            or _MARKDOWN_HEADING_RE.search(content) is not None
+            or "<html" in lowered
+            or "<div" in lowered
+            or _JSON_FRAGMENT_RE.search(content) is not None
+        )
+
+    def _split_candidate_diagnostic(
+        self,
+        messages: list,
+    ) -> tuple[EntryDiagnostic, ...]:
+        exchange_count = self._exchange_count(messages)
+        assistant_word_count = sum(
+            len(_WORD_RE.findall(str(message.get("content", ""))))
+            for message in messages
+            if isinstance(message, dict) and message.get("role") == "assistant"
+        )
+        if exchange_count < 8 and assistant_word_count <= 2000:
+            return ()
+        return (
+            EntryDiagnostic(
+                code=CHATML_SPLIT_CANDIDATE,
+                severity=AnalysisSeverity.INFO,
+                message=(
+                    "This entry is very long and may benefit from splitting into "
+                    "focused training examples."
+                ),
+                path=("messages",),
+                repair_kind=RepairKind.MANUAL,
+                original_value={
+                    "exchange_count": exchange_count,
+                    "assistant_word_count": assistant_word_count,
+                },
+            ),
+        )
+
+    def _exchange_count(self, messages: list) -> int:
+        non_system = [
+            message
+            for message in messages
+            if isinstance(message, dict) and message.get("role") != "system"
+        ]
+        return len(non_system) // 2
 
     def _role_article(self, role: str) -> str:
         if role == "user":

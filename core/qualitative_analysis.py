@@ -11,7 +11,13 @@ import re
 from statistics import median
 from typing import TYPE_CHECKING, Any
 
-from core.dataset import count_exchanges, get_entry_messages, get_entry_tags, validate_entry
+from core.dataset import analyze_entry, count_exchanges, get_entry_messages, get_entry_tags, validate_entry
+from core.entry_analysis import (
+    CHATML_AI_REFUSAL_LANGUAGE,
+    CHATML_DUPLICATE_SYSTEM_MESSAGE,
+    CHATML_FORMATTING_LEAKAGE,
+    CHATML_SPLIT_CANDIDATE,
+)
 from core.loreforge_meta import (
     get_dataset_uuid_for_entries,
     get_entry_uuid,
@@ -37,6 +43,12 @@ _PLACEHOLDER_PATTERNS = (
     "<insert",
     "n/a",
 )
+_STRUCTURE_FLAG_DIAGNOSTIC_CODES = {
+    CHATML_DUPLICATE_SYSTEM_MESSAGE,
+    CHATML_AI_REFUSAL_LANGUAGE,
+    CHATML_SPLIT_CANDIDATE,
+    CHATML_FORMATTING_LEAKAGE,
+}
 
 
 @dataclass(frozen=True)
@@ -305,11 +317,18 @@ def _score_structure(entries: list[dict]) -> StructureScore:
     exchange_counts: list[int] = []
     short_system_ids: list[str] = []
     missing_system_ids: list[str] = []
+    diagnostic_flag_ids: list[str] = []
 
     for index, entry in enumerate(entries):
         entry_id = _entry_identifier(entry, index)
         if validate_entry(entry):
             invalid_ids.append(entry_id)
+        analysis = analyze_entry(entry)
+        if any(
+            diagnostic.code in _STRUCTURE_FLAG_DIAGNOSTIC_CODES
+            for diagnostic in analysis.diagnostics
+        ):
+            diagnostic_flag_ids.append(entry_id)
         exchanges = count_exchanges(entry)
         exchange_counts.append(exchanges)
         system_prompt = _system_prompt(entry)
@@ -346,7 +365,7 @@ def _score_structure(entries: list[dict]) -> StructureScore:
         short_system_prompt_count=len(short_system_ids),
         missing_system_prompt_count=len(missing_system_ids),
         flagged_entry_uuids=_dedupe_preserving_order(
-            invalid_ids + short_system_ids + missing_system_ids
+            invalid_ids + short_system_ids + missing_system_ids + diagnostic_flag_ids
         ),
     )
 

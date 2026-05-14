@@ -19,7 +19,11 @@ from core.entry_analysis import (
     CHATML_MISSING_MESSAGES,
     CHATML_MISSING_SYSTEM_ROLE,
     CHATML_CONTENT_WHITESPACE,
+    CHATML_AI_REFUSAL_LANGUAGE,
+    CHATML_DUPLICATE_SYSTEM_MESSAGE,
+    CHATML_FORMATTING_LEAKAGE,
     CHATML_ROLE_CANONICALIZATION,
+    CHATML_SPLIT_CANDIDATE,
     CHATML_SYSTEM_NOT_DICT,
     CHATML_WRONG_ROLE,
     SHAREGPT_CONVERSATIONS_NOT_LIST,
@@ -618,6 +622,92 @@ def test_chatml_analyzer_reports_custom_role_whitespace_without_mapping_it():
     }
     assert wrong_role.repair_kind == RepairKind.MANUAL
     assert wrong_role.original_value == " Scott "
+
+
+def test_chatml_analyzer_reports_duplicate_system_messages():
+    result = ChatMLAnalyzer().analyze(_entry(messages=[
+        {"role": "system", "content": "Primary system"},
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Hello"},
+        {"role": "system", "content": "Extra system"},
+        {"role": "assistant", "content": "Second reply"},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, CHATML_DUPLICATE_SYSTEM_MESSAGE)
+
+    assert diagnostic.severity == AnalysisSeverity.WARNING
+    assert diagnostic.repair_kind == RepairKind.MANUAL
+    assert diagnostic.original_value == 2
+    assert "only the first is used for training" in diagnostic.message
+
+
+def test_chatml_analyzer_reports_ai_refusal_language():
+    result = ChatMLAnalyzer().analyze(_entry(messages=[
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Stay in character."},
+        {
+            "role": "assistant",
+            "content": "As an AI language model, I cannot assist with that.",
+        },
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, CHATML_AI_REFUSAL_LANGUAGE)
+
+    assert diagnostic.severity == AnalysisSeverity.WARNING
+    assert diagnostic.fixable is False
+    assert diagnostic.path == ("messages", 2, "content")
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "```python\nprint('leak')\n```",
+        "This has **bold** markdown.",
+        "# Heading\nNarration follows.",
+        "<div>Generated HTML</div>",
+        '{"key": "value"}',
+    ],
+)
+def test_chatml_analyzer_reports_formatting_leakage(content):
+    result = ChatMLAnalyzer().analyze(_entry(messages=[
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Continue."},
+        {"role": "assistant", "content": content},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, CHATML_FORMATTING_LEAKAGE)
+
+    assert diagnostic.severity == AnalysisSeverity.INFO
+    assert diagnostic.repair_kind == RepairKind.MANUAL
+
+
+def test_chatml_analyzer_reports_split_candidate_for_eight_exchanges():
+    messages = [{"role": "system", "content": "System"}]
+    for index in range(8):
+        messages.append({"role": "user", "content": f"User {index}"})
+        messages.append({"role": "assistant", "content": f"Assistant {index}"})
+
+    result = ChatMLAnalyzer().analyze(_entry(messages=messages))
+    diagnostic = _diagnostic_by_code(result, CHATML_SPLIT_CANDIDATE)
+
+    assert diagnostic.severity == AnalysisSeverity.INFO
+    assert diagnostic.original_value == {
+        "exchange_count": 8,
+        "assistant_word_count": 16,
+    }
+
+
+def test_chatml_analyzer_reports_split_candidate_for_long_assistant_content():
+    result = ChatMLAnalyzer().analyze(_entry(messages=[
+        {"role": "system", "content": "System"},
+        {"role": "user", "content": "Tell me a long story."},
+        {"role": "assistant", "content": "word " * 2001},
+    ]))
+
+    diagnostic = _diagnostic_by_code(result, CHATML_SPLIT_CANDIDATE)
+
+    assert diagnostic.severity == AnalysisSeverity.INFO
+    assert diagnostic.original_value["assistant_word_count"] == 2001
 
 
 def test_chatml_repairs_role_and_content_normalization_without_mutating_original():

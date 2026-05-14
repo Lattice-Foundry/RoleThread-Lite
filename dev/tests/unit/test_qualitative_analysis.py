@@ -114,6 +114,19 @@ def test_structure_scores_validation_and_exchange_distribution():
     assert report.structure.missing_system_prompt_count == 1
 
 
+def test_structure_flagged_entries_include_quality_diagnostics_without_score_penalty():
+    refusal = _entry(
+        assistant_text="As an AI language model, I cannot assist with that.",
+        exchanges=3,
+    )
+
+    report = analyze_dataset_quality([refusal])
+
+    assert report.structure.invalid_entry_count == 0
+    assert report.structure.validation_pass_rate == 100
+    assert report.structure.flagged_entry_uuids == ("entry_index:0",)
+
+
 def test_metadata_integrity_uses_native_tags_character_mappings_and_sidecar(tmp_path):
     stamped = stamp_entries(
         [
