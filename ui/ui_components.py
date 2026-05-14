@@ -12,7 +12,7 @@ import streamlit as st
 from core.tag_registry import prettify_tag_name
 
 _NON_STANDARD_ROLE_COLOR = "#c2185b"
-_ROLE_COLOR = {"user": "#1a73e8", "assistant": "#188038"}
+_ROLE_COLOR = {"user": "#3EB489", "assistant": "#188038"}
 
 
 def _format_preview_content(text: str) -> str:
@@ -45,7 +45,7 @@ def render_message_preview(
     display_names: dict[int, str] | None = None,
 ) -> None:
     """Render a formatted read-only preview of saved entry messages."""
-    _COLOR = {"system": "#555", "user": "#1a73e8", "assistant": "#188038"}
+    _COLOR = {"system": "#555", "user": "#3EB489", "assistant": "#188038"}
     display_names = display_names or {}
     for turn_index, msg in enumerate(messages):
         if not isinstance(msg, dict):

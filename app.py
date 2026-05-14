@@ -43,8 +43,8 @@ ensure_app_directories()
 st.set_page_config(page_title="LoreForge Lite", layout="wide")
 
 st.markdown(
-    "<h1 style='color:#1a73e8'>LoreForge Lite</h1>"
-    "<p style='margin-top:-0.75rem;color:#5f6368;font-size:1.05rem'>"
+    "<h1 style='color:#3EB489'>LoreForge Lite</h1>"
+    "<p style='margin-top:-0.75rem;color:#B8B8B8;font-size:1.05rem'>"
     "Local-First Dataset Crafting for Narrative AI"
     "</p>",
     unsafe_allow_html=True,
@@ -57,32 +57,32 @@ button[data-testid="baseButton-primary"]:not(:disabled),
 button[kind="primary"]:not(:disabled),
 .stButton > button[type="submit"]:not(:disabled),
 .stButton > button:not([kind="secondary"]):not([kind="tertiary"]):not(:disabled) {
-    background-color: #1a73e8 !important;
-    border-color: #1565c0 !important;
+    background-color: #3EB489 !important;
+    border-color: #31966F !important;
     color: white !important;
 }
 button[data-testid="baseButton-primary"]:not(:disabled):hover,
 button[kind="primary"]:not(:disabled):hover,
 .stButton > button[type="submit"]:not(:disabled):hover,
 .stButton > button:not([kind="secondary"]):not([kind="tertiary"]):not(:disabled):hover {
-    background-color: #1565c0 !important;
-    border-color: #0d47a1 !important;
+    background-color: #31966F !important;
+    border-color: #257A59 !important;
     color: white !important;
 }
-/* Active sidebar nav button — blue text, no background fill.
+/* Active sidebar nav button — mint text, no background fill.
    More specific selector overrides the general primary-button rule above. */
 section[data-testid="stSidebar"] button[data-testid="baseButton-primary"]:not(:disabled),
 section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled) {
     background-color: transparent !important;
     border-color: transparent !important;
-    color: #1a73e8 !important;
+    color: #3EB489 !important;
     box-shadow: none !important;
 }
 section[data-testid="stSidebar"] button[data-testid="baseButton-primary"]:not(:disabled):hover,
 section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled):hover {
-    background-color: rgba(26, 115, 232, 0.08) !important;
+    background-color: rgba(62, 180, 137, 0.10) !important;
     border-color: transparent !important;
-    color: #1565c0 !important;
+    color: #31966F !important;
 }
 </style>
 """, unsafe_allow_html=True)

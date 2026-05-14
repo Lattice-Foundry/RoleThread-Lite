@@ -214,7 +214,7 @@ def render_tag_management_page() -> None:
                     st.caption("No tags in this category yet.")
                 else:
                     for tag in cat["tags"]:
-                        _badge_color = "#888" if tag["is_builtin"] else "#1a73e8"
+                        _badge_color = "#888" if tag["is_builtin"] else "#3EB489"
                         _badge_label = "built-in" if tag["is_builtin"] else "custom"
                         _is_editing = (
                             st.session_state.get("tm_editing_tag_slug")

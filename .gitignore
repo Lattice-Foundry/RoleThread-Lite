@@ -1,6 +1,7 @@
 .claude/
 .pytest_cache/
-.streamlit/
+.streamlit/*
+!.streamlit/config.toml
 .pytest_tmp/
 pytest_tmp_*/
 .cache/
