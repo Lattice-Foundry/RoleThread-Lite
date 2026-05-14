@@ -48,6 +48,7 @@ from ui.browser_helpers import (
     slice_visible_pairs,
 )
 from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
+from ui.guidance import render_manage_dataset_cta
 from ui.system_prompt_selector import render_system_prompt_template_selector
 from ui.entry_search_controls import (
     entry_search_has_enabled_scope,
@@ -73,6 +74,7 @@ from ui.ui_create import (
     group_character_display_names_from_state,
     render_entry_mode_toggle,
     render_turn_builder,
+    disabled_save_reason,
 )
 
 _UNTAGGED = "__untagged__"
@@ -630,14 +632,17 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
     st.divider()
     _col_save, _col_cancel = st.columns(2)
     with _col_save:
+        _save_disabled = not _entry_valid or _current_exchanges < _planned_exchanges
         if st.button(
             "Save Edits",
             key="btn_save_full_edit",
             type="primary",
-            disabled=not _entry_valid or _current_exchanges < _planned_exchanges,
+            disabled=_save_disabled,
             width="stretch",
         ):
             save_full_edit(active_registry)
+        if _save_disabled:
+            st.caption(disabled_save_reason(_entry_valid, _current_exchanges, _planned_exchanges))
     with _col_cancel:
         if st.button("Cancel / Back to Edit Entries", key="btn_cancel_full_edit",
                      width="stretch"):
@@ -664,6 +669,7 @@ def render_edit_entries_page() -> None:
 
     if not _ee_all_pairs:
         st.info("Load a dataset in Manage Dataset to edit entries.")
+        render_manage_dataset_cta(key="edit_entries_go_to_manage_empty")
         return
 
     st.subheader(f"Browse Entries ({len(_ee_all_pairs)})")

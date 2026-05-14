@@ -13,6 +13,7 @@ from core.working_copy import canonical_training_dataset_path
 from services.registry_sidecar_service import export_registry_sidecar
 from ui.file_dialogs import browse_export_file, path_input
 from ui.flash_messages import enqueue_flash, render_flash_messages
+from ui.guidance import render_manage_dataset_cta
 from ui.session_state import ensure_entry_indexes
 
 _EXPORT_FORMAT_OPTIONS = {
@@ -48,6 +49,7 @@ def render_export_page() -> None:
     _export_entries = st.session_state.loaded_entries
     if not _export_entries:
         st.info("Load a dataset to export.")
+        render_manage_dataset_cta(key="export_go_to_manage_empty")
         return
 
     st.caption(

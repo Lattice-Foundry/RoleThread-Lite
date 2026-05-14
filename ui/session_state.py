@@ -111,6 +111,7 @@ _DATASET_SCOPED_STATE_KEYS = (
     "character_warning_msg",
     "validation_success_msg",
     "validation_warning_msg",
+    "validation_post_fix_manual_issue_count",
     "pending_delete_selected",
     "pending_system_prompt_edit",
     "validation_pending_fix",

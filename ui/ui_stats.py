@@ -14,6 +14,7 @@ from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT, FORMAT_UNKNOW
 from core.loreforge_meta import get_entry_uuid
 from core.qualitative_analysis import DatasetQualityReport, analyze_dataset_quality
 from core.tag_registry import get_tag_registry_snapshot
+from ui.guidance import render_manage_dataset_cta
 from ui.session_state import ensure_entry_indexes
 from ui.stats_navigation import navigate_to_entries
 from ui.theme import score_color
@@ -36,6 +37,7 @@ def render_stats_page() -> None:
 
     if not entries:
         st.info("Load a dataset to view quality analysis.")
+        render_manage_dataset_cta(key="stats_go_to_manage_empty")
         return
 
     tag_snapshot = get_tag_registry_snapshot()
@@ -51,6 +53,7 @@ def render_stats_page() -> None:
     )
 
     _render_quality_header(report)
+    _render_recommended_insight_actions(report)
     _render_subscore_cards(report)
     _render_insights(report, entries)
     _render_dataset_overview(legacy_stats, entries)
@@ -90,6 +93,45 @@ def _render_quality_header(report: DatasetQualityReport) -> None:
     c1.metric("Total Entries", report.total_entries)
     c2.metric("Total Messages", report.total_messages)
     c3.metric("Composite", f"{report.composite_score:.1f} / 100")
+
+
+def _render_recommended_insight_actions(report: DatasetQualityReport) -> None:
+    if report.composite_score >= 70:
+        return
+
+    recommendations = _quality_recommendations(report)
+    if not recommendations:
+        return
+
+    st.info("Recommended next actions:\n\n" + "\n".join(
+        f"- {recommendation}" for recommendation in recommendations[:3]
+    ))
+
+
+def _quality_recommendations(report: DatasetQualityReport) -> list[str]:
+    scored_actions = [
+        (
+            report.response_quality.score,
+            "Response Quality is low - consider writing longer, more detailed assistant responses.",
+        ),
+        (
+            report.diversity.score,
+            "Diversity is low - add varied system prompts, tags, or reduce near-duplicate entries.",
+        ),
+        (
+            report.structure.score,
+            "Structure needs attention - run Validation and review entries outside the 3-7 exchange range.",
+        ),
+        (
+            report.metadata_integrity.score,
+            "Metadata Integrity is low - tag untagged entries and save through LoreForge to refresh trusted metadata.",
+        ),
+    ]
+    return [
+        action
+        for score, action in sorted(scored_actions, key=lambda item: item[0])
+        if score < 18
+    ]
 
 
 def _render_subscore_cards(report: DatasetQualityReport) -> None:

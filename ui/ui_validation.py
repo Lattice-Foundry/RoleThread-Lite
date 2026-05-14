@@ -25,7 +25,9 @@ from core.validation_actions import (
 from services.character_mapping_service import apply_character_mapping_service
 from services.dataset_service import save_repaired_entries_service
 from ui.flash_messages import enqueue_dataset_result_flash, enqueue_flash, render_flash_messages
+from ui.guidance import render_manage_dataset_cta, render_recommended_action
 from ui.session_state import apply_dataset_operation_result, ensure_entry_indexes
+from ui.stats_navigation import navigate_to_entries
 
 
 def render_validation_page() -> None:
@@ -38,6 +40,7 @@ def render_validation_page() -> None:
     entries = st.session_state.get("loaded_entries", [])
     if not entries:
         st.info("Load a dataset to review validation issues.")
+        render_manage_dataset_cta(key="validation_go_to_manage_empty")
         _clear_pending_fix()
         return
 
@@ -56,6 +59,7 @@ def render_validation_page() -> None:
         entries_with_issues=max(0, diagnostics.entries_analyzed - diagnostics.valid_entries),
         auto_fixable_count=total_fix_count,
     )
+    _render_post_fix_guidance()
 
     if total_fix_count == 0:
         _clear_pending_fix()
@@ -70,6 +74,22 @@ def render_validation_page() -> None:
 
     _render_character_mapping_section(entries)
     _render_inactive_character_prompt_reference_section(entries)
+
+
+def _render_post_fix_guidance() -> None:
+    manual_count = st.session_state.get("validation_post_fix_manual_issue_count")
+    if manual_count is None:
+        return
+    if int(manual_count) > 0:
+        render_recommended_action(
+            "All auto-fixable issues resolved. "
+            f"{count_phrase(int(manual_count), 'manual issue')} remain in Edit Entries.",
+            button_label="Go to Edit Entries →",
+            target_page="Edit Entries",
+            key="guidance_validation_manual_issues",
+        )
+    else:
+        st.info("All auto-fixable issues resolved. No manual validation issues remain.")
 
 
 def _render_summary(
@@ -242,6 +262,11 @@ def _execute_pending_fix(pending: dict) -> None:
     st.session_state.uuid_to_index = build_uuid_index(persisted_entries)
     clear_validate_entry_cache()
     _refresh_diagnostic_summary(persisted_entries)
+    updated_diagnostics = summarize_entry_analysis(persisted_entries)
+    st.session_state.validation_post_fix_manual_issue_count = max(
+        0,
+        updated_diagnostics.entries_analyzed - updated_diagnostics.valid_entries,
+    )
     _clear_pending_fix()
 
     backup_note = " Backup created." if result.backup_path else ""
@@ -416,12 +441,21 @@ def _render_inactive_character_prompt_reference_section(entries: list[dict]) -> 
             "Use Entry Search to review."
         )
         with st.expander(f"Entries referencing {display_name}", expanded=False):
-            for entry_uuid in entry_uuids[:25]:
-                st.caption(f"Entry UUID: {entry_uuid}")
+            index_by_uuid = st.session_state.get("uuid_to_index") or build_uuid_index(entries)
+            entry_labels = [
+                _entry_number_label(index_by_uuid.get(entry_uuid))
+                for entry_uuid in entry_uuids[:25]
+            ]
+            st.caption(", ".join(entry_labels))
             if len(entry_uuids) > 25:
                 st.caption(
                     f"{count_phrase(len(entry_uuids) - 25, 'additional entry', 'additional entries')} hidden."
                 )
+            if st.button(
+                f"View {count_phrase(len(entry_uuids), 'entry', 'entries')} in Manage",
+                key=f"validation_view_inactive_refs_{display_name}",
+            ):
+                navigate_to_entries(tuple(entry_uuids), f"Inactive character reference: {display_name}")
 
 
 def _clear_pending_fix() -> None:
@@ -432,6 +466,12 @@ def _format_path(path: tuple[str | int, ...]) -> str:
     if not path:
         return "entry"
     return ".".join(str(part) for part in path)
+
+
+def _entry_number_label(index: int | None) -> str:
+    if index is None:
+        return "Entry unknown"
+    return f"Entry {index + 1}"
 
 
 def _format_value(value: Any) -> str:

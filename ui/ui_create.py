@@ -19,6 +19,7 @@ from core.text_helpers import count_phrase
 from ui.session_state import apply_dataset_operation_result, update_prefs, ensure_entry_indexes
 from services.dataset_service import create_entry_service
 from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
+from ui.guidance import render_manage_dataset_cta
 from ui.system_prompt_selector import render_system_prompt_template_selector
 from ui.ui_components import (
     _NON_STANDARD_ROLE_COLOR,
@@ -332,6 +333,12 @@ def render_turn_builder(
     _overage = max(0, _current_exchanges - _planned_exchanges)
     _group_mode = st.session_state.get(entry_mode_key(prefix)) == ENTRY_MODE_GROUP
     _characters = get_all_characters() if _group_mode else []
+    if _group_mode:
+        st.caption(
+            "Group Chat mode lets you assign characters to each turn. Training data "
+            "stays as standard user/assistant roles - character names are preserved "
+            "as display metadata only."
+        )
     if _group_mode and not _characters:
         st.caption("Add characters in Metadata or from a turn dropdown to use group mode.")
 
@@ -584,6 +591,8 @@ def render_entry_actions(
             type="primary",
             width="stretch",
         )
+    if _complete_disabled:
+        st.caption(disabled_save_reason(_entry_valid, _current_exchanges, _planned_exchanges))
     if complete_clicked:
         save_path = st.session_state.get("loaded_path", "").strip()
         if not save_path:
@@ -627,6 +636,11 @@ def render_create_page() -> None:
     _tag_snapshot = get_tag_registry_snapshot()
 
     render_flash_messages()
+    if not st.session_state.get("loaded_path"):
+        st.info("Load or create a dataset before creating entries.")
+        render_manage_dataset_cta(key="create_go_to_manage_empty")
+        return
+
     render_entry_mode_toggle("create")
 
     st.subheader("System Prompt")
@@ -666,3 +680,11 @@ def render_create_page() -> None:
     render_conversation_preview(turns_now, "create", display_names=preview_display_names)
 
     render_entry_actions(turns_now, "create", _tag_snapshot.active_registry)
+
+
+def disabled_save_reason(entry_valid: bool, current_exchanges: int, planned_exchanges: int) -> str:
+    if current_exchanges < planned_exchanges:
+        return "Complete all planned exchanges to enable save."
+    if not entry_valid:
+        return "Fix validation errors to enable save."
+    return "Complete the entry to enable save."

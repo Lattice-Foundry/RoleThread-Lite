@@ -4,6 +4,7 @@ import streamlit as st
 from core.dataset import analyze_entry
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT, FORMAT_UNKNOWN
 from core.text_helpers import count_phrase
+from ui.guidance import render_recommended_action
 
 
 def format_source_format(source_format: str) -> str:
@@ -45,6 +46,21 @@ def render_load_format_summary(
             f"from `{loaded_dataset_path}`. "
             f"({diagnostics.valid_entries} valid, {issue_entries} with issues)."
         )
+        if issue_entries:
+            render_recommended_action(
+                f"{count_phrase(issue_entries, 'entry', 'entries')} have validation issues.",
+                button_label="Go to Validation →",
+                target_page="Validation",
+                key="guidance_load_validation",
+            )
+        untagged_entries = _count_untagged_entries(normalization.entries)
+        if untagged_entries:
+            render_recommended_action(
+                f"{count_phrase(untagged_entries, 'entry', 'entries')} are untagged.",
+                button_label="Tag them in Manage Dataset →",
+                target_page="Manage Dataset",
+                key="guidance_load_untagged",
+            )
 
     if correction_saved:
         diagnostics = normalization.diagnostics
@@ -244,4 +260,16 @@ def _entry_has_reportable_diagnostics(entry: dict) -> bool:
         diagnostic.severity.value in {"error", "warning"}
         or (diagnostic.fixable and diagnostic.repair_kind.value == "automatic")
         for diagnostic in result.diagnostics
+    )
+
+
+def _count_untagged_entries(entries: list[dict]) -> int:
+    return sum(
+        1
+        for entry in entries
+        if not (
+            isinstance(entry, dict)
+            and isinstance(entry.get("tags"), list)
+            and any(isinstance(tag, str) and tag.strip() for tag in entry["tags"])
+        )
     )
