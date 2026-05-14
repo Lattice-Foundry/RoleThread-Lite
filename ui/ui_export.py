@@ -55,22 +55,19 @@ def render_export_page() -> None:
         f"`{st.session_state.loaded_path or 'unknown'}`"
     )
 
-    _format_label = st.selectbox(
-        "Export format",
-        options=list(_EXPORT_FORMAT_OPTIONS),
-        key="export_format_select",
-    )
+    format_col, _format_spacer = st.columns([1, 3])
+    with format_col:
+        _format_label = st.selectbox(
+            "Export format",
+            options=list(_EXPORT_FORMAT_OPTIONS),
+            key="export_format_select",
+        )
     _export_format = _EXPORT_FORMAT_OPTIONS[_format_label]
 
     clean_export = st.checkbox(
         "Clean - Metadata removed",
         value=False,
         key="export_clean",
-    )
-    include_sidecar = st.checkbox(
-        "Include registry sidecar",
-        value=True,
-        key="export_include_registry_sidecar",
     )
 
     # Browse button opens save dialog (pure Tkinter → rerun, no save work done here).
@@ -81,9 +78,17 @@ def render_export_page() -> None:
         browse_fn=browse_export_file,
         browse_kwargs={},
         default="",
+        show_browse=False,
     )
 
-    if st.button("Export as JSONL", type="primary", width="stretch"):
+    browse_col, export_col, _export_spacer = st.columns([1, 1, 2])
+    with browse_col:
+        if st.button("Browse", key="browse_export_save_path", width="stretch"):
+            browse_export_file("export_save_path_pending")
+    with export_col:
+        export_clicked = st.button("Export as JSONL", type="primary", width="stretch")
+
+    if export_clicked:
         _p = export_save_path.strip()
         if not _p:
             st.error("Set an export path or use Browse to pick a location.")
@@ -98,15 +103,14 @@ def render_export_page() -> None:
                 # Export writes a user-selected output file, not the protected working dataset.
                 save_dataset(_p, _out)
                 success_message = f"Exported {len(_out)} entries to `{Path(_p).resolve()}`."
-                if include_sidecar:
-                    sidecar_result = export_registry_sidecar(
-                        dataset_path=_p,
-                        entries=_export_entries,
-                    )
-                    if sidecar_result.ok:
-                        success_message += f" {sidecar_result.message}"
-                    else:
-                        enqueue_flash("warning", sidecar_result.message)
+                sidecar_result = export_registry_sidecar(
+                    dataset_path=_p,
+                    entries=_export_entries,
+                )
+                if sidecar_result.ok:
+                    success_message += f" {sidecar_result.message}"
+                else:
+                    enqueue_flash("warning", sidecar_result.message)
                 enqueue_flash("success", success_message)
                 st.session_state["export_save_path_pending"] = ""
                 st.rerun()
