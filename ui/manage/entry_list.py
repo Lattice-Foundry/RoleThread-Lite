@@ -3,9 +3,11 @@ from typing import Any
 
 import streamlit as st
 
+from core.backups import auto_backups_enabled
 from core.character_display import get_turn_display_names
 from core.dataset import validate_entry
 from core.format_conversion import FORMAT_SHAREGPT
+from services.dataset_service import duplicate_entry_service
 from ui.browser_helpers import format_entry_summary_label
 from ui.entry_edit_helpers import (
     has_entry_notification_issue,
@@ -14,7 +16,10 @@ from ui.entry_edit_helpers import (
 from ui.flash_messages import enqueue_dataset_result_flash
 from ui.message_scaffolding import scaffold_editable_messages
 from ui.session_state import (
+    apply_dataset_operation_result,
     cancel_quick_edit,
+    ensure_entry_indexes,
+    get_loaded_entry_index_by_uuid,
     save_quick_edit,
     start_quick_edit,
     toggle_entry_selection,
@@ -152,19 +157,27 @@ def _render_entry_preview(
     character_display_cache: dict[str, dict[int, str]],
 ) -> None:
     if requires_full_edit_for_quick_edit(entry):
-        if st.button(
-            "Requires Full Edit",
-            key=f"btn_requires_full_edit_{entry_uuid}",
-        ):
-            st.session_state.page = "Edit Entries"
-            start_full_edit(entry_uuid, tag_snapshot.active_registry)
+        action_cols = st.columns([0.8, 0.8, 5])
+        with action_cols[0]:
+            if st.button(
+                "Requires Full Edit",
+                key=f"btn_requires_full_edit_{entry_uuid}",
+            ):
+                st.session_state.page = "Edit Entries"
+                start_full_edit(entry_uuid, tag_snapshot.active_registry)
+        with action_cols[1]:
+            _render_duplicate_button(entry_uuid)
     else:
-        st.button(
-            "Quick Edit",
-            key=f"btn_quick_edit_{entry_uuid}",
-            on_click=start_quick_edit,
-            args=(entry_uuid, entry),
-        )
+        action_cols = st.columns([0.8, 0.8, 5])
+        with action_cols[0]:
+            st.button(
+                "Quick Edit",
+                key=f"btn_quick_edit_{entry_uuid}",
+                on_click=start_quick_edit,
+                args=(entry_uuid, entry),
+            )
+        with action_cols[1]:
+            _render_duplicate_button(entry_uuid)
     if errors:
         for err in errors:
             st.error(err)
@@ -181,3 +194,31 @@ def _render_entry_preview(
             character_display_cache,
         ),
     )
+
+
+def _render_duplicate_button(entry_uuid: str) -> None:
+    if not st.button("Duplicate", key=f"btn_duplicate_{entry_uuid}"):
+        return
+    entry_index = get_loaded_entry_index_by_uuid(entry_uuid)
+    if entry_index is None:
+        st.error("Could not find the selected entry.")
+        return
+    result = duplicate_entry_service(
+        dataset_path=st.session_state.get("loaded_path", ""),
+        entries=st.session_state.get("loaded_entries", []),
+        entry_index=entry_index,
+        backup_enabled=auto_backups_enabled(st.session_state.get("prefs", {})),
+    )
+    if not result.ok:
+        for err in result.errors:
+            st.error(err)
+        if not result.errors:
+            st.error(result.message)
+        return
+    if result.entries is not None:
+        apply_dataset_operation_result(result)
+        st.session_state.loaded_entries = result.entries
+        ensure_entry_indexes()
+    backup_note = " Backup created." if result.backup_path else ""
+    enqueue_dataset_result_flash(f"{result.message}{backup_note}", result)
+    st.rerun()

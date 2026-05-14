@@ -39,6 +39,7 @@ from services.dataset_service import (
     clear_tags_bulk_service,
     create_entry_service,
     delete_entries_service,
+    duplicate_entry_service,
     replace_single_entry_tags_service,
     replace_system_prompt_bulk_service,
     replace_tags_bulk_service,
@@ -438,6 +439,31 @@ def test_create_entry_service_missing_dataset_path_fails_safely():
 
     assert result.ok is False
     assert result.entries is None
+
+
+def test_duplicate_entry_service_appends_fresh_uuid_with_backup(tmp_path, monkeypatch):
+    original_entries = stamp_entries([_entry(tags=["alpha"])], dataset_uuid="dataset-uuid")
+    original_uuid = get_entry_uuid(original_entries[0])
+    path = _write_dataset(tmp_path, original_entries)
+    backups = _backup_recorder(monkeypatch, tmp_path)
+
+    result = duplicate_entry_service(
+        dataset_path=str(path),
+        entries=original_entries,
+        entry_index=0,
+        backup_enabled=True,
+    )
+
+    assert result.ok is True
+    assert len(backups) == 1
+    assert result.backup_path == str(backups[0])
+    assert result.entries is not None
+    assert len(result.entries) == 2
+    assert get_entry_uuid(result.entries[0]) == original_uuid
+    assert get_entry_uuid(result.entries[1]) != original_uuid
+    assert _without_loreforge_meta(result.entries[1]) == _without_loreforge_meta(
+        original_entries[0]
+    )
 
 
 def test_save_quick_edit_service_saves_valid_messages_and_does_not_mutate_input(tmp_path):

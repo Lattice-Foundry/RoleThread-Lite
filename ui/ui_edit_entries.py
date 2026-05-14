@@ -16,7 +16,11 @@ from core.dataset import (
 )
 from core.character_display import build_character_display_cache, get_turn_display_names
 from core.character_registry import get_entry_character_turns
-from core.entry_search import EntrySearchOptions, filter_entries_by_search
+from core.entry_search import (
+    EntrySearchOptions,
+    SEARCH_MATCH_CONTAINS,
+    filter_entries_by_search,
+)
 from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
 from core.loreforge_meta import get_entry_uuid
 from core.tag_registry import (
@@ -38,6 +42,7 @@ from ui.message_scaffolding import canonical_editor_role
 from services.dataset_service import save_full_edit_service, split_entry_service
 from ui.browser_helpers import (
     DEFAULT_PAGE_SIZE,
+    MATCH_MODE_ANY,
     MATCH_MODE_OPTIONS,
     PAGE_SIZE_OPTIONS,
     build_filter_tag_state,
@@ -49,6 +54,7 @@ from ui.browser_helpers import (
 )
 from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
 from ui.guidance import render_manage_dataset_cta
+from ui.system_prompt_template_actions import render_save_system_prompt_template_action
 from ui.system_prompt_selector import render_system_prompt_template_selector
 from ui.entry_search_controls import (
     entry_search_has_enabled_scope,
@@ -56,7 +62,13 @@ from ui.entry_search_controls import (
     is_entry_search_query_active,
     render_entry_search_controls,
 )
-from ui.entry_search_state import ENTRY_SEARCH_QUERY_KEY, get_entry_search_options
+from ui.entry_search_state import (
+    ENTRY_SEARCH_DATASET_KEY,
+    ENTRY_SEARCH_MATCH_MODE_KEY,
+    ENTRY_SEARCH_QUERY_KEY,
+    get_entry_search_options,
+    reset_entry_search_state,
+)
 from ui.ui_components import (
     calculate_exchange_metrics,
     render_conversation_preview,
@@ -541,6 +553,10 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
         height=120,
         label_visibility="collapsed",
     )
+    render_save_system_prompt_template_action(
+        prompt_text=st.session_state.get("full_edit_system_prompt", ""),
+        prefix="full_edit",
+    )
 
     # ── Turn builder (includes planned exchanges input + turn text areas) ───────
     st.divider()
@@ -745,6 +761,17 @@ def render_edit_entries_page() -> None:
     _ee_search_query = st.session_state.get(ENTRY_SEARCH_QUERY_KEY, "")
     _ee_search_options = get_entry_search_options()
 
+    if _edit_filters_active(
+        filter_tags=_ee_filter_tags,
+        match_mode=_ee_match_mode,
+        search_query=_ee_search_query,
+    ):
+        _ee_clear_col, _ee_clear_spacer = st.columns([1, 5])
+        with _ee_clear_col:
+            if st.button("Clear all filters", key="btn_edit_clear_all_filters", width="stretch"):
+                _clear_edit_filters()
+                st.rerun()
+
     _ee_filtered_pairs = apply_edit_entry_filters(
         _ee_all_pairs,
         filter_tags=_ee_filter_tags,
@@ -874,3 +901,24 @@ def render_edit_entries_page() -> None:
         ):
             st.session_state.edit_entry_page = _ee_cur_page + 1
             st.rerun()
+
+
+def _clear_edit_filters() -> None:
+    st.session_state.edit_filter_tags = []
+    st.session_state.edit_filter_match_mode = MATCH_MODE_ANY
+    st.session_state.edit_entry_page = 0
+    reset_entry_search_state(st.session_state.get(ENTRY_SEARCH_DATASET_KEY, ""))
+
+
+def _edit_filters_active(
+    *,
+    filter_tags: list[str],
+    match_mode: str,
+    search_query: str,
+) -> bool:
+    return bool(
+        filter_tags
+        or match_mode != MATCH_MODE_ANY
+        or search_query.strip()
+        or st.session_state.get(ENTRY_SEARCH_MATCH_MODE_KEY) != SEARCH_MATCH_CONTAINS
+    )

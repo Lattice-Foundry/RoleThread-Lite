@@ -1378,3 +1378,113 @@ def create_entry_service(
         warnings=warnings,
         **_sidecar_result_fields(save_result),
     )
+
+
+def duplicate_entry_service(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    entry_index: int,
+    backup_enabled: bool = True,
+) -> DatasetOperationResult:
+    """Append a duplicate of one existing entry with a fresh entry UUID."""
+
+    errors = _validate_dataset_path(dataset_path)
+    if errors:
+        return DatasetOperationResult(ok=False, message=errors[0], errors=errors)
+    if not isinstance(entries, list):
+        return DatasetOperationResult(
+            ok=False,
+            message="Loaded entries must be a list.",
+        )
+    if not _valid_index(entries, entry_index):
+        return DatasetOperationResult(
+            ok=False,
+            message="Could not find the selected entry.",
+        )
+
+    source_entry = entries[entry_index]
+    if not isinstance(source_entry, dict):
+        return DatasetOperationResult(
+            ok=False,
+            message="Selected entry is not a dictionary.",
+        )
+
+    duplicate_entry = _entry_with_fresh_uuid(source_entry)
+    duplicate_entry, _ = normalize_entry_tags(duplicate_entry)
+    duplicate_entry, _ = normalize_entry_roles(duplicate_entry)
+    validation_errors = validate_entry(duplicate_entry)
+    if validation_errors:
+        return DatasetOperationResult(
+            ok=False,
+            message="Duplicated entry is not valid.",
+            errors=validation_errors,
+        )
+
+    proposed_entries = _copy_entries(entries)
+    proposed_entries.append(duplicate_entry)
+    proposed_entries = _normalize_entries(proposed_entries)
+    try:
+        backup_path = _create_backup_if_enabled(
+            dataset_path,
+            backup_enabled,
+            "before_duplicate_entry",
+        )
+    except Exception as exc:
+        traceback.print_exc()
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to create dataset backup: {exc}",
+        )
+
+    try:
+        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
+        saved_path = save_result.dataset_path
+        proposed_entries = save_result.entries
+        source_uuid = get_entry_uuid(source_entry)
+        new_uuid = get_entry_uuid(proposed_entries[-1]) if proposed_entries else None
+        character_turns = _character_turn_payloads(source_uuid)
+        save_result, warnings = _apply_character_turn_update(
+            save_result,
+            entry_uuid=new_uuid,
+            character_turns=character_turns,
+        )
+    except Exception as exc:
+        traceback.print_exc()
+        return DatasetOperationResult(
+            ok=False,
+            message=f"Failed to duplicate entry: {exc}",
+        )
+
+    return DatasetOperationResult(
+        ok=True,
+        message="Entry duplicated.",
+        entries=proposed_entries,
+        backup_path=backup_path,
+        affected_count=1,
+        dataset_path=saved_path,
+        warnings=warnings,
+        **_sidecar_result_fields(save_result),
+    )
+
+
+def _character_turn_payloads(entry_uuid: str | None) -> list[dict] | None:
+    if not entry_uuid:
+        return None
+    payloads: list[dict] = []
+    for mapping in get_entry_character_turns(entry_uuid):
+        character = getattr(mapping, "character", None)
+        character_slug = getattr(character, "slug", None) or getattr(
+            mapping,
+            "character_slug",
+            None,
+        )
+        if not character_slug:
+            continue
+        payloads.append({
+            "turn_index": mapping.turn_index,
+            "character_slug": character_slug,
+            "training_role": mapping.training_role,
+            "source_role_label": mapping.source_role_label,
+        })
+    return payloads

@@ -4,12 +4,14 @@ from typing import Any
 
 import streamlit as st
 
+from core.entry_search import SEARCH_MATCH_CONTAINS
 from core.character_display import build_character_display_cache
 from core.dataset import filter_entry_pairs_by_tags
 from core.entry_search import EntrySearchOptions, filter_entries_by_search
 from core.tag_registry import prettify_tag_name
 from ui.browser_helpers import (
     DEFAULT_PAGE_SIZE,
+    MATCH_MODE_ANY,
     MATCH_MODE_OPTIONS,
     PAGE_SIZE_OPTIONS,
     build_filter_tag_state,
@@ -24,8 +26,11 @@ from ui.entry_search_controls import (
     render_entry_search_controls,
 )
 from ui.entry_search_state import (
+    ENTRY_SEARCH_DATASET_KEY,
+    ENTRY_SEARCH_MATCH_MODE_KEY,
     ENTRY_SEARCH_QUERY_KEY,
     get_entry_search_options,
+    reset_entry_search_state,
 )
 from ui.stats_navigation import (
     STATS_FILTER_LABEL_KEY,
@@ -180,6 +185,18 @@ def render_filters(
             stats_filter_label,
         )
 
+    if _manage_filters_active(
+        filter_tags=filter_tags,
+        match_mode=match_mode,
+        search_query=search_query,
+        stats_filter_active=stats_filter_active,
+    ):
+        clear_col, _clear_spacer = st.columns([1, 5])
+        with clear_col:
+            if st.button("Clear all filters", key="btn_manage_clear_all_filters", width="stretch"):
+                clear_manage_filters()
+                st.rerun()
+
     filtered_pairs = apply_manage_entry_filters(
         all_pairs,
         filter_tags=filter_tags,
@@ -276,3 +293,29 @@ def _render_stats_filter_banner(entry_count: int, label: str) -> None:
         if st.button("Clear Insights Filter", key="btn_clear_stats_filter", width="stretch"):
             clear_stats_entry_filter()
             st.rerun()
+
+
+def clear_manage_filters() -> None:
+    """Reset Manage tag, search, and Insights filters."""
+
+    st.session_state.filter_tags = []
+    st.session_state.filter_match_mode = MATCH_MODE_ANY
+    st.session_state.entry_page = 0
+    reset_entry_search_state(st.session_state.get(ENTRY_SEARCH_DATASET_KEY, ""))
+    clear_stats_entry_filter()
+
+
+def _manage_filters_active(
+    *,
+    filter_tags: list[str],
+    match_mode: str,
+    search_query: str,
+    stats_filter_active: bool,
+) -> bool:
+    return bool(
+        filter_tags
+        or match_mode != MATCH_MODE_ANY
+        or search_query.strip()
+        or st.session_state.get(ENTRY_SEARCH_MATCH_MODE_KEY) != SEARCH_MATCH_CONTAINS
+        or stats_filter_active
+    )

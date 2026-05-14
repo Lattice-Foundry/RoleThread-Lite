@@ -4,6 +4,7 @@ from core.format_conversion import (
     SHAREGPT_INTERNAL_SYSTEM_PROMPT,
 )
 from core.loreforge_meta import LOREFORGE_META_KEY
+from ui.export_scope import scoped_export_pairs
 from ui.ui_export import _prepare_export_entries
 
 
@@ -114,3 +115,38 @@ def test_prepare_export_entries_cleans_sharegpt_metadata():
             ],
         }
     ]
+
+
+def test_scoped_export_pairs_prefers_selected_entries_in_dataset_order():
+    pairs = [
+        ("first", {"id": 1}),
+        ("second", {"id": 2}),
+        ("third", {"id": 3}),
+    ]
+
+    scoped, label = scoped_export_pairs(
+        pairs,
+        selected_uuids={"third", "first"},
+        filtered_pairs=[("second", {"id": 2})],
+        filters_active=True,
+    )
+
+    assert scoped == [("first", {"id": 1}), ("third", {"id": 3})]
+    assert label == "selected entries"
+
+
+def test_scoped_export_pairs_uses_filtered_entries_when_no_selection():
+    pairs = [
+        ("first", {"id": 1}),
+        ("second", {"id": 2}),
+    ]
+
+    scoped, label = scoped_export_pairs(
+        pairs,
+        selected_uuids=set(),
+        filtered_pairs=[("second", {"id": 2})],
+        filters_active=True,
+    )
+
+    assert scoped == [("second", {"id": 2})]
+    assert label == "filtered entries"

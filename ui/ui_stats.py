@@ -53,8 +53,8 @@ def render_stats_page() -> None:
     )
 
     _render_quality_header(report)
-    _render_recommended_insight_actions(report)
     _render_subscore_cards(report)
+    _render_recommended_insight_actions(report)
     _render_insights(report, entries)
     _render_dataset_overview(legacy_stats, entries)
 

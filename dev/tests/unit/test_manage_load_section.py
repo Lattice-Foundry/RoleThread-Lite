@@ -102,6 +102,34 @@ def test_default_new_dataset_filename_is_timestamped():
     )
 
 
+def test_update_recent_dataset_paths_promotes_and_deduplicates(tmp_path):
+    first = str(tmp_path / "first.jsonl")
+    second = str(tmp_path / "second.jsonl")
+    third = str(tmp_path / "third.jsonl")
+
+    recent = load_section.update_recent_dataset_paths(
+        [first, second, first, third],
+        second,
+        limit=3,
+    )
+
+    assert recent == [second, first, third]
+
+
+def test_replace_recent_dataset_path_preserves_order_without_duplicates(tmp_path):
+    old_path = str(tmp_path / "old.jsonl")
+    new_path = str(tmp_path / "new.jsonl")
+    other_path = str(tmp_path / "other.jsonl")
+
+    recent = load_section.replace_recent_dataset_path(
+        [other_path, old_path, new_path],
+        old_path,
+        new_path,
+    )
+
+    assert recent == [other_path, new_path]
+
+
 def test_create_new_dataset_writes_current_sidecar_schema(monkeypatch, tmp_path):
     state = FakeSessionState(prefs={})
     monkeypatch.setattr(load_section, "st", _fake_streamlit(state))
@@ -181,6 +209,7 @@ def test_rename_loaded_dataset_updates_session_paths(monkeypatch, tmp_path):
         {
             "last_loaded_dataset_path": str(new_path),
             "last_open_directory": str(new_path.parent),
+            "recent_dataset_paths": [str(new_path)],
         }
     ]
     assert flashes == [("success", "Dataset renamed to `new_name`.")]

@@ -25,6 +25,7 @@ PREFS_FILE = APP_DATA_DIR / "preferences.json"
 
 DEFAULTS: dict = {
     "last_loaded_dataset_path": "",
+    "recent_dataset_paths": [],
     "last_open_directory": "",
     "last_system_prompt": "",
     "preview_user_name": "User",

@@ -23,6 +23,10 @@ from ui.session_state import (
 )
 
 
+RECENT_DATASETS_KEY = "recent_dataset_paths"
+RECENT_DATASET_LIMIT = 5
+
+
 def render_load_section() -> None:
     """Render dataset load/new controls and any immediate load feedback."""
 
@@ -31,6 +35,7 @@ def render_load_section() -> None:
     st.subheader("Load Dataset")
     render_flash_messages()
     _render_load_controls()
+    _render_recent_datasets()
 
     with stale_last_path_notice:
         if st.session_state.stale_last_path and not st.session_state.loaded_path:
@@ -135,6 +140,10 @@ def _load_dataset(path: str) -> None:
     update_prefs({
         "last_loaded_dataset_path": loaded_dataset_path,
         "last_open_directory": str(Path(loaded_dataset_path).parent),
+        RECENT_DATASETS_KEY: update_recent_dataset_paths(
+            st.session_state.prefs.get(RECENT_DATASETS_KEY, []),
+            loaded_dataset_path,
+        ),
     })
     render_load_format_summary(
         normalization,
@@ -163,6 +172,31 @@ def _render_new_dataset_button() -> None:
         new_path = _save_current_before_switch(new_path)
     if new_path:
         _create_new_dataset(new_path)
+
+
+def _render_recent_datasets() -> None:
+    recent_paths = [
+        str(path)
+        for path in st.session_state.prefs.get(RECENT_DATASETS_KEY, [])
+        if isinstance(path, str) and path.strip()
+    ][:RECENT_DATASET_LIMIT]
+    if not recent_paths:
+        return
+
+    st.markdown("**Recent Datasets**")
+    for index, recent_path in enumerate(recent_paths):
+        path = Path(recent_path).expanduser()
+        exists = path.exists()
+        label = recent_path if exists else f"{recent_path} (not found)"
+        button_col, _spacer = st.columns([2, 3])
+        with button_col:
+            if st.button(
+                label,
+                key=f"btn_recent_dataset_{index}",
+                disabled=not exists,
+                width="stretch",
+            ):
+                _load_dataset(recent_path)
 
 
 def _render_rename_controls() -> None:
@@ -218,6 +252,11 @@ def _rename_loaded_dataset(new_name: str) -> None:
     update_prefs({
         "last_loaded_dataset_path": new_path,
         "last_open_directory": str(Path(new_path).parent),
+        RECENT_DATASETS_KEY: replace_recent_dataset_path(
+            st.session_state.prefs.get(RECENT_DATASETS_KEY, []),
+            result.old_path,
+            new_path,
+        ),
     })
     enqueue_flash("success", f"Dataset renamed to `{Path(new_path).stem}`.")
     st.rerun()
@@ -267,6 +306,10 @@ def _create_new_dataset(new_path: str) -> None:
         update_prefs({
             "last_loaded_dataset_path": new_path,
             "last_open_directory": str(Path(new_path).parent),
+            RECENT_DATASETS_KEY: update_recent_dataset_paths(
+                st.session_state.prefs.get(RECENT_DATASETS_KEY, []),
+                new_path,
+            ),
         })
         st.success(f"New dataset created at `{Path(new_path).resolve()}`.")
         st.rerun()
@@ -305,3 +348,69 @@ def _default_new_dataset_filename(now: datetime | None = None) -> str:
 
     current = now or datetime.now()
     return f"dataset_{current.strftime('%Y%m%d_%H%M%S')}.jsonl"
+
+
+def update_recent_dataset_paths(
+    existing_paths: list[str] | tuple[str, ...],
+    loaded_path: str,
+    *,
+    limit: int = RECENT_DATASET_LIMIT,
+) -> list[str]:
+    """Return a most-recent-first dataset path list with loaded_path promoted."""
+
+    normalized_loaded = str(Path(loaded_path).expanduser()) if loaded_path else ""
+    if not normalized_loaded:
+        return [
+            str(path)
+            for path in existing_paths
+            if isinstance(path, str) and path.strip()
+        ][:limit]
+
+    recent: list[str] = [normalized_loaded]
+    seen = {_path_identity(normalized_loaded)}
+    for path in existing_paths or []:
+        if not isinstance(path, str) or not path.strip():
+            continue
+        identity = _path_identity(path)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        recent.append(path)
+        if len(recent) >= limit:
+            break
+    return recent
+
+
+def replace_recent_dataset_path(
+    existing_paths: list[str] | tuple[str, ...],
+    old_path: str,
+    new_path: str,
+    *,
+    limit: int = RECENT_DATASET_LIMIT,
+) -> list[str]:
+    """Replace old_path with new_path in recent history without duplicating it."""
+
+    old_identity = _path_identity(old_path)
+    new_identity = _path_identity(new_path)
+    replaced: list[str] = []
+    for path in existing_paths or []:
+        if not isinstance(path, str) or not path.strip():
+            continue
+        identity = _path_identity(path)
+        if identity == old_identity:
+            candidate = new_path
+        else:
+            candidate = path
+        candidate_identity = _path_identity(candidate)
+        if candidate_identity not in {_path_identity(item) for item in replaced}:
+            replaced.append(candidate)
+    if new_identity not in {_path_identity(item) for item in replaced}:
+        replaced.insert(0, new_path)
+    return replaced[:limit]
+
+
+def _path_identity(path: str) -> str:
+    try:
+        return str(Path(path).expanduser().resolve()).casefold()
+    except (OSError, RuntimeError, ValueError):
+        return str(path).strip().casefold()

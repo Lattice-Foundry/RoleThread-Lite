@@ -20,6 +20,7 @@ from ui.session_state import apply_dataset_operation_result, update_prefs, ensur
 from services.dataset_service import create_entry_service
 from ui.flash_messages import enqueue_dataset_result_flash, render_flash_messages
 from ui.guidance import render_manage_dataset_cta
+from ui.system_prompt_template_actions import render_save_system_prompt_template_action
 from ui.system_prompt_selector import render_system_prompt_template_selector
 from ui.ui_components import (
     _NON_STANDARD_ROLE_COLOR,
@@ -665,6 +666,10 @@ def render_create_page() -> None:
         on_change=_persist_system_prompt,
     )
     st.session_state.system_prompt = st.session_state.get("sys_prompt_input", "")
+    render_save_system_prompt_template_action(
+        prompt_text=st.session_state.system_prompt,
+        prefix="create",
+    )
 
     st.divider()
     st.subheader("New Entry")
