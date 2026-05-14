@@ -24,7 +24,7 @@ dataset engineering.
 * Portable registry sidecars for tags, aliases, characters, and mappings
 * Protected working copies for untrusted files so originals stay untouched
 * Dataset merge tools with dataset UUID, entry UUID, sidecar, and tag hardening
-* Bulk tag edits, system prompt tools, statistics, and diagnostics
+* Bulk tag edits, system prompt tools, dataset insights, and diagnostics
 * Local preferences, dataset backups, and database backups
 
 ---
@@ -76,7 +76,7 @@ SQLite sync/transaction handling or a revised persistence order.
 
 * Final UI polish and wording cleanup
 * In-app Help and onboarding documentation
-* Additional statistics and dataset health views
+* Additional insights and dataset health views
 * More workflow documentation and troubleshooting guidance
 * Continued regression coverage for merge, sidecar, validation, and lifecycle paths
 

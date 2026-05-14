@@ -243,8 +243,8 @@ _NAV_SECTIONS = [
         ("Character Management",  "Character Management"),
         ("System Prompts",        "System Prompts"),
     ]),
-    ("Analytics", [
-        ("Statistics",      "Statistics"),
+    ("Data Analytics", [
+        ("Insights",        "Insights"),
     ]),
     ("Settings", [
         ("Preferences",     "Settings"),
@@ -288,7 +288,7 @@ elif page == "Character Management":
     render_character_management_page()
 elif page == "System Prompts":
     render_system_prompts_page()
-elif page == "Statistics":
+elif page in ("Insights", "Statistics"):
     render_stats_page()
 elif page == "Settings":
     render_settings_page()

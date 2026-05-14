@@ -13,7 +13,7 @@ Current architecture target:
 Current tests cover:
 
 - browser helper calculations in `ui/browser_helpers.py`
-- dataset validation, tag filtering, JSONL persistence, merge, and stats in `core/dataset.py`
+- dataset validation, tag filtering, JSONL persistence, merge, and summary helpers in `core/dataset.py`
 - tag registry, lifecycle metadata, alias resolution, sidecar, and import/export behavior
 - character registry, character mappings, and character sidecar behavior
 - load pipeline, working-copy, dataset UUID, and entry UUID behavior

@@ -1,4 +1,4 @@
-"""Statistics and dataset quality analysis page."""
+"""Insights and dataset quality analysis page."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _format_source_format(source_format: str) -> str:
 
 
 def render_stats_page() -> None:
-    """Render the Statistics page."""
+    """Render the Insights page."""
 
     ensure_entry_indexes()
     entries = st.session_state.loaded_entries

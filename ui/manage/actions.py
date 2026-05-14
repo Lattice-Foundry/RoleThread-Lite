@@ -71,7 +71,7 @@ def render_actions(
             filtered_label=(
                 "matching entries"
                 if search_active
-                else "Stats entries"
+                else "Insights entries"
                 if stats_filter_active
                 else "filtered entries"
             ),

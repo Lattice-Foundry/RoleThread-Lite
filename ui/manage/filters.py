@@ -71,7 +71,7 @@ def apply_manage_entry_filters(
     search_options: EntrySearchOptions,
     stats_filter_uuids: set[str] | None = None,
 ) -> list[tuple[str, dict]]:
-    """Apply Manage filters in order: tags, search, then optional Stats UUIDs."""
+    """Apply Manage filters in order: tags, search, then optional Insights UUIDs."""
 
     tag_filtered_pairs = filter_entry_pairs_by_tags(
         entry_pairs,
@@ -90,7 +90,7 @@ def apply_stats_uuid_filter(
     entry_pairs: list[tuple[str, dict]],
     entry_uuids: set[str] | None,
 ) -> list[tuple[str, dict]]:
-    """Return only entries whose UUID was requested by a Stats deep link."""
+    """Return only entries whose UUID was requested by an Insights deep link."""
 
     if not entry_uuids:
         return entry_pairs
@@ -216,7 +216,7 @@ def render_filters(
     if total_filtered == 0:
         if stats_filter_active:
             st.info(
-                "No entries match the active Stats filter with the current Manage filters."
+                "No entries match the active Insights filter with the current Manage filters."
             )
         else:
             st.info(
@@ -266,13 +266,13 @@ def render_filters(
 
 
 def _render_stats_filter_banner(entry_count: int, label: str) -> None:
-    message = f"Showing {entry_count} entr{'y' if entry_count == 1 else 'ies'} from Stats"
+    message = f"Showing {entry_count} entr{'y' if entry_count == 1 else 'ies'} from Insights"
     if label:
         message = f"{message}: {label}"
     banner_col, clear_col = st.columns([4, 1])
     with banner_col:
         st.info(message)
     with clear_col:
-        if st.button("Clear Stats Filter", key="btn_clear_stats_filter", width="stretch"):
+        if st.button("Clear Insights Filter", key="btn_clear_stats_filter", width="stretch"):
             clear_stats_entry_filter()
             st.rerun()
