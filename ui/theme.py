@@ -19,6 +19,9 @@ SCORE_COLOR_FAIR = "#F1C40F"
 SCORE_COLOR_ATTENTION = "#E67E22"
 SCORE_COLOR_CRITICAL = "#E74C3C"
 
+COLOR_WARNING_ACCENT = SCORE_COLOR_FAIR
+COLOR_WARNING_BACKGROUND = "rgba(241, 196, 15, 0.14)"
+
 
 def score_color(score: float, max_score: float = 100.0) -> str:
     """Return the qualitative score color for a 0-max score."""

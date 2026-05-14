@@ -38,6 +38,8 @@ from ui.ui_stats import render_stats_page
 from ui.ui_system_prompts import render_system_prompts_page
 from ui.ui_validation import render_validation_page
 from ui.theme import (
+    COLOR_WARNING_ACCENT,
+    COLOR_WARNING_BACKGROUND,
     COLOR_PRIMARY,
     COLOR_PRIMARY_ACTIVE,
     COLOR_PRIMARY_HOVER,
@@ -90,6 +92,21 @@ section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled):hover {{
     background-color: {COLOR_PRIMARY_HOVER_BACKGROUND} !important;
     border-color: transparent !important;
     color: {COLOR_PRIMARY_HOVER} !important;
+}}
+/* Warning alerts only — replace Streamlit's muddy yellow-green default. */
+div[data-testid="stAlert"]:has(div[data-testid="stAlertContentWarning"]) {{
+    background-color: {COLOR_WARNING_BACKGROUND} !important;
+    border-color: {COLOR_WARNING_ACCENT} !important;
+    border-left: 4px solid {COLOR_WARNING_ACCENT} !important;
+}}
+div[data-testid="stAlert"] div[data-testid="stAlertContentWarning"],
+div[data-testid="stAlert"] div[data-baseweb="notification"][kind="warning"] {{
+    background-color: transparent !important;
+    color: inherit !important;
+}}
+div[data-testid="stAlert"]:has(div[data-testid="stAlertContentWarning"]) svg {{
+    color: {COLOR_WARNING_ACCENT} !important;
+    fill: {COLOR_WARNING_ACCENT} !important;
 }}
 </style>
 """, unsafe_allow_html=True)
