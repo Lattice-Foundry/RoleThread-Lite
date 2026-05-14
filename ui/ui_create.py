@@ -236,18 +236,24 @@ def group_character_display_names_from_state(
 
 
 def render_entry_mode_toggle(prefix: str) -> str:
-    """Render the Standard/Group editor mode toggle."""
+    """Render the Default/Group Chat editor mode toggle."""
 
     mode_key = entry_mode_key(prefix)
     st.session_state.setdefault(mode_key, ENTRY_MODE_STANDARD)
     mode = st.radio(
         "Entry mode",
         options=[ENTRY_MODE_STANDARD, ENTRY_MODE_GROUP],
-        format_func=lambda value: "Standard" if value == ENTRY_MODE_STANDARD else "Group",
+        format_func=lambda value: (
+            "Default" if value == ENTRY_MODE_STANDARD else "Group Chat"
+        ),
         horizontal=True,
         key=mode_key,
         on_change=on_entry_mode_changed,
         args=(prefix,),
+        help=(
+            "Default: two-character exchanges using your Settings display names. "
+            "Group Chat: multi-character exchanges with per-turn character selection."
+        ),
     )
     return mode
 
@@ -570,12 +576,15 @@ def render_entry_actions(
 
     # ── Save button ────────────────────────────────────────────────────────────
     _complete_disabled = not _entry_valid or _current_exchanges < _planned_exchanges
-    if st.button(
-        "Complete Exchange",
-        disabled=_complete_disabled,
-        type="primary",
-        width="stretch",
-    ):
+    _complete_col, _complete_spacer = st.columns([2, 3])
+    with _complete_col:
+        complete_clicked = st.button(
+            "Complete Exchange",
+            disabled=_complete_disabled,
+            type="primary",
+            width="stretch",
+        )
+    if complete_clicked:
         save_path = st.session_state.get("loaded_path", "").strip()
         if not save_path:
             st.error("No dataset loaded. Please load or create a dataset before saving an exchange.")
@@ -626,12 +635,14 @@ def render_create_page() -> None:
         update_prefs({"last_system_prompt": st.session_state.sys_prompt_input})
 
     st.session_state.setdefault("sys_prompt_input", st.session_state.system_prompt)
-    render_system_prompt_template_selector(
-        target_key="sys_prompt_input",
-        select_key="create_system_prompt_template",
-        mirror_keys=("system_prompt",),
-        on_apply=lambda content: update_prefs({"last_system_prompt": content}),
-    )
+    _library_col, _library_spacer = st.columns([1, 1])
+    with _library_col:
+        render_system_prompt_template_selector(
+            target_key="sys_prompt_input",
+            select_key="create_system_prompt_template",
+            mirror_keys=("system_prompt",),
+            on_apply=lambda content: update_prefs({"last_system_prompt": content}),
+        )
 
     st.text_area(
         "Default system prompt (applied to every entry)",
