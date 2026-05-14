@@ -10,6 +10,7 @@ from core.tag_registry import (
 from core.text_helpers import count_phrase
 from ui.flash_messages import enqueue_flash, render_flash_messages
 from ui.session_state import apply_dataset_operation_result
+from ui.theme import COLOR_BUILT_IN_BADGE, COLOR_CUSTOM_BADGE, COLOR_SECONDARY_TEXT
 from ui.tag_management_helpers import (
     selected_assignable_archived_slugs,
     validate_pending_archived_assignment,
@@ -214,7 +215,11 @@ def render_tag_management_page() -> None:
                     st.caption("No tags in this category yet.")
                 else:
                     for tag in cat["tags"]:
-                        _badge_color = "#888" if tag["is_builtin"] else "#3EB489"
+                        _badge_color = (
+                            COLOR_BUILT_IN_BADGE
+                            if tag["is_builtin"]
+                            else COLOR_CUSTOM_BADGE
+                        )
                         _badge_label = "built-in" if tag["is_builtin"] else "custom"
                         _is_editing = (
                             st.session_state.get("tm_editing_tag_slug")
@@ -720,7 +725,7 @@ def render_tag_management_page() -> None:
                 st.markdown(
                     f"<div style='padding-top:0.52rem;line-height:1.5'>"
                     f"<strong>{tag['display_name']}</strong> &nbsp; "
-                    f"<span style='color:#777;font-size:0.82em'>"
+                    f"<span style='color:{COLOR_SECONDARY_TEXT};font-size:0.82em'>"
                     f"{_badge}</span></div>",
                     unsafe_allow_html=True,
                 )

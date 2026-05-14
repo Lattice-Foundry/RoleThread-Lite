@@ -37,53 +37,60 @@ from ui.ui_settings import render_settings_page
 from ui.ui_stats import render_stats_page
 from ui.ui_system_prompts import render_system_prompts_page
 from ui.ui_validation import render_validation_page
+from ui.theme import (
+    COLOR_PRIMARY,
+    COLOR_PRIMARY_ACTIVE,
+    COLOR_PRIMARY_HOVER,
+    COLOR_PRIMARY_HOVER_BACKGROUND,
+    COLOR_SUBTITLE,
+)
 
 # ── Page config ────────────────────────────────────────────────────────────────
 ensure_app_directories()
 st.set_page_config(page_title="LoreForge Lite", layout="wide")
 
 st.markdown(
-    "<h1 style='color:#3EB489'>LoreForge Lite</h1>"
-    "<p style='margin-top:-0.75rem;color:#B8B8B8;font-size:1.05rem'>"
+    f"<h1 style='color:{COLOR_PRIMARY}'>LoreForge Lite</h1>"
+    f"<p style='margin-top:-0.75rem;color:{COLOR_SUBTITLE};font-size:1.05rem'>"
     "Local-First Dataset Crafting for Narrative AI"
     "</p>",
     unsafe_allow_html=True,
 )
 
-st.markdown("""
+st.markdown(f"""
 <style>
 /* Primary button — enabled state only (:not(:disabled) keeps disabled grey) */
 button[data-testid="baseButton-primary"]:not(:disabled),
 button[kind="primary"]:not(:disabled),
 .stButton > button[type="submit"]:not(:disabled),
-.stButton > button:not([kind="secondary"]):not([kind="tertiary"]):not(:disabled) {
-    background-color: #3EB489 !important;
-    border-color: #31966F !important;
+.stButton > button:not([kind="secondary"]):not([kind="tertiary"]):not(:disabled) {{
+    background-color: {COLOR_PRIMARY} !important;
+    border-color: {COLOR_PRIMARY_HOVER} !important;
     color: white !important;
-}
+}}
 button[data-testid="baseButton-primary"]:not(:disabled):hover,
 button[kind="primary"]:not(:disabled):hover,
 .stButton > button[type="submit"]:not(:disabled):hover,
-.stButton > button:not([kind="secondary"]):not([kind="tertiary"]):not(:disabled):hover {
-    background-color: #31966F !important;
-    border-color: #257A59 !important;
+.stButton > button:not([kind="secondary"]):not([kind="tertiary"]):not(:disabled):hover {{
+    background-color: {COLOR_PRIMARY_HOVER} !important;
+    border-color: {COLOR_PRIMARY_ACTIVE} !important;
     color: white !important;
-}
+}}
 /* Active sidebar nav button — mint text, no background fill.
    More specific selector overrides the general primary-button rule above. */
 section[data-testid="stSidebar"] button[data-testid="baseButton-primary"]:not(:disabled),
-section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled) {
+section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled) {{
     background-color: transparent !important;
     border-color: transparent !important;
-    color: #3EB489 !important;
+    color: {COLOR_PRIMARY} !important;
     box-shadow: none !important;
-}
+}}
 section[data-testid="stSidebar"] button[data-testid="baseButton-primary"]:not(:disabled):hover,
-section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled):hover {
-    background-color: rgba(62, 180, 137, 0.10) !important;
+section[data-testid="stSidebar"] button[kind="primary"]:not(:disabled):hover {{
+    background-color: {COLOR_PRIMARY_HOVER_BACKGROUND} !important;
     border-color: transparent !important;
-    color: #31966F !important;
-}
+    color: {COLOR_PRIMARY_HOVER} !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
