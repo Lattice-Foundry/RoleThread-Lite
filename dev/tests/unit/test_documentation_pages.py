@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 
+from streamlit.testing.v1 import AppTest
+
+import ui.ui_help as ui_help
 from ui.ui_faq import FAQEntry, filter_faq_entries, load_faq_entries
 from ui.ui_help import HelpTopic, clean_help_topic_title, filter_help_topics, load_help_topics
 from ui.help_docs import (
@@ -23,6 +26,23 @@ from ui.help_docs import (
     slugify_heading,
     validate_help_article_registry,
 )
+
+
+class FakeHelpStreamlit:
+    def __init__(self):
+        self.session_state = {}
+        self.rerun_count = 0
+        self.iframe_calls = []
+
+    def rerun(self):
+        self.rerun_count += 1
+
+    def iframe(self, body, *, height=None, width=None):
+        self.iframe_calls.append({
+            "body": body,
+            "height": height,
+            "width": width,
+        })
 
 
 def test_clean_help_topic_title_formats_filename():
@@ -113,6 +133,112 @@ def test_help_article_lookup_falls_back_to_default():
     assert get_help_article("exporting-datasets").title == "Exporting Datasets"
 
 
+def test_active_help_article_uses_session_state_and_repairs_invalid_state(monkeypatch):
+    fake = FakeHelpStreamlit()
+    fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] = "exporting-datasets"
+    monkeypatch.setattr(ui_help, "st", fake)
+
+    assert ui_help.get_active_help_article_id() == "exporting-datasets"
+    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "exporting-datasets"
+
+    fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] = "unknown-article"
+    assert ui_help.get_active_help_article_id() == "getting-started"
+    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "getting-started"
+
+
+def test_select_help_article_updates_state_and_reruns(monkeypatch):
+    fake = FakeHelpStreamlit()
+    monkeypatch.setattr(ui_help, "st", fake)
+
+    assert ui_help.select_help_article("editing-entries") == "editing-entries"
+
+    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "editing-entries"
+    assert fake.rerun_count == 1
+
+
+def test_set_active_help_article_updates_state_without_rerun(monkeypatch):
+    fake = FakeHelpStreamlit()
+    monkeypatch.setattr(ui_help, "st", fake)
+
+    assert ui_help.set_active_help_article("editing-entries") == "editing-entries"
+
+    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "editing-entries"
+    assert fake.rerun_count == 0
+
+
+def test_select_help_article_can_clear_search(monkeypatch):
+    fake = FakeHelpStreamlit()
+    fake.session_state["help_search_query"] = "tags"
+    monkeypatch.setattr(ui_help, "st", fake)
+
+    ui_help.select_help_article("validation-and-repair", clear_search=True, rerun=False)
+
+    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "validation-and-repair"
+    assert fake.session_state["help_search_query"] == ""
+
+
+def test_select_help_article_falls_back_for_unknown_article(monkeypatch):
+    fake = FakeHelpStreamlit()
+    monkeypatch.setattr(ui_help, "st", fake)
+
+    assert ui_help.select_help_article("unknown-article", rerun=False) == "getting-started"
+    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "getting-started"
+
+
+def test_scroll_to_top_does_not_run_on_initial_article_render(monkeypatch):
+    fake_st = FakeHelpStreamlit()
+    monkeypatch.setattr(ui_help, "st", fake_st)
+
+    ui_help._scroll_to_top_on_article_change("getting-started")
+
+    assert fake_st.session_state[ui_help.HELP_LAST_RENDERED_ARTICLE_KEY] == "getting-started"
+    assert fake_st.iframe_calls == []
+
+
+def test_scroll_to_top_runs_only_when_article_changes(monkeypatch):
+    fake_st = FakeHelpStreamlit()
+    fake_st.session_state[ui_help.HELP_LAST_RENDERED_ARTICLE_KEY] = "getting-started"
+    monkeypatch.setattr(ui_help, "st", fake_st)
+
+    ui_help._scroll_to_top_on_article_change("getting-started")
+    ui_help._scroll_to_top_on_article_change("exporting-datasets")
+
+    assert len(fake_st.iframe_calls) == 1
+    assert "scrollTo" in fake_st.iframe_calls[0]["body"]
+    assert "requestAnimationFrame(scrollTopNow)" in fake_st.iframe_calls[0]["body"]
+    assert "__loreforgeHelpScrollToken" in fake_st.iframe_calls[0]["body"]
+    assert "exporting-datasets:1" in fake_st.iframe_calls[0]["body"]
+    assert "stAppViewContainer" in fake_st.iframe_calls[0]["body"]
+    assert "stMain" in fake_st.iframe_calls[0]["body"]
+    assert "stMainBlockContainer" in fake_st.iframe_calls[0]["body"]
+    assert "setTimeout(scrollTopNow, 400)" in fake_st.iframe_calls[0]["body"]
+    assert 'behavior: "auto"' in fake_st.iframe_calls[0]["body"]
+    assert fake_st.iframe_calls[0]["height"] == 1
+    assert fake_st.iframe_calls[0]["width"] == 1
+    assert fake_st.session_state[ui_help.HELP_SCROLL_COUNTER_KEY] == 1
+    assert fake_st.session_state[ui_help.HELP_LAST_RENDERED_ARTICLE_KEY] == (
+        "exporting-datasets"
+    )
+
+
+def test_scroll_to_top_token_changes_per_article_change(monkeypatch):
+    fake_st = FakeHelpStreamlit()
+    fake_st.session_state[ui_help.HELP_LAST_RENDERED_ARTICLE_KEY] = "getting-started"
+    monkeypatch.setattr(ui_help, "st", fake_st)
+
+    ui_help._scroll_to_top_on_article_change("exporting-datasets")
+    ui_help._scroll_to_top_on_article_change("editing-entries")
+
+    assert len(fake_st.iframe_calls) == 2
+    assert "exporting-datasets:1" in fake_st.iframe_calls[0]["body"]
+    assert "editing-entries:2" in fake_st.iframe_calls[1]["body"]
+    assert fake_st.iframe_calls[0]["body"] != fake_st.iframe_calls[1]["body"]
+
+
+def test_clickable_article_outline_remains_disabled_by_default():
+    assert ui_help.CLICKABLE_ARTICLE_OUTLINE is False
+
+
 def test_help_breadcrumb_uses_registry_metadata():
     assert get_help_breadcrumb("creating-entries") == (
         "Help",
@@ -191,6 +317,71 @@ def test_build_help_search_results_returns_compact_snippets(tmp_path):
     assert summary_results[0].snippet == "First-session workflow and the basic LoreForge rhythm."
     assert content_results[0].article.article_id == "creating-entries"
     assert "hidden marker" in content_results[0].snippet.lower()
+
+
+def _markdown_values(app):
+    return [markdown.value for markdown in app.markdown]
+
+
+def _caption_values(app):
+    return [caption.value for caption in app.caption]
+
+
+def test_help_search_open_and_sidebar_clicks_render_selected_articles():
+    app = AppTest.from_string(
+        "from ui.ui_help import render_help_page\nrender_help_page()\n",
+        default_timeout=10,
+    ).run()
+
+    app.text_input[0].input("tags").run()
+    app.button(key="_help_search_tags-categories-and-tag-lifecycle").click().run()
+
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
+        "tags-categories-and-tag-lifecycle"
+    )
+    assert any(
+        value.startswith("# Tags, Categories, and Tag Lifecycle")
+        for value in _markdown_values(app)
+    )
+    assert any(
+        caption.value == "Help / Metadata and Organization / Tags, Categories, and Tag Lifecycle"
+        for caption in app.caption
+    )
+
+    app.button(key="_help_article_archived-and-imported-tags").click().run()
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "archived-and-imported-tags"
+    assert any(
+        value.startswith("# Archived and Imported Tags")
+        for value in _markdown_values(app)
+    )
+
+    app.button(key="_help_article_tags-categories-and-tag-lifecycle").click().run()
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
+        "tags-categories-and-tag-lifecycle"
+    )
+    assert any(
+        value.startswith("# Tags, Categories, and Tag Lifecycle")
+        for value in _markdown_values(app)
+    )
+
+
+def test_help_sidebar_navigation_without_search_renders_selected_article():
+    app = AppTest.from_string(
+        "from ui.ui_help import render_help_page\nrender_help_page()\n",
+        default_timeout=10,
+    ).run()
+
+    app.button(key="_help_article_exporting-datasets").click().run()
+
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "exporting-datasets"
+    assert any(
+        value.startswith("# Exporting Datasets")
+        for value in _markdown_values(app)
+    )
+    assert any(
+        caption == "Help / Output and Recovery / Exporting Datasets"
+        for caption in _caption_values(app)
+    )
 
 
 def test_slugify_heading_normalizes_punctuation_and_spacing():

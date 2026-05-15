@@ -21,6 +21,8 @@ from ui.help_docs import (
 
 
 HELP_ACTIVE_ARTICLE_KEY = "help_active_article_id"
+HELP_LAST_RENDERED_ARTICLE_KEY = "_help_last_rendered_article_id"
+HELP_SCROLL_COUNTER_KEY = "_help_scroll_counter"
 CLICKABLE_ARTICLE_OUTLINE = False
 
 
@@ -85,17 +87,89 @@ def get_active_help_article_id() -> str:
     return article_id
 
 
-def set_active_help_article(article_id: str) -> str:
-    """Set the active Help article ID after safe fallback resolution."""
+def select_help_article(
+    article_id: str,
+    *,
+    clear_search: bool = False,
+    rerun: bool = True,
+) -> str:
+    """Select a Help article using session state as the source of truth."""
 
     resolved_article_id = resolve_help_article_id(article_id)
     st.session_state[HELP_ACTIVE_ARTICLE_KEY] = resolved_article_id
+    if clear_search:
+        st.session_state["help_search_query"] = ""
+    if rerun:
+        st.rerun()
     return resolved_article_id
 
 
-def _select_help_article(article_id: str) -> None:
-    set_active_help_article(article_id)
-    st.rerun()
+def set_active_help_article(article_id: str) -> str:
+    """Set the active Help article ID after safe fallback resolution."""
+
+    return select_help_article(article_id, rerun=False)
+
+
+def _scroll_to_top_on_article_change(article_id: str) -> None:
+    previous_article_id = st.session_state.get(HELP_LAST_RENDERED_ARTICLE_KEY)
+    st.session_state[HELP_LAST_RENDERED_ARTICLE_KEY] = article_id
+    if previous_article_id in (None, article_id):
+        return
+
+    scroll_counter = int(st.session_state.get(HELP_SCROLL_COUNTER_KEY, 0)) + 1
+    st.session_state[HELP_SCROLL_COUNTER_KEY] = scroll_counter
+    scroll_token = f"{article_id}:{scroll_counter}"
+
+    # Streamlit does not expose a reliable native imperative scroll-to-top API.
+    # Keep this helper isolated to Help article transitions only.
+    st.iframe(
+        f"""
+        <script>
+        (() => {{
+          const token = "{scroll_token}";
+          const targetWindow = window.parent || window;
+          targetWindow.__loreforgeHelpScrollToken = token;
+
+          function getTargets() {{
+            const doc = targetWindow.document || document;
+            return [
+              doc.querySelector('[data-testid="stAppViewContainer"]'),
+              doc.querySelector('[data-testid="stMain"]'),
+              doc.querySelector('section.main'),
+              doc.querySelector('.main'),
+              doc.querySelector('[data-testid="stMainBlockContainer"]'),
+              doc.scrollingElement,
+              doc.documentElement,
+              doc.body,
+              targetWindow,
+            ].filter(Boolean);
+          }}
+
+          function scrollTopNow() {{
+            if (targetWindow.__loreforgeHelpScrollToken !== token) return;
+            for (const target of getTargets()) {{
+              try {{
+                if (typeof target.scrollTo === "function") {{
+                  target.scrollTo({{ top: 0, left: 0, behavior: "auto" }});
+                }} else if ("scrollTop" in target) {{
+                  target.scrollTop = 0;
+                }}
+              }} catch (error) {{}}
+            }}
+          }}
+
+          scrollTopNow();
+          requestAnimationFrame(scrollTopNow);
+          setTimeout(scrollTopNow, 50);
+          setTimeout(scrollTopNow, 120);
+          setTimeout(scrollTopNow, 250);
+          setTimeout(scrollTopNow, 400);
+        }})();
+        </script>
+        """,
+        height=1,
+        width=1,
+    )
 
 
 def _render_help_sidebar(active_article_id: str) -> None:
@@ -117,7 +191,7 @@ def _render_help_sidebar(active_article_id: str) -> None:
                         else "secondary"
                     ),
                 ):
-                    _select_help_article(article.article_id)
+                    select_help_article(article.article_id)
 
 
 def _render_search_results(
@@ -143,7 +217,7 @@ def _render_search_results(
                 key=f"_help_search_{article.article_id}",
                 width="stretch",
             ):
-                _select_help_article(article.article_id)
+                select_help_article(article.article_id)
         with text_col:
             st.markdown(f"**{article.title}**")
             st.caption(f"{article.category} - {result.snippet}")
@@ -165,7 +239,7 @@ def _render_related_articles(article_id: str) -> None:
                 key=f"_help_related_{article.article_id}",
                 width="stretch",
             ):
-                _select_help_article(article.article_id)
+                select_help_article(article.article_id)
             st.caption(article.summary)
 
 
@@ -177,24 +251,27 @@ def _render_article_navigation(article_id: str) -> None:
     st.divider()
     previous_col, next_col = st.columns(2)
     with previous_col:
-        if previous_article is not None and st.button(
-            previous_article.title,
-            key=f"_help_previous_{previous_article.article_id}",
-            width="stretch",
-            icon=":material/arrow_back:",
-        ):
-            _select_help_article(previous_article.article_id)
+        if previous_article is not None:
+            if st.button(
+                previous_article.title,
+                key=f"_help_previous_{previous_article.article_id}",
+                width="stretch",
+                icon=":material/arrow_back:",
+            ):
+                select_help_article(previous_article.article_id)
     with next_col:
-        if next_article is not None and st.button(
-            next_article.title,
-            key=f"_help_next_{next_article.article_id}",
-            width="stretch",
-            icon=":material/arrow_forward:",
-        ):
-            _select_help_article(next_article.article_id)
+        if next_article is not None:
+            if st.button(
+                next_article.title,
+                key=f"_help_next_{next_article.article_id}",
+                width="stretch",
+                icon=":material/arrow_forward:",
+            ):
+                select_help_article(next_article.article_id)
 
 
 def _render_active_article(article_id: str) -> None:
+    _scroll_to_top_on_article_change(article_id)
     document = load_help_document(article_id)
     article = document.article
     st.caption(" / ".join(get_help_breadcrumb(article.article_id)))
@@ -233,4 +310,5 @@ def render_help_page() -> None:
     query = st.text_input("Search help articles...", key="help_search_query")
     matches = build_help_search_results(query)
     _render_search_results(query, matches)
+    active_article_id = get_active_help_article_id()
     _render_active_article(active_article_id)
