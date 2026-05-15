@@ -155,12 +155,12 @@ def default_character_slug_for_turn(
 
     if role == "assistant":
         return matching_character_slug(
-            state.get("preview_assistant_name", "Assistant"),
+            state.get("preview_assistant_name", "Nicole"),
             characters,
         )
     if role == "user":
         return matching_character_slug(
-            state.get("preview_user_name", "User"),
+            state.get("preview_user_name", "Scott"),
             characters,
         )
     return ""

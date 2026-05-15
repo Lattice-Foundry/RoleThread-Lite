@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
-import ui.ui_edit_entries as edit_entries
+import ui.edit_entries.state as edit_state
+import ui.edit_entries.workspace as edit_workspace
 from ui.ui_create import entry_mode_key
 
 
@@ -30,9 +31,9 @@ def _entry():
 
 def _patch_full_edit_state(monkeypatch, mappings):
     state = FakeSessionState()
-    monkeypatch.setattr(edit_entries, "st", SimpleNamespace(session_state=state))
-    monkeypatch.setattr(edit_entries, "get_loaded_entry_by_uuid", lambda _uuid: _entry())
-    monkeypatch.setattr(edit_entries, "get_entry_character_turns", lambda _uuid: mappings)
+    monkeypatch.setattr(edit_state, "st", SimpleNamespace(session_state=state))
+    monkeypatch.setattr(edit_state, "get_loaded_entry_by_uuid", lambda _uuid: _entry())
+    monkeypatch.setattr(edit_state, "get_entry_character_turns", lambda _uuid: mappings)
     return state
 
 
@@ -44,7 +45,7 @@ def test_apply_existing_character_mappings_uses_system_offset():
         SimpleNamespace(turn_index=2, character=SimpleNamespace(slug="emma")),
     ]
 
-    applied = edit_entries.apply_existing_character_mappings_to_full_edit_state(
+    applied = edit_state.apply_existing_character_mappings_to_full_edit_state(
         state,
         mappings,
     )
@@ -64,7 +65,7 @@ def test_apply_existing_character_mappings_handles_inactive_character_as_unassig
         ),
     ]
 
-    applied = edit_entries.apply_existing_character_mappings_to_full_edit_state(
+    applied = edit_state.apply_existing_character_mappings_to_full_edit_state(
         state,
         mappings,
     )
@@ -83,7 +84,7 @@ def test_load_full_edit_buffer_loads_mappings_and_switches_to_group(monkeypatch)
         ],
     )
 
-    loaded = edit_entries.load_full_edit_buffer("entry-uuid", {"cat": ["known"]})
+    loaded = edit_state.load_full_edit_buffer("entry-uuid", {"cat": ["known"]})
 
     assert loaded is True
     assert state[entry_mode_key("full_edit")] == "group"
@@ -100,7 +101,7 @@ def test_load_full_edit_buffer_without_mappings_stays_standard(monkeypatch):
     state["full_edit_character_0"] = "stale"
     state["full_edit_entry_mode"] = "group"
 
-    loaded = edit_entries.load_full_edit_buffer("entry-uuid", {"cat": ["known"]})
+    loaded = edit_state.load_full_edit_buffer("entry-uuid", {"cat": ["known"]})
 
     assert loaded is True
     assert state[entry_mode_key("full_edit")] == "standard"
@@ -119,7 +120,7 @@ def test_load_full_edit_buffer_with_only_inactive_mapping_stays_group_unassigned
         ],
     )
 
-    loaded = edit_entries.load_full_edit_buffer("entry-uuid", {"cat": ["known"]})
+    loaded = edit_state.load_full_edit_buffer("entry-uuid", {"cat": ["known"]})
 
     assert loaded is True
     assert state[entry_mode_key("full_edit")] == "group"
@@ -127,17 +128,17 @@ def test_load_full_edit_buffer_with_only_inactive_mapping_stays_group_unassigned
 
 
 def test_split_button_visible_only_for_multiple_complete_exchanges():
-    assert edit_entries._split_button_visible([
+    assert edit_workspace.split_button_visible([
         {"role": "user"},
         {"role": "assistant"},
     ]) is False
-    assert edit_entries._split_button_visible([
+    assert edit_workspace.split_button_visible([
         {"role": "user"},
         {"role": "assistant"},
         {"role": "user"},
         {"role": "assistant"},
     ]) is True
-    assert edit_entries._split_button_visible([
+    assert edit_workspace.split_button_visible([
         {"role": "user"},
         {"role": "assistant"},
         {"role": "user"},
@@ -145,9 +146,9 @@ def test_split_button_visible_only_for_multiple_complete_exchanges():
 
 
 def test_split_complete_message_uses_singular_and_plural_exchange_wording():
-    assert edit_entries._split_complete_message(1) == (
+    assert edit_workspace.split_complete_message(1) == (
         "Split complete. Exchange 1-1 saved as a new entry."
     )
-    assert edit_entries._split_complete_message(3) == (
+    assert edit_workspace.split_complete_message(3) == (
         "Split complete. Exchanges 1-3 saved as a new entry."
     )

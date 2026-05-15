@@ -189,8 +189,8 @@ def _render_entry_preview(
         include_system=include_system,
         display_names=get_turn_display_names(
             entry,
-            st.session_state.get("preview_user_name", "User"),
-            st.session_state.get("preview_assistant_name", "Assistant"),
+            st.session_state.get("preview_user_name", "Scott"),
+            st.session_state.get("preview_assistant_name", "Nicole"),
             character_display_cache,
         ),
     )

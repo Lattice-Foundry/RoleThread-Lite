@@ -248,8 +248,8 @@ if "prefs" not in st.session_state:
     st.session_state.edit_filter_match_mode = MATCH_MODE_ANY
     st.session_state.edit_entries_mode = "browser"
     init_editor_state("create")
-    st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
-    st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
+    st.session_state.preview_user_name = prefs.get("preview_user_name", "Scott")
+    st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Nicole")
     st.session_state.default_dataset_directory = prefs.get("default_dataset_directory", "")
     st.session_state.auto_backups_enabled = prefs.get("auto_backups_enabled", True)
     st.session_state.backup_directory = prefs.get("backup_directory", "")
