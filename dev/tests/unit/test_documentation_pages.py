@@ -168,13 +168,32 @@ def test_set_active_help_article_updates_state_without_rerun(monkeypatch):
 
 def test_select_help_article_can_clear_search(monkeypatch):
     fake = FakeHelpStreamlit()
-    fake.session_state["help_search_query"] = "tags"
+    fake.session_state[ui_help.HELP_SEARCH_QUERY_KEY] = "tags"
+    fake.session_state[ui_help.HELP_SEARCH_RESULTS_VISIBLE_KEY] = True
     monkeypatch.setattr(ui_help, "st", fake)
 
     ui_help.select_help_article("validation-and-repair", clear_search=True, rerun=False)
 
     assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "validation-and-repair"
-    assert fake.session_state["help_search_query"] == ""
+    assert fake.session_state[ui_help.HELP_SEARCH_QUERY_KEY] == ""
+    assert fake.session_state[ui_help.HELP_SEARCH_RESULTS_VISIBLE_KEY] is False
+
+
+def test_select_help_article_can_hide_results_while_preserving_query(monkeypatch):
+    fake = FakeHelpStreamlit()
+    fake.session_state[ui_help.HELP_SEARCH_QUERY_KEY] = "tags"
+    fake.session_state[ui_help.HELP_SEARCH_RESULTS_VISIBLE_KEY] = True
+    monkeypatch.setattr(ui_help, "st", fake)
+
+    ui_help.select_help_article(
+        "validation-and-repair",
+        hide_search_results=True,
+        rerun=False,
+    )
+
+    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "validation-and-repair"
+    assert fake.session_state[ui_help.HELP_SEARCH_QUERY_KEY] == "tags"
+    assert fake.session_state[ui_help.HELP_SEARCH_RESULTS_VISIBLE_KEY] is False
 
 
 def test_select_help_article_falls_back_for_unknown_article(monkeypatch):
@@ -334,6 +353,7 @@ def test_help_search_open_and_sidebar_clicks_render_selected_articles():
     ).run()
 
     app.text_input[0].input("tags").run()
+    app.button(key="_help_search_submit").click().run()
     app.button(key="_help_search_tags-categories-and-tag-lifecycle").click().run()
 
     assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
@@ -365,6 +385,70 @@ def test_help_search_open_and_sidebar_clicks_render_selected_articles():
     )
 
 
+def test_help_search_open_hides_results_preserves_query_and_can_rerun_same_query():
+    app = AppTest.from_string(
+        "from ui.ui_help import render_help_page\nrender_help_page()\n",
+        default_timeout=10,
+    ).run()
+
+    app.text_input[0].input("tag").run()
+    app.button(key="_help_search_submit").click().run()
+    assert any(
+        value.startswith("**Search Results")
+        for value in _markdown_values(app)
+    )
+
+    app.button(key="_help_search_tags-categories-and-tag-lifecycle").click().run()
+
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
+        "tags-categories-and-tag-lifecycle"
+    )
+    assert app.session_state[ui_help.HELP_SEARCH_QUERY_KEY] == "tag"
+    assert app.session_state[ui_help.HELP_SEARCH_RESULTS_VISIBLE_KEY] is False
+    assert app.text_input[0].value == "tag"
+    assert not any(
+        value.startswith("**Search Results")
+        for value in _markdown_values(app)
+    )
+    assert any(
+        value.startswith("# Tags, Categories, and Tag Lifecycle")
+        for value in _markdown_values(app)
+    )
+
+    app.button(key="_help_search_submit").click().run()
+
+    assert app.session_state[ui_help.HELP_SEARCH_RESULTS_VISIBLE_KEY] is True
+    assert app.text_input[0].value == "tag"
+    assert any(
+        value.startswith("**Search Results")
+        for value in _markdown_values(app)
+    )
+
+
+def test_help_search_clear_clears_query_and_hides_results():
+    app = AppTest.from_string(
+        "from ui.ui_help import render_help_page\nrender_help_page()\n",
+        default_timeout=10,
+    ).run()
+
+    app.text_input[0].input("tag").run()
+    app.button(key="_help_search_submit").click().run()
+    assert any(
+        value.startswith("**Search Results")
+        for value in _markdown_values(app)
+    )
+
+    app.button(key="_help_search_clear").click().run()
+
+    assert app.session_state[ui_help.HELP_SEARCH_QUERY_KEY] == ""
+    assert app.session_state[ui_help.HELP_SEARCH_RESULTS_VISIBLE_KEY] is False
+    assert app.text_input[0].value == ""
+    assert not any(
+        value.startswith("**Search Results")
+        for value in _markdown_values(app)
+    )
+
+
 def test_help_sidebar_navigation_without_search_renders_selected_article():
     app = AppTest.from_string(
         "from ui.ui_help import render_help_page\nrender_help_page()\n",
@@ -381,6 +465,36 @@ def test_help_sidebar_navigation_without_search_renders_selected_article():
     assert any(
         caption == "Help / Output and Recovery / Exporting Datasets"
         for caption in _caption_values(app)
+    )
+
+
+def test_help_related_previous_and_next_buttons_render_selected_articles():
+    app = AppTest.from_string(
+        "from ui.ui_help import render_help_page\nrender_help_page()\n",
+        default_timeout=10,
+    ).run()
+
+    app.button(key="_help_related_creating-entries").click().run()
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "creating-entries"
+    assert any(
+        value.startswith("# Creating Entries")
+        for value in _markdown_values(app)
+    )
+
+    app.button(key="_help_previous_understanding-the-main-workspaces").click().run()
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
+        "understanding-the-main-workspaces"
+    )
+    assert any(
+        value.startswith("# Understanding the Main Workspaces")
+        for value in _markdown_values(app)
+    )
+
+    app.button(key="_help_next_creating-entries").click().run()
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "creating-entries"
+    assert any(
+        value.startswith("# Creating Entries")
+        for value in _markdown_values(app)
     )
 
 

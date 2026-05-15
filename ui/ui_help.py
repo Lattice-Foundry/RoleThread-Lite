@@ -23,6 +23,8 @@ from ui.help_docs import (
 HELP_ACTIVE_ARTICLE_KEY = "help_active_article_id"
 HELP_LAST_RENDERED_ARTICLE_KEY = "_help_last_rendered_article_id"
 HELP_SCROLL_COUNTER_KEY = "_help_scroll_counter"
+HELP_SEARCH_QUERY_KEY = "help_search_query"
+HELP_SEARCH_RESULTS_VISIBLE_KEY = "help_search_results_visible"
 CLICKABLE_ARTICLE_OUTLINE = False
 
 
@@ -91,6 +93,7 @@ def select_help_article(
     article_id: str,
     *,
     clear_search: bool = False,
+    hide_search_results: bool = False,
     rerun: bool = True,
 ) -> str:
     """Select a Help article using session state as the source of truth."""
@@ -98,7 +101,10 @@ def select_help_article(
     resolved_article_id = resolve_help_article_id(article_id)
     st.session_state[HELP_ACTIVE_ARTICLE_KEY] = resolved_article_id
     if clear_search:
-        st.session_state["help_search_query"] = ""
+        st.session_state[HELP_SEARCH_QUERY_KEY] = ""
+        st.session_state[HELP_SEARCH_RESULTS_VISIBLE_KEY] = False
+    elif hide_search_results:
+        st.session_state[HELP_SEARCH_RESULTS_VISIBLE_KEY] = False
     if rerun:
         st.rerun()
     return resolved_article_id
@@ -108,6 +114,41 @@ def set_active_help_article(article_id: str) -> str:
     """Set the active Help article ID after safe fallback resolution."""
 
     return select_help_article(article_id, rerun=False)
+
+
+def _render_article_selection_button(
+    label: str,
+    article_id: str,
+    *,
+    key: str,
+    button_type: str = "secondary",
+    hide_search_results: bool = False,
+    icon: str | None = None,
+) -> None:
+    """Render a Help navigation button that uses the shared selection path."""
+
+    button_kwargs = {
+        "key": key,
+        "type": button_type,
+        "width": "stretch",
+    }
+    if icon is not None:
+        button_kwargs["icon"] = icon
+    if st.button(label, **button_kwargs):
+        select_help_article(
+            article_id,
+            hide_search_results=hide_search_results,
+        )
+
+
+def _show_help_search_results() -> None:
+    query = str(st.session_state.get(HELP_SEARCH_QUERY_KEY) or "").strip()
+    st.session_state[HELP_SEARCH_RESULTS_VISIBLE_KEY] = bool(query)
+
+
+def _clear_help_search() -> None:
+    st.session_state[HELP_SEARCH_QUERY_KEY] = ""
+    st.session_state[HELP_SEARCH_RESULTS_VISIBLE_KEY] = False
 
 
 def _scroll_to_top_on_article_change(article_id: str) -> None:
@@ -181,17 +222,16 @@ def _render_help_sidebar(active_article_id: str) -> None:
         )
         with st.sidebar.expander(category, expanded=expanded):
             for article in articles:
-                if st.button(
+                _render_article_selection_button(
                     article.title,
+                    article.article_id,
                     key=f"_help_article_{article.article_id}",
-                    width="stretch",
-                    type=(
+                    button_type=(
                         "primary"
                         if article.article_id == active_article_id
                         else "secondary"
                     ),
-                ):
-                    select_help_article(article.article_id)
+                )
 
 
 def _render_search_results(
@@ -212,16 +252,48 @@ def _render_search_results(
         article = result.article
         button_col, text_col = st.columns([0.16, 0.84])
         with button_col:
-            if st.button(
+            _render_article_selection_button(
                 "Open",
+                article.article_id,
                 key=f"_help_search_{article.article_id}",
-                width="stretch",
-            ):
-                select_help_article(article.article_id)
+                hide_search_results=True,
+            )
         with text_col:
             st.markdown(f"**{article.title}**")
             st.caption(f"{article.category} - {result.snippet}")
     st.divider()
+
+
+def _render_search_controls() -> None:
+    with st.form("help_search_form", clear_on_submit=False):
+        query = st.text_input(
+            "Search help articles...",
+            key=HELP_SEARCH_QUERY_KEY,
+        )
+        search_col, clear_col, _ = st.columns([0.125, 0.125, 0.75])
+        with search_col:
+            st.form_submit_button(
+                "Search",
+                key="_help_search_submit",
+                type="primary",
+                width="stretch",
+                on_click=_show_help_search_results,
+            )
+        with clear_col:
+            st.form_submit_button(
+                "Clear",
+                key="_help_search_clear",
+                width="stretch",
+                on_click=_clear_help_search,
+            )
+
+    query = str(query or "")
+    results_visible = bool(st.session_state.get(HELP_SEARCH_RESULTS_VISIBLE_KEY))
+    if results_visible:
+        matches = build_help_search_results(query)
+        _render_search_results(query, matches)
+    elif query.strip():
+        st.caption("Search query preserved. Click Search to show results again.")
 
 
 def _render_related_articles(article_id: str) -> None:
@@ -234,12 +306,11 @@ def _render_related_articles(article_id: str) -> None:
     columns = st.columns(2)
     for index, article in enumerate(related_articles):
         with columns[index % 2]:
-            if st.button(
+            _render_article_selection_button(
                 article.title,
+                article.article_id,
                 key=f"_help_related_{article.article_id}",
-                width="stretch",
-            ):
-                select_help_article(article.article_id)
+            )
             st.caption(article.summary)
 
 
@@ -252,22 +323,20 @@ def _render_article_navigation(article_id: str) -> None:
     previous_col, next_col = st.columns(2)
     with previous_col:
         if previous_article is not None:
-            if st.button(
+            _render_article_selection_button(
                 previous_article.title,
+                previous_article.article_id,
                 key=f"_help_previous_{previous_article.article_id}",
-                width="stretch",
                 icon=":material/arrow_back:",
-            ):
-                select_help_article(previous_article.article_id)
+            )
     with next_col:
         if next_article is not None:
-            if st.button(
+            _render_article_selection_button(
                 next_article.title,
+                next_article.article_id,
                 key=f"_help_next_{next_article.article_id}",
-                width="stretch",
                 icon=":material/arrow_forward:",
-            ):
-                select_help_article(next_article.article_id)
+            )
 
 
 def _render_active_article(article_id: str) -> None:
@@ -307,8 +376,6 @@ def render_help_page() -> None:
     _render_help_sidebar(active_article_id)
 
     st.subheader("Help")
-    query = st.text_input("Search help articles...", key="help_search_query")
-    matches = build_help_search_results(query)
-    _render_search_results(query, matches)
+    _render_search_controls()
     active_article_id = get_active_help_article_id()
     _render_active_article(active_article_id)

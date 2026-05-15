@@ -1,3 +1,3 @@
 """LoreForge version metadata."""
 
-LOREFORGE_VERSION = "1.3.11"
+LOREFORGE_VERSION = "1.3.13"
