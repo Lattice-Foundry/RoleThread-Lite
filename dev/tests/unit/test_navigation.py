@@ -20,9 +20,13 @@ class FakeStreamlit:
     def __init__(self):
         self.session_state = FakeSessionState()
         self.rerun_count = 0
+        self.switched_page = None
 
     def rerun(self):
         self.rerun_count += 1
+
+    def switch_page(self, page):
+        self.switched_page = page
 
 
 def _patch_navigation_state(monkeypatch):
@@ -30,6 +34,7 @@ def _patch_navigation_state(monkeypatch):
     monkeypatch.setattr(navigation, "st", fake)
     monkeypatch.setattr(session_state, "st", fake)
     monkeypatch.setattr(stats_navigation, "st", fake)
+    navigation.register_native_pages({})
     return fake
 
 
@@ -81,6 +86,51 @@ def test_sidebar_sections_preserve_current_legacy_structure():
     ]
 
 
+def test_top_navigation_sections_follow_workflow_categories():
+    assert navigation.get_top_navigation_sections() == {
+        "Dataset": [
+            navigation.PAGE_MANAGE_DATASET,
+            navigation.PAGE_CREATE_ENTRY,
+            navigation.PAGE_EDIT_ENTRIES,
+        ],
+        "Metadata": [
+            navigation.PAGE_TAG_MANAGEMENT,
+            navigation.PAGE_CHARACTER_MANAGEMENT,
+            navigation.PAGE_SYSTEM_PROMPTS,
+        ],
+        "Quality": [
+            navigation.PAGE_VALIDATION,
+            navigation.PAGE_INSIGHTS,
+        ],
+        "Output": [
+            navigation.PAGE_MERGE_DATASETS,
+            navigation.PAGE_EXPORT,
+        ],
+        "Support": [
+            navigation.PAGE_HELP,
+            navigation.PAGE_FAQ,
+            navigation.PAGE_SETTINGS,
+        ],
+    }
+
+
+def test_quick_navigation_pages_use_curated_rail_groups():
+    assert navigation.get_quick_navigation_pages() == {
+        "Quick Navigation": [
+            navigation.PAGE_MANAGE_DATASET,
+            navigation.PAGE_CREATE_ENTRY,
+            navigation.PAGE_EDIT_ENTRIES,
+            navigation.PAGE_VALIDATION,
+            navigation.PAGE_INSIGHTS,
+            navigation.PAGE_EXPORT,
+        ],
+        "Secondary": [
+            navigation.PAGE_SETTINGS,
+            navigation.PAGE_HELP,
+        ],
+    }
+
+
 def test_current_page_defaults_and_set_current_page(monkeypatch):
     fake = _patch_navigation_state(monkeypatch)
 
@@ -112,6 +162,19 @@ def test_navigate_to_page_sets_legacy_page_and_reruns(monkeypatch):
     assert fake.rerun_count == 1
 
 
+def test_navigate_to_page_uses_native_switch_when_registered(monkeypatch):
+    fake = _patch_navigation_state(monkeypatch)
+    native_page = object()
+    navigation.register_native_pages({navigation.PAGE_EXPORT: native_page})
+
+    page = navigation.navigate_to_page(navigation.PAGE_EXPORT)
+
+    assert page == navigation.PAGE_EXPORT
+    assert fake.session_state.page == navigation.PAGE_EXPORT
+    assert fake.switched_page is native_page
+    assert fake.rerun_count == 0
+
+
 def test_navigate_to_page_can_skip_rerun_for_handoffs(monkeypatch):
     fake = _patch_navigation_state(monkeypatch)
 
@@ -119,6 +182,44 @@ def test_navigate_to_page_can_skip_rerun_for_handoffs(monkeypatch):
 
     assert fake.session_state.page == navigation.PAGE_EDIT_ENTRIES
     assert fake.rerun_count == 0
+
+
+def test_navigate_without_rerun_queues_native_switch_for_handoff(monkeypatch):
+    fake = _patch_navigation_state(monkeypatch)
+    native_page = object()
+    navigation.register_native_pages({navigation.PAGE_EDIT_ENTRIES: native_page})
+
+    navigation.navigate_to_page(navigation.PAGE_EDIT_ENTRIES, rerun=False)
+
+    assert fake.session_state.page == navigation.PAGE_EDIT_ENTRIES
+    assert fake.session_state["_pending_native_page"] == navigation.PAGE_EDIT_ENTRIES
+    assert fake.switched_page is None
+
+
+def test_switch_to_pending_native_page_consumes_pending_switch(monkeypatch):
+    fake = _patch_navigation_state(monkeypatch)
+    native_page = object()
+    navigation.register_native_pages({navigation.PAGE_EDIT_ENTRIES: native_page})
+    fake.session_state["_pending_native_page"] = navigation.PAGE_EDIT_ENTRIES
+
+    switched = navigation.switch_to_pending_native_page()
+
+    assert switched is True
+    assert fake.switched_page is native_page
+    assert "_pending_native_page" not in fake.session_state
+
+
+def test_activate_page_clears_edit_state_for_native_top_nav_change(monkeypatch):
+    fake = _patch_navigation_state(monkeypatch)
+    fake.session_state.page = navigation.PAGE_EDIT_ENTRIES
+    fake.session_state.edit_entries_mode = "workspace"
+    fake.session_state.full_edit_entry_uuid = "entry-1"
+
+    navigation.activate_page(navigation.PAGE_EXPORT)
+
+    assert fake.session_state.page == navigation.PAGE_EXPORT
+    assert fake.session_state.edit_entries_mode == "browser"
+    assert "full_edit_entry_uuid" not in fake.session_state
 
 
 def test_navigate_away_from_edit_entries_clears_edit_state(monkeypatch):

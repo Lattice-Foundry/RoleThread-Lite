@@ -1,7 +1,7 @@
 """LoreForge Lite Streamlit entry point.
 
-Owns app startup, session initialization, sidebar navigation, and page
-dispatch. Page rendering belongs in ui modules.
+Owns app startup, session initialization, native navigation, and the sidebar
+quick rail. Page rendering belongs in ui modules.
 """
 import atexit
 from pathlib import Path
@@ -34,11 +34,17 @@ from ui.navigation import (
     PAGE_SYSTEM_PROMPTS,
     PAGE_TAG_MANAGEMENT,
     PAGE_VALIDATION,
+    activate_page,
     get_current_page,
     get_default_page,
-    get_sidebar_sections,
+    get_native_page_id,
+    get_page_registry,
+    get_quick_navigation_pages,
+    get_top_navigation_sections,
     navigate_to_page,
+    register_native_pages,
     set_current_page,
+    switch_to_pending_native_page,
 )
 from core.storage import ensure_app_directories
 from core.tag_registry import seed_default_tags
@@ -355,53 +361,70 @@ if "prefs" not in st.session_state:
             st.session_state.stale_last_path = last
 
 
-# ── Sidebar navigation ─────────────────────────────────────────────────────────
+# ── Navigation ─────────────────────────────────────────────────────────────────
 if "page" not in st.session_state:
     set_current_page(get_default_page())
 
-_page = get_current_page()
+_PAGE_RENDERERS = {
+    PAGE_CREATE_ENTRY: render_create_page,
+    PAGE_MANAGE_DATASET: render_manage_page,
+    PAGE_EDIT_ENTRIES: render_edit_entries_page,
+    PAGE_MERGE_DATASETS: render_merge_page,
+    PAGE_EXPORT: render_export_page,
+    PAGE_VALIDATION: render_validation_page,
+    PAGE_TAG_MANAGEMENT: render_tag_management_page,
+    PAGE_CHARACTER_MANAGEMENT: render_character_management_page,
+    PAGE_SYSTEM_PROMPTS: render_system_prompts_page,
+    PAGE_INSIGHTS: render_stats_page,
+    PAGE_SETTINGS: render_settings_page,
+    PAGE_HELP: render_help_page,
+    PAGE_FAQ: render_faq_page,
+}
 
-_NAV_SECTIONS = get_sidebar_sections()
 
-for _sec_name, _sec_items in _NAV_SECTIONS:
-    st.sidebar.markdown(f"**{_sec_name}**")
-    for _display_label, _target in _sec_items:
-        _btn_label = f"▶ {_display_label}" if _page == _target else _display_label
+def _make_page_runner(page_id: str):
+    def _run_page() -> None:
+        activate_page(page_id)
+        _PAGE_RENDERERS[page_id]()
+
+    return _run_page
+
+
+_page_registry = get_page_registry()
+_native_pages = {
+    page_id: st.Page(
+        _make_page_runner(page_id),
+        title=_page_registry[page_id].title,
+        icon=_page_registry[page_id].icon,
+        url_path=_page_registry[page_id].url_path,
+        default=(page_id == get_default_page()),
+    )
+    for page_id in _PAGE_RENDERERS
+}
+register_native_pages(_native_pages)
+
+_native_nav_sections = {
+    category: [_native_pages[page_id] for page_id in page_ids]
+    for category, page_ids in get_top_navigation_sections().items()
+}
+
+_selected_native_page = st.navigation(_native_nav_sections, position="top")
+switch_to_pending_native_page()
+_selected_page = get_native_page_id(_selected_native_page) or get_current_page()
+activate_page(_selected_page)
+
+_active_page = get_current_page()
+for _section_label, _page_ids in get_quick_navigation_pages().items():
+    st.sidebar.markdown(f"**{_section_label}**")
+    for _page_id in _page_ids:
+        _page_def = _page_registry[_page_id]
         if st.sidebar.button(
-            _btn_label,
-            key=f"_nav_{_target}",
+            _page_def.title,
+            key=f"_quick_nav_{_page_id}",
             width="stretch",
-            type="primary" if _page == _target else "secondary",
+            type="primary" if _active_page == _page_id else "secondary",
+            icon=_page_def.icon,
         ):
-            navigate_to_page(_target)
+            navigate_to_page(_page_id)
 
-page = get_current_page()
-
-
-# ── Page dispatch ──────────────────────────────────────────────────────────────
-if page == PAGE_CREATE_ENTRY:
-    render_create_page()
-elif page == PAGE_MANAGE_DATASET:
-    render_manage_page()
-elif page == PAGE_EDIT_ENTRIES:
-    render_edit_entries_page()
-elif page == PAGE_MERGE_DATASETS:
-    render_merge_page()
-elif page == PAGE_EXPORT:
-    render_export_page()
-elif page == PAGE_VALIDATION:
-    render_validation_page()
-elif page == PAGE_TAG_MANAGEMENT:
-    render_tag_management_page()
-elif page == PAGE_CHARACTER_MANAGEMENT:
-    render_character_management_page()
-elif page == PAGE_SYSTEM_PROMPTS:
-    render_system_prompts_page()
-elif page == PAGE_INSIGHTS:
-    render_stats_page()
-elif page == PAGE_SETTINGS:
-    render_settings_page()
-elif page == PAGE_HELP:
-    render_help_page()
-elif page == PAGE_FAQ:
-    render_faq_page()
+_selected_native_page.run()
