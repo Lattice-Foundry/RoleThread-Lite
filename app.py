@@ -40,6 +40,7 @@ from ui.ui_validation import render_validation_page
 from ui.theme import (
     COLOR_WARNING_ACCENT,
     COLOR_WARNING_BACKGROUND,
+    COLOR_WARNING_TEXT,
     COLOR_PRIMARY,
     COLOR_PRIMARY_ACTIVE,
     COLOR_PRIMARY_HOVER,
@@ -123,8 +124,8 @@ div[data-testid="stAlert"] {{
 /* Warning alerts only — replace Streamlit's muddy yellow-green default. */
 div[data-testid="stAlert"]:has(div[data-testid="stAlertContentWarning"]) {{
     background-color: {COLOR_WARNING_BACKGROUND} !important;
-    border-color: {COLOR_WARNING_ACCENT} !important;
-    border-left: 4px solid {COLOR_WARNING_ACCENT} !important;
+    border-color: transparent !important;
+    border-left: 0 !important;
 }}
 div[data-testid="stAlert"] div[data-testid="stAlertContentWarning"],
 div[data-testid="stAlert"] div[data-baseweb="notification"][kind="warning"] {{
@@ -134,6 +135,40 @@ div[data-testid="stAlert"] div[data-baseweb="notification"][kind="warning"] {{
 div[data-testid="stAlert"]:has(div[data-testid="stAlertContentWarning"]) svg {{
     color: {COLOR_WARNING_ACCENT} !important;
     fill: {COLOR_WARNING_ACCENT} !important;
+}}
+/* Streamlit nests warning notifications differently across versions; flatten the
+   inner surface so warnings match the cleaner success/info/error shape. */
+div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) {{
+    background-color: {COLOR_WARNING_BACKGROUND} !important;
+    background: {COLOR_WARNING_BACKGROUND} !important;
+    border-color: transparent !important;
+    border-left: 0 !important;
+    border-radius: 0.45rem !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}}
+div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) > div,
+div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) [data-baseweb="notification"],
+div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) [role="alert"],
+div[data-testid="stAlert"] [data-testid="stAlertContentWarning"] {{
+    background-color: transparent !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: inherit !important;
+}}
+div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) * {{
+    background-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}}
+div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) [data-testid="stAlertContentWarning"] *,
+div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) [data-baseweb="notification"] * {{
+    background-color: transparent !important;
+    background: transparent !important;
+}}
+div[data-testid="stAlert"] [data-testid="stAlertContentWarning"] {{
+    color: {COLOR_WARNING_TEXT} !important;
 }}
 /* Expander chevrons act as row arrows in dataset browsers. */
 div[data-testid="stExpander"] details summary svg,
