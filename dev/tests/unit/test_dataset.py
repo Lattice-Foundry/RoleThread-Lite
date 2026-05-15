@@ -665,6 +665,18 @@ def test_build_uuid_index_maps_entry_uuids_to_source_indices():
     }
 
 
+def test_build_uuid_index_ignores_missing_and_malformed_uuid_metadata():
+    entries = [
+        _entry(),
+        {**_entry(), LOREFORGE_META_KEY: "bad"},
+        {**_entry(), LOREFORGE_META_KEY: {"entry_uuid": ""}},
+        {**_entry(), LOREFORGE_META_KEY: {"entry_uuid": "entry-4"}},
+        "not an entry",
+    ]
+
+    assert build_uuid_index(entries) == {"entry-4": 3}
+
+
 def test_uuid_lookup_helpers_return_entry_index_and_entry():
     entries = [
         {**_entry(tags=["first"]), LOREFORGE_META_KEY: {"entry_uuid": "entry-1"}},

@@ -45,16 +45,25 @@ release surface.
 
 ---
 
-## Backup & Recovery
+## Data Safety and Recovery
 
-LoreForge Lite creates local backups before important dataset and registry
-changes.
+LoreForge Lite keeps working data local and creates recovery points before
+important dataset and registry changes.
 
-For tag edit/delete operations, there is a small known recovery window: the
-JSONL dataset is saved atomically before the tag database commit finishes. If
-the JSONL save succeeds but the database commit fails, the dataset may contain
-the updated tag state while the database still contains the previous registry
-state.
+* JSONL dataset writes use local backups and atomic file replacement where
+  practical.
+* SQLite database backups protect tag, character, prompt-template, settings,
+  and lifecycle metadata.
+* Registry sidecars are refreshed alongside dataset saves so portable metadata
+  stays close to the JSONL file.
+* Optional cloud backup mirrors the latest local backup material to a configured
+  sync folder after staging the output locally.
+
+There is one known partial-failure recovery window in some durable operations:
+the JSONL dataset save may succeed before a later SQLite commit fails. For
+example, a tag lifecycle edit can update the dataset file and then fail while
+committing registry metadata. In that case, the JSONL and database may briefly
+reflect different states.
 
 This is rare in normal local single-user use, and both recovery materials are
 created before the operation:
@@ -62,13 +71,15 @@ created before the operation:
 * Dataset backups live under `backups/datasets/<dataset_name>/`
 * SQLite database backups live under `backups/database/`
 
-To recover, close LoreForge Lite, choose the matching backup file, and copy it
-over the current dataset or database file. Dataset backups restore the JSONL
-data. Database backups restore the tag registry, lifecycle metadata, character
-registry, and local app metadata.
+To recover, close LoreForge Lite and restore the most recent consistent dataset
+and database backup pair. Dataset backups restore the JSONL data. Database
+backups restore the tag registry, lifecycle metadata, character registry,
+system prompt templates, local settings, and other app metadata.
 
-This limitation is known and may be tightened in a future version with stronger
-SQLite sync/transaction handling or a revised persistence order.
+LoreForge Lite does not claim one global transaction across JSONL files,
+sidecars, SQLite, and cloud-sync folders. The recovery design is instead:
+backup first, write carefully, refresh sidecars, and keep enough local material
+available for a clear restore if the machine or process fails mid-operation.
 
 ---
 

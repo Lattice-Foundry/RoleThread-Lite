@@ -52,21 +52,31 @@ def finalize_loaded_entries(
     dataset_path: str | None = None,
     normalization_summary: TagNormalizationSummary | None = None,
 ) -> LoadPipelineResult:
-    """Run service-level load-finalization stages after parse/detect/convert/normalize.
+    """Run the service-level load finalization contract.
 
-    Pipeline order:
-    1. Use the provided load summary or normalize the given entries.
-    2. Assign stable entry UUIDs without changing native/trust status.
-    3. Create a protected working copy for foreign source files.
-    4. Locate, read, and import a sibling registry sidecar.
-    5. Canonicalize stale tag aliases in loaded entries.
-    6. Apply trusted character-role mappings already known to the DB.
-    7. Persist trusted character turn mappings created during normalization.
-    8. Collect remaining custom-role character candidates.
-    9. Refresh typed diagnostics if entries changed after core load analysis.
-    10. Adopt unknown dataset tags into the registry/archive.
-    11. Build the pending tag-trust map for imported archived tags.
-    12. Return entries, effective path, summaries, candidates, and trust data.
+    This function begins after the core file loader has already parsed records,
+    detected source format, converted ShareGPT records to ChatML, run baseline
+    normalization, and determined trusted/untrusted dataset state. The order is
+    intentionally stable because later stages depend on earlier identity and
+    registry decisions:
+
+    1. Accept the loader summary, or normalize entries when called directly.
+    2. Ensure every loaded entry has an entry UUID, without adding trust stamps.
+    3. Create a protected working copy for untrusted source files.
+    4. Resolve the effective dataset path after any working-copy creation.
+    5. Read and import the sibling sidecar for the effective dataset path.
+    6. Keep sidecar import failures as load summaries, not hard crashes.
+    7. Canonicalize stale tag aliases before registry adoption.
+    8. Preserve alias rewrite counts for the session/load summary.
+    9. Normalize known custom character roles into user/assistant turns.
+    10. Persist trusted character mappings produced by known-role normalization.
+    11. Collect unresolved custom-role candidates for user review.
+    12. Refresh typed diagnostics only when finalization mutated entries.
+    13. Adopt unknown dataset tags into archived/imported registry state.
+    14. Build pending trust state for imported archived tags still in entries.
+    15. Build the session-facing normalization and sidecar summary payload.
+    16. Preserve the source format/native-state facts from the loader summary.
+    17. Return entries and effective path for safe UI session publication.
     """
 
     normalization = normalization_summary or normalize_dataset_entries(entries)

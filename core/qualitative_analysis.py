@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, OrderedDict
+from copy import deepcopy
 from dataclasses import dataclass
 import hashlib
+import json
 import math
 from pathlib import Path
 import re
@@ -49,6 +51,12 @@ _STRUCTURE_FLAG_DIAGNOSTIC_CODES = {
     CHATML_SPLIT_CANDIDATE,
     CHATML_FORMATTING_LEAKAGE,
 }
+_ANALYSIS_CACHE_MAX_SIZE = 8
+_ANALYSIS_CACHE: "OrderedDict[str, DatasetQualityReport]" = OrderedDict()
+_NEAR_DUPLICATE_THRESHOLD = 0.9
+_SIMHASH_BAND_BITS = 16
+_SIMHASH_BAND_MASK = (1 << _SIMHASH_BAND_BITS) - 1
+_SIMHASH_BAND_SHIFTS = (0, 16, 32, 48)
 
 
 @dataclass(frozen=True)
@@ -125,6 +133,14 @@ class DatasetQualityReport:
     total_messages: int
 
 
+@dataclass(frozen=True)
+class _TokenProfile:
+    index: int
+    tokens: frozenset[str]
+    token_count: int
+    simhash: int
+
+
 def analyze_dataset_quality(
     entries: list[dict],
     dataset_path: Path | None = None,
@@ -134,6 +150,42 @@ def analyze_dataset_quality(
     """Return the full deterministic quality report for loaded entries."""
 
     safe_entries = [entry for entry in entries if isinstance(entry, dict)]
+    cache_key = _analysis_cache_key(
+        safe_entries,
+        dataset_path=dataset_path,
+        sidecar_path=sidecar_path,
+        tag_snapshot=tag_snapshot,
+    )
+    cached = _ANALYSIS_CACHE.get(cache_key)
+    if cached is not None:
+        _ANALYSIS_CACHE.move_to_end(cache_key)
+        return deepcopy(cached)
+
+    report = _analyze_dataset_quality_uncached(
+        safe_entries,
+        dataset_path=dataset_path,
+        sidecar_path=sidecar_path,
+        tag_snapshot=tag_snapshot,
+    )
+    _ANALYSIS_CACHE[cache_key] = report
+    if len(_ANALYSIS_CACHE) > _ANALYSIS_CACHE_MAX_SIZE:
+        _ANALYSIS_CACHE.popitem(last=False)
+    return deepcopy(report)
+
+
+def clear_dataset_quality_cache() -> None:
+    """Clear the bounded in-process dataset quality analysis cache."""
+
+    _ANALYSIS_CACHE.clear()
+
+
+def _analyze_dataset_quality_uncached(
+    safe_entries: list[dict],
+    *,
+    dataset_path: Path | None,
+    sidecar_path: Path | None,
+    tag_snapshot: "TagRegistrySnapshot | None",
+) -> DatasetQualityReport:
     response_quality = _score_response_quality(safe_entries)
     diversity = _score_diversity(safe_entries, tag_snapshot)
     structure = _score_structure(safe_entries)
@@ -168,6 +220,65 @@ def analyze_dataset_quality(
         total_entries=len(safe_entries),
         total_messages=sum(len(get_entry_messages(entry)) for entry in safe_entries),
     )
+
+
+def _analysis_cache_key(
+    safe_entries: list[dict],
+    *,
+    dataset_path: Path | None,
+    sidecar_path: Path | None,
+    tag_snapshot: "TagRegistrySnapshot | None",
+) -> str:
+    entries_digest = hashlib.blake2b(
+        json.dumps(
+            safe_entries,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8"),
+        digest_size=16,
+    ).hexdigest()
+    resolved_sidecar_path = sidecar_path
+    if resolved_sidecar_path is None and dataset_path is not None:
+        resolved_sidecar_path = sidecar_path_for_dataset(Path(dataset_path))
+    parts = (
+        f"entries={entries_digest}",
+        f"count={len(safe_entries)}",
+        f"dataset={_path_cache_marker(dataset_path)}",
+        f"sidecar={_path_cache_marker(resolved_sidecar_path)}",
+        f"tags={_tag_snapshot_cache_marker(tag_snapshot)}",
+    )
+    return "|".join(parts)
+
+
+def _path_cache_marker(path: Path | None) -> str:
+    if path is None:
+        return "<none>"
+    try:
+        resolved = Path(path).expanduser().resolve()
+    except OSError:
+        resolved = Path(path).expanduser()
+    try:
+        stat = resolved.stat()
+    except OSError:
+        return f"{resolved}|missing"
+    return f"{resolved}|{stat.st_mtime_ns}|{stat.st_size}"
+
+
+def _tag_snapshot_cache_marker(tag_snapshot: "TagRegistrySnapshot | None") -> str:
+    if tag_snapshot is None:
+        return "<none>"
+    payload = {
+        "active_tag_slugs": sorted(getattr(tag_snapshot, "active_tag_slug_set", set())),
+        "tag_category_map": sorted(
+            getattr(tag_snapshot, "tag_category_map", {}).items()
+        ),
+    }
+    return hashlib.blake2b(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+        digest_size=12,
+    ).hexdigest()
 
 
 def _score_response_quality(entries: list[dict]) -> ResponseQualityScore:
@@ -567,24 +678,90 @@ def _category_coverage_count(
 
 
 def _near_duplicate_pairs(entries: list[dict]) -> tuple[tuple[str, str], ...]:
-    token_sets = [_word_set(_entry_text(entry)) for entry in entries]
-    pairs: list[tuple[str, str]] = []
-    for left_index, left_tokens in enumerate(token_sets):
-        if not left_tokens:
+    profiles: list[_TokenProfile] = []
+    exact_buckets: dict[frozenset[str], list[_TokenProfile]] = {}
+    band_buckets: dict[tuple[int, int], list[_TokenProfile]] = {}
+
+    for index, entry in enumerate(entries):
+        tokens = frozenset(_word_set(_entry_text(entry)))
+        if not tokens:
             continue
-        for right_index in range(left_index + 1, len(entries)):
-            right_tokens = token_sets[right_index]
-            if not right_tokens:
-                continue
-            overlap = len(left_tokens & right_tokens) / max(len(left_tokens | right_tokens), 1)
-            if overlap > 0.9:
-                pairs.append(
-                    (
-                        _entry_identifier(entries[left_index], left_index),
-                        _entry_identifier(entries[right_index], right_index),
-                    )
+        profile = _TokenProfile(
+            index=index,
+            tokens=tokens,
+            token_count=len(tokens),
+            simhash=_token_simhash(tokens),
+        )
+        profiles.append(profile)
+        exact_buckets.setdefault(tokens, []).append(profile)
+        for band_key in _simhash_band_keys(profile.simhash):
+            band_buckets.setdefault(band_key, []).append(profile)
+
+    candidate_pairs: set[tuple[int, int]] = set()
+    for bucket in exact_buckets.values():
+        _add_candidate_pairs(candidate_pairs, bucket)
+    for bucket in band_buckets.values():
+        _add_candidate_pairs(candidate_pairs, bucket)
+
+    profile_by_index = {profile.index: profile for profile in profiles}
+    pairs: list[tuple[str, str]] = []
+    for left_index, right_index in sorted(candidate_pairs):
+        left = profile_by_index[left_index]
+        right = profile_by_index[right_index]
+        if not _near_duplicate_size_possible(left.token_count, right.token_count):
+            continue
+        overlap = len(left.tokens & right.tokens) / max(len(left.tokens | right.tokens), 1)
+        if overlap > _NEAR_DUPLICATE_THRESHOLD:
+            pairs.append(
+                (
+                    _entry_identifier(entries[left_index], left_index),
+                    _entry_identifier(entries[right_index], right_index),
                 )
+            )
     return tuple(pairs)
+
+
+def _token_simhash(tokens: frozenset[str]) -> int:
+    vector = [0] * 64
+    for token in tokens:
+        token_hash = int(hashlib.blake2b(token.encode("utf-8"), digest_size=8).hexdigest(), 16)
+        for bit in range(64):
+            vector[bit] += 1 if token_hash & (1 << bit) else -1
+    fingerprint = 0
+    for bit, value in enumerate(vector):
+        if value >= 0:
+            fingerprint |= 1 << bit
+    return fingerprint
+
+
+def _simhash_band_keys(fingerprint: int) -> tuple[tuple[int, int], ...]:
+    return tuple(
+        (shift, (fingerprint >> shift) & _SIMHASH_BAND_MASK)
+        for shift in _SIMHASH_BAND_SHIFTS
+    )
+
+
+def _add_candidate_pairs(
+    candidate_pairs: set[tuple[int, int]],
+    bucket: list[_TokenProfile],
+) -> None:
+    if len(bucket) < 2:
+        return
+    for left_offset, left in enumerate(bucket):
+        for right in bucket[left_offset + 1:]:
+            if left.index == right.index:
+                continue
+            pair = (
+                min(left.index, right.index),
+                max(left.index, right.index),
+            )
+            candidate_pairs.add(pair)
+
+
+def _near_duplicate_size_possible(left_count: int, right_count: int) -> bool:
+    smaller = min(left_count, right_count)
+    larger = max(left_count, right_count)
+    return larger > 0 and (smaller / larger) > _NEAR_DUPLICATE_THRESHOLD
 
 
 def _exchange_bucket_distribution(exchange_counts: list[int]) -> dict[str, int]:

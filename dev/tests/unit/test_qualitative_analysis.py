@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+import core.qualitative_analysis as quality
 from core.loreforge_meta import get_entry_uuid, stamp_entries
 from core.qualitative_analysis import analyze_dataset_quality
 from core.registry_sidecar import build_sidecar_registry, write_sidecar
@@ -98,6 +99,55 @@ def test_diversity_detects_near_duplicate_entries_and_tag_metrics():
     assert report.diversity.category_coverage_count == 2
     assert report.diversity.near_duplicate_count == 1
     assert report.diversity.near_duplicate_pairs == (("entry_index:0", "entry_index:1"),)
+
+
+def test_near_duplicate_detection_keeps_similar_entries_and_skips_unrelated():
+    base_text = (
+        "The room settles into a quiet rhythm while Emma checks the monitor, "
+        "asks a careful followup question, and keeps the patient grounded."
+    )
+    near_text = (
+        "The room settles into a quiet rhythm while Emma checks the monitor, "
+        "asks a careful followup question, and keeps the patient grounded calmly."
+    )
+    unrelated_text = (
+        "Kai studies a storm map, packs a field kit, and prepares the team for "
+        "a long walk across flooded roads."
+    )
+
+    report = analyze_dataset_quality(
+        [
+            _entry(assistant_text=base_text, exchanges=1),
+            _entry(assistant_text=near_text, exchanges=1),
+            _entry(assistant_text=unrelated_text, exchanges=1),
+        ]
+    )
+
+    assert report.diversity.near_duplicate_pairs == (("entry_index:0", "entry_index:1"),)
+
+
+def test_quality_analysis_cache_reuses_same_content_and_invalidates_changes(monkeypatch):
+    quality.clear_dataset_quality_cache()
+    entries = [_entry(exchanges=1)]
+    calls = []
+    original = quality._score_response_quality
+
+    def wrapped_score_response_quality(safe_entries):
+        calls.append(len(safe_entries))
+        return original(safe_entries)
+
+    monkeypatch.setattr(quality, "_score_response_quality", wrapped_score_response_quality)
+
+    first = analyze_dataset_quality(entries)
+    second = analyze_dataset_quality(deepcopy(entries))
+    changed_entries = deepcopy(entries)
+    changed_entries[0]["messages"][2]["content"] = "Short."
+    changed = analyze_dataset_quality(changed_entries)
+
+    assert first == second
+    assert changed.response_quality.avg_response_length != first.response_quality.avg_response_length
+    assert calls == [1, 1]
+    quality.clear_dataset_quality_cache()
 
 
 def test_structure_scores_validation_and_exchange_distribution():

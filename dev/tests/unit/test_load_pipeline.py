@@ -6,6 +6,7 @@ from core.dataset import DatasetDiagnosticSummary, TagNormalizationSummary, load
 from core.format_conversion import FORMAT_SHAREGPT
 from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid, is_native_entry
 from core.registry_sidecar import (
+    SIDECAR_KIND,
     SidecarDatasetInfo,
     SidecarMetadata,
     SidecarRegistry,
@@ -100,7 +101,14 @@ def test_pipeline_finalizes_sharegpt_load_without_streamlit(tmp_path, monkeypatc
 
     assert errors == []
     assert result.dataset_source_format == FORMAT_SHAREGPT
+    assert result.effective_dataset_path == str(
+        training_dir / "dataset" / "dataset.jsonl"
+    )
+    assert result.working_copy_summary["original_path"] == str(path.resolve())
+    assert (training_dir / "dataset" / "dataset.jsonl").exists()
+    assert result.sidecar_import_summary is None
     assert result.entries[0]["messages"][1]["role"] == "user"
+    assert result.entries[0]["messages"][2]["role"] == "assistant"
     assert result.tag_normalization_summary["format_converted_count"] == 1
 
 
@@ -406,6 +414,55 @@ def test_pipeline_imports_sidecar_before_tag_adoption(tmp_path, monkeypatch):
 
     assert call_order == ["import", "adoption"]
     assert result.sidecar_import_summary["categories_created"] == ["custom"]
+
+
+def test_pipeline_reports_unsupported_sidecar_version_without_blocking_load(
+    tmp_path,
+    monkeypatch,
+):
+    _patch_pipeline_defaults(monkeypatch)
+    training_dir = tmp_path / "training_data"
+    monkeypatch.setattr(
+        "core.working_copy.get_default_training_data_dir",
+        lambda: training_dir,
+    )
+    dataset_path = tmp_path / "dataset.jsonl"
+    dataset_path.write_text(json.dumps(_entry()) + "\n", encoding="utf-8")
+    sidecar_path_for_dataset(dataset_path).write_text(
+        json.dumps(
+            {
+                "metadata": {
+                    "schema_version": 2,
+                    "kind": SIDECAR_KIND,
+                    "exported_at": "2026-05-14T00:00:00+00:00",
+                },
+                "dataset": {
+                    "dataset_uuid": "dataset-uuid",
+                    "filename": "dataset.jsonl",
+                    "entry_count": 1,
+                    "tag_usage_counts": {},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    summary, errors = load_dataset_with_summary(str(dataset_path))
+
+    result = load_pipeline.finalize_loaded_entries(
+        summary.entries,
+        dataset_path=str(dataset_path),
+        normalization_summary=summary,
+    )
+
+    assert errors == []
+    assert len(result.entries) == 1
+    assert result.sidecar_import_summary["ok"] is False
+    assert "Unsupported registry sidecar schema_version" in (
+        result.sidecar_import_summary["message"]
+    )
+    assert result.effective_dataset_path == str(
+        training_dir / "dataset" / "dataset.jsonl"
+    )
 
 
 def test_pipeline_builds_pending_trust_for_imported_archived_tags(monkeypatch):
