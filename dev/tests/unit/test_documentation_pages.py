@@ -6,6 +6,8 @@ from ui.ui_help import HelpTopic, clean_help_topic_title, filter_help_topics, lo
 from ui.help_docs import (
     HELP_DIR,
     build_help_search_results,
+    extract_markdown_sections,
+    format_section_outline,
     get_adjacent_help_articles,
     get_default_help_article_id,
     get_help_article,
@@ -18,6 +20,7 @@ from ui.help_docs import (
     load_help_document,
     resolve_help_article_id,
     search_help_documents,
+    slugify_heading,
     validate_help_article_registry,
 )
 
@@ -188,6 +191,76 @@ def test_build_help_search_results_returns_compact_snippets(tmp_path):
     assert summary_results[0].snippet == "First-session workflow and the basic LoreForge rhythm."
     assert content_results[0].article.article_id == "creating-entries"
     assert "hidden marker" in content_results[0].snippet.lower()
+
+
+def test_slugify_heading_normalizes_punctuation_and_spacing():
+    assert slugify_heading("Clean Export: JSONL & Sidecars!") == "clean-export-jsonl-sidecars"
+    assert slugify_heading("  `System Prompt` Template  ") == "system-prompt-template"
+
+
+def test_extract_markdown_sections_reads_level_two_and_three_headings():
+    sections = extract_markdown_sections(
+        "# Article Title\n\n"
+        "## First Section\n\n"
+        "### Nested Section\n\n"
+        "#### Too Deep\n\n"
+        "## Second Section\n"
+    )
+
+    assert [(section.level, section.title, section.anchor) for section in sections] == [
+        (2, "First Section", "first-section"),
+        (3, "Nested Section", "nested-section"),
+        (2, "Second Section", "second-section"),
+    ]
+
+
+def test_extract_markdown_sections_ignores_code_fence_headings():
+    sections = extract_markdown_sections(
+        "## Real Section\n\n"
+        "```markdown\n"
+        "## Not A Section\n"
+        "```\n"
+        "~~~\n"
+        "### Also Ignored\n"
+        "~~~\n"
+        "### Real Subsection\n"
+    )
+
+    assert [section.title for section in sections] == [
+        "Real Section",
+        "Real Subsection",
+    ]
+
+
+def test_extract_markdown_sections_deduplicates_anchors():
+    sections = extract_markdown_sections(
+        "## Repeat\n"
+        "### Repeat\n"
+        "## Repeat!\n"
+    )
+
+    assert [section.anchor for section in sections] == [
+        "repeat",
+        "repeat-2",
+        "repeat-3",
+    ]
+
+
+def test_extract_markdown_sections_returns_empty_for_no_sections():
+    assert extract_markdown_sections("# Only Title\n\nPlain text.") == ()
+
+
+def test_format_section_outline_supports_informational_and_clickable_lines():
+    sections = extract_markdown_sections("## Parent\n### Child")
+
+    assert format_section_outline(sections) == (
+        "- Parent",
+        "  - Child",
+    )
+    assert format_section_outline(sections, clickable=True) == (
+        "- [Parent](#parent)",
+        "  - [Child](#child)",
+    )
 
 
 def test_load_faq_entries_reads_json(tmp_path):

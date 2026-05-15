@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 
 DOCS_ROOT = Path(__file__).resolve().parents[1] / "docs"
@@ -40,6 +41,15 @@ class HelpSearchResult:
 
     article: HelpArticle
     snippet: str
+
+
+@dataclass(frozen=True)
+class DocSection:
+    """Parsed Markdown section heading for a Help article."""
+
+    level: int
+    title: str
+    anchor: str
 
 
 HELP_CATEGORY_ORDER = (
@@ -574,3 +584,75 @@ def build_help_search_results(
             snippet = _content_snippet(document.content, query)
         results.append(HelpSearchResult(article=article, snippet=snippet))
     return tuple(results)
+
+
+_HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+_FENCE_PATTERN = re.compile(r"^\s*(```|~~~)")
+
+
+def slugify_heading(value: str) -> str:
+    """Return a stable lowercase anchor slug for a Markdown heading."""
+
+    cleaned_value = _clean_heading_title(value).lower()
+    cleaned_value = re.sub(r"[^\w\s-]", "", cleaned_value)
+    cleaned_value = cleaned_value.replace("_", " ")
+    cleaned_value = re.sub(r"[\s-]+", "-", cleaned_value).strip("-")
+    return cleaned_value or "section"
+
+
+def _clean_heading_title(value: str) -> str:
+    title = value.strip()
+    title = re.sub(r"\s+#+\s*$", "", title)
+    title = re.sub(r"`([^`]*)`", r"\1", title)
+    title = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", title)
+    title = title.replace("*", "").replace("_", "")
+    return title.strip()
+
+
+def extract_markdown_sections(markdown: str) -> tuple[DocSection, ...]:
+    """Extract level-two and level-three headings from Markdown content."""
+
+    sections: list[DocSection] = []
+    anchor_counts: dict[str, int] = {}
+    in_fence = False
+    for line in markdown.splitlines():
+        if _FENCE_PATTERN.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+
+        match = _HEADING_PATTERN.match(line)
+        if match is None:
+            continue
+        level = len(match.group(1))
+        if level not in (2, 3):
+            continue
+
+        title = _clean_heading_title(match.group(2))
+        anchor_base = slugify_heading(title)
+        anchor_counts[anchor_base] = anchor_counts.get(anchor_base, 0) + 1
+        anchor = (
+            anchor_base
+            if anchor_counts[anchor_base] == 1
+            else f"{anchor_base}-{anchor_counts[anchor_base]}"
+        )
+        sections.append(DocSection(level=level, title=title, anchor=anchor))
+    return tuple(sections)
+
+
+def format_section_outline(
+    sections: tuple[DocSection, ...],
+    *,
+    clickable: bool = False,
+) -> tuple[str, ...]:
+    """Return compact Markdown lines for an article outline."""
+
+    lines: list[str] = []
+    for section in sections:
+        indent = "  " if section.level == 3 else ""
+        if clickable:
+            lines.append(f"{indent}- [{section.title}](#{section.anchor})")
+        else:
+            lines.append(f"{indent}- {section.title}")
+    return tuple(lines)

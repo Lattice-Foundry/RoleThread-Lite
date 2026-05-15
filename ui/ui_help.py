@@ -9,6 +9,8 @@ from ui.help_docs import (
     HELP_DIR,
     HelpSearchResult,
     build_help_search_results,
+    extract_markdown_sections,
+    format_section_outline,
     get_adjacent_help_articles,
     get_help_breadcrumb,
     get_help_articles_by_category,
@@ -196,11 +198,22 @@ def _render_active_article(article_id: str) -> None:
     article = document.article
     st.caption(" / ".join(get_help_breadcrumb(article.article_id)))
     if document.content:
+        _render_article_outline(document.content)
         st.markdown(document.content)
     else:
         st.warning(f"Help article not found: `{article.file_name}`")
     _render_related_articles(article.article_id)
     _render_article_navigation(article.article_id)
+
+
+def _render_article_outline(content: str) -> None:
+    sections = extract_markdown_sections(content)
+    if len(sections) < 2:
+        return
+
+    st.markdown("**On this page**")
+    st.markdown("\n".join(format_section_outline(sections, clickable=False)))
+    st.divider()
 
 
 def render_help_page() -> None:
