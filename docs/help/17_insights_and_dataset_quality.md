@@ -2,7 +2,7 @@
 
 Insights helps you understand the shape of a loaded dataset.
 
-It is not a universal creative truth machine. It is a set of deterministic measurements and practical heuristics that point out patterns worth reviewing.
+It is not a universal judgment system. It is a set of deterministic measurements and practical heuristics that point out patterns worth reviewing.
 
 Use Insights to ask:
 
@@ -99,6 +99,20 @@ It estimates whether the dataset leans toward:
 
 This is a style signal, not a score gate. Different datasets should land in different places.
 
+Narrative-heavy datasets may produce more descriptive, atmospheric behavior. Dialogue-heavy datasets may produce more conversational or chat-like behavior. A balanced dataset can support both, but only if the examples are consistent enough to teach the intended style.
+
+Watch for repeated formatting patterns too. Quoted dialogue, paragraph style, name labels, tense, and point of view can all become learned habits.
+
+For example:
+
+```text
+"I don't think this is a good idea," she says quietly.
+```
+
+Consistent quoted dialogue helps teach clear conversational structure. Inconsistent formatting can teach inconsistency.
+
+Name usage also matters. Repeating specific character names can be useful in character-bound scenes, but heavy name repetition can make behavior feel tied to those names. Pronoun-based narration often generalizes better when the behavior matters more than the specific character.
+
 ## Exchange Depth
 
 Exchange depth shows how many user/assistant pairs entries contain.
@@ -142,6 +156,8 @@ Some counts can link to focused Manage Dataset views. For example:
 
 These links let you move from "something looks off" to "show me the entries."
 
+Manage Dataset is the right place to act on most focused views. Use it to tag, search, quick edit, duplicate, join, or open entries in Full Edit.
+
 ## Common Mistake
 
 **Mistake:** Trying to force every dataset to an excellent score.
@@ -151,4 +167,3 @@ These links let you move from "something looks off" to "show me the entries."
 ## Practical Tip
 
 Use Insights after a cleanup pass, not after every tiny edit. It is best for seeing patterns across the whole dataset.
-

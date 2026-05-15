@@ -87,6 +87,8 @@ Start simple. A few useful tags are better than a complicated registry you do no
 
 Create Entry shows a preview of the entry before saving. If the entry is valid, LoreForge tells you it looks valid.
 
+Entries created through the normal Create Entry flow are usually structurally safe by default because LoreForge validates the shape before save. Validation is still useful later for review, cleanup, and consistency checks across the whole dataset.
+
 The save button may be disabled when:
 
 - planned exchanges are incomplete
@@ -111,6 +113,75 @@ Aim for:
 
 For many narrative datasets, assistant responses that are too short are less useful than responses that show the behavior you want the model to learn.
 
+## Writing Effective Narrative Training Data
+
+Writing choices teach patterns.
+
+That does not mean there is one correct style. It means repeated structure, wording, formatting, and point of view can influence how a trained model behaves.
+
+### Narrative-Heavy vs Dialogue-Heavy
+
+A narrative-heavy dataset may encourage more descriptive, atmospheric responses.
+
+A dialogue-heavy dataset may encourage more conversational, back-and-forth responses.
+
+Neither is automatically better. Choose the balance that matches the model behavior you want.
+
+### First Person and Third Person
+
+Keep point of view consistent within a dataset section when you can.
+
+If some entries use first person and others use third person, that can be fine, but the model may learn to mix styles unless the difference is intentional.
+
+### Names and Pronouns
+
+Repeated character names can teach strong character-specific associations.
+
+That is useful in some Group Chat scenes, but it can make a behavior feel tied to one named character instead of generalizing across similar situations.
+
+Example:
+
+```text
+Nicole walks over to the table and smiles at Scott.
+```
+
+This is clear, but repeated name-heavy narration can over-bind the behavior to Nicole and Scott.
+
+For more reusable behavior, pronouns may generalize better:
+
+```text
+She walks over to the table and smiles at him.
+```
+
+Use names when they clarify who is acting, especially in group scenes. Use pronouns when the behavior matters more than the specific names.
+
+### Quoted Dialogue
+
+Consistent quoted dialogue helps teach conversational structure.
+
+Example:
+
+```text
+"I don't think this is a good idea," she says quietly.
+```
+
+If your dataset mixes quoted dialogue, unquoted dialogue, markdown bullets, and script format without intention, the model may learn that inconsistency.
+
+### Formatting Consistency
+
+Formatting is part of the example.
+
+If assistant responses repeatedly use a certain style, the model may reproduce it. This includes:
+
+- quotation style
+- paragraph breaks
+- markdown
+- stage directions
+- name labels
+- tense and point of view
+
+Use formatting intentionally. Consistency teaches consistency.
+
 ## Practical Workflow
 
 A simple creation workflow:
@@ -122,7 +193,8 @@ A simple creation workflow:
 5. Add relevant tags.
 6. Review the JSON preview.
 7. Save the entry.
-8. Run Validation after a batch of new entries.
+8. Use Manage Dataset to review, filter, tag, duplicate, or quick edit entries as the dataset grows.
+9. Run Validation when you want a broader review pass, especially before export.
 
 ## Common Mistake
 
@@ -135,4 +207,3 @@ A simple creation workflow:
 When an entry is saved, LoreForge assigns stable identity metadata such as an entry UUID, updates the dataset, refreshes sidecar metadata, and keeps the entry available for search, editing, validation, and export.
 
 You can always return to the entry later through Manage Dataset or Edit Entries.
-

@@ -4,6 +4,8 @@ Validation helps you find dataset problems before they become training problems.
 
 It is not there to judge your writing. It is there to make structure, metadata, and common cleanup issues visible so you can decide what to fix.
 
+Entries created and edited through normal LoreForge workflows are guarded against most structural invalid states before save. Validation is most valuable as an audit, cleanup, and final-review tool, especially for imported datasets, external edits, merge outputs, and large review passes.
+
 ## What Validation Checks
 
 Validation looks for issues such as:
@@ -122,16 +124,33 @@ They may have:
 
 This is normal. Validation gives you a map for cleanup.
 
+## Normal LoreForge Workflows
+
+If you create entries inside LoreForge, you usually do not need to treat Validation as an emergency repair loop.
+
+LoreForge forms check required structure before saving. That means normal entry creation and editing should usually produce structurally safe records.
+
+Validation still matters because it sees the whole dataset at once. It can find patterns that are easy to miss while writing:
+
+- repeated short responses
+- inactive character references
+- split candidates
+- duplicate system messages from imported material
+- formatting artifacts
+- metadata gaps
+
+Use it as a review pass, not as proof that every normal save is risky.
+
 ## Repair Workflow
 
 A practical repair workflow:
 
-1. Load the dataset.
+1. Load the dataset, especially if it came from outside LoreForge.
 2. Open Validation.
 3. Review issue groups.
 4. Apply safe automatic fixes first.
 5. Use focused links to inspect manual issues.
-6. Edit entries in Quick Edit or Full Edit.
+6. Use Manage Dataset for quick cleanup and Full Edit for deeper repairs.
 7. Run Validation again.
 8. Export only when the remaining issues are understood.
 
@@ -140,10 +159,11 @@ A practical repair workflow:
 Run Validation after:
 
 - loading an imported dataset
-- creating a batch of entries
+- externally or manually editing dataset files
+- large cleanup passes
 - using split or join
 - merging datasets
-- editing Group Chat character assignments
+- reviewing imported ShareGPT data
 - applying automatic repair
 - preparing for export
 
@@ -156,4 +176,3 @@ Run Validation after:
 ## Practical Tip
 
 Fix structural issues before content-quality issues. A clean structure makes every later review pass easier.
-

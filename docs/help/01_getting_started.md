@@ -9,19 +9,19 @@ This guide gives you the basic first-session path.
 Most sessions follow this rhythm:
 
 1. Create or load a dataset in **Manage Dataset**.
-2. Review entries, tags, and search/filter results.
+2. Use **Manage Dataset** as the main operational workspace for browsing, filtering, tagging, searching, quick editing, duplication, joining, and export preparation.
 3. Create or edit entries.
-4. Run **Validation** to catch format and quality issues.
+4. Use **Validation** for imported data, larger cleanup passes, and final review.
 5. Use **Insights** to understand dataset shape and weak spots.
 6. Export when the dataset is ready for training or sharing.
 
-You do not need to understand every advanced system on day one. Start with loading or creating a dataset, then let Validation and the page guidance show you what needs attention.
+You do not need to understand every advanced system on day one. Start with loading or creating a dataset, then use Manage Dataset as your home base while the other pages support specific jobs.
 
 ## First Session Workflow
 
 ### 1. Open LoreForge Lite
 
-When you open the app, start in **Manage Dataset**. This is the main place for loading files, creating a new dataset, browsing entries, filtering, searching, renaming, duplicating, joining, and deleting entries.
+When you open the app, start in **Manage Dataset**. This is not just a file browser. It is the main operational workspace for loading files, creating a new dataset, browsing entries, filtering, searching, tagging, quick editing, renaming, duplicating, joining, deleting, and preparing entries for export.
 
 If no dataset is loaded, other pages will point you back to Manage Dataset.
 
@@ -38,17 +38,25 @@ If you load a file created outside LoreForge Lite, LoreForge may create a protec
 
 Use **Create Entry** for new training examples.
 
-Use **Edit Entries** or the entry actions in Manage Dataset for existing examples:
+Use the entry actions in **Manage Dataset** for most day-to-day cleanup and review:
 
 - **Quick Edit** for smaller message edits.
-- **Full Edit** for system prompts, tags, multi-turn edits, Group Chat mode, and split tools.
 - **Duplicate** when you want to build a similar entry from an existing one.
+- tag filters, search, selection, join, and bulk actions for operational cleanup.
+
+Use **Edit Entries** when you need deeper work:
+
+- **Full Edit** for system prompts, tags, multi-turn edits, Group Chat mode, and split tools.
+- detailed character mapping review.
+- careful multi-turn tuning.
 
 Entries are still normal training records. Group Chat mode adds character display metadata, but exported training roles remain standard `system`, `user`, and `assistant` roles.
 
 ### 4. Validate and Repair
 
-Go to **Validation** after loading or creating entries.
+Go to **Validation** when you are reviewing imported data, doing a cleanup pass, checking a merge, or preparing for export.
+
+Entries created through normal LoreForge forms are guarded against most structural problems before save. Validation is still valuable as an audit and cleanup tool, especially when data came from outside LoreForge or was changed in bulk.
 
 Validation helps you find:
 
@@ -61,7 +69,7 @@ Validation helps you find:
 - inactive character references
 - entries that may benefit from splitting
 
-Some issues can be repaired automatically. Others are shown for manual review. Validation is not a punishment system. It is there so problems are visible instead of silent.
+Some issues can be repaired automatically. Others are shown for manual review. Validation is not a punishment system or an emergency loop for normal writing. It is there so problems are visible instead of silent.
 
 ### 5. Organize With Tags and Characters
 
@@ -109,7 +117,8 @@ Optional cloud backup can mirror the latest backup material to a configured sync
 
 ## Practical Tips
 
-- Start small. Create or load one dataset and run Validation before doing heavy editing.
+- Start small. Create or load one dataset, then use Manage Dataset as your home base.
+- Run Validation early for imported or manually edited data, and again before export.
 - Keep your source files somewhere safe. LoreForge working copies protect untrusted files, but good file organization still helps.
 - Use tags early. Even a simple tag system makes search, filtering, export, and Insights more useful.
 - Run clean export only when you want training records without LoreForge metadata.
@@ -123,4 +132,3 @@ If you are brand new, read these next:
 - **Dataset Formats**
 - **Loading Datasets and Working Copies**
 - **Creating a New Dataset**
-

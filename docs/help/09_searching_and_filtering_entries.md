@@ -2,6 +2,10 @@
 
 Search and filters help you work with the entries that matter right now. They are especially useful once a dataset grows beyond what you can comfortably scan by hand.
 
+Most search and filtering work starts in **Manage Dataset** because that page is the main operational workspace. It combines browsing, tag filters, entry search, selection, quick edits, duplication, join, delete, and export preparation.
+
+**Edit Entries** uses the same shared search state, but it is best when the filtered result set needs deeper content work.
+
 LoreForge Lite gives you three main ways to narrow the browser:
 
 - tag filters
@@ -130,22 +134,22 @@ When this happens, Manage Dataset shows a banner explaining the focused view. Us
 
 ### Find a Remembered Scene
 
-1. Open Manage Dataset or Edit Entries.
+1. Open Manage Dataset.
 2. Enter a phrase in Search Entries.
 3. Choose **Contains** or **All Words**.
 4. Include System if the phrase is in the system prompt.
-5. Open matching entries for review.
+5. Use Quick Edit for simple fixes or Full Edit for deeper work.
 
 ### Work Through a Problem Category
 
 1. Apply a tag filter.
 2. Add a search query if needed.
-3. Edit entries from the filtered result list.
-4. Run Validation after the pass.
+3. Use Manage Dataset actions for quick cleanup, tagging, selection, or duplication.
+4. Open entries in Full Edit when they need deeper restructuring.
+5. Run Validation after larger cleanup passes or before export.
 
 ## Common Mistake
 
 **Mistake:** Thinking search only checks the current page.
 
 **Better mental model:** Search checks all entries that passed tag filtering. The page view is only the final display slice.
-

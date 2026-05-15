@@ -12,9 +12,9 @@ You can start editing from:
 - **Edit Entries**, using the dedicated editing browser.
 - **Validation** or **Insights**, when they link you to entries that need review.
 
-Manage Dataset is good for browsing, bulk actions, filtering, and quick work.
+Manage Dataset is the primary operational workspace for most dataset work. It is where many users spend most of their time: browsing, filtering, searching, tagging, selecting, quick editing, duplicating, joining, deleting, and preparing entries for export.
 
-Edit Entries is better when your main task is reviewing and changing entry content.
+Edit Entries is the deeper editing workspace. Use it when the job needs Full Edit, multi-turn restructuring, Group Chat refinement, detailed character mapping work, split operations, or a focused review pass.
 
 ## Quick Edit
 
@@ -78,11 +78,11 @@ When you save an edit, LoreForge updates the dataset and refreshes related metad
 
 Protected operations create backups before writing. This makes editing recoverable if you later decide a change was wrong or something goes sideways.
 
-After larger edits, it is a good habit to run Validation again.
+Normal LoreForge edit forms guard against most structural invalid states before save. After imported-data cleanup, merge review, large edit batches, split/join work, or manual repair, it is still a good habit to run Validation again.
 
 ## Validation After Editing
 
-Editing can fix validation issues, but it can also create new ones if a message is accidentally left blank or a role structure becomes incomplete.
+Editing can fix validation issues. In normal LoreForge workflows, the app tries to prevent incomplete structure before save, but Validation is still useful for broader review and imported-data cleanup.
 
 Run Validation after:
 
@@ -123,6 +123,6 @@ If you are cleaning a dataset, work in passes:
 1. Filter or search for a problem area.
 2. Quick Edit easy fixes.
 3. Full Edit structural fixes.
-4. Run Validation.
-5. Export only after the dataset feels stable.
-
+4. Use Manage Dataset to retag, duplicate, join, or prepare a subset if needed.
+5. Run Validation for a broader review pass.
+6. Export only after the dataset feels stable.

@@ -25,8 +25,10 @@ A normal merge workflow:
 3. Decide whether to shuffle the merged entries.
 4. Run the merge.
 5. Review the output dataset.
-6. Run Validation.
+6. Run Validation on the merge output.
 7. Use Insights to check structure, metadata, and duplicates.
+
+Validation after merge is mostly a review and cleanup step. Merge is designed to preserve safe structure and metadata, but source datasets may bring in older formats, imported tags, duplicate content, or sidecar conflicts that deserve a pass.
 
 ## New Output Identity
 
@@ -108,4 +110,3 @@ After a merge, run:
 ## Practical Tip
 
 For predictable duplicate handling, put your preferred source file first.
-
