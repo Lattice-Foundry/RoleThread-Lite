@@ -22,8 +22,6 @@ from core.db_backups import (
 )
 from core.platform import default_onedrive_backup_path, detect_onedrive_path
 from core.preferences import (
-    export_settings,
-    get_all_settings,
     import_settings,
     load_preferences,
     set_setting,
@@ -55,6 +53,14 @@ BACKUP_CONFIG_KEYS = {
     "cloud_backup_last_sync_at",
 }
 LOREFORGE_CLOUD_BACKUP_SUBDIR = Path("LoreForge Lite") / "backups"
+_USER_METADATA_COUNT_QUERIES = {
+    "tag_categories": "SELECT COUNT(*) FROM tag_categories",
+    "tags": "SELECT COUNT(*) FROM tags",
+    "tag_lifecycle_metadata": "SELECT COUNT(*) FROM tag_lifecycle_metadata",
+    "characters": "SELECT COUNT(*) FROM characters",
+    "entry_character_turns": "SELECT COUNT(*) FROM entry_character_turns",
+    "system_prompt_templates": "SELECT COUNT(*) FROM system_prompt_templates",
+}
 
 
 @dataclass(frozen=True)
@@ -207,42 +213,59 @@ def sync_backups_to_cloud(destination_path: str | Path) -> CloudSyncResult:
     """Mirror latest local backups and portable metadata to destination_path."""
 
     destination = Path(destination_path).expanduser().resolve()
-    destination.mkdir(parents=True, exist_ok=True)
-
     warnings: list[str] = []
-    db_backup_copied: str | None = None
-    latest_db_backup = _latest_db_backup()
-    if latest_db_backup is None:
-        warnings.append("No database backup was available to sync.")
-    else:
-        db_target_dir = destination / "database"
-        db_target_dir.mkdir(parents=True, exist_ok=True)
-        db_target = db_target_dir / latest_db_backup.name
-        shutil.copy2(latest_db_backup, db_target)
-        db_backup_copied = str(db_target)
+    warnings.extend(_cleanup_stale_staging_dirs(destination))
+    staging = _new_staging_destination(destination)
 
-    sidecars_copied = _copy_training_sidecars(destination / "sidecars")
+    try:
+        staging.mkdir(parents=True)
 
-    synced_at = datetime.now(timezone.utc).isoformat()
-    set_setting("cloud_backup_last_sync_at", synced_at)
+        db_backup_copied: str | None = None
+        latest_db_backup = _latest_db_backup()
+        if latest_db_backup is None:
+            warnings.append("No database backup was available to sync.")
+        else:
+            db_target_dir = staging / "database"
+            db_target_dir.mkdir(parents=True, exist_ok=True)
+            db_target = db_target_dir / latest_db_backup.name
+            shutil.copy2(latest_db_backup, db_target)
+            db_backup_copied = str(destination / "database" / latest_db_backup.name)
 
-    settings_path = destination / "settings.json"
-    export_settings(settings_path)
-    save_backup_config_from_settings(load_preferences())
+        sidecars_copied = _copy_training_sidecars(staging / "sidecars")
 
-    return CloudSyncResult(
-        ok=True,
-        message=(
-            f"Cloud backup sync complete. Copied {sidecars_copied} sidecar"
-            f"{'' if sidecars_copied == 1 else 's'}."
-        ),
-        destination_path=str(destination),
-        db_backup_copied=db_backup_copied,
-        sidecars_copied=sidecars_copied,
-        settings_exported=str(settings_path),
-        synced_at=synced_at,
-        warnings=tuple(warnings),
-    )
+        synced_at = datetime.now(timezone.utc).isoformat()
+        settings_path = staging / "settings.json"
+        _write_settings_snapshot(settings_path, synced_at)
+
+        warnings.extend(_publish_staged_cloud_sync(staging, destination))
+        set_setting("cloud_backup_last_sync_at", synced_at)
+        save_backup_config_from_settings(load_preferences())
+
+        return CloudSyncResult(
+            ok=True,
+            message=(
+                f"Cloud backup sync complete. Copied {sidecars_copied} sidecar"
+                f"{'' if sidecars_copied == 1 else 's'}."
+            ),
+            destination_path=str(destination),
+            db_backup_copied=db_backup_copied,
+            sidecars_copied=sidecars_copied,
+            settings_exported=str(destination / "settings.json"),
+            synced_at=synced_at,
+            warnings=tuple(warnings),
+        )
+    except Exception as exc:
+        cleanup_warning = _remove_path(staging)
+        errors = [str(exc)]
+        if cleanup_warning:
+            errors.append(cleanup_warning)
+        return CloudSyncResult(
+            ok=False,
+            message=f"Cloud backup sync failed: {exc}",
+            destination_path=str(destination),
+            warnings=tuple(warnings),
+            errors=tuple(errors),
+        )
 
 
 def cloud_backup_has_restore_data(destination_path: str | Path) -> bool:
@@ -272,16 +295,9 @@ def local_database_is_fresh(db_path: str | Path | None = None) -> bool:
             }
             if not table_names:
                 return True
-            for table in (
-                "tag_categories",
-                "tags",
-                "tag_lifecycle_metadata",
-                "characters",
-                "entry_character_turns",
-                "system_prompt_templates",
-            ):
+            for table in _USER_METADATA_COUNT_QUERIES:
                 if table in table_names:
-                    count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                    count = _table_row_count(conn, table)
                     if count:
                         return False
             return True
@@ -357,6 +373,106 @@ def restore_cloud_backup(destination_path: str | Path) -> CloudRestoreResult:
 def _latest_db_backup() -> Path | None:
     backup_dir = get_db_backup_dir()
     return _latest_backup_file(backup_dir)
+
+
+def _table_row_count(conn: sqlite3.Connection, table: str) -> int:
+    """Return a row count for one whitelisted user-metadata table."""
+
+    try:
+        query = _USER_METADATA_COUNT_QUERIES[table]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported metadata table: {table}") from exc
+    row = conn.execute(query).fetchone()
+    return int(row[0]) if row is not None else 0
+
+
+def _write_settings_snapshot(path: Path, synced_at: str) -> None:
+    """Write a settings export that includes the sync timestamp being published."""
+
+    settings = load_preferences()
+    settings["cloud_backup_last_sync_at"] = synced_at
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(settings, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _new_staging_destination(destination: Path) -> Path:
+    parent = destination.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+    base = parent / f".{destination.name}.staging-{os.getpid()}-{stamp}"
+    if not base.exists():
+        return base
+    index = 1
+    while True:
+        candidate = parent / f"{base.name}-{index}"
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
+def _cleanup_stale_staging_dirs(destination: Path) -> list[str]:
+    parent = destination.parent
+    if not parent.exists():
+        return []
+    warnings: list[str] = []
+    for path in parent.glob(f".{destination.name}.staging-*"):
+        warning = _remove_path(path)
+        if warning:
+            warnings.append(warning)
+    return warnings
+
+
+def _publish_staged_cloud_sync(staging: Path, destination: Path) -> list[str]:
+    """Publish a completed staging directory without losing the prior sync."""
+
+    warnings: list[str] = []
+    previous = _previous_destination_path(destination)
+    if previous.exists():
+        warning = _remove_path(previous)
+        if warning:
+            warnings.append(warning)
+
+    had_previous = destination.exists()
+    if had_previous:
+        destination.rename(previous)
+
+    try:
+        staging.rename(destination)
+    except Exception as exc:
+        if had_previous and previous.exists() and not destination.exists():
+            try:
+                previous.rename(destination)
+            except Exception as restore_exc:
+                raise RuntimeError(
+                    f"Cloud sync publish failed: {exc}; restoring previous sync "
+                    f"also failed: {restore_exc}"
+                ) from exc
+        raise
+
+    if had_previous and previous.exists():
+        warning = _remove_path(previous)
+        if warning:
+            warnings.append(warning)
+    return warnings
+
+
+def _previous_destination_path(destination: Path) -> Path:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+    return destination.parent / f".{destination.name}.previous-{os.getpid()}-{stamp}"
+
+
+def _remove_path(path: Path) -> str | None:
+    try:
+        if path.is_dir():
+            shutil.rmtree(path)
+        elif path.exists():
+            path.unlink()
+    except Exception as exc:
+        return f"Could not remove {path}: {exc}"
+    return None
 
 
 def _path_is_inside(path: Path, possible_parent: Path) -> bool:

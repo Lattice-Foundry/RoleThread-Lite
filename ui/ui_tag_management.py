@@ -9,6 +9,7 @@ from core.tag_registry import (
 )
 from core.text_helpers import count_phrase
 from ui.flash_messages import enqueue_flash, render_flash_messages
+from ui.html_helpers import escape_html
 from ui.session_state import apply_dataset_operation_result
 from ui.theme import COLOR_BUILT_IN_BADGE, COLOR_CUSTOM_BADGE, COLOR_SECONDARY_TEXT
 from ui.tag_management_helpers import (
@@ -28,6 +29,28 @@ from services.tag_lifecycle_service import (
     edit_active_tag,
     rename_custom_category,
 )
+
+
+def _active_tag_detail_html(tag: dict, badge_label: str, badge_color: str) -> str:
+    """Return escaped HTML for one active tag detail row."""
+
+    return (
+        f"<strong>{escape_html(tag.get('name', ''))}</strong> &nbsp; "
+        f"<code>{escape_html(tag.get('slug', ''))}</code> &nbsp; "
+        f"<span style='color:{badge_color};font-size:0.82em'>"
+        f"{escape_html(badge_label)}</span>"
+    )
+
+
+def _archived_tag_label_html(tag: dict, badge: str) -> str:
+    """Return escaped HTML for one archived tag row."""
+
+    return (
+        "<div style='padding-top:0.52rem;line-height:1.5'>"
+        f"<strong>{escape_html(tag.get('display_name', ''))}</strong> &nbsp; "
+        f"<span style='color:{COLOR_SECONDARY_TEXT};font-size:0.82em'>"
+        f"{escape_html(badge)}</span></div>"
+    )
 
 
 def render_tag_management_page() -> None:
@@ -367,10 +390,11 @@ def render_tag_management_page() -> None:
                                         st.rerun()
                         with _detail_col:
                             st.markdown(
-                                f"**{tag['name']}** &nbsp; "
-                                f"`{tag['slug']}` &nbsp; "
-                                f"<span style='color:{_badge_color};"
-                                f"font-size:0.82em'>{_badge_label}</span>",
+                                _active_tag_detail_html(
+                                    tag,
+                                    _badge_label,
+                                    _badge_color,
+                                ),
                                 unsafe_allow_html=True,
                             )
 
@@ -723,10 +747,7 @@ def render_tag_management_page() -> None:
                     )
             with _label_col:
                 st.markdown(
-                    f"<div style='padding-top:0.52rem;line-height:1.5'>"
-                    f"<strong>{tag['display_name']}</strong> &nbsp; "
-                    f"<span style='color:{COLOR_SECONDARY_TEXT};font-size:0.82em'>"
-                    f"{_badge}</span></div>",
+                    _archived_tag_label_html(tag, _badge),
                     unsafe_allow_html=True,
                 )
             with _action_col:

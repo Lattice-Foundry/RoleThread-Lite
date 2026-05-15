@@ -10,6 +10,7 @@ import re
 import streamlit as st
 
 from core.tag_registry import prettify_tag_name
+from ui.html_helpers import escape_html, escape_upper_html
 from ui.theme import COLOR_ASSISTANT, COLOR_USER
 
 _NON_STANDARD_ROLE_COLOR = "#c2185b"
@@ -27,10 +28,14 @@ def _format_preview_content(text: str) -> str:
     for part in parts:
         if not part:
             continue
+        escaped_part = escape_html(part)
         if part.startswith('"') and part.endswith('"') and len(part) >= 2:
-            out += part
+            out += escaped_part
         else:
-            out += f"<span style='color:#e67e22;font-style:italic'>{part}</span>"
+            out += (
+                f"<span style='color:#e67e22;font-style:italic'>"
+                f"{escaped_part}</span>"
+            )
     return out
 
 
@@ -58,12 +63,13 @@ def render_message_preview(
         content = msg.get("content", "")
         color = _COLOR.get(role, _NON_STANDARD_ROLE_COLOR)
         if role == "system":
-            body = f"<span style='color:#f1c40f'>{content}</span>"
+            body = f"<span style='color:#f1c40f'>{escape_html(content)}</span>"
         else:
             body = _format_preview_content(content)
         st.markdown(
             f"<span style='color:{color};font-weight:bold;"
-            f"text-transform:uppercase'>{display_name}:</span> {body}",
+            f"text-transform:uppercase'>{escape_upper_html(display_name)}:</span> "
+            f"{body}",
             unsafe_allow_html=True,
         )
         st.write("")
@@ -99,7 +105,8 @@ def render_conversation_preview(
         _name = display_names.get(_turn_index, _SPEAKER_LABEL.get(_role, _role.upper()))
         _body = _format_preview_content(_pt["content"])
         st.markdown(
-            f"<span style='color:{_color};font-weight:bold'>{_name.upper()}:</span> {_body}",
+            f"<span style='color:{_color};font-weight:bold'>"
+            f"{escape_upper_html(_name)}:</span> {_body}",
             unsafe_allow_html=True,
         )
         st.write("")

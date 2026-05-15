@@ -1,5 +1,7 @@
 import json
+import sqlite3
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -128,6 +130,47 @@ def test_sync_backups_to_cloud_copies_db_sidecars_and_settings(tmp_path, monkeyp
     assert settings["preview_user_name"] == "Scott"
     assert preferences.get_setting("cloud_backup_last_sync_at")
     assert cloud_sync.load_backup_config()["backup_destination_type"] == "custom"
+
+
+def test_sync_backups_to_cloud_keeps_previous_publish_on_staging_failure(
+    tmp_path,
+    monkeypatch,
+):
+    _settings_db(tmp_path, monkeypatch)
+    monkeypatch.setattr(cloud_sync, "BACKUP_CONFIG_FILE", tmp_path / "backup_config.json")
+
+    db_backup_dir = tmp_path / "local_backups" / "database"
+    db_backup_dir.mkdir(parents=True)
+    latest_db = db_backup_dir / f"{DB_BACKUP_PREFIX}20260513_130000{DB_BACKUP_SUFFIX}"
+    latest_db.write_text("latest", encoding="utf-8")
+    monkeypatch.setattr(cloud_sync, "get_db_backup_dir", lambda: db_backup_dir)
+
+    destination = tmp_path / "cloud"
+    destination.mkdir()
+    previous_settings = destination / "settings.json"
+    previous_settings.write_text('{"previous": true}\n', encoding="utf-8")
+
+    def fail_sidecar_copy(_target):
+        raise RuntimeError("sidecar copy failed")
+
+    monkeypatch.setattr(cloud_sync, "_copy_training_sidecars", fail_sidecar_copy)
+
+    result = cloud_sync.sync_backups_to_cloud(destination)
+
+    assert result.ok is False
+    assert "sidecar copy failed" in result.message
+    assert previous_settings.read_text(encoding="utf-8") == '{"previous": true}\n'
+    assert not (destination / "database" / latest_db.name).exists()
+    assert not list(tmp_path.glob(".cloud.staging-*"))
+
+
+def test_table_row_count_rejects_unapproved_table_name():
+    conn = sqlite3.connect(":memory:")
+    try:
+        with pytest.raises(ValueError):
+            cloud_sync._table_row_count(conn, "tags; DROP TABLE tags")
+    finally:
+        conn.close()
 
 
 def test_cloud_backup_restore_imports_settings_and_latest_db(tmp_path, monkeypatch):

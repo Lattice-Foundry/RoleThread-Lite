@@ -559,6 +559,54 @@ def test_alias_metadata_always_inserts_and_preserves_previous_aliases(tag_db):
     assert result.should_create_archived is True
 
 
+def test_current_metadata_update_does_not_destroy_alias_lineage(tag_db):
+    session = tag_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="new_tag", category=category)
+        session.commit()
+    finally:
+        session.close()
+
+    tag_metadata.upsert_tag_lifecycle_metadata(
+        action=TAG_LIFECYCLE_METADATA_RENAME,
+        old_slug="old_tag",
+        new_slug="new_tag",
+        metadata=tag_metadata.build_rename_alias_metadata(
+            old_slug="old_tag",
+            new_slug="new_tag",
+        ),
+    )
+    tag_metadata.upsert_tag_lifecycle_metadata(
+        action=TAG_LIFECYCLE_METADATA_ARCHIVE,
+        old_slug="old_tag",
+        old_category_slug="legacy",
+        metadata=tag_metadata.build_deleted_archive_metadata("legacy"),
+    )
+
+    session = tag_db()
+    try:
+        aliases = (
+            session.query(TagLifecycleMetadata)
+            .filter_by(old_slug="old_tag", action=TAG_LIFECYCLE_METADATA_RENAME)
+            .all()
+        )
+        current_rows = (
+            session.query(TagLifecycleMetadata)
+            .filter_by(old_slug="old_tag", action=TAG_LIFECYCLE_METADATA_ARCHIVE)
+            .all()
+        )
+        assert len(aliases) == 1
+        assert aliases[0].new_slug == "new_tag"
+        assert len(current_rows) == 1
+    finally:
+        session.close()
+
+    result = tag_resolution.resolve_tag_lifecycle("Old Tag")
+    assert result.result_type == TAG_RESOLUTION_ALIAS_MAPPED
+    assert result.resolved_slug == "new_tag"
+
+
 @pytest.mark.parametrize(
     "raw",
     ["Slow Burn", "slow burn", "slow-burn", "SLOW BURN"],
