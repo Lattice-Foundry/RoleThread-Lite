@@ -8,6 +8,7 @@ import json
 import os
 import random
 import tempfile
+from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -98,7 +99,8 @@ class TagNormalizationSummary:
 
 
 _CHATML_ANALYZER = ChatMLAnalyzer()
-_VALIDATE_ENTRY_CACHE: dict[str, EntryAnalysisResult] = {}
+_VALIDATE_ENTRY_CACHE_MAX_SIZE = 10_000
+_VALIDATE_ENTRY_CACHE: OrderedDict[str, EntryAnalysisResult] = OrderedDict()
 _METADATA_DIAGNOSTIC_CODES = {
     BASE_MISSING_TAGS,
     BASE_TAGS_NOT_LIST,
@@ -143,10 +145,32 @@ def analyze_entry(entry: dict) -> EntryAnalysisResult:
 
     cache_key = _entry_validation_cache_key(entry)
     if cache_key is None:
-        return _analyze_entry_uncached(entry)
-    if cache_key not in _VALIDATE_ENTRY_CACHE:
-        _VALIDATE_ENTRY_CACHE[cache_key] = _analyze_entry_uncached(entry)
-    return _VALIDATE_ENTRY_CACHE[cache_key]
+        return _copy_analysis_result(_analyze_entry_uncached(entry))
+
+    cached_result = _VALIDATE_ENTRY_CACHE.get(cache_key)
+    if cached_result is not None:
+        _VALIDATE_ENTRY_CACHE.move_to_end(cache_key)
+        return _copy_analysis_result(cached_result)
+
+    result = _analyze_entry_uncached(entry)
+    if _VALIDATE_ENTRY_CACHE_MAX_SIZE > 0:
+        _VALIDATE_ENTRY_CACHE[cache_key] = result
+        while len(_VALIDATE_ENTRY_CACHE) > _VALIDATE_ENTRY_CACHE_MAX_SIZE:
+            _VALIDATE_ENTRY_CACHE.popitem(last=False)
+    return _copy_analysis_result(result)
+
+
+def _copy_analysis_result(result: EntryAnalysisResult) -> EntryAnalysisResult:
+    if result.repaired_entry is None:
+        return result
+    return EntryAnalysisResult(
+        format=result.format,
+        entry_index=result.entry_index,
+        is_valid=result.is_valid,
+        diagnostics=result.diagnostics,
+        repaired_entry=deepcopy(result.repaired_entry),
+        changed=result.changed,
+    )
 
 
 def _entry_validation_cache_key(entry: dict) -> str | None:

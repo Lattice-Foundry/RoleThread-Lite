@@ -323,6 +323,68 @@ def test_analyze_entry_returns_cached_typed_result(monkeypatch):
     clear_validate_entry_cache()
 
 
+def test_validate_entry_cache_evicts_least_recently_used_entries(monkeypatch):
+    clear_validate_entry_cache()
+    monkeypatch.setattr(dataset, "_VALIDATE_ENTRY_CACHE_MAX_SIZE", 2)
+    calls = []
+
+    def fake_analyze(entry):
+        calls.append(entry["tags"][0])
+        return EntryAnalysisResult(
+            format="chatml",
+            entry_index=None,
+            is_valid=False,
+            diagnostics=(
+                EntryDiagnostic(
+                    code="test.cached",
+                    severity=AnalysisSeverity.ERROR,
+                    message=f"cached error {entry['tags'][0]}",
+                ),
+            ),
+        )
+
+    monkeypatch.setattr(dataset, "_analyze_entry_uncached", fake_analyze)
+
+    validate_entry(_entry(tags=["one"]))
+    validate_entry(_entry(tags=["two"]))
+    validate_entry(_entry(tags=["one"]))
+    validate_entry(_entry(tags=["three"]))
+    validate_entry(_entry(tags=["one"]))
+    validate_entry(_entry(tags=["two"]))
+
+    assert calls == ["one", "two", "three", "two"]
+    clear_validate_entry_cache()
+
+
+def test_analyze_entry_cache_does_not_expose_mutable_repaired_entry(monkeypatch):
+    clear_validate_entry_cache()
+    repaired = {"messages": [{"role": "system", "content": "System"}], "tags": []}
+
+    monkeypatch.setattr(
+        dataset,
+        "_analyze_entry_uncached",
+        lambda entry: EntryAnalysisResult(
+            format="chatml",
+            entry_index=None,
+            is_valid=True,
+            diagnostics=(),
+            repaired_entry=repaired,
+            changed=True,
+        ),
+    )
+
+    entry = _entry(tags=["greeting"])
+    first = analyze_entry(entry)
+    assert first.repaired_entry is not None
+    first.repaired_entry["mutated"] = True
+
+    second = analyze_entry(entry)
+
+    assert second.repaired_entry is not None
+    assert "mutated" not in second.repaired_entry
+    clear_validate_entry_cache()
+
+
 def test_make_entry_creates_system_and_user_assistant_messages():
     entry = make_entry(
         [
