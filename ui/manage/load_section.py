@@ -59,34 +59,38 @@ def _render_load_controls() -> None:
 
     col_browse, col_load, col_new, _load_spacer = st.columns([1, 1, 1, 1])
     with col_browse:
-        _render_browse_button()
+        browse_clicked = _render_browse_button()
     with col_load:
-        _render_load_button(load_path)
+        load_clicked = _render_load_button(load_path)
     with col_new:
-        _render_new_dataset_button()
-    _render_rename_controls()
-
-
-def _render_browse_button() -> None:
-    if st.button("Browse", key="browse_manage_load_path", width="stretch"):
+        new_dataset_clicked = _render_new_dataset_button()
+    if browse_clicked:
         browse_open_file(
             "manage_load_path_pending",
             pref_path_key="last_loaded_dataset_path",
         )
+    if load_clicked:
+        _load_dataset(load_path.strip())
+    if new_dataset_clicked:
+        _create_new_dataset_from_dialog()
+    _render_rename_controls()
 
 
-def _render_load_button(load_path: str) -> None:
+def _render_browse_button() -> bool:
+    return st.button("Browse", key="browse_manage_load_path", width="stretch")
+
+
+def _render_load_button(load_path: str) -> bool:
     dataset_already_loaded = _is_load_path_already_active(
         load_path.strip(),
         st.session_state.get("loaded_path"),
         st.session_state.get("working_copy_summary"),
     )
-    if st.button(
+    return st.button(
         "Load",
         width="stretch",
         disabled=not load_path.strip() or dataset_already_loaded,
-    ):
-        _load_dataset(load_path.strip())
+    )
 
 
 def _load_dataset(path: str) -> None:
@@ -155,10 +159,11 @@ def _load_dataset(path: str) -> None:
     )
 
 
-def _render_new_dataset_button() -> None:
-    if not st.button("New Dataset", width="stretch"):
-        return
+def _render_new_dataset_button() -> bool:
+    return st.button("New Dataset", width="stretch")
 
+
+def _create_new_dataset_from_dialog() -> None:
     prefs = st.session_state.prefs
     new_path = safe_saveas_filename(
         title="Create new dataset",

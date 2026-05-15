@@ -31,6 +31,40 @@ def _fake_streamlit(state: FakeSessionState):
     )
 
 
+class _TrackingColumn:
+    def __init__(self, fake, name: str):
+        self.fake = fake
+        self.name = name
+
+    def __enter__(self):
+        self.fake.active_column = self.name
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.fake.active_column = None
+        return False
+
+
+class FakeLayoutStreamlit:
+    def __init__(self):
+        self.session_state = FakeSessionState(
+            prefs={},
+            loaded_path="",
+            working_copy_summary=None,
+        )
+        self.active_column = None
+        self.clicked_buttons = {"Load"}
+
+    def columns(self, spec):
+        return [
+            _TrackingColumn(self, f"col_{index}")
+            for index in range(len(spec))
+        ]
+
+    def button(self, label, **_kwargs):
+        return label in self.clicked_buttons
+
+
 def test_foreign_load_updates_manage_path_to_working_copy(monkeypatch, tmp_path):
     state = FakeSessionState(
         prefs={},
@@ -93,6 +127,23 @@ def test_load_path_guard_blocks_active_working_copy_source(tmp_path):
         str(working_path),
         {"original_path": str(original_path)},
     )
+
+
+def test_load_controls_run_selected_action_after_button_columns(monkeypatch):
+    fake = FakeLayoutStreamlit()
+    action_columns: list[str | None] = []
+    monkeypatch.setattr(load_section, "st", fake)
+    monkeypatch.setattr(load_section, "path_input", lambda *args, **kwargs: "dataset.jsonl")
+    monkeypatch.setattr(load_section, "_render_rename_controls", lambda: None)
+    monkeypatch.setattr(
+        load_section,
+        "_load_dataset",
+        lambda _path: action_columns.append(fake.active_column),
+    )
+
+    load_section._render_load_controls()
+
+    assert action_columns == [None]
 
 
 def test_default_new_dataset_filename_is_timestamped():
