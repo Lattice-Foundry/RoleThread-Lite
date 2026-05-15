@@ -8,6 +8,20 @@ The most important idea is simple:
 
 That is intentional.
 
+## Included Example Datasets
+
+LoreForge Lite includes three curated example datasets intended for safe exploration.
+
+One example dataset may load automatically on first launch. The examples are practical reference material, not hidden defaults or disposable samples.
+
+They are meant to show different parts of the workflow, such as:
+
+- clean native dataset organization
+- imported cleanup and validation review
+- advanced Group Chat and character mapping workflows
+
+You can inspect, edit, duplicate, validate, merge, export, and search these datasets like normal loaded datasets. If you want to keep an original example untouched, duplicate or export a copy before experimenting heavily.
+
 ## Trusted and Untrusted Datasets
 
 LoreForge Lite treats datasets differently depending on whether they carry a complete LoreForge-native identity.
@@ -123,4 +137,3 @@ You should still use:
 **Mistake:** Loading an outside dataset, then expecting LoreForge to edit that original file directly.
 
 **Better mental model:** LoreForge protects outside/untrusted files by creating a working copy. You edit the working copy. If you want a final file somewhere else, use Export.
-

@@ -124,6 +124,8 @@ They may have:
 
 This is normal. Validation gives you a map for cleanup.
 
+One included example dataset is intended to demonstrate imported cleanup and validation review. It can be a useful place to see warnings, diagnostics, and repair workflows without risking your own work.
+
 ## Normal LoreForge Workflows
 
 If you create entries inside LoreForge, you usually do not need to treat Validation as an emergency repair loop.

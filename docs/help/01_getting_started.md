@@ -25,6 +25,8 @@ When you open the app, start in **Manage Dataset**. This is not just a file brow
 
 If no dataset is loaded, other pages will point you back to Manage Dataset.
 
+LoreForge Lite ships with three curated example datasets so you can explore the app safely before working on your own material. One example dataset may load automatically on first launch. The examples are there for learning: inspect their tags, sidecars, prompts, character mappings, Validation results, and Insights behavior. You can edit, duplicate, validate, merge, or export them like normal datasets.
+
 ### 2. Create or Load a Dataset
 
 You have two normal starting points:
@@ -118,6 +120,7 @@ Optional cloud backup can mirror the latest backup material to a configured sync
 ## Practical Tips
 
 - Start small. Create or load one dataset, then use Manage Dataset as your home base.
+- Explore the included example datasets if you want to see complete workflows before creating your own.
 - Run Validation early for imported or manually edited data, and again before export.
 - Keep your source files somewhere safe. LoreForge working copies protect untrusted files, but good file organization still helps.
 - Use tags early. Even a simple tag system makes search, filtering, export, and Insights more useful.
@@ -132,3 +135,4 @@ If you are brand new, read these next:
 - **Dataset Formats**
 - **Loading Datasets and Working Copies**
 - **Creating a New Dataset**
+- **Understanding the Main Workspaces**
