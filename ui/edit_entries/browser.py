@@ -1,4 +1,4 @@
-"""Edit Entries browser/list rendering."""
+"""Deep Edit browser/list rendering."""
 
 import streamlit as st
 
@@ -38,13 +38,13 @@ from ui.ui_components import render_message_preview
 
 
 def render_edit_entries_browser(tag_snapshot) -> None:
-    """Render the Edit Entries browser view."""
+    """Render the Deep Edit browser view."""
 
     entries = st.session_state.loaded_entries
     all_pairs = get_all_entry_pairs()
 
     if not all_pairs:
-        st.info("Load a dataset in Manage Dataset to edit entries.")
+        st.info("Load a dataset in Manage Dataset to use Deep Edit.")
         render_manage_dataset_cta(key="edit_entries_go_to_manage_empty")
         return
 
@@ -212,7 +212,7 @@ def render_edit_entries_browser(tag_snapshot) -> None:
         )
         with st.expander(label):
             st.caption(f"Entry UUID: {entry_uuid}")
-            if st.button("Edit Entry", key=f"btn_full_edit_{entry_uuid}"):
+            if st.button("Full Edit", key=f"btn_full_edit_{entry_uuid}"):
                 start_full_edit(entry_uuid, tag_snapshot.active_registry)
             if errors:
                 for error in errors:

@@ -21,7 +21,7 @@ Examples:
 Tags become useful everywhere:
 
 - **Manage Dataset** filtering
-- **Edit Entries** filtering
+- **Deep Edit** filtering
 - selected or filtered export
 - Insights metadata coverage
 - bulk organization workflows

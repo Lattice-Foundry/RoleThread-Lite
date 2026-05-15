@@ -1,6 +1,6 @@
 """Pure helpers for dataset browser pages.
 
-These helpers support Manage Dataset and Edit Entries browser mechanics without
+These helpers support Manage Dataset and Deep Edit browser mechanics without
 importing Streamlit or owning page-specific selection/edit behavior.
 """
 from dataclasses import dataclass

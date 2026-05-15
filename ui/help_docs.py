@@ -171,10 +171,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
     HelpArticle(
         "editing-entries",
         "09_editing_entries.md",
-        "Editing Entries",
+        "Deep Edit",
         "Core Workflows",
         90,
-        "Quick Edit, Full Edit, duplicate workflows, and save behavior.",
+        "Deep editing, Full Edit, duplicate workflows, and save behavior.",
         (
             "searching-and-filtering-entries",
             "splitting-and-joining-entries",

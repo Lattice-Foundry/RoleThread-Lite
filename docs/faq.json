@@ -9,7 +9,7 @@
   },
   {
     "question": "Getting started: Where should I spend most of my time?",
-    "answer": "Most day-to-day work happens in Manage Dataset. It is the operational hub for browsing, filtering, searching, quick editing, tagging, duplication, joining, deletion, and export preparation.\n\nUse Edit Entries when you need deeper work such as Full Edit, Group Chat refinement, split workflows, or detailed character mapping review."
+    "answer": "Most day-to-day work happens in Manage Dataset. It is the operational hub for browsing, filtering, searching, quick editing, tagging, duplication, joining, deletion, and export preparation.\n\nUse Deep Edit when you need deeper work such as Full Edit, Group Chat refinement, split workflows, or detailed character mapping review."
   },
   {
     "question": "Getting started: Do I need to understand every page before using the app?",
@@ -164,8 +164,8 @@
     "answer": "Manage Dataset combines the work users do most often: browsing, filtering, searching, quick editing, tagging, selecting, duplicating, joining, deleting, and preparing exports.\n\nIt is designed as the operational surface where you triage and move through batches of entries efficiently."
   },
   {
-    "question": "Workflow philosophy: Why isn't Edit Entries the primary editor?",
-    "answer": "Edit Entries is for deeper work: Full Edit, Group Chat refinement, character mapping review, split workflows, and careful multi-turn changes.\n\nMost routine cleanup is faster in Manage Dataset. Use Edit Entries when an entry needs more focused attention."
+    "question": "Workflow philosophy: Why isn't Deep Edit the primary editing workspace?",
+    "answer": "Deep Edit is for deeper work: Full Edit, Group Chat refinement, character mapping review, split workflows, and careful multi-turn changes.\n\nMost routine cleanup is faster in Manage Dataset. Use Deep Edit when an entry needs more focused attention."
   },
   {
     "question": "Workflow philosophy: Why separate quick operations from deep editing?",

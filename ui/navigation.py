@@ -60,7 +60,7 @@ _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
     ),
     PageDefinition(
         PAGE_EDIT_ENTRIES,
-        "Edit Entries",
+        "Deep Edit",
         "Dataset",
         ":material/edit_note:",
         "edit-entries",
@@ -132,6 +132,7 @@ _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
 
 _PAGE_ALIASES = {
     "Statistics": PAGE_INSIGHTS,
+    "Deep Edit": PAGE_EDIT_ENTRIES,
 }
 
 _TOP_NAVIGATION_ORDER = {

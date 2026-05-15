@@ -10,7 +10,7 @@ Most sessions follow this rhythm:
 
 1. Create or load a dataset in **Manage Dataset**.
 2. Use **Manage Dataset** as the main operational workspace for browsing, filtering, tagging, searching, quick editing, duplication, joining, and export preparation.
-3. Create or edit entries.
+3. Create entries or use Deep Edit for surgical work.
 4. Use **Validation** for imported data, larger cleanup passes, and final review.
 5. Use **Insights** to understand dataset shape and weak spots.
 6. Export when the dataset is ready for training or sharing.
@@ -36,7 +36,7 @@ You have two normal starting points:
 
 If you load a file created outside LoreForge Lite, LoreForge may create a protected **working copy** before editing. That is intentional. It protects your original source file from accidental mutation.
 
-### 3. Add or Edit Entries
+### 3. Add Entries or Use Deep Edit
 
 Use **Create Entry** for new training examples.
 
@@ -46,7 +46,7 @@ Use the entry actions in **Manage Dataset** for most day-to-day cleanup and revi
 - **Duplicate** when you want to build a similar entry from an existing one.
 - tag filters, search, selection, join, and bulk actions for operational cleanup.
 
-Use **Edit Entries** when you need deeper work:
+Use **Deep Edit** when you need deeper work:
 
 - **Full Edit** for system prompts, tags, multi-turn edits, Group Chat mode, and split tools.
 - detailed character mapping review.

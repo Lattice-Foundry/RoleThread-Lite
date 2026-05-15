@@ -14,14 +14,14 @@ Most LoreForge work follows this pattern:
 
 1. Use **Manage Dataset** as the operational hub.
 2. Use **Create Entry** to add focused new examples.
-3. Use **Edit Entries** when an entry needs deeper work.
+3. Use **Deep Edit** when an entry needs deeper work.
 4. Use **Validation** and **Insights** for review passes.
 5. Use Metadata pages to keep organization stable.
 6. Use **Export** when the dataset is ready to leave LoreForge.
 
 Manage Dataset is where much of the day-to-day work happens.
 
-Edit Entries is for deeper drill-down work.
+Deep Edit is for deeper drill-down work.
 
 Validation and Insights help you decide what deserves attention.
 
@@ -86,13 +86,13 @@ It is the cleanest place to grow a dataset intentionally.
 
 After saving, new entries become part of the normal Manage Dataset workflow.
 
-## Edit Entries
+## Deep Edit
 
-**Edit Entries is the deeper editing workspace.**
+**Deep Edit is the deeper editing workspace.**
 
 It is not necessarily where most editing time needs to happen.
 
-Use Edit Entries when an entry needs more than quick operational cleanup.
+Use Deep Edit when an entry needs more than quick operational cleanup.
 
 It is best for:
 
@@ -105,7 +105,7 @@ It is best for:
 - split workflows
 - careful content tuning
 
-Think of Edit Entries as the surgical workspace. Manage Dataset helps you find and triage the work. Edit Entries helps you do the detailed work.
+Think of Deep Edit as the surgical workspace. Manage Dataset helps you find and triage the work. Deep Edit helps you do the detailed work.
 
 ## Validation
 

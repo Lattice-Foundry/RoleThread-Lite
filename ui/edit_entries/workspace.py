@@ -207,14 +207,14 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
 
     if not entry_uuid:
         st.warning("No entry selected for editing.")
-        if st.button("Back to Edit Entries", key="btn_back_no_id"):
+        if st.button("Back to Deep Edit", key="btn_back_no_id"):
             cancel_full_edit()
         return
 
     current_entry = get_loaded_entry_by_uuid(entry_uuid)
     if current_entry is None:
         st.error("Selected entry could not be found.")
-        if st.button("Back to Edit Entries", key="btn_back_not_found"):
+        if st.button("Back to Deep Edit", key="btn_back_not_found"):
             cancel_full_edit()
         return
 
@@ -343,7 +343,7 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
             )
     with col_cancel:
         if st.button(
-            "Cancel / Back to Edit Entries",
+            "Cancel / Back to Deep Edit",
             key="btn_cancel_full_edit",
             width="stretch",
         ):

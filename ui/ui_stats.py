@@ -563,7 +563,7 @@ def _render_split_candidate_insight(entries: list[dict]) -> None:
     count = len(entry_uuids)
     st.info(
         f"{count} entr{'y has' if count == 1 else 'ies have'} 8+ exchanges and may "
-        "benefit from splitting. Use the Split tool in Edit Entries to break long "
+        "benefit from splitting. Use the Split tool in Deep Edit to break long "
         "conversations into focused training examples."
     )
     if st.button(

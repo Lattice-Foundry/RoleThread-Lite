@@ -1,4 +1,4 @@
-"""Filtering helpers for the Edit Entries browser."""
+"""Filtering helpers for the Deep Edit browser."""
 
 import streamlit as st
 
@@ -27,7 +27,7 @@ def apply_edit_entry_filters(
     search_query: str,
     search_options: EntrySearchOptions,
 ) -> list[tuple[str, dict]]:
-    """Apply Edit Entries filters in order: tags first, then entry search."""
+    """Apply Deep Edit filters in order: tags first, then entry search."""
 
     tag_filtered_pairs = filter_entry_pairs_by_tags(
         entry_pairs,

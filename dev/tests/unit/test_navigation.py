@@ -53,8 +53,12 @@ def test_page_registry_exposes_legacy_pages():
     assert navigation.PAGE_CREATE_ENTRY in registry
     assert navigation.PAGE_MANAGE_DATASET in registry
     assert navigation.PAGE_EDIT_ENTRIES in registry
+    assert navigation.PAGE_EDIT_ENTRIES == "Edit Entries"
+    assert navigation.get_page_title(navigation.PAGE_EDIT_ENTRIES) == "Deep Edit"
+    assert navigation.get_page_title("Deep Edit") == "Deep Edit"
     assert navigation.get_page_title("Statistics") == "Insights"
     assert navigation.is_known_page("Statistics") is True
+    assert navigation.is_known_page("Deep Edit") is True
     assert navigation.is_known_page("Not A Page") is False
 
 
@@ -172,6 +176,8 @@ def test_build_native_pages_uses_registry_metadata(monkeypatch):
     assert native_pages[navigation.PAGE_CREATE_ENTRY]["default"] is True
     assert native_pages[navigation.PAGE_CREATE_ENTRY]["url_path"] == "create-entry"
     assert native_pages[navigation.PAGE_MANAGE_DATASET]["icon"] == ":material/folder_open:"
+    assert native_pages[navigation.PAGE_EDIT_ENTRIES]["title"] == "Deep Edit"
+    assert native_pages[navigation.PAGE_EDIT_ENTRIES]["url_path"] == "edit-entries"
 
 
 def test_current_page_defaults_and_set_current_page(monkeypatch):

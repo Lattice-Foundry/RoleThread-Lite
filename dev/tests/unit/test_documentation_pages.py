@@ -88,6 +88,13 @@ def test_help_article_registry_files_exist():
         assert (HELP_DIR / article.file_name).is_file()
 
 
+def test_deep_edit_article_keeps_legacy_article_id_and_file_name():
+    article = get_help_article_registry()["editing-entries"]
+
+    assert article.title == "Deep Edit"
+    assert article.file_name == "09_editing_entries.md"
+
+
 def test_help_article_registry_has_unique_file_names_and_orders():
     articles = tuple(get_help_article_registry().values())
     file_names = [article.file_name for article in articles]
@@ -312,10 +319,12 @@ def test_search_help_documents_matches_title_summary_and_content(tmp_path):
         (help_dir / article.file_name).write_text(content, encoding="utf-8")
 
     title_matches = search_help_documents("Exporting Datasets", help_dir)
+    deep_edit_matches = search_help_documents("Deep Edit", help_dir)
     summary_matches = search_help_documents("first-session workflow", help_dir)
     content_matches = search_help_documents("needle content", help_dir)
 
     assert [doc.article.article_id for doc in title_matches] == ["exporting-datasets"]
+    assert [doc.article.article_id for doc in deep_edit_matches] == ["editing-entries"]
     assert [doc.article.article_id for doc in summary_matches] == ["getting-started"]
     assert [doc.article.article_id for doc in content_matches] == ["creating-entries"]
 

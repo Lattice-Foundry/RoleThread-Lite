@@ -1,2 +1,2 @@
-"""Edit Entries page package."""
+"""Deep Edit page package."""
 

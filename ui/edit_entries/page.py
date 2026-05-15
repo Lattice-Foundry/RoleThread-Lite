@@ -1,4 +1,4 @@
-"""Edit Entries page coordinator."""
+"""Deep Edit page coordinator."""
 
 import streamlit as st
 
@@ -12,7 +12,7 @@ from ui.session_state import ensure_entry_indexes
 
 
 def render_edit_entries_page() -> None:
-    """Render the Edit Entries browser or full-edit workspace."""
+    """Render the Deep Edit browser or full-edit workspace."""
 
     clear_validate_entry_cache()
     ensure_entry_indexes()

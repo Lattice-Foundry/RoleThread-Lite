@@ -4,7 +4,7 @@ Search and filters help you work with the entries that matter right now. They ar
 
 Most search and filtering work starts in **Manage Dataset** because that page is the main operational workspace. It combines browsing, tag filters, entry search, selection, quick edits, duplication, join, delete, and export preparation.
 
-**Edit Entries** uses the same shared search state, but it is best when the filtered result set needs deeper content work.
+**Deep Edit** uses the same shared search state, but it is best when the filtered result set needs deeper content work.
 
 LoreForge Lite gives you three main ways to narrow the browser:
 
@@ -71,9 +71,9 @@ Examples:
 
 ## Search Persistence
 
-Search state is shared between **Manage Dataset** and **Edit Entries**.
+Search state is shared between **Manage Dataset** and **Deep Edit**.
 
-If you search in Manage Dataset, then move to Edit Entries, the same query and options remain active while the same dataset is loaded.
+If you search in Manage Dataset, then move to Deep Edit, the same query and options remain active while the same dataset is loaded.
 
 Search clears when:
 

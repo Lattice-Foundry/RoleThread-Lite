@@ -1,4 +1,4 @@
-"""Compatibility wrapper for the Edit Entries page package."""
+"""Compatibility wrapper for the Deep Edit page package."""
 
 from ui.edit_entries.filters import apply_edit_entry_filters
 from ui.edit_entries.page import render_edit_entries_page

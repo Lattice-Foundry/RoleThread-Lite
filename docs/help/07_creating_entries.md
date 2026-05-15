@@ -76,7 +76,7 @@ Tags are optional for saving, but they are strongly useful.
 Tags help you:
 
 - find entries later
-- filter Manage Dataset and Edit Entries
+- filter Manage Dataset and Deep Edit
 - export selected slices of a dataset
 - understand coverage in Insights
 - keep related scenes or behaviors organized
@@ -206,4 +206,4 @@ A simple creation workflow:
 
 When an entry is saved, LoreForge assigns stable identity metadata such as an entry UUID, updates the dataset, refreshes sidecar metadata, and keeps the entry available for search, editing, validation, and export.
 
-You can always return to the entry later through Manage Dataset or Edit Entries.
+You can always return to the entry later through Manage Dataset or Deep Edit.

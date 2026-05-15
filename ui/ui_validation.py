@@ -26,6 +26,7 @@ from services.character_mapping_service import apply_character_mapping_service
 from services.dataset_service import save_repaired_entries_service
 from ui.flash_messages import enqueue_dataset_result_flash, enqueue_flash, render_flash_messages
 from ui.guidance import render_manage_dataset_cta, render_recommended_action
+from ui.navigation import PAGE_EDIT_ENTRIES
 from ui.session_state import apply_dataset_operation_result, ensure_entry_indexes
 from ui.stats_navigation import navigate_to_entries
 
@@ -83,9 +84,9 @@ def _render_post_fix_guidance() -> None:
     if int(manual_count) > 0:
         render_recommended_action(
             "All auto-fixable issues resolved. "
-            f"{count_phrase(int(manual_count), 'manual issue')} remain in Edit Entries.",
-            button_label="Go to Edit Entries →",
-            target_page="Edit Entries",
+            f"{count_phrase(int(manual_count), 'manual issue')} remain in Deep Edit.",
+            button_label="Go to Deep Edit →",
+            target_page=PAGE_EDIT_ENTRIES,
             key="guidance_validation_manual_issues",
         )
     else:

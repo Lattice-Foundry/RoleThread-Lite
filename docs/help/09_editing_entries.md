@@ -1,4 +1,4 @@
-# Editing Entries
+# Deep Edit
 
 Editing is where LoreForge Lite becomes a practical workshop instead of only a file viewer. You can make small corrections, reshape conversations, duplicate useful entries, and repair issues found by Validation or Insights.
 
@@ -9,12 +9,12 @@ The important idea: entries keep stable identity through edits. LoreForge uses e
 You can start editing from:
 
 - **Manage Dataset**, using entry actions in the browser list.
-- **Edit Entries**, using the dedicated editing browser.
+- **Deep Edit**, using the dedicated deep-edit browser.
 - **Validation** or **Insights**, when they link you to entries that need review.
 
 Manage Dataset is the primary operational workspace for most dataset work. It is where many users spend most of their time: browsing, filtering, searching, tagging, selecting, quick editing, duplicating, joining, deleting, and preparing entries for export.
 
-Edit Entries is the deeper editing workspace. Use it when the job needs Full Edit, multi-turn restructuring, Group Chat refinement, detailed character mapping work, split operations, or a focused review pass.
+Deep Edit is the deeper editing workspace. Use it when the job needs Full Edit, multi-turn restructuring, Group Chat refinement, detailed character mapping work, split operations, or a focused review pass.
 
 ## Quick Edit
 

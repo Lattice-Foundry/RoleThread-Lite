@@ -35,7 +35,7 @@ The app is not a hosted service. It does not require you to upload your writing 
 
 ## What You Can Do With It
 
-### Create and Edit Entries
+### Create and Refine Entries
 
 You can create new ChatML-style entries with:
 
