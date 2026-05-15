@@ -88,7 +88,7 @@
     "answer": "No. Use Validation when it helps: after loading imported data, after large cleanup passes, after merge/split/join work, or before export.\n\nFor normal LoreForge-native creation, it is more of an audit tool than an emergency repair loop."
   },
   {
-    "question": "Validation and Insights: Are Insights scores objective truth?",
+    "question": "Validation and Insights: Are Insights scores definitive?",
     "answer": "No. Insights scores are deterministic guidance based on practical heuristics.\n\nA specialized dataset may score lower in one area and still be useful. Use the report to find patterns worth reviewing, not to chase a perfect number."
   },
   {
@@ -158,5 +158,121 @@
   {
     "question": "V1 boundaries: Is Lite incomplete because larger Studio ideas are not included?",
     "answer": "No. LoreForge Lite is intentionally scoped around local-first dataset craftsmanship.\n\nLarger hosted orchestration or team-scale systems belong outside the V1 Lite surface. Lite is meant to be focused, understandable, and useful on its own."
+  },
+  {
+    "question": "Workflow philosophy: Why is Manage Dataset the main workflow hub?",
+    "answer": "Manage Dataset combines the work users do most often: browsing, filtering, searching, quick editing, tagging, selecting, duplicating, joining, deleting, and preparing exports.\n\nIt is designed as the operational surface where you triage and move through batches of entries efficiently."
+  },
+  {
+    "question": "Workflow philosophy: Why isn't Edit Entries the primary editor?",
+    "answer": "Edit Entries is for deeper work: Full Edit, Group Chat refinement, character mapping review, split workflows, and careful multi-turn changes.\n\nMost routine cleanup is faster in Manage Dataset. Use Edit Entries when an entry needs more focused attention."
+  },
+  {
+    "question": "Workflow philosophy: Why separate quick operations from deep editing?",
+    "answer": "Different work needs different surfaces. Batch cleanup, filtering, tagging, and quick fixes should stay fast. Structural tuning and detailed character work need more room and context.\n\nThe split keeps daily workflow efficient without hiding the deeper tools."
+  },
+  {
+    "question": "Workflow philosophy: What does guided complexity mean?",
+    "answer": "It means you can start simple and add structure only when it helps.\n\nYou can begin with Manage Dataset, Create Entry, Quick Edit, and export. Tags, Group Chat mode, Insights, prompt templates, sidecars, and split/join tools are there when your workflow asks for them."
+  },
+  {
+    "question": "Dataset craftsmanship: Why do split and join operations matter?",
+    "answer": "Good training entries usually teach one coherent pattern. Split helps when one entry contains too many separate moments. Join helps when related turns are too fragmented.\n\nNeither operation is about a universal ideal length. They are tools for preserving useful context and focus."
+  },
+  {
+    "question": "Dataset craftsmanship: Why are giant entries usually a problem?",
+    "answer": "Very large entries can mix multiple scenes, goals, or response patterns into one example. That can make the training signal less focused.\n\nIf an entry has several distinct beats, split it where the conversation naturally changes focus."
+  },
+  {
+    "question": "Dataset craftsmanship: Why should dialogue stay consistently quoted?",
+    "answer": "Consistent quoted dialogue teaches clearer conversational structure. If some entries use quotes, others use script labels, and others use loose paragraphs, the model may learn that inconsistency.\n\nThis is guidance, not a hard rule. Use the format that matches your goal, then keep it intentional."
+  },
+  {
+    "question": "Dataset craftsmanship: Why are my outputs repeating character names?",
+    "answer": "Repeated name-heavy narration can teach strong associations between behaviors and specific names.\n\nNames are useful in group scenes, but pronouns often generalize better when the behavior matters more than the specific character."
+  },
+  {
+    "question": "Dataset craftsmanship: Why does pronoun-heavy narration sometimes generalize better?",
+    "answer": "Pronouns can help the model learn the behavior pattern without binding it as strongly to one named character.\n\nUse names when clarity matters, especially in Group Chat scenes. Use pronouns when the behavior should transfer more broadly."
+  },
+  {
+    "question": "Dataset craftsmanship: Is there one correct writing style for training data?",
+    "answer": "No. Your dataset should match the behavior you want.\n\nLoreForge can show patterns such as length, dialogue balance, formatting, and repetition, but those are signals for review rather than strict writing rules."
+  },
+  {
+    "question": "Metadata philosophy: Why keep metadata separate from training text?",
+    "answer": "Training tools usually need clean `system`, `user`, and `assistant` messages. LoreForge metadata supports organization, search, characters, tags, and portability.\n\nKeeping those separate lets you work with rich project context while still exporting clean training records."
+  },
+  {
+    "question": "Metadata philosophy: Why are sidecars portable instead of embedding everything?",
+    "answer": "Sidecars let metadata travel with a dataset without changing the training records themselves.\n\nThat keeps clean export clean while still preserving tags, characters, prompt templates, mappings, and registry context for future LoreForge work."
+  },
+  {
+    "question": "Metadata philosophy: Why preserve unknown metadata instead of deleting it?",
+    "answer": "Unknown metadata may still be meaningful. Imported tags, character hints, or sidecar information can tell you how a dataset was organized before it reached LoreForge.\n\nPreserving it gives you the choice to adopt, ignore, rename, or remove it later."
+  },
+  {
+    "question": "Metadata philosophy: Why doesn't LoreForge silently overwrite imported metadata?",
+    "answer": "Imported metadata can conflict with your local registry. Silently overwriting local tags, aliases, or characters could damage a workflow that already has meaning.\n\nLoreForge prefers to skip conflicts, preserve context, and let you decide."
+  },
+  {
+    "question": "Safety and identity: Why are UUIDs important?",
+    "answer": "Dataset UUIDs and entry UUIDs give LoreForge stable identity across edits, saves, sidecars, merges, character mappings, and focused review links.\n\nWithout stable identity, metadata could drift or attach to the wrong entry."
+  },
+  {
+    "question": "Safety and identity: Why doesn't LoreForge overwrite imported files directly?",
+    "answer": "Outside files may be originals, exports from another tool, or manually edited sources. LoreForge creates working copies when needed so edits happen in a safer managed location.\n\nThis protects your source material while still letting you clean and organize it."
+  },
+  {
+    "question": "Safety and identity: Why are backups created before edits?",
+    "answer": "Backups give you a recovery point before protected mutations change the dataset or registry metadata.\n\nThis is especially important for bulk edits, repair, split/join, merge-related saves, and tag lifecycle changes."
+  },
+  {
+    "question": "Safety and identity: Why does LoreForge avoid one-click destructive cleanup?",
+    "answer": "Dataset cleanup often involves judgment. Removing tags, rewriting prompts, deleting entries, or resolving metadata conflicts can change meaning.\n\nLoreForge automates safe predictable fixes, then leaves creative or semantic choices to you."
+  },
+  {
+    "question": "Operational expectations: Why does LoreForge prefer deterministic workflows?",
+    "answer": "Deterministic tools are easier to inspect, repeat, and trust. Search, validation, export, merge policy, and cleanup behavior should be predictable.\n\nThat matters when you are preparing training data and need to understand what changed."
+  },
+  {
+    "question": "Operational expectations: Why doesn't Validation automatically rewrite everything?",
+    "answer": "Some fixes are safe and mechanical. Others require creative judgment.\n\nLoreForge can repair predictable structure issues, but it will not automatically rewrite tone, intent, character behavior, or scene content for you."
+  },
+  {
+    "question": "Operational expectations: Why doesn't LoreForge automatically fix all metadata conflicts?",
+    "answer": "Conflicts can represent real meaning differences. Two tags or characters with similar names might not be the same thing.\n\nLoreForge preserves and reports conflicts so you can resolve them intentionally."
+  },
+  {
+    "question": "Operational expectations: Why no AI-does-everything workflow?",
+    "answer": "LoreForge Lite is built around creator control and reviewable operations. The app helps you find, organize, repair, and understand data, but it does not replace your judgment.\n\nThat keeps the workflow transparent and local-first."
+  },
+  {
+    "question": "Included examples: Are the included datasets safe to edit?",
+    "answer": "Yes. They are included so you can explore workflows safely.\n\nIf you want to keep an original example untouched, duplicate or export a copy before experimenting heavily."
+  },
+  {
+    "question": "Included examples: Can I delete the included datasets?",
+    "answer": "Yes, but consider keeping or backing them up if you still want reference material.\n\nThey are practical examples for learning tags, sidecars, Validation, Insights, and Group Chat workflows."
+  },
+  {
+    "question": "Included examples: Why ship with example datasets at all?",
+    "answer": "Example datasets let you learn by inspecting real workflows instead of starting from an empty app.\n\nThey show how organization, sidecars, tags, character mappings, Validation, and Insights look in practice."
+  },
+  {
+    "question": "Included examples: Which example dataset should I explore first?",
+    "answer": "Start with the clean native workflow example if you are new. Then inspect the imported cleanup example to understand Validation, and the Group Chat example to understand character mappings.\n\nYou do not need to study them all before using the app."
+  },
+  {
+    "question": "Lite boundaries: Why is Lite intentionally local-first?",
+    "answer": "Local-first keeps ownership and recovery clear. Your dataset files, sidecars, backups, and app metadata stay under your control unless you configure cloud backup.\n\nThat fits Lite's focus on careful dataset work rather than hosted orchestration."
+  },
+  {
+    "question": "Lite boundaries: Why no hosted orchestration in Lite?",
+    "answer": "Hosted orchestration brings different concerns: accounts, queues, permissions, remote storage, and multi-user workflows.\n\nLite stays focused on local dataset craftsmanship so the V1 workflow remains understandable and dependable."
+  },
+  {
+    "question": "Lite boundaries: Why separate Lite and Studio ideas?",
+    "answer": "Lite is the local-first dataset crafting surface. Future Studio ideas may involve larger orchestration or hosted workflows.\n\nKeeping those boundaries separate helps Lite remain useful and complete without becoming a heavier platform."
   }
 ]
