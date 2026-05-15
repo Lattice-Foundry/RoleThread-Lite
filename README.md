@@ -83,13 +83,19 @@ available for a clear restore if the machine or process fails mid-operation.
 
 ---
 
-## Near-Term Work
+## Version 1 Stable Status
 
-* Final UI polish and wording cleanup
-* In-app Help and onboarding documentation
-* Additional insights and dataset health views
-* More workflow documentation and troubleshooting guidance
-* Continued regression coverage for merge, sidecar, validation, and lifecycle paths
+LoreForge Lite 1.0 is the stable local-first release surface for dataset
+craftsmanship.
+
+The V1 stability gate is:
+
+* Full unit and service suite passes with `python -m pytest`
+* Help and FAQ content are present in-app
+* Lite and future Studio boundaries are documented
+* Local backups, sidecars, validation, merge, tag lifecycle, character mapping,
+  export, and settings flows remain covered by regression tests
+* Known limitations are documented rather than implied as missing V1 work
 
 ---
 

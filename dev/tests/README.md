@@ -49,6 +49,10 @@ Run the full suite:
 trainer\Scripts\python.exe -m pytest
 ```
 
+The test configuration keeps pytest temporary files under `.pytest_tmp/` in
+the workspace so the release gate does not depend on the user's global Windows
+temp directory permissions.
+
 Run one test file:
 
 ```bat
