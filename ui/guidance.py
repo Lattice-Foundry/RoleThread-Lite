@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import streamlit as st
 
+from ui.navigation import navigate_to_page as _navigate_to_page
+
 
 def navigate_to_page(page: str) -> None:
     """Switch the sidebar page and rerun."""
 
-    st.session_state.page = page
-    st.rerun()
+    _navigate_to_page(page)
 
 
 def render_page_cta(label: str, target_page: str, *, key: str) -> None:

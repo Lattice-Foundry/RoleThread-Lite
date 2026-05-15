@@ -16,10 +16,29 @@ from core.cloud_sync import (
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset_with_summary
 from core.preferences import load_preferences
 from ui.session_state import (
-    clear_entry_edit_state,
     persist_loaded_normalization,
     set_loaded_entries,
     should_persist_loaded_normalization,
+)
+from ui.navigation import (
+    PAGE_CHARACTER_MANAGEMENT,
+    PAGE_CREATE_ENTRY,
+    PAGE_EDIT_ENTRIES,
+    PAGE_EXPORT,
+    PAGE_FAQ,
+    PAGE_HELP,
+    PAGE_INSIGHTS,
+    PAGE_MANAGE_DATASET,
+    PAGE_MERGE_DATASETS,
+    PAGE_SETTINGS,
+    PAGE_SYSTEM_PROMPTS,
+    PAGE_TAG_MANAGEMENT,
+    PAGE_VALIDATION,
+    get_current_page,
+    get_default_page,
+    get_sidebar_sections,
+    navigate_to_page,
+    set_current_page,
 )
 from core.storage import ensure_app_directories
 from core.tag_registry import seed_default_tags
@@ -303,7 +322,7 @@ if "prefs" not in st.session_state:
         # validation setting was renamed from "auto normalize on load".
         prefs.get("auto_normalize_on_load", True),
     )
-    st.session_state.page = "Create Entry"
+    set_current_page(get_default_page())
 
     last = prefs.get("last_loaded_dataset_path", "")
     if last:
@@ -338,39 +357,11 @@ if "prefs" not in st.session_state:
 
 # ── Sidebar navigation ─────────────────────────────────────────────────────────
 if "page" not in st.session_state:
-    st.session_state.page = "Create Entry"
+    set_current_page(get_default_page())
 
-_page = st.session_state.page
+_page = get_current_page()
 
-_NAV_SECTIONS = [
-    ("Create", [
-        ("New Entry",       "Create Entry"),
-    ]),
-    ("Dataset", [
-        ("Manage",          "Manage Dataset"),
-        ("Merge",           "Merge Datasets"),
-        ("Edit Entries",    "Edit Entries"),
-    ]),
-    ("Tools", [
-        ("Export",          "Export"),
-        ("Validate",        "Validation"),
-    ]),
-    ("Metadata", [
-        ("Tag Management",        "Tag Management"),
-        ("Character Management",  "Character Management"),
-        ("System Prompts",        "System Prompts"),
-    ]),
-    ("Data Analytics", [
-        ("Insights",        "Insights"),
-    ]),
-    ("Settings", [
-        ("Preferences",     "Settings"),
-    ]),
-    ("Documentation", [
-        ("Help",            "Help"),
-        ("FAQ",             "FAQ"),
-    ]),
-]
+_NAV_SECTIONS = get_sidebar_sections()
 
 for _sec_name, _sec_items in _NAV_SECTIONS:
     st.sidebar.markdown(f"**{_sec_name}**")
@@ -382,38 +373,35 @@ for _sec_name, _sec_items in _NAV_SECTIONS:
             width="stretch",
             type="primary" if _page == _target else "secondary",
         ):
-            if st.session_state.page == "Edit Entries" and _target != "Edit Entries":
-                clear_entry_edit_state()
-            st.session_state.page = _target
-            st.rerun()
+            navigate_to_page(_target)
 
-page = st.session_state.page
+page = get_current_page()
 
 
 # ── Page dispatch ──────────────────────────────────────────────────────────────
-if page == "Create Entry":
+if page == PAGE_CREATE_ENTRY:
     render_create_page()
-elif page == "Manage Dataset":
+elif page == PAGE_MANAGE_DATASET:
     render_manage_page()
-elif page == "Edit Entries":
+elif page == PAGE_EDIT_ENTRIES:
     render_edit_entries_page()
-elif page == "Merge Datasets":
+elif page == PAGE_MERGE_DATASETS:
     render_merge_page()
-elif page == "Export":
+elif page == PAGE_EXPORT:
     render_export_page()
-elif page == "Validation":
+elif page == PAGE_VALIDATION:
     render_validation_page()
-elif page == "Tag Management":
+elif page == PAGE_TAG_MANAGEMENT:
     render_tag_management_page()
-elif page == "Character Management":
+elif page == PAGE_CHARACTER_MANAGEMENT:
     render_character_management_page()
-elif page == "System Prompts":
+elif page == PAGE_SYSTEM_PROMPTS:
     render_system_prompts_page()
-elif page in ("Insights", "Statistics"):
+elif page == PAGE_INSIGHTS:
     render_stats_page()
-elif page == "Settings":
+elif page == PAGE_SETTINGS:
     render_settings_page()
-elif page == "Help":
+elif page == PAGE_HELP:
     render_help_page()
-elif page == "FAQ":
+elif page == PAGE_FAQ:
     render_faq_page()

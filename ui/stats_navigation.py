@@ -2,6 +2,8 @@
 
 import streamlit as st
 
+from ui.navigation import PAGE_MANAGE_DATASET, navigate_to_page
+
 
 STATS_FILTER_UUIDS_KEY = "stats_filter_uuids"
 STATS_FILTER_LABEL_KEY = "stats_filter_label"
@@ -14,8 +16,7 @@ def navigate_to_entries(entry_uuids: list[str] | tuple[str, ...], label: str) ->
     st.session_state[STATS_FILTER_LABEL_KEY] = label
     st.session_state.entry_page = 0
     st.session_state["manage_select_all_mode"] = False
-    st.session_state.page = "Manage Dataset"
-    st.rerun()
+    navigate_to_page(PAGE_MANAGE_DATASET)
 
 
 def clear_stats_entry_filter() -> None:

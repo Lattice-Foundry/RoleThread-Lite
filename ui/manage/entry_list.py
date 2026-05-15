@@ -24,6 +24,7 @@ from ui.session_state import (
     start_quick_edit,
     toggle_entry_selection,
 )
+from ui.navigation import PAGE_EDIT_ENTRIES, navigate_to_page
 from ui.ui_components import render_message_preview
 from ui.ui_edit_entries import start_full_edit
 
@@ -163,7 +164,11 @@ def _render_entry_preview(
                 "Requires Full Edit",
                 key=f"btn_requires_full_edit_{entry_uuid}",
             ):
-                st.session_state.page = "Edit Entries"
+                navigate_to_page(
+                    PAGE_EDIT_ENTRIES,
+                    clear_edit_state=False,
+                    rerun=False,
+                )
                 start_full_edit(entry_uuid, tag_snapshot.active_registry)
         with action_cols[1]:
             _render_duplicate_button(entry_uuid)
