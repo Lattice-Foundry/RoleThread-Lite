@@ -12,7 +12,9 @@ training_data/
 notes/
 venv/
 app_data/preferences.json
+app_data/backup_config.json
 app_data/loreforge.db
+backup_config.json
 *.pyc
 *.jsonl
 

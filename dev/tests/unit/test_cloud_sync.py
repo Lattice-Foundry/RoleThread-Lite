@@ -27,8 +27,16 @@ def _settings_db(tmp_path, monkeypatch):
     Base.metadata.create_all(bind=engine)
 
 
+def _patch_backup_config_paths(tmp_path, monkeypatch):
+    config_file = tmp_path / "app_data" / "backup_config.json"
+    legacy_config_file = tmp_path / "backup_config.json"
+    monkeypatch.setattr(cloud_sync, "BACKUP_CONFIG_FILE", config_file)
+    monkeypatch.setattr(cloud_sync, "LEGACY_BACKUP_CONFIG_FILE", legacy_config_file)
+    return config_file, legacy_config_file
+
+
 def test_backup_config_roundtrip(tmp_path, monkeypatch):
-    monkeypatch.setattr(cloud_sync, "BACKUP_CONFIG_FILE", tmp_path / "backup_config.json")
+    config_file, _legacy_config_file = _patch_backup_config_paths(tmp_path, monkeypatch)
 
     cloud_sync.save_backup_config_from_settings({
         "backup_destination_type": "custom",
@@ -41,6 +49,54 @@ def test_backup_config_roundtrip(tmp_path, monkeypatch):
         "backup_destination_type": "custom",
         "backup_destination_custom_path": str(tmp_path / "cloud"),
         "cloud_backup_last_sync_at": "2026-05-13T00:00:00+00:00",
+    }
+    assert config_file.exists()
+
+
+def test_load_backup_config_creates_default_in_app_data(tmp_path, monkeypatch):
+    config_file, legacy_config_file = _patch_backup_config_paths(tmp_path, monkeypatch)
+
+    assert cloud_sync.load_backup_config() == {}
+
+    assert config_file.read_text(encoding="utf-8") == "{}\n"
+    assert not legacy_config_file.exists()
+
+
+def test_load_backup_config_migrates_legacy_root_config(tmp_path, monkeypatch):
+    config_file, legacy_config_file = _patch_backup_config_paths(tmp_path, monkeypatch)
+    legacy_config_file.write_text(
+        json.dumps({
+            "backup_destination_type": "custom",
+            "backup_destination_custom_path": str(tmp_path / "legacy-cloud"),
+        }) + "\n",
+        encoding="utf-8",
+    )
+
+    assert cloud_sync.load_backup_config() == {
+        "backup_destination_type": "custom",
+        "backup_destination_custom_path": str(tmp_path / "legacy-cloud"),
+    }
+    assert config_file.read_text(encoding="utf-8") == legacy_config_file.read_text(
+        encoding="utf-8"
+    )
+    assert legacy_config_file.exists()
+
+
+def test_load_backup_config_prefers_existing_app_data_config(tmp_path, monkeypatch):
+    config_file, legacy_config_file = _patch_backup_config_paths(tmp_path, monkeypatch)
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text(
+        json.dumps({"backup_destination_type": "dropbox"}) + "\n",
+        encoding="utf-8",
+    )
+    legacy_config_file.write_text(
+        json.dumps({"backup_destination_type": "custom"}) + "\n",
+        encoding="utf-8",
+    )
+
+    assert cloud_sync.load_backup_config() == {"backup_destination_type": "dropbox"}
+    assert json.loads(config_file.read_text(encoding="utf-8")) == {
+        "backup_destination_type": "dropbox",
     }
 
 
@@ -96,7 +152,7 @@ def test_detect_cloud_sync_provider_for_path_uses_common_folder_names(tmp_path):
 
 def test_sync_backups_to_cloud_copies_db_sidecars_and_settings(tmp_path, monkeypatch):
     _settings_db(tmp_path, monkeypatch)
-    monkeypatch.setattr(cloud_sync, "BACKUP_CONFIG_FILE", tmp_path / "backup_config.json")
+    _patch_backup_config_paths(tmp_path, monkeypatch)
 
     db_backup_dir = tmp_path / "local_backups" / "database"
     db_backup_dir.mkdir(parents=True)
@@ -137,7 +193,7 @@ def test_sync_backups_to_cloud_keeps_previous_publish_on_staging_failure(
     monkeypatch,
 ):
     _settings_db(tmp_path, monkeypatch)
-    monkeypatch.setattr(cloud_sync, "BACKUP_CONFIG_FILE", tmp_path / "backup_config.json")
+    _patch_backup_config_paths(tmp_path, monkeypatch)
 
     db_backup_dir = tmp_path / "local_backups" / "database"
     db_backup_dir.mkdir(parents=True)
@@ -175,7 +231,7 @@ def test_table_row_count_rejects_unapproved_table_name():
 
 def test_cloud_backup_restore_imports_settings_and_latest_db(tmp_path, monkeypatch):
     _settings_db(tmp_path, monkeypatch)
-    monkeypatch.setattr(cloud_sync, "BACKUP_CONFIG_FILE", tmp_path / "backup_config.json")
+    _patch_backup_config_paths(tmp_path, monkeypatch)
     local_db = tmp_path / "local" / "loreforge.db"
     monkeypatch.setattr(cloud_sync, "get_db_path", lambda: local_db)
 

@@ -26,7 +26,7 @@ from core.preferences import (
     load_preferences,
     set_setting,
 )
-from core.storage import APP_ROOT, TRAINING_DATA_DIR
+from core.storage import APP_DATA_DIR, APP_ROOT, TRAINING_DATA_DIR
 
 
 BACKUP_DESTINATION_LOCAL = "local"
@@ -46,7 +46,8 @@ BACKUP_DESTINATION_TYPES = {
     BACKUP_DESTINATION_CUSTOM,
 }
 
-BACKUP_CONFIG_FILE = APP_ROOT / "backup_config.json"
+BACKUP_CONFIG_FILE = APP_DATA_DIR / "backup_config.json"
+LEGACY_BACKUP_CONFIG_FILE = APP_ROOT / "backup_config.json"
 BACKUP_CONFIG_KEYS = {
     "backup_destination_type",
     "backup_destination_custom_path",
@@ -95,6 +96,7 @@ def save_backup_config_from_settings(settings: dict | None = None) -> None:
         for key in BACKUP_CONFIG_KEYS
         if key in settings
     }
+    BACKUP_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     BACKUP_CONFIG_FILE.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
@@ -102,13 +104,36 @@ def save_backup_config_from_settings(settings: dict | None = None) -> None:
 
 
 def load_backup_config() -> dict:
-    """Return the app-root backup config, or an empty dict if unavailable."""
+    """Return the app-data backup config, migrating a legacy root file if needed."""
 
+    _migrate_legacy_backup_config()
+    if not BACKUP_CONFIG_FILE.exists():
+        _write_default_backup_config()
     try:
         data = json.loads(BACKUP_CONFIG_FILE.read_text(encoding="utf-8"))
     except Exception:
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def _migrate_legacy_backup_config() -> None:
+    """Copy a root-level backup config into app_data without deleting user data."""
+
+    if BACKUP_CONFIG_FILE.exists() or not LEGACY_BACKUP_CONFIG_FILE.exists():
+        return
+    try:
+        BACKUP_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(LEGACY_BACKUP_CONFIG_FILE, BACKUP_CONFIG_FILE)
+    except Exception:
+        return
+
+
+def _write_default_backup_config() -> None:
+    try:
+        BACKUP_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        BACKUP_CONFIG_FILE.write_text("{}\n", encoding="utf-8")
+    except Exception:
+        return
 
 
 def resolve_cloud_backup_destination(settings: dict | None = None) -> Path | None:
