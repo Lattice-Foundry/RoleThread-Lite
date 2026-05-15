@@ -1,14 +1,162 @@
 [
   {
-    "question": "What is LoreForge Lite?",
-    "answer": "LoreForge Lite is a local-first tool for crafting, validating, organizing, and exporting narrative AI training datasets."
+    "question": "Getting started: What is LoreForge Lite?",
+    "answer": "LoreForge Lite is a local-first tool for creating, organizing, validating, analyzing, merging, and exporting narrative training datasets. It is built for practical dataset craftsmanship, not hosted orchestration.\n\nYour working files, sidecars, settings, backups, and local database stay on your machine unless you configure cloud backup."
   },
   {
-    "question": "Does LoreForge Lite send my data to the cloud?",
-    "answer": "No. LoreForge Lite is designed around local-first workflows. Optional cloud backup support copies your local backups only when you configure it."
+    "question": "Getting started: Why is an example dataset already loaded?",
+    "answer": "LoreForge Lite ships with curated example datasets so you can explore real workflows safely. One example dataset may load automatically on first launch.\n\nThe examples are learning material. You can inspect tags, prompts, sidecars, character mappings, Validation results, and Insights behavior before working on your own dataset."
   },
   {
-    "question": "Where will full documentation live?",
-    "answer": "Help topics and FAQ entries will live in the docs folder so the app can render them directly."
+    "question": "Getting started: Where should I spend most of my time?",
+    "answer": "Most day-to-day work happens in Manage Dataset. It is the operational hub for browsing, filtering, searching, quick editing, tagging, duplication, joining, deletion, and export preparation.\n\nUse Edit Entries when you need deeper work such as Full Edit, Group Chat refinement, split workflows, or detailed character mapping review."
+  },
+  {
+    "question": "Getting started: Do I need to understand every page before using the app?",
+    "answer": "No. Start with Manage Dataset, Create Entry, Quick Edit, and Validation before export.\n\nThe deeper systems are there when you need them. Tags, Group Chat mode, Insights, split/join, sidecars, and prompt templates can become part of your workflow gradually."
+  },
+  {
+    "question": "Getting started: Is LoreForge changing my original files?",
+    "answer": "Not usually. If LoreForge loads an untrusted outside dataset, it may create a protected working copy and edit that copy instead of the original.\n\nUse the current loaded dataset path in Manage Dataset to confirm which file you are editing."
+  },
+  {
+    "question": "Working copies and sidecars: Why did LoreForge create a working copy?",
+    "answer": "A working copy protects source files that did not clearly come from LoreForge Lite. This is common with ShareGPT files, manually edited JSONL, older files, or datasets from another tool.\n\nThe working copy is intentional. It lets you safely edit without accidentally mutating the original source."
+  },
+  {
+    "question": "Working copies and sidecars: What is a trusted dataset?",
+    "answer": "A trusted dataset carries stable LoreForge identity metadata, such as dataset UUID and entry UUID information.\n\nAn untrusted dataset may still be valid data. It simply means LoreForge should be careful before writing back to it."
+  },
+  {
+    "question": "Working copies and sidecars: Why is there a .registry.json file?",
+    "answer": "The `.registry.json` file is a sidecar. It stores portable metadata beside the JSONL file, such as tags, categories, character definitions, character mappings, system prompt templates, and dataset identity.\n\nThe sidecar keeps project context portable without stuffing that metadata into clean training records."
+  },
+  {
+    "question": "Working copies and sidecars: Can I delete the sidecar?",
+    "answer": "You can, but you may lose LoreForge-specific context such as tag organization, character mappings, prompt templates, and archived/imported tag information.\n\nIf you want the dataset to remain fully useful in LoreForge later, keep the JSONL and sidecar together."
+  },
+  {
+    "question": "Working copies and sidecars: What does a sidecar UUID warning mean?",
+    "answer": "It usually means the sidecar does not clearly belong to the loaded dataset. LoreForge may still load the entries, but skip the questionable sidecar metadata.\n\nThis protects you from accidentally pairing one dataset with another dataset's registry context."
+  },
+  {
+    "question": "Tags and metadata: Why are there archived/imported tags?",
+    "answer": "Archived/imported tags are unknown or inactive tags preserved from imported data, older metadata, or sidecars.\n\nThey are not errors. LoreForge keeps them visible so you can decide whether to adopt, rename, ignore, or remove them later."
+  },
+  {
+    "question": "Tags and metadata: Are tags part of the training conversation?",
+    "answer": "No. Tags are metadata for organization, filtering, export selection, and Insights.\n\nClean export removes LoreForge metadata from the training records. The conversation text is still the `system`, `user`, and `assistant` messages."
+  },
+  {
+    "question": "Tags and metadata: Why are built-in tags locked?",
+    "answer": "Built-in tags are locked so their meaning stays consistent across datasets and workflows.\n\nUse custom tags for your own vocabulary. Custom tags can be edited, renamed, or deleted."
+  },
+  {
+    "question": "Tags and metadata: What happens when I rename a tag?",
+    "answer": "LoreForge preserves alias/lifecycle information so older references can still resolve to the current tag meaning where safe.\n\nThis helps tag cleanup without silently losing history."
+  },
+  {
+    "question": "Tags and metadata: Should I adopt every imported tag?",
+    "answer": "No. Adopt only the imported tags that support your workflow.\n\nArchived/imported tags can act like a review queue. Keep useful ones, merge or rename unclear ones, and leave noisy ones archived until you know what they mean."
+  },
+  {
+    "question": "Group Chat and characters: Why are my character names not exported as roles?",
+    "answer": "Training roles stay standard: `system`, `user`, and `assistant`. Character names are stored as metadata through character mappings.\n\nThis keeps exported datasets compatible with normal training tools while still preserving who spoke in LoreForge."
+  },
+  {
+    "question": "Group Chat and characters: What is a character mapping?",
+    "answer": "A character mapping connects a character to a specific message turn.\n\nIt means LoreForge knows which character a turn represents, without changing the JSONL role itself."
+  },
+  {
+    "question": "Group Chat and characters: When should I use Group Chat mode?",
+    "answer": "Use Group Chat mode when character identity matters: group scenes, roleplay datasets, multi-character examples, or entries where previews need to show who is speaking.\n\nUse Default mode when a normal user/assistant example is already clear."
+  },
+  {
+    "question": "Group Chat and characters: What happens if I deactivate a character?",
+    "answer": "The character stops appearing as a normal active choice, but existing metadata can still be handled safely.\n\nLoreForge may warn if loaded entries still reference that character in system prompts, so you can review them rather than losing context silently."
+  },
+  {
+    "question": "Group Chat and characters: Do character mappings survive split, join, and merge?",
+    "answer": "LoreForge tries to preserve mappings when it can do so safely. Split and join reindex mappings to match the new turn order.\n\nDuring merge, mappings are preserved only for entries that survive, so discarded duplicates do not create orphan metadata."
+  },
+  {
+    "question": "Validation and Insights: Why does Validation show warnings if LoreForge validates before save?",
+    "answer": "Normal LoreForge forms guard against most structural problems before save. Validation has a broader job: imported cleanup, consistency review, merge review, quality diagnostics, and final export checks.\n\nWarnings are review prompts, not proof that normal app usage is unsafe."
+  },
+  {
+    "question": "Validation and Insights: Do I need to run Validation constantly?",
+    "answer": "No. Use Validation when it helps: after loading imported data, after large cleanup passes, after merge/split/join work, or before export.\n\nFor normal LoreForge-native creation, it is more of an audit tool than an emergency repair loop."
+  },
+  {
+    "question": "Validation and Insights: Are Insights scores objective truth?",
+    "answer": "No. Insights scores are deterministic guidance based on practical heuristics.\n\nA specialized dataset may score lower in one area and still be useful. Use the report to find patterns worth reviewing, not to chase a perfect number."
+  },
+  {
+    "question": "Validation and Insights: Why are my outputs too chatty or too descriptive?",
+    "answer": "Dataset style influences behavior. Dialogue-heavy datasets may encourage more conversational output. Narrative-heavy datasets may encourage more descriptive or atmospheric output.\n\nUse Insights to review narrative/dialogue balance, then adjust future entries or edit existing examples if the balance does not match your goal."
+  },
+  {
+    "question": "Validation and Insights: Why does formatting consistency matter?",
+    "answer": "Formatting is part of the example. Repeated quotation style, paragraph breaks, markdown, name labels, tense, and point of view can become learned habits.\n\nConsistent quoted dialogue and intentional formatting help teach cleaner patterns."
+  },
+  {
+    "question": "Export and training: What is clean export?",
+    "answer": "Clean export removes LoreForge metadata from training records, such as tags and identity fields.\n\nUse it when another training tool should receive only the conversation data."
+  },
+  {
+    "question": "Export and training: Should I export ChatML or ShareGPT?",
+    "answer": "Choose the format your downstream tool expects.\n\nChatML keeps standard message roles. ShareGPT export converts entries into a ShareGPT-style conversation shape."
+  },
+  {
+    "question": "Export and training: Can I export only selected or filtered entries?",
+    "answer": "Yes. Use Manage Dataset to select entries or create a filtered view, then use Export for the selected/filtered set.\n\nThis is useful for training one slice of a larger dataset or archiving a focused subset."
+  },
+  {
+    "question": "Export and training: Should I keep the sidecar with exported files?",
+    "answer": "Keep the sidecar if you want LoreForge project context to travel with the dataset.\n\nFor a training tool that only needs plain records, provide the clean exported JSONL. For future LoreForge work, keep the sidecar nearby."
+  },
+  {
+    "question": "Export and training: Why did merge create a new dataset UUID?",
+    "answer": "A merge output is a new dataset, even if it was built from existing sources.\n\nGiving it a fresh dataset UUID prevents the output from pretending to be one of the source datasets."
+  },
+  {
+    "question": "Backups and recovery: Does LoreForge create backups automatically?",
+    "answer": "Yes, when automatic backups are enabled, LoreForge creates local backups before protected operations such as edits, deletes, repairs, splits, joins, merges, and tag lifecycle changes.\n\nKeeping automatic backups enabled is the safest default."
+  },
+  {
+    "question": "Backups and recovery: What is the difference between dataset backups and DB backups?",
+    "answer": "Dataset backups protect JSONL training files.\n\nDB backups protect local app metadata such as tags, aliases, characters, character mappings, prompt templates, settings, and other registry context."
+  },
+  {
+    "question": "Backups and recovery: Is cloud sync real-time?",
+    "answer": "No. Cloud sync is batch backup mirroring, not live collaboration.\n\nIt can run manually from Settings or when the app closes, if configured. Do not use it as a shared live editing system."
+  },
+  {
+    "question": "Backups and recovery: Can I restore backups manually?",
+    "answer": "Yes. If something goes wrong, stop editing, close LoreForge, and restore the most consistent dataset backup and DB backup pair.\n\nIf only the JSONL was affected, a dataset backup may be enough. If tags, characters, mappings, settings, or prompt templates were involved, restore the matching DB backup too."
+  },
+  {
+    "question": "Backups and recovery: Why should my local backup folder not be cloud-synced?",
+    "answer": "The local backup folder should be a stable local recovery point. Cloud sync tools can touch files while an app is writing, which can make sessions less predictable.\n\nUse the Cloud Backup settings for cloud destinations instead."
+  },
+  {
+    "question": "V1 boundaries: Why no semantic or vector search in V1?",
+    "answer": "V1 search is deterministic and local: text queries, scopes, match modes, and tag filters.\n\nSemantic or vector search would be a larger system with different expectations. The V1 boundary keeps search predictable and easy to understand."
+  },
+  {
+    "question": "V1 boundaries: Does LoreForge train or host models?",
+    "answer": "No. LoreForge Lite prepares datasets. It does not host inference, train models, or run a hosted evaluation service.\n\nUse Export when the dataset is ready for another training workflow."
+  },
+  {
+    "question": "V1 boundaries: Is LoreForge Lite a multi-user collaboration tool?",
+    "answer": "No. Lite is a single-user local app.\n\nCloud backup is for recovery, not live shared editing. Avoid editing the same dataset from multiple machines through a cloud folder at the same time."
+  },
+  {
+    "question": "V1 boundaries: Will LoreForge automatically build a finished dataset for me?",
+    "answer": "No. LoreForge gives you tools to create, organize, validate, analyze, and export your dataset.\n\nThe creator remains in control of the content, intent, style, and final quality."
+  },
+  {
+    "question": "V1 boundaries: Is Lite incomplete because larger Studio ideas are not included?",
+    "answer": "No. LoreForge Lite is intentionally scoped around local-first dataset craftsmanship.\n\nLarger hosted orchestration or team-scale systems belong outside the V1 Lite surface. Lite is meant to be focused, understandable, and useful on its own."
   }
 ]
