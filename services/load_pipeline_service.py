@@ -22,7 +22,7 @@ from core.load_pipeline import (
     prepare_foreign_working_copy,
     sidecar_error_summary,
 )
-from core.loreforge_meta import ensure_entry_uuid
+from core.loreforge_meta import ensure_entry_uuid, get_dataset_uuid_for_entries
 from core.registry_sidecar import read_sidecar, sidecar_path_for_dataset
 from core.tag_registry import ensure_tags_exist_for_dataset
 from core.tag_resolution import resolve_tag_lifecycle
@@ -64,7 +64,7 @@ def finalize_loaded_entries(
     2. Ensure every loaded entry has an entry UUID, without adding trust stamps.
     3. Create a protected working copy for untrusted source files.
     4. Resolve the effective dataset path after any working-copy creation.
-    5. Read and import the sibling sidecar for the effective dataset path.
+    5. Validate the sibling sidecar dataset UUID before importing it.
     6. Keep sidecar import failures as load summaries, not hard crashes.
     7. Canonicalize stale tag aliases before registry adoption.
     8. Preserve alias rewrite counts for the session/load summary.
@@ -180,6 +180,14 @@ def _import_sibling_sidecar(
             {},
         )
 
+    mismatch_summary = _sidecar_dataset_uuid_mismatch(
+        sidecar_path,
+        registry,
+        entries,
+    )
+    if mismatch_summary is not None:
+        return mismatch_summary, {}, {}
+
     try:
         result = import_registry_sidecar(registry=registry, entries=entries)
     except Exception as exc:
@@ -215,3 +223,32 @@ def _import_sibling_sidecar(
         {tag.slug: tag for tag in registry.tags},
         {category.slug: category for category in registry.categories},
     )
+
+
+def _sidecar_dataset_uuid_mismatch(
+    sidecar_path: Path,
+    registry,
+    entries: list[dict] | None,
+) -> dict | None:
+    """Return a load summary when a sibling sidecar belongs to another dataset."""
+
+    if entries is None:
+        return None
+    entry_dataset_uuid = get_dataset_uuid_for_entries(entries)
+    dataset_info = getattr(registry, "dataset_info", None)
+    sidecar_dataset_uuid = getattr(dataset_info, "dataset_uuid", None)
+    if (
+        entry_dataset_uuid
+        and sidecar_dataset_uuid
+        and sidecar_dataset_uuid != entry_dataset_uuid
+    ):
+        error = (
+            "Sidecar dataset UUID does not match the loaded dataset "
+            f"({sidecar_dataset_uuid} != {entry_dataset_uuid})."
+        )
+        return sidecar_error_summary(
+            sidecar_path,
+            message="Registry sidecar belongs to a different dataset; sidecar import skipped.",
+            error=error,
+        )
+    return None

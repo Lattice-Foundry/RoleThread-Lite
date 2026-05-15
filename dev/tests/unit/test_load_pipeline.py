@@ -4,7 +4,12 @@ from types import SimpleNamespace
 import core.load_pipeline as core_load_pipeline
 from core.dataset import DatasetDiagnosticSummary, TagNormalizationSummary, load_dataset_with_summary
 from core.format_conversion import FORMAT_SHAREGPT
-from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid, is_native_entry
+from core.loreforge_meta import (
+    LOREFORGE_META_KEY,
+    get_entry_uuid,
+    is_native_entry,
+    stamp_entries,
+)
 from core.registry_sidecar import (
     SIDECAR_KIND,
     SidecarDatasetInfo,
@@ -235,6 +240,148 @@ def test_pipeline_loads_empty_dataset_with_sidecar_and_preserves_sidecar_uuid(
     assert result.sidecar_import_summary["ok"] is True
     assert imported_dataset_uuids == ["empty-sidecar-uuid"]
     assert read_sidecar(copied_sidecar).dataset_info.dataset_uuid == "empty-sidecar-uuid"
+
+
+def test_pipeline_imports_matching_native_sidecar_uuid(tmp_path, monkeypatch):
+    _patch_pipeline_defaults(monkeypatch)
+    dataset_dir = tmp_path / "training_data" / "dataset"
+    dataset_dir.mkdir(parents=True)
+    dataset_path = dataset_dir / "dataset.jsonl"
+    entries = stamp_entries([_entry()], dataset_uuid="dataset-uuid")
+    dataset_path.write_text(json.dumps(entries[0]) + "\n", encoding="utf-8")
+    write_sidecar(
+        SidecarRegistry(
+            metadata=SidecarMetadata(exported_at="2026-05-14T00:00:00+00:00"),
+            dataset_info=SidecarDatasetInfo(
+                dataset_uuid="dataset-uuid",
+                filename="dataset.jsonl",
+            ),
+        ),
+        sidecar_path_for_dataset(dataset_path),
+    )
+    imported_dataset_uuids = []
+
+    def fake_import_sidecar(*, registry, entries):
+        imported_dataset_uuids.append(registry.dataset_info.dataset_uuid)
+        return SimpleNamespace(
+            ok=True,
+            message="Registry sidecar already matches the current registry.",
+            categories_created=[],
+            tags_created=[],
+            tags_promoted=[],
+            aliases_imported=[],
+            characters_created=[],
+            character_mappings_imported=[],
+            conflicts=[],
+            warnings=[],
+            errors=[],
+        )
+
+    monkeypatch.setattr(load_pipeline, "import_registry_sidecar", fake_import_sidecar)
+
+    summary, errors = load_dataset_with_summary(str(dataset_path))
+    result = load_pipeline.finalize_loaded_entries(
+        summary.entries,
+        dataset_path=str(dataset_path),
+        normalization_summary=summary,
+    )
+
+    assert errors == []
+    assert result.sidecar_import_summary["ok"] is True
+    assert imported_dataset_uuids == ["dataset-uuid"]
+
+
+def test_pipeline_skips_mismatched_native_sidecar_uuid(tmp_path, monkeypatch):
+    _patch_pipeline_defaults(monkeypatch)
+    dataset_dir = tmp_path / "training_data" / "dataset"
+    dataset_dir.mkdir(parents=True)
+    dataset_path = dataset_dir / "dataset.jsonl"
+    entries = stamp_entries([_entry(tags=["sidecar_only"])], dataset_uuid="dataset-uuid")
+    dataset_path.write_text(json.dumps(entries[0]) + "\n", encoding="utf-8")
+    write_sidecar(
+        SidecarRegistry(
+            metadata=SidecarMetadata(exported_at="2026-05-14T00:00:00+00:00"),
+            dataset_info=SidecarDatasetInfo(
+                dataset_uuid="other-dataset-uuid",
+                filename="dataset.jsonl",
+            ),
+        ),
+        sidecar_path_for_dataset(dataset_path),
+    )
+    import_calls = []
+    monkeypatch.setattr(
+        load_pipeline,
+        "import_registry_sidecar",
+        lambda **kwargs: import_calls.append(kwargs),
+    )
+
+    summary, errors = load_dataset_with_summary(str(dataset_path))
+    result = load_pipeline.finalize_loaded_entries(
+        summary.entries,
+        dataset_path=str(dataset_path),
+        normalization_summary=summary,
+    )
+
+    assert errors == []
+    assert len(result.entries) == 1
+    assert import_calls == []
+    assert result.sidecar_import_summary["ok"] is False
+    assert "different dataset" in result.sidecar_import_summary["message"]
+    assert result.sidecar_import_summary["errors"] == [
+        "Sidecar dataset UUID does not match the loaded dataset "
+        "(other-dataset-uuid != dataset-uuid)."
+    ]
+
+
+def test_pipeline_allows_foreign_sidecar_without_entry_dataset_uuid(tmp_path, monkeypatch):
+    _patch_pipeline_defaults(monkeypatch)
+    training_dir = tmp_path / "training_data"
+    monkeypatch.setattr(
+        "core.working_copy.get_default_training_data_dir",
+        lambda: training_dir,
+    )
+    dataset_path = tmp_path / "foreign.jsonl"
+    dataset_path.write_text(json.dumps(_entry()) + "\n", encoding="utf-8")
+    write_sidecar(
+        SidecarRegistry(
+            metadata=SidecarMetadata(exported_at="2026-05-14T00:00:00+00:00"),
+            dataset_info=SidecarDatasetInfo(
+                dataset_uuid="sidecar-only-uuid",
+                filename="foreign.jsonl",
+            ),
+        ),
+        sidecar_path_for_dataset(dataset_path),
+    )
+    imported_dataset_uuids = []
+
+    def fake_import_sidecar(*, registry, entries):
+        imported_dataset_uuids.append(registry.dataset_info.dataset_uuid)
+        return SimpleNamespace(
+            ok=True,
+            message="Imported.",
+            categories_created=[],
+            tags_created=[],
+            tags_promoted=[],
+            aliases_imported=[],
+            characters_created=[],
+            character_mappings_imported=[],
+            conflicts=[],
+            warnings=[],
+            errors=[],
+        )
+
+    monkeypatch.setattr(load_pipeline, "import_registry_sidecar", fake_import_sidecar)
+
+    summary, errors = load_dataset_with_summary(str(dataset_path))
+    result = load_pipeline.finalize_loaded_entries(
+        summary.entries,
+        dataset_path=str(dataset_path),
+        normalization_summary=summary,
+    )
+
+    assert errors == []
+    assert result.sidecar_import_summary["ok"] is True
+    assert imported_dataset_uuids == ["sidecar-only-uuid"]
 
 
 def test_pipeline_preserves_existing_uuid_without_trust_stamp(monkeypatch):

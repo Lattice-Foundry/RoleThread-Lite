@@ -60,7 +60,7 @@ class DatasetOperationResult:
     source_sidecar_summary: "SourceSidecarImportSummary | None" = None
 
 
-@dataclass(frozen=True)
+@dataclass
 class DatasetSaveResult:
     """Internal result for a JSONL save plus best-effort sidecar refresh."""
 
@@ -90,6 +90,14 @@ class SourceSidecarImportSummary:
     conflicts: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _DatasetMutationWrite:
+    """Internal result for the common backup-then-save mutation path."""
+
+    backup_path: str | None
+    save_result: DatasetSaveResult
 
 
 def _copy_entries(entries: list[dict]) -> list[dict]:
@@ -448,6 +456,38 @@ def _create_backup_if_enabled(
     return str(backup_path)
 
 
+def _save_entries_with_backup(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    backup_enabled: bool,
+    backup_reason: str,
+    backup_error_prefix: str = "Failed to create dataset backup",
+    save_error_prefix: str = "Failed to save dataset",
+) -> tuple[_DatasetMutationWrite | None, DatasetOperationResult | None]:
+    """Run the common backup/save/sidecar refresh path for dataset mutations."""
+
+    try:
+        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
+    except Exception as exc:
+        traceback.print_exc()
+        return None, DatasetOperationResult(
+            ok=False,
+            message=f"{backup_error_prefix}: {exc}",
+        )
+
+    try:
+        save_result = _save_dataset_with_sidecar(dataset_path, entries)
+    except Exception as exc:
+        traceback.print_exc()
+        return None, DatasetOperationResult(
+            ok=False,
+            message=f"{save_error_prefix}: {exc}",
+        )
+
+    return _DatasetMutationWrite(backup_path=backup_path, save_result=save_result), None
+
+
 def save_quick_edit_service(
     *,
     dataset_path: str,
@@ -487,24 +527,18 @@ def save_quick_edit_service(
     proposed_entries = _normalize_entries(
         _replace_entry_at_index(entries, entry_index, edited_entry)
     )
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save dataset: {exc}",
-        )
+    write, error_result = _save_entries_with_backup(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -634,24 +668,18 @@ def replace_single_entry_tags_service(
     proposed_entries = _normalize_entries(
         _replace_entry_at_index(entries, entry_index, edited_entry)
     )
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save dataset: {exc}",
-        )
+    write, error_result = _save_entries_with_backup(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -695,24 +723,18 @@ def replace_tags_bulk_service(
         replace_entry_tags(proposed_entries[index], tags)
     proposed_entries = _normalize_entries(proposed_entries)
 
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save dataset: {exc}",
-        )
+    write, error_result = _save_entries_with_backup(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -750,24 +772,18 @@ def clear_tags_bulk_service(
         replace_entry_tags(proposed_entries[index], [])
     proposed_entries = _normalize_entries(proposed_entries)
 
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save dataset: {exc}",
-        )
+    write, error_result = _save_entries_with_backup(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -808,24 +824,18 @@ def replace_system_prompt_bulk_service(
         set_entry_system_prompt(proposed_entries[index], system_prompt)
     proposed_entries = _normalize_entries(proposed_entries)
 
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save dataset: {exc}",
-        )
+    write, error_result = _save_entries_with_backup(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -866,24 +876,18 @@ def delete_entries_service(
     ]
     proposed_entries = _normalize_entries(proposed_entries)
 
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save dataset: {exc}",
-        )
+    write, error_result = _save_entries_with_backup(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -1273,24 +1277,19 @@ def save_repaired_entries_service(
         for entry in repaired_entries
     ]
     proposed_entries = _canonicalize_alias_tags(proposed_entries)
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, True, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save repaired entries: {exc}",
-        )
+    write, error_result = _save_entries_with_backup(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=True,
+        backup_reason=backup_reason,
+        save_error_prefix="Failed to save repaired entries",
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
