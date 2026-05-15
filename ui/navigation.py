@@ -160,6 +160,7 @@ _QUICK_NAVIGATION_SECONDARY = (
     PAGE_HELP,
 )
 
+_PAGES_WITH_OWN_SIDEBAR = frozenset({PAGE_HELP})
 _PENDING_NATIVE_PAGE_KEY = "_pending_native_page"
 _NATIVE_PAGES: dict[str, object] = {}
 PageRenderer = Callable[[], None]
@@ -187,6 +188,12 @@ def get_quick_navigation_pages() -> dict[str, list[str]]:
         "Quick Navigation": list(_QUICK_NAVIGATION_PRIMARY),
         "Secondary": list(_QUICK_NAVIGATION_SECONDARY),
     }
+
+
+def page_owns_sidebar(page_id: str | None) -> bool:
+    """Return whether a page replaces the global quick-navigation rail."""
+
+    return resolve_page(page_id) in _PAGES_WITH_OWN_SIDEBAR
 
 
 def resolve_page(page_id: str | None) -> str | None:
@@ -317,7 +324,9 @@ def render_navigation(page_renderers: Mapping[str, PageRenderer]) -> None:
     switch_to_pending_native_page()
     selected_page = get_native_page_id(selected_native_page) or get_current_page()
     activate_page(selected_page)
-    _render_quick_navigation_rail(get_current_page())
+    active_page = get_current_page()
+    if not page_owns_sidebar(active_page):
+        _render_quick_navigation_rail(active_page)
     selected_native_page.run()
 
 

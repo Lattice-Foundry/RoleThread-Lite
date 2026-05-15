@@ -114,6 +114,13 @@ def test_quick_navigation_pages_use_curated_rail_groups():
     }
 
 
+def test_help_page_owns_sidebar_and_other_pages_use_quick_rail():
+    assert navigation.page_owns_sidebar(navigation.PAGE_HELP) is True
+    assert navigation.page_owns_sidebar(navigation.PAGE_FAQ) is False
+    assert navigation.page_owns_sidebar(navigation.PAGE_MANAGE_DATASET) is False
+    assert navigation.page_owns_sidebar("Unknown") is False
+
+
 def test_top_navigation_and_quick_rail_cover_registered_pages():
     registry_pages = set(navigation.get_page_registry())
     top_nav_pages = {
