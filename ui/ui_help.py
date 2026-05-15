@@ -7,11 +7,14 @@ import streamlit as st
 
 from ui.help_docs import (
     HELP_DIR,
-    HelpDocument,
+    HelpSearchResult,
+    build_help_search_results,
+    get_adjacent_help_articles,
+    get_help_breadcrumb,
     get_help_articles_by_category,
+    get_related_help_articles,
     load_help_document,
     resolve_help_article_id,
-    search_help_documents,
 )
 
 
@@ -116,20 +119,21 @@ def _render_help_sidebar(active_article_id: str) -> None:
 
 def _render_search_results(
     query: str,
-    matches: tuple[HelpDocument, ...],
+    matches: tuple[HelpSearchResult, ...],
 ) -> None:
     if not query.strip():
         return
 
-    st.markdown("**Search Results**")
+    result_count = len(matches)
+    st.markdown(f"**Search Results ({result_count})**")
     if not matches:
-        st.info("No Help articles matched your search.")
+        st.info("No Help articles matched your search. Try a workflow, page, or concept name.")
         st.divider()
         return
 
-    for document in matches:
-        article = document.article
-        button_col, text_col = st.columns([0.18, 0.82])
+    for result in matches:
+        article = result.article
+        button_col, text_col = st.columns([0.16, 0.84])
         with button_col:
             if st.button(
                 "Open",
@@ -139,17 +143,64 @@ def _render_search_results(
                 _select_help_article(article.article_id)
         with text_col:
             st.markdown(f"**{article.title}**")
-            st.caption(f"{article.category} - {article.summary}")
+            st.caption(f"{article.category} - {result.snippet}")
     st.divider()
 
 
-def _render_active_article(document: HelpDocument) -> None:
+def _render_related_articles(article_id: str) -> None:
+    related_articles = get_related_help_articles(article_id)
+    if not related_articles:
+        return
+
+    st.divider()
+    st.markdown("**Related Articles**")
+    columns = st.columns(2)
+    for index, article in enumerate(related_articles):
+        with columns[index % 2]:
+            if st.button(
+                article.title,
+                key=f"_help_related_{article.article_id}",
+                width="stretch",
+            ):
+                _select_help_article(article.article_id)
+            st.caption(article.summary)
+
+
+def _render_article_navigation(article_id: str) -> None:
+    previous_article, next_article = get_adjacent_help_articles(article_id)
+    if previous_article is None and next_article is None:
+        return
+
+    st.divider()
+    previous_col, next_col = st.columns(2)
+    with previous_col:
+        if previous_article is not None and st.button(
+            previous_article.title,
+            key=f"_help_previous_{previous_article.article_id}",
+            width="stretch",
+            icon=":material/arrow_back:",
+        ):
+            _select_help_article(previous_article.article_id)
+    with next_col:
+        if next_article is not None and st.button(
+            next_article.title,
+            key=f"_help_next_{next_article.article_id}",
+            width="stretch",
+            icon=":material/arrow_forward:",
+        ):
+            _select_help_article(next_article.article_id)
+
+
+def _render_active_article(article_id: str) -> None:
+    document = load_help_document(article_id)
     article = document.article
-    st.caption(f"Help / {article.category}")
+    st.caption(" / ".join(get_help_breadcrumb(article.article_id)))
     if document.content:
         st.markdown(document.content)
     else:
         st.warning(f"Help article not found: `{article.file_name}`")
+    _render_related_articles(article.article_id)
+    _render_article_navigation(article.article_id)
 
 
 def render_help_page() -> None:
@@ -160,8 +211,6 @@ def render_help_page() -> None:
 
     st.subheader("Help")
     query = st.text_input("Search help articles...", key="help_search_query")
-    matches = search_help_documents(query)
+    matches = build_help_search_results(query)
     _render_search_results(query, matches)
-
-    active_article = load_help_document(active_article_id)
-    _render_active_article(active_article)
+    _render_active_article(active_article_id)

@@ -5,14 +5,20 @@ from ui.ui_faq import FAQEntry, filter_faq_entries, load_faq_entries
 from ui.ui_help import HelpTopic, clean_help_topic_title, filter_help_topics, load_help_topics
 from ui.help_docs import (
     HELP_DIR,
+    build_help_search_results,
+    get_adjacent_help_articles,
     get_default_help_article_id,
     get_help_article,
+    get_help_article_order,
+    get_help_breadcrumb,
     get_help_article_registry,
     get_help_articles_by_category,
     get_help_category_order,
+    get_related_help_articles,
     load_help_document,
     resolve_help_article_id,
     search_help_documents,
+    validate_help_article_registry,
 )
 
 
@@ -68,6 +74,18 @@ def test_help_article_registry_has_unique_file_names_and_orders():
     assert len(orders) == len(set(orders))
 
 
+def test_help_article_registry_validates_relationships():
+    assert validate_help_article_registry() == ()
+
+
+def test_help_article_order_is_global_reader_order():
+    ordered_ids = [article.article_id for article in get_help_article_order()]
+
+    assert ordered_ids[0] == "getting-started"
+    assert ordered_ids[-1] == "v1-limitations-and-future-boundaries"
+    assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
+
+
 def test_help_article_category_order_and_grouping():
     grouped = get_help_articles_by_category()
 
@@ -90,6 +108,42 @@ def test_help_article_lookup_falls_back_to_default():
     assert resolve_help_article_id("missing") == "getting-started"
     assert get_help_article("missing").article_id == "getting-started"
     assert get_help_article("exporting-datasets").title == "Exporting Datasets"
+
+
+def test_help_breadcrumb_uses_registry_metadata():
+    assert get_help_breadcrumb("creating-entries") == (
+        "Help",
+        "Core Workflows",
+        "Creating Entries",
+    )
+
+
+def test_adjacent_help_articles_follow_global_order():
+    previous_article, next_article = get_adjacent_help_articles("creating-entries")
+
+    assert previous_article.article_id == "understanding-the-main-workspaces"
+    assert next_article.article_id == "default-mode-vs-group-chat"
+    assert get_adjacent_help_articles("getting-started")[0] is None
+    assert get_adjacent_help_articles("v1-limitations-and-future-boundaries")[1] is None
+
+
+def test_related_help_articles_follow_registry_metadata():
+    related_articles = get_related_help_articles("getting-started")
+
+    assert [article.article_id for article in related_articles] == [
+        "understanding-the-main-workspaces",
+        "loading-datasets-and-working-copies",
+        "creating-entries",
+    ]
+
+
+def test_help_related_ids_are_known_unique_and_not_self_referential():
+    registry = get_help_article_registry()
+
+    for article in registry.values():
+        assert len(article.related_ids) == len(set(article.related_ids))
+        assert article.article_id not in article.related_ids
+        assert set(article.related_ids) <= set(registry)
 
 
 def test_load_help_document_reads_registered_markdown():
@@ -116,6 +170,24 @@ def test_search_help_documents_matches_title_summary_and_content(tmp_path):
     assert [doc.article.article_id for doc in title_matches] == ["exporting-datasets"]
     assert [doc.article.article_id for doc in summary_matches] == ["getting-started"]
     assert [doc.article.article_id for doc in content_matches] == ["creating-entries"]
+
+
+def test_build_help_search_results_returns_compact_snippets(tmp_path):
+    help_dir = tmp_path / "help"
+    help_dir.mkdir()
+    for article in get_help_article_registry().values():
+        content = f"# {article.title}\n\nPlain article body."
+        if article.article_id == "creating-entries":
+            content += "\n\nThe hidden marker appears inside this article body."
+        (help_dir / article.file_name).write_text(content, encoding="utf-8")
+
+    summary_results = build_help_search_results("first-session workflow", help_dir)
+    content_results = build_help_search_results("hidden marker", help_dir)
+
+    assert summary_results[0].article.article_id == "getting-started"
+    assert summary_results[0].snippet == "First-session workflow and the basic LoreForge rhythm."
+    assert content_results[0].article.article_id == "creating-entries"
+    assert "hidden marker" in content_results[0].snippet.lower()
 
 
 def test_load_faq_entries_reads_json(tmp_path):

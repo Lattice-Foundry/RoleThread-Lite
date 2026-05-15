@@ -34,6 +34,14 @@ class HelpDocument:
     path: Path
 
 
+@dataclass(frozen=True)
+class HelpSearchResult:
+    """Compact search result for the Help browser."""
+
+    article: HelpArticle
+    snippet: str
+
+
 HELP_CATEGORY_ORDER = (
     "Getting Started",
     "Core Workflows",
@@ -52,6 +60,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Getting Started",
         10,
         "First-session workflow and the basic LoreForge rhythm.",
+        (
+            "understanding-the-main-workspaces",
+            "loading-datasets-and-working-copies",
+            "creating-entries",
+        ),
     ),
     HelpArticle(
         "what-loreforge-lite-does",
@@ -60,6 +73,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Getting Started",
         20,
         "The app's purpose, local-first scope, and practical boundaries.",
+        (
+            "getting-started",
+            "dataset-formats",
+            "v1-limitations-and-future-boundaries",
+        ),
     ),
     HelpArticle(
         "dataset-formats",
@@ -68,6 +86,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Getting Started",
         30,
         "JSONL, ChatML, ShareGPT, native metadata, and clean export basics.",
+        (
+            "exporting-datasets",
+            "default-mode-vs-group-chat",
+            "sidecars-and-portable-metadata",
+        ),
     ),
     HelpArticle(
         "loading-datasets-and-working-copies",
@@ -76,6 +99,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Getting Started",
         40,
         "How loading, trust checks, protected copies, and sidecars work.",
+        (
+            "sidecars-and-portable-metadata",
+            "validation-and-repair",
+            "backups-cloud-sync-and-recovery",
+        ),
     ),
     HelpArticle(
         "creating-a-new-dataset",
@@ -84,6 +112,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Getting Started",
         50,
         "Starting a fresh dataset file and understanding first-save behavior.",
+        (
+            "getting-started",
+            "loading-datasets-and-working-copies",
+            "creating-entries",
+        ),
     ),
     HelpArticle(
         "understanding-the-main-workspaces",
@@ -92,6 +125,12 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Core Workflows",
         60,
         "How the main LoreForge pages fit together during normal work.",
+        (
+            "creating-entries",
+            "editing-entries",
+            "validation-and-repair",
+            "insights-and-dataset-quality",
+        ),
     ),
     HelpArticle(
         "creating-entries",
@@ -100,6 +139,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Core Workflows",
         70,
         "Writing training examples, prompts, exchanges, tags, and quality cues.",
+        (
+            "editing-entries",
+            "insights-and-dataset-quality",
+            "system-prompt-library",
+        ),
     ),
     HelpArticle(
         "default-mode-vs-group-chat",
@@ -108,6 +152,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Core Workflows",
         80,
         "Choosing entry mode and preserving character identity safely.",
+        (
+            "character-registry-and-character-mappings",
+            "dataset-formats",
+            "exporting-datasets",
+        ),
     ),
     HelpArticle(
         "editing-entries",
@@ -116,6 +165,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Core Workflows",
         90,
         "Quick Edit, Full Edit, duplicate workflows, and save behavior.",
+        (
+            "searching-and-filtering-entries",
+            "splitting-and-joining-entries",
+            "validation-and-repair",
+        ),
     ),
     HelpArticle(
         "searching-and-filtering-entries",
@@ -124,6 +178,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Core Workflows",
         100,
         "Finding focused subsets of a loaded dataset.",
+        (
+            "understanding-the-main-workspaces",
+            "insights-and-dataset-quality",
+            "validation-and-repair",
+        ),
     ),
     HelpArticle(
         "splitting-and-joining-entries",
@@ -132,6 +191,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Core Workflows",
         110,
         "Reshaping entries while preserving useful context.",
+        (
+            "editing-entries",
+            "validation-and-repair",
+            "merging-datasets",
+        ),
     ),
     HelpArticle(
         "tags-categories-and-tag-lifecycle",
@@ -140,6 +204,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Metadata and Organization",
         120,
         "Using tags and categories as durable organizational metadata.",
+        (
+            "archived-and-imported-tags",
+            "insights-and-dataset-quality",
+            "exporting-datasets",
+        ),
     ),
     HelpArticle(
         "archived-and-imported-tags",
@@ -148,6 +217,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Metadata and Organization",
         130,
         "Handling unknown, inactive, and imported tag vocabulary safely.",
+        (
+            "tags-categories-and-tag-lifecycle",
+            "loading-datasets-and-working-copies",
+            "sidecars-and-portable-metadata",
+        ),
     ),
     HelpArticle(
         "character-registry-and-character-mappings",
@@ -156,6 +230,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Metadata and Organization",
         140,
         "Preserving speaker identity without changing training roles.",
+        (
+            "default-mode-vs-group-chat",
+            "sidecars-and-portable-metadata",
+            "validation-and-repair",
+        ),
     ),
     HelpArticle(
         "system-prompt-library",
@@ -164,6 +243,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Metadata and Organization",
         150,
         "Creating, loading, editing, and reusing system prompt templates.",
+        (
+            "creating-entries",
+            "insights-and-dataset-quality",
+            "default-mode-vs-group-chat",
+        ),
     ),
     HelpArticle(
         "sidecars-and-portable-metadata",
@@ -172,6 +256,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Metadata and Organization",
         160,
         "Keeping LoreForge metadata portable beside clean training files.",
+        (
+            "loading-datasets-and-working-copies",
+            "exporting-datasets",
+            "backups-cloud-sync-and-recovery",
+        ),
     ),
     HelpArticle(
         "validation-and-repair",
@@ -180,6 +269,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Quality and Review",
         170,
         "Finding structural and quality issues before export.",
+        (
+            "loading-datasets-and-working-copies",
+            "insights-and-dataset-quality",
+            "backups-cloud-sync-and-recovery",
+        ),
     ),
     HelpArticle(
         "insights-and-dataset-quality",
@@ -188,6 +282,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Quality and Review",
         180,
         "Understanding dataset shape, health, and review priorities.",
+        (
+            "validation-and-repair",
+            "searching-and-filtering-entries",
+            "creating-entries",
+        ),
     ),
     HelpArticle(
         "merging-datasets",
@@ -196,6 +295,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Output and Recovery",
         190,
         "Combining datasets while preserving identity and metadata.",
+        (
+            "validation-and-repair",
+            "sidecars-and-portable-metadata",
+            "backups-cloud-sync-and-recovery",
+        ),
     ),
     HelpArticle(
         "exporting-datasets",
@@ -204,6 +308,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Output and Recovery",
         200,
         "Producing training, archive, and selected export files.",
+        (
+            "dataset-formats",
+            "sidecars-and-portable-metadata",
+            "backups-cloud-sync-and-recovery",
+        ),
     ),
     HelpArticle(
         "backups-cloud-sync-and-recovery",
@@ -212,6 +321,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Output and Recovery",
         210,
         "Local backups, cloud sync expectations, and restore behavior.",
+        (
+            "loading-datasets-and-working-copies",
+            "sidecars-and-portable-metadata",
+            "settings-and-preferences",
+        ),
     ),
     HelpArticle(
         "settings-and-preferences",
@@ -220,6 +334,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Output and Recovery",
         220,
         "Configuration, backup settings, safety controls, and portability.",
+        (
+            "backups-cloud-sync-and-recovery",
+            "getting-started",
+        ),
     ),
     HelpArticle(
         "glossary",
@@ -228,6 +346,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Reference",
         230,
         "Key LoreForge terms and workflow vocabulary.",
+        (
+            "getting-started",
+            "what-loreforge-lite-does",
+            "understanding-the-main-workspaces",
+        ),
     ),
     HelpArticle(
         "v1-limitations-and-future-boundaries",
@@ -236,6 +359,11 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Reference",
         240,
         "What Lite intentionally does and does not try to be.",
+        (
+            "what-loreforge-lite-does",
+            "settings-and-preferences",
+            "glossary",
+        ),
     ),
 )
 
@@ -252,6 +380,12 @@ def get_help_article_registry() -> dict[str, HelpArticle]:
     return {article.article_id: article for article in HELP_ARTICLES}
 
 
+def get_help_article_order() -> tuple[HelpArticle, ...]:
+    """Return registered Help articles in reader order."""
+
+    return tuple(sorted(HELP_ARTICLES, key=lambda item: item.order))
+
+
 def get_help_category_order() -> tuple[str, ...]:
     """Return Help category display order."""
 
@@ -264,7 +398,7 @@ def get_help_articles_by_category() -> "OrderedDict[str, tuple[HelpArticle, ...]
     grouped: "OrderedDict[str, list[HelpArticle]]" = OrderedDict(
         (category, []) for category in HELP_CATEGORY_ORDER
     )
-    for article in sorted(HELP_ARTICLES, key=lambda item: item.order):
+    for article in get_help_article_order():
         grouped.setdefault(article.category, []).append(article)
     return OrderedDict(
         (category, tuple(articles))
@@ -288,6 +422,72 @@ def get_help_article(article_id: str | None) -> HelpArticle:
     return registry[resolve_help_article_id(article_id)]
 
 
+def get_help_breadcrumb(article_id: str | None) -> tuple[str, str, str]:
+    """Return the display breadcrumb for one Help article."""
+
+    article = get_help_article(article_id)
+    return ("Help", article.category, article.title)
+
+
+def get_adjacent_help_articles(
+    article_id: str | None,
+) -> tuple[HelpArticle | None, HelpArticle | None]:
+    """Return previous and next articles in global registry order."""
+
+    active_id = resolve_help_article_id(article_id)
+    articles = get_help_article_order()
+    for index, article in enumerate(articles):
+        if article.article_id == active_id:
+            previous_article = articles[index - 1] if index > 0 else None
+            next_article = articles[index + 1] if index < len(articles) - 1 else None
+            return previous_article, next_article
+    return None, None
+
+
+def get_related_help_articles(article_id: str | None) -> tuple[HelpArticle, ...]:
+    """Return related articles for the given Help article."""
+
+    article = get_help_article(article_id)
+    registry = get_help_article_registry()
+    return tuple(
+        registry[related_id]
+        for related_id in article.related_ids
+        if related_id in registry
+    )
+
+
+def validate_help_article_registry() -> tuple[str, ...]:
+    """Return registry integrity issues, if any."""
+
+    issues: list[str] = []
+    registry = get_help_article_registry()
+    if len(registry) != len(HELP_ARTICLES):
+        issues.append("Duplicate article IDs are registered.")
+
+    file_names = [article.file_name for article in HELP_ARTICLES]
+    if len(file_names) != len(set(file_names)):
+        issues.append("Duplicate article file names are registered.")
+
+    orders = [article.order for article in HELP_ARTICLES]
+    if len(orders) != len(set(orders)):
+        issues.append("Duplicate article order values are registered.")
+
+    category_names = set(HELP_CATEGORY_ORDER)
+    for article in HELP_ARTICLES:
+        if article.category not in category_names:
+            issues.append(f"{article.article_id} uses unknown category {article.category}.")
+        if article.article_id in article.related_ids:
+            issues.append(f"{article.article_id} relates to itself.")
+        if len(article.related_ids) != len(set(article.related_ids)):
+            issues.append(f"{article.article_id} has duplicate related articles.")
+        for related_id in article.related_ids:
+            if related_id not in registry:
+                issues.append(
+                    f"{article.article_id} references unknown related article {related_id}."
+                )
+    return tuple(issues)
+
+
 def load_help_document(
     article_id: str | None,
     help_dir: Path | None = None,
@@ -309,7 +509,7 @@ def load_help_documents(help_dir: Path | None = None) -> tuple[HelpDocument, ...
 
     return tuple(
         load_help_document(article.article_id, help_dir)
-        for article in sorted(HELP_ARTICLES, key=lambda item: item.order)
+        for article in get_help_article_order()
     )
 
 
@@ -330,3 +530,47 @@ def search_help_documents(
         or normalized_query in document.article.summary.lower()
         or normalized_query in document.content.lower()
     )
+
+
+def _compact_text(value: str) -> str:
+    return " ".join(value.split())
+
+
+def _content_snippet(content: str, query: str, *, width: int = 150) -> str:
+    compact_content = _compact_text(content)
+    normalized_query = query.lower()
+    match_index = compact_content.lower().find(normalized_query)
+    if match_index < 0:
+        return compact_content[:width].rstrip()
+
+    start = max(0, match_index - 45)
+    end = min(len(compact_content), match_index + len(query) + 95)
+    snippet = compact_content[start:end].strip()
+    if start > 0:
+        snippet = f"... {snippet}"
+    if end < len(compact_content):
+        snippet = f"{snippet} ..."
+    return snippet
+
+
+def build_help_search_results(
+    query: str,
+    help_dir: Path | None = None,
+) -> tuple[HelpSearchResult, ...]:
+    """Return compact search results with display snippets."""
+
+    normalized_query = (query or "").strip().lower()
+    if not normalized_query:
+        return ()
+
+    results: list[HelpSearchResult] = []
+    for document in search_help_documents(query, help_dir):
+        article = document.article
+        if normalized_query in article.title.lower():
+            snippet = article.summary
+        elif normalized_query in article.summary.lower():
+            snippet = article.summary
+        else:
+            snippet = _content_snippet(document.content, query)
+        results.append(HelpSearchResult(article=article, snippet=snippet))
+    return tuple(results)
