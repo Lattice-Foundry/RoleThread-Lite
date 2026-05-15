@@ -198,6 +198,19 @@ def test_slugify_heading_normalizes_punctuation_and_spacing():
     assert slugify_heading("  `System Prompt` Template  ") == "system-prompt-template"
 
 
+def test_slugify_heading_matches_expected_streamlit_style_examples():
+    assert slugify_heading("The Short Version") == "the-short-version"
+    assert slugify_heading("Included Example Datasets") == "included-example-datasets"
+    assert (
+        slugify_heading("Writing Effective Narrative Training Data")
+        == "writing-effective-narrative-training-data"
+    )
+    assert (
+        slugify_heading("Narrative-Heavy vs Dialogue-Heavy")
+        == "narrative-heavy-vs-dialogue-heavy"
+    )
+
+
 def test_extract_markdown_sections_reads_level_two_and_three_headings():
     sections = extract_markdown_sections(
         "# Article Title\n\n"

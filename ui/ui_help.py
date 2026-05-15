@@ -21,6 +21,7 @@ from ui.help_docs import (
 
 
 HELP_ACTIVE_ARTICLE_KEY = "help_active_article_id"
+CLICKABLE_ARTICLE_OUTLINE = False
 
 
 @dataclass(frozen=True)
@@ -212,7 +213,13 @@ def _render_article_outline(content: str) -> None:
         return
 
     st.markdown("**On this page**")
-    st.markdown("\n".join(format_section_outline(sections, clickable=False)))
+    # Keep section links informational until Streamlit heading anchors can be
+    # verified in a live browser reliably; the generated anchors are ready.
+    st.markdown(
+        "\n".join(
+            format_section_outline(sections, clickable=CLICKABLE_ARTICLE_OUTLINE)
+        )
+    )
     st.divider()
 
 
