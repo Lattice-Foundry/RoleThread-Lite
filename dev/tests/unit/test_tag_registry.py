@@ -126,7 +126,7 @@ def test_seed_default_tags_uses_current_category_order_without_unsorted(tag_db):
         "needs_review",
         "needs_edit",
     ]
-    assert "reviewed" not in tag_registry.get_all_tag_slugs()
+    assert "reviewed" not in tag_registry.get_tag_registry_snapshot().active_tag_slugs
 
 
 def test_seed_default_tags_migrates_source_status_and_reviewed(tag_db):
@@ -911,30 +911,26 @@ def test_active_registry_helpers_exclude_lifecycle_inactive_tags(tag_db):
     finally:
         session.close()
 
-    assert tag_registry.get_tag_registry_dict() == {"Behavior": ["active_tag"]}
-    assert tag_registry.get_all_tag_slugs() == ["active_tag"]
-    assert tag_registry.get_tag_category_map() == {"active_tag": "Behavior"}
-
-    label_map = tag_registry.get_tag_label_map(include_untagged=False)
-    assert label_map == {"active_tag": "Behavior / Active Tag"}
+    snapshot = tag_registry.get_tag_registry_snapshot()
+    assert snapshot.active_registry == {"Behavior": ["active_tag"]}
+    assert snapshot.active_tag_slugs == ["active_tag"]
+    assert snapshot.tag_category_map == {"active_tag": "Behavior"}
+    assert snapshot.tag_label_map == {"active_tag": "Behavior / Active Tag"}
+    assert snapshot.tag_label_map_with_untagged == {
+        "__untagged__": "Untagged",
+        "active_tag": "Behavior / Active Tag",
+    }
 
     full_registry = tag_registry.get_full_tag_registry()
     assert len(full_registry) == 1
     assert full_registry[0]["name"] == "Behavior"
     assert [tag["slug"] for tag in full_registry[0]["tags"]] == ["active_tag"]
 
-    session = tag_db()
-    try:
-        active_category = session.query(TagCategory).filter_by(slug="behavior").one()
-        inactive_category = (
-            session.query(TagCategory).filter_by(slug="retired_category").one()
-        )
-    finally:
-        session.close()
-    assert [tag.slug for tag in tag_registry.get_active_tags(active_category.id)] == [
+    assert len(snapshot.active_categories) == 1
+    assert snapshot.active_categories[0]["slug"] == "behavior"
+    assert [tag["slug"] for tag in snapshot.active_categories[0]["tags"]] == [
         "active_tag"
     ]
-    assert tag_registry.get_active_tags(inactive_category.id) == []
 
 
 def test_active_registry_helpers_keep_empty_active_categories(tag_db):
@@ -945,7 +941,7 @@ def test_active_registry_helpers_keep_empty_active_categories(tag_db):
     finally:
         session.close()
 
-    assert tag_registry.get_tag_registry_dict() == {"Empty": []}
+    assert tag_registry.get_tag_registry_snapshot().active_registry == {"Empty": []}
     full_registry = tag_registry.get_full_tag_registry()
     assert full_registry == [
         {
@@ -1006,17 +1002,26 @@ def test_tag_registry_snapshot_matches_existing_read_helpers(tag_db):
         untagged_key="__custom_untagged__"
     )
 
-    assert snapshot.active_registry == tag_registry.get_tag_registry_dict()
+    assert snapshot.active_registry == {
+        "Behavior": ["active_tag"],
+        "Scene": ["second_tag"],
+    }
     assert snapshot.active_categories == tag_registry.get_full_tag_registry()
-    assert snapshot.active_tag_slugs == tag_registry.get_all_tag_slugs()
-    assert snapshot.active_tag_slug_set == set(tag_registry.get_all_tag_slugs())
-    assert snapshot.tag_label_map == tag_registry.get_tag_label_map(
-        include_untagged=False
-    )
-    assert snapshot.tag_label_map_with_untagged == tag_registry.get_tag_label_map(
-        untagged_key="__custom_untagged__"
-    )
-    assert snapshot.tag_category_map == tag_registry.get_tag_category_map()
+    assert snapshot.active_tag_slugs == ["active_tag", "second_tag"]
+    assert snapshot.active_tag_slug_set == {"active_tag", "second_tag"}
+    assert snapshot.tag_label_map == {
+        "active_tag": "Behavior / Active Tag",
+        "second_tag": "Scene / Second Tag",
+    }
+    assert snapshot.tag_label_map_with_untagged == {
+        "__custom_untagged__": "Untagged",
+        "active_tag": "Behavior / Active Tag",
+        "second_tag": "Scene / Second Tag",
+    }
+    assert snapshot.tag_category_map == {
+        "active_tag": "Behavior",
+        "second_tag": "Scene",
+    }
     assert snapshot.visible_archived_tags == tag_registry.get_visible_archived_tags()
     assert snapshot.default_category_slugs == {
         tag_registry.slugify_tag_name(name) for name in tag_registry.TAGS
@@ -1152,7 +1157,7 @@ def test_ensure_archived_import_tag_creates_inactive_archived_with_history(tag_d
     finally:
         session.close()
 
-    assert tag_registry.get_tag_registry_dict() == {}
+    assert tag_registry.get_tag_registry_snapshot().active_registry == {}
     imported = tag_registry.get_imported_archived_tags()
     assert [tag["slug"] for tag in imported] == ["slow_burn"]
     assert imported[0]["selectable"] is True
@@ -1304,7 +1309,7 @@ def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_archived_imported(
 
     behavior = next(category for category in registry if category["name"] == "Behavior")
     assert [tag["slug"] for tag in behavior["tags"]] == ["reviewed"]
-    assert "slow_burn" not in tag_registry.get_all_tag_slugs()
+    assert "slow_burn" not in tag_registry.get_tag_registry_snapshot().active_tag_slugs
     assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
         "slow_burn"
     ]

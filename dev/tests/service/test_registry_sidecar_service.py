@@ -73,12 +73,14 @@ def _registry(
     characters=None,
     entry_character_mappings=None,
     system_prompts=None,
+    tag_usage_counts=None,
 ) -> SidecarRegistry:
     return SidecarRegistry(
         metadata=SidecarMetadata(exported_at="2026-05-11T00:00:00+00:00"),
         dataset_info=SidecarDatasetInfo(
             dataset_uuid="dataset-uuid-1",
             filename="training_set.jsonl",
+            tag_usage_counts=dict(tag_usage_counts or {}),
         ),
         categories=tuple(categories or []),
         tags=tuple(tags or []),
@@ -507,6 +509,29 @@ def test_import_registry_sidecar_creates_categories_tags_and_aliases(tmp_path, m
         alias = session.query(TagLifecycleMetadata).filter_by(old_slug="slowburn").one()
         assert alias.new_slug == "slow_burn"
         assert json.loads(alias.metadata_json) == {"resolver_behavior": "map_to_target"}
+    finally:
+        session.close()
+
+
+def test_import_registry_sidecar_ignores_tag_usage_counts_snapshot(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _session_factory(tmp_path, monkeypatch)
+    registry = _registry(
+        categories=[_category("behavior", "Behavior", builtin=True)],
+        tags=[_tag("slow_burn", "Slow Burn", "behavior")],
+        tag_usage_counts={"slow_burn": 99, "phantom_tag": 42},
+    )
+
+    result = import_registry_sidecar(registry=registry)
+
+    assert result.ok is True
+    assert result.tags_created == ["slow_burn"]
+    session = session_factory()
+    try:
+        assert session.query(Tag).filter_by(slug="slow_burn").count() == 1
+        assert session.query(Tag).filter_by(slug="phantom_tag").count() == 0
     finally:
         session.close()
 

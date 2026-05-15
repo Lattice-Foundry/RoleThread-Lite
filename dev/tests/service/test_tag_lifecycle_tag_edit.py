@@ -108,8 +108,9 @@ def test_rename_custom_active_tag_rewrites_dataset_and_aliases_old_slug(
     finally:
         session.close()
 
-    assert "follow_up_question" in tag_registry.get_all_tag_slugs()
-    assert "followup_question" not in tag_registry.get_all_tag_slugs()
+    active_slugs = tag_registry.get_tag_registry_snapshot().active_tag_slugs
+    assert "follow_up_question" in active_slugs
+    assert "followup_question" not in active_slugs
 
     resolved = tag_resolution.resolve_tag_lifecycle("Followup Question")
     assert resolved.result_type == TAG_RESOLUTION_ALIAS_MAPPED
@@ -235,7 +236,7 @@ def test_edit_active_tag_moves_category_without_dataset_rewrite(
     finally:
         session.close()
 
-    registry = tag_registry.get_tag_registry_dict()
+    registry = tag_registry.get_tag_registry_snapshot().active_registry
     assert registry["Behavior"] == []
     assert registry["Scene"] == ["followup_question"]
 

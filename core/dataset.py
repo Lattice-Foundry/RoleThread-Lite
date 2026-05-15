@@ -412,18 +412,6 @@ def save_dataset(path: str, entries: list[dict]) -> None:
         raise
 
 
-def append_to_dataset(path: str, entry: dict) -> None:
-    """Append one JSONL entry and fsync before returning."""
-
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    line = json.dumps(entry, ensure_ascii=False) + "\n"
-    with p.open("a", encoding="utf-8") as f:
-        f.write(line)
-        f.flush()
-        os.fsync(f.fileno())
-
-
 # ── Per-entry helpers ──────────────────────────────────────────────────────────
 
 def count_exchanges(entry: dict) -> int:

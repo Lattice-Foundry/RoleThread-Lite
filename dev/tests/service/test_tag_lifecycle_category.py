@@ -55,7 +55,7 @@ def test_rename_custom_category_updates_slug_and_preserves_tags(
     finally:
         session.close()
 
-    registry = tag_registry.get_tag_registry_dict()
+    registry = tag_registry.get_tag_registry_snapshot().active_registry
     assert "Story Shape" not in registry
     assert registry["Narrative Shape"] == ["slow_burn"]
 
@@ -190,7 +190,7 @@ def test_delete_empty_custom_category_removes_category_without_touching_tags(
     finally:
         session.close()
 
-    registry = tag_registry.get_tag_registry_dict()
+    registry = tag_registry.get_tag_registry_snapshot().active_registry
     assert "Story Shape" not in registry
     assert registry["Behavior"] == ["slow_burn"]
 

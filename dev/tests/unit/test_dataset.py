@@ -8,7 +8,6 @@ import core.dataset as dataset
 from core.dataset import (
     add_tags_to_entry,
     analyze_entry,
-    append_to_dataset,
     build_dataset_stats,
     build_uuid_index,
     canonicalize_entry_tag_aliases,
@@ -1224,19 +1223,6 @@ def test_load_dataset_normalizes_funky_tags_in_memory(tmp_path):
 
     assert errors == []
     assert loaded[0]["tags"] == ["slow_burn"]
-
-
-def test_append_to_dataset_writes_one_entry_after_existing_entries(tmp_path):
-    path = tmp_path / "dataset.jsonl"
-    first = _entry(tags=["first"])
-    second = _entry(tags=["second"])
-    save_dataset(str(path), [first])
-
-    append_to_dataset(str(path), second)
-    loaded, errors = load_dataset(str(path))
-
-    assert errors == []
-    assert loaded == [first, second]
 
 
 def test_save_dataset_creates_parent_directories(tmp_path):

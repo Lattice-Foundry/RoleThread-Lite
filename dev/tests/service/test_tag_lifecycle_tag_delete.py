@@ -80,7 +80,7 @@ def test_delete_custom_active_tag_archives_tag_and_removes_from_entries(
     finally:
         session.close()
 
-    assert "slow_burn" not in tag_registry.get_all_tag_slugs()
+    assert "slow_burn" not in tag_registry.get_tag_registry_snapshot().active_tag_slugs
     deleted = tag_registry.get_deleted_archived_tags()
     assert [tag["slug"] for tag in deleted] == ["slow_burn"]
     assert deleted[0]["visible_badge"] == "Deleted"

@@ -48,7 +48,7 @@ def test_assign_one_archived_imported_tag_to_active_category(tag_lifecycle_db):
     finally:
         session.close()
 
-    assert "slow_burn" in tag_registry.get_all_tag_slugs()
+    assert "slow_burn" in tag_registry.get_tag_registry_snapshot().active_tag_slugs
     assert tag_registry.get_imported_archived_tags() == []
 
 def test_assign_multiple_archived_imported_tags_to_active_category(tag_lifecycle_db):
@@ -244,7 +244,7 @@ def test_unknown_import_still_creates_archived_imported_tag(tag_lifecycle_db):
     summary = tag_registry.ensure_tags_exist_for_dataset([{"tags": ["Slow Burn"]}])
 
     assert summary.created_slugs == ["slow_burn"]
-    assert "slow_burn" not in tag_registry.get_all_tag_slugs()
+    assert "slow_burn" not in tag_registry.get_tag_registry_snapshot().active_tag_slugs
     assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
         "slow_burn"
     ]

@@ -28,7 +28,12 @@ class SidecarMetadata:
 
 @dataclass(frozen=True)
 class SidecarDatasetInfo:
-    """Dataset details useful for matching sidecars to JSONL files."""
+    """Dataset details useful for matching sidecars to JSONL files.
+
+    ``tag_usage_counts`` is exported as diagnostic snapshot metadata only.
+    Importers must recompute usage from entries rather than trust these counts
+    as source-of-truth registry data.
+    """
 
     dataset_uuid: str
     filename: str
