@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 import streamlit as st
@@ -31,26 +32,102 @@ class PageDefinition:
     page_id: str
     title: str
     category: str
-    sidebar_section: str
-    sidebar_label: str
     icon: str
     url_path: str
 
 
 _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
-    PageDefinition(PAGE_CREATE_ENTRY, "Create Entry", "Dataset", "Create", "New Entry", ":material/add_circle:", "create-entry"),
-    PageDefinition(PAGE_MANAGE_DATASET, "Manage Dataset", "Dataset", "Dataset", "Manage", ":material/folder_open:", "manage-dataset"),
-    PageDefinition(PAGE_MERGE_DATASETS, "Merge Datasets", "Output", "Dataset", "Merge", ":material/merge:", "merge-datasets"),
-    PageDefinition(PAGE_EDIT_ENTRIES, "Edit Entries", "Dataset", "Dataset", "Edit Entries", ":material/edit_note:", "edit-entries"),
-    PageDefinition(PAGE_EXPORT, "Export", "Output", "Tools", "Export", ":material/download:", "export"),
-    PageDefinition(PAGE_VALIDATION, "Validation", "Quality", "Tools", "Validate", ":material/rule:", "validation"),
-    PageDefinition(PAGE_TAG_MANAGEMENT, "Tag Management", "Metadata", "Metadata", "Tag Management", ":material/sell:", "tag-management"),
-    PageDefinition(PAGE_CHARACTER_MANAGEMENT, "Character Management", "Metadata", "Metadata", "Character Management", ":material/groups:", "character-management"),
-    PageDefinition(PAGE_SYSTEM_PROMPTS, "System Prompts", "Metadata", "Metadata", "System Prompts", ":material/text_fields:", "system-prompts"),
-    PageDefinition(PAGE_INSIGHTS, "Insights", "Quality", "Data Analytics", "Insights", ":material/analytics:", "insights"),
-    PageDefinition(PAGE_SETTINGS, "Settings", "Support", "Settings", "Preferences", ":material/settings:", "settings"),
-    PageDefinition(PAGE_HELP, "Help", "Support", "Documentation", "Help", ":material/help:", "help"),
-    PageDefinition(PAGE_FAQ, "FAQ", "Support", "Documentation", "FAQ", ":material/contact_support:", "faq"),
+    PageDefinition(
+        PAGE_CREATE_ENTRY,
+        "Create Entry",
+        "Dataset",
+        ":material/add_circle:",
+        "create-entry",
+    ),
+    PageDefinition(
+        PAGE_MANAGE_DATASET,
+        "Manage Dataset",
+        "Dataset",
+        ":material/folder_open:",
+        "manage-dataset",
+    ),
+    PageDefinition(
+        PAGE_MERGE_DATASETS,
+        "Merge Datasets",
+        "Output",
+        ":material/merge:",
+        "merge-datasets",
+    ),
+    PageDefinition(
+        PAGE_EDIT_ENTRIES,
+        "Edit Entries",
+        "Dataset",
+        ":material/edit_note:",
+        "edit-entries",
+    ),
+    PageDefinition(
+        PAGE_EXPORT,
+        "Export",
+        "Output",
+        ":material/download:",
+        "export",
+    ),
+    PageDefinition(
+        PAGE_VALIDATION,
+        "Validation",
+        "Quality",
+        ":material/rule:",
+        "validation",
+    ),
+    PageDefinition(
+        PAGE_TAG_MANAGEMENT,
+        "Tag Management",
+        "Metadata",
+        ":material/sell:",
+        "tag-management",
+    ),
+    PageDefinition(
+        PAGE_CHARACTER_MANAGEMENT,
+        "Character Management",
+        "Metadata",
+        ":material/groups:",
+        "character-management",
+    ),
+    PageDefinition(
+        PAGE_SYSTEM_PROMPTS,
+        "System Prompts",
+        "Metadata",
+        ":material/text_fields:",
+        "system-prompts",
+    ),
+    PageDefinition(
+        PAGE_INSIGHTS,
+        "Insights",
+        "Quality",
+        ":material/analytics:",
+        "insights",
+    ),
+    PageDefinition(
+        PAGE_SETTINGS,
+        "Settings",
+        "Support",
+        ":material/settings:",
+        "settings",
+    ),
+    PageDefinition(
+        PAGE_HELP,
+        "Help",
+        "Support",
+        ":material/help:",
+        "help",
+    ),
+    PageDefinition(
+        PAGE_FAQ,
+        "FAQ",
+        "Support",
+        ":material/contact_support:",
+        "faq",
+    ),
 )
 
 _PAGE_ALIASES = {
@@ -85,26 +162,13 @@ _QUICK_NAVIGATION_SECONDARY = (
 
 _PENDING_NATIVE_PAGE_KEY = "_pending_native_page"
 _NATIVE_PAGES: dict[str, object] = {}
+PageRenderer = Callable[[], None]
 
 
 def get_page_registry() -> dict[str, PageDefinition]:
     """Return page metadata keyed by legacy page name."""
 
     return {page.page_id: page for page in _PAGE_DEFINITIONS}
-
-
-def get_sidebar_sections() -> list[tuple[str, list[tuple[str, str]]]]:
-    """Return the current sidebar sections in legacy display order."""
-
-    sections: list[tuple[str, list[tuple[str, str]]]] = []
-    section_index: dict[str, list[tuple[str, str]]] = {}
-    for page in _PAGE_DEFINITIONS:
-        if page.sidebar_section not in section_index:
-            section_items: list[tuple[str, str]] = []
-            section_index[page.sidebar_section] = section_items
-            sections.append((page.sidebar_section, section_items))
-        section_index[page.sidebar_section].append((page.sidebar_label, page.page_id))
-    return sections
 
 
 def get_top_navigation_sections() -> dict[str, list[str]]:
@@ -172,6 +236,89 @@ def set_current_page(page_id: str) -> str:
         raise ValueError(f"Unknown LoreForge page: {page_id}")
     st.session_state.page = page
     return page
+
+
+def validate_page_renderers(page_renderers: Mapping[str, PageRenderer]) -> None:
+    """Ensure app-shell page callables stay aligned with the page registry."""
+
+    registered_pages = set(get_page_registry())
+    renderer_pages = set(page_renderers)
+    missing_pages = registered_pages - renderer_pages
+    extra_pages = renderer_pages - registered_pages
+    if missing_pages or extra_pages:
+        details: list[str] = []
+        if missing_pages:
+            details.append(f"missing: {', '.join(sorted(missing_pages))}")
+        if extra_pages:
+            details.append(f"unknown: {', '.join(sorted(extra_pages))}")
+        raise ValueError(f"Page renderer registry mismatch ({'; '.join(details)})")
+
+
+def _make_page_runner(
+    page_id: str,
+    page_renderers: Mapping[str, PageRenderer],
+) -> PageRenderer:
+    def _run_page() -> None:
+        activate_page(page_id)
+        page_renderers[page_id]()
+
+    return _run_page
+
+
+def build_native_pages(
+    page_renderers: Mapping[str, PageRenderer],
+) -> dict[str, object]:
+    """Build Streamlit Page objects for the registered LoreForge pages."""
+
+    validate_page_renderers(page_renderers)
+    page_registry = get_page_registry()
+    return {
+        page_id: st.Page(
+            _make_page_runner(page_id, page_renderers),
+            title=page_registry[page_id].title,
+            icon=page_registry[page_id].icon,
+            url_path=page_registry[page_id].url_path,
+            default=(page_id == get_default_page()),
+        )
+        for page_id in page_renderers
+    }
+
+
+def _render_quick_navigation_rail(active_page: str) -> None:
+    page_registry = get_page_registry()
+    for section_label, page_ids in get_quick_navigation_pages().items():
+        st.sidebar.markdown(f"**{section_label}**")
+        for page_id in page_ids:
+            page_def = page_registry[page_id]
+            if st.sidebar.button(
+                page_def.title,
+                key=f"_quick_nav_{page_id}",
+                width="stretch",
+                type="primary" if active_page == page_id else "secondary",
+                icon=page_def.icon,
+            ):
+                navigate_to_page(page_id)
+
+
+def render_navigation(page_renderers: Mapping[str, PageRenderer]) -> None:
+    """Render top navigation, quick rail, and the selected page."""
+
+    if "page" not in st.session_state:
+        set_current_page(get_default_page())
+
+    native_pages = build_native_pages(page_renderers)
+    register_native_pages(native_pages)
+    native_nav_sections = {
+        category: [native_pages[page_id] for page_id in page_ids]
+        for category, page_ids in get_top_navigation_sections().items()
+    }
+
+    selected_native_page = st.navigation(native_nav_sections, position="top")
+    switch_to_pending_native_page()
+    selected_page = get_native_page_id(selected_native_page) or get_current_page()
+    activate_page(selected_page)
+    _render_quick_navigation_rail(get_current_page())
+    selected_native_page.run()
 
 
 def register_native_pages(native_pages: dict[str, object]) -> None:

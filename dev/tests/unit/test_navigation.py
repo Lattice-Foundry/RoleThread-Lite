@@ -28,6 +28,15 @@ class FakeStreamlit:
     def switch_page(self, page):
         self.switched_page = page
 
+    def Page(self, page, title, icon, url_path, default=False):
+        return {
+            "page": page,
+            "title": title,
+            "icon": icon,
+            "url_path": url_path,
+            "default": default,
+        }
+
 
 def _patch_navigation_state(monkeypatch):
     fake = FakeStreamlit()
@@ -49,41 +58,15 @@ def test_page_registry_exposes_legacy_pages():
     assert navigation.is_known_page("Not A Page") is False
 
 
-def test_sidebar_sections_preserve_current_legacy_structure():
-    sections = navigation.get_sidebar_sections()
+def test_page_registry_has_unique_titles_and_paths():
+    registry = navigation.get_page_registry()
+    titles = [page.title for page in registry.values()]
+    paths = [page.url_path for page in registry.values()]
 
-    assert sections == [
-        ("Create", [("New Entry", navigation.PAGE_CREATE_ENTRY)]),
-        (
-            "Dataset",
-            [
-                ("Manage", navigation.PAGE_MANAGE_DATASET),
-                ("Merge", navigation.PAGE_MERGE_DATASETS),
-                ("Edit Entries", navigation.PAGE_EDIT_ENTRIES),
-            ],
-        ),
-        (
-            "Tools",
-            [
-                ("Export", navigation.PAGE_EXPORT),
-                ("Validate", navigation.PAGE_VALIDATION),
-            ],
-        ),
-        (
-            "Metadata",
-            [
-                ("Tag Management", navigation.PAGE_TAG_MANAGEMENT),
-                ("Character Management", navigation.PAGE_CHARACTER_MANAGEMENT),
-                ("System Prompts", navigation.PAGE_SYSTEM_PROMPTS),
-            ],
-        ),
-        ("Data Analytics", [("Insights", navigation.PAGE_INSIGHTS)]),
-        ("Settings", [("Preferences", navigation.PAGE_SETTINGS)]),
-        (
-            "Documentation",
-            [("Help", navigation.PAGE_HELP), ("FAQ", navigation.PAGE_FAQ)],
-        ),
-    ]
+    assert len(titles) == len(set(titles))
+    assert len(paths) == len(set(paths))
+    assert all(page.category for page in registry.values())
+    assert all(page.icon.startswith(":material/") for page in registry.values())
 
 
 def test_top_navigation_sections_follow_workflow_categories():
@@ -129,6 +112,59 @@ def test_quick_navigation_pages_use_curated_rail_groups():
             navigation.PAGE_HELP,
         ],
     }
+
+
+def test_top_navigation_and_quick_rail_cover_registered_pages():
+    registry_pages = set(navigation.get_page_registry())
+    top_nav_pages = {
+        page_id
+        for page_ids in navigation.get_top_navigation_sections().values()
+        for page_id in page_ids
+    }
+    quick_rail_pages = {
+        page_id
+        for page_ids in navigation.get_quick_navigation_pages().values()
+        for page_id in page_ids
+    }
+
+    assert top_nav_pages == registry_pages
+    assert quick_rail_pages < registry_pages
+
+
+def test_validate_page_renderers_accepts_complete_registry():
+    renderers = {
+        page_id: (lambda: None)
+        for page_id in navigation.get_page_registry()
+    }
+
+    navigation.validate_page_renderers(renderers)
+
+
+def test_validate_page_renderers_rejects_mismatch():
+    renderers = {
+        page_id: (lambda: None)
+        for page_id in navigation.get_page_registry()
+        if page_id != navigation.PAGE_FAQ
+    }
+    renderers["Not A Page"] = lambda: None
+
+    with pytest.raises(ValueError, match="Page renderer registry mismatch"):
+        navigation.validate_page_renderers(renderers)
+
+
+def test_build_native_pages_uses_registry_metadata(monkeypatch):
+    _patch_navigation_state(monkeypatch)
+    renderers = {
+        page_id: (lambda: None)
+        for page_id in navigation.get_page_registry()
+    }
+
+    native_pages = navigation.build_native_pages(renderers)
+
+    assert set(native_pages) == set(navigation.get_page_registry())
+    assert native_pages[navigation.PAGE_CREATE_ENTRY]["default"] is True
+    assert native_pages[navigation.PAGE_CREATE_ENTRY]["url_path"] == "create-entry"
+    assert native_pages[navigation.PAGE_MANAGE_DATASET]["icon"] == ":material/folder_open:"
 
 
 def test_current_page_defaults_and_set_current_page(monkeypatch):

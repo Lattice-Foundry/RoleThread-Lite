@@ -1,7 +1,7 @@
 """LoreForge Lite Streamlit entry point.
 
-Owns app startup, session initialization, native navigation, and the sidebar
-quick rail. Page rendering belongs in ui modules.
+Owns app startup and session initialization. Navigation wiring and page-state
+compatibility live in ui.navigation.
 """
 import atexit
 from pathlib import Path
@@ -34,17 +34,9 @@ from ui.navigation import (
     PAGE_SYSTEM_PROMPTS,
     PAGE_TAG_MANAGEMENT,
     PAGE_VALIDATION,
-    activate_page,
-    get_current_page,
     get_default_page,
-    get_native_page_id,
-    get_page_registry,
-    get_quick_navigation_pages,
-    get_top_navigation_sections,
-    navigate_to_page,
-    register_native_pages,
+    render_navigation,
     set_current_page,
-    switch_to_pending_native_page,
 )
 from core.storage import ensure_app_directories
 from core.tag_registry import seed_default_tags
@@ -94,6 +86,20 @@ st.markdown(f"""
 section[data-testid="stSidebar"],
 section[data-testid="stSidebar"] > div {{
     background-color: {COLOR_SIDEBAR_BACKGROUND} !important;
+}}
+/* Native top navigation: align hover/current indicators with LoreForge mint. */
+div[data-testid="stTopNavLinkContainer"]:hover,
+div[data-testid="stTopNavLinkContainer"]:has(a[aria-current="page"]),
+a[data-testid="stTopNavLink"]:hover,
+a[data-testid="stTopNavLink"][aria-current="page"],
+a[data-testid="stTopNavDropdownLink"]:hover,
+a[data-testid="stTopNavDropdownLink"][aria-current="page"] {{
+    background-color: {COLOR_PRIMARY_HOVER_BACKGROUND} !important;
+    color: {COLOR_PRIMARY} !important;
+}}
+a[data-testid="stTopNavLink"][aria-current="page"],
+a[data-testid="stTopNavDropdownLink"][aria-current="page"] {{
+    box-shadow: inset 0 -2px 0 {COLOR_PRIMARY} !important;
 }}
 /* Primary button — enabled state only (:not(:disabled) keeps disabled grey) */
 button[data-testid="baseButton-primary"]:not(:disabled),
@@ -362,9 +368,6 @@ if "prefs" not in st.session_state:
 
 
 # ── Navigation ─────────────────────────────────────────────────────────────────
-if "page" not in st.session_state:
-    set_current_page(get_default_page())
-
 _PAGE_RENDERERS = {
     PAGE_CREATE_ENTRY: render_create_page,
     PAGE_MANAGE_DATASET: render_manage_page,
@@ -380,51 +383,4 @@ _PAGE_RENDERERS = {
     PAGE_HELP: render_help_page,
     PAGE_FAQ: render_faq_page,
 }
-
-
-def _make_page_runner(page_id: str):
-    def _run_page() -> None:
-        activate_page(page_id)
-        _PAGE_RENDERERS[page_id]()
-
-    return _run_page
-
-
-_page_registry = get_page_registry()
-_native_pages = {
-    page_id: st.Page(
-        _make_page_runner(page_id),
-        title=_page_registry[page_id].title,
-        icon=_page_registry[page_id].icon,
-        url_path=_page_registry[page_id].url_path,
-        default=(page_id == get_default_page()),
-    )
-    for page_id in _PAGE_RENDERERS
-}
-register_native_pages(_native_pages)
-
-_native_nav_sections = {
-    category: [_native_pages[page_id] for page_id in page_ids]
-    for category, page_ids in get_top_navigation_sections().items()
-}
-
-_selected_native_page = st.navigation(_native_nav_sections, position="top")
-switch_to_pending_native_page()
-_selected_page = get_native_page_id(_selected_native_page) or get_current_page()
-activate_page(_selected_page)
-
-_active_page = get_current_page()
-for _section_label, _page_ids in get_quick_navigation_pages().items():
-    st.sidebar.markdown(f"**{_section_label}**")
-    for _page_id in _page_ids:
-        _page_def = _page_registry[_page_id]
-        if st.sidebar.button(
-            _page_def.title,
-            key=f"_quick_nav_{_page_id}",
-            width="stretch",
-            type="primary" if _active_page == _page_id else "secondary",
-            icon=_page_def.icon,
-        ):
-            navigate_to_page(_page_id)
-
-_selected_native_page.run()
+render_navigation(_PAGE_RENDERERS)
