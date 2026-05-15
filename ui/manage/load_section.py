@@ -25,6 +25,10 @@ from ui.session_state import (
 
 RECENT_DATASETS_KEY = "recent_dataset_paths"
 RECENT_DATASET_LIMIT = 5
+PENDING_RECENT_DATASET_LOAD_KEY = "manage_pending_recent_dataset_load"
+RENAME_DATASET_PANEL_KEY = "manage_rename_dataset_panel_open"
+RENAME_DATASET_NAME_KEY = "manage_rename_dataset_name"
+RENAME_DATASET_SOURCE_KEY = "manage_rename_dataset_source_path"
 
 
 def render_load_section() -> None:
@@ -35,7 +39,7 @@ def render_load_section() -> None:
     st.subheader("Load Dataset")
     render_flash_messages()
     _render_load_controls()
-    _render_recent_datasets()
+    _render_pending_recent_dataset_load()
 
     with stale_last_path_notice:
         if st.session_state.stale_last_path and not st.session_state.loaded_path:
@@ -43,6 +47,7 @@ def render_load_section() -> None:
                 f"Last dataset `{st.session_state.stale_last_path}` no longer exists. "
                 "Please load or create a dataset."
             )
+    _render_recent_datasets()
 
 
 def _render_load_controls() -> None:
@@ -57,11 +62,13 @@ def _render_load_controls() -> None:
         show_browse=False,
     )
 
-    col_browse, col_load, col_new, _load_spacer = st.columns([1, 1, 1, 1])
+    col_browse, col_load, col_rename, col_new = st.columns(4)
     with col_browse:
         browse_clicked = _render_browse_button()
     with col_load:
         load_clicked = _render_load_button(load_path)
+    with col_rename:
+        rename_clicked = _render_rename_button()
     with col_new:
         new_dataset_clicked = _render_new_dataset_button()
     if browse_clicked:
@@ -71,9 +78,11 @@ def _render_load_controls() -> None:
         )
     if load_clicked:
         _load_dataset(load_path.strip())
+    if rename_clicked:
+        _open_rename_dataset_panel()
     if new_dataset_clicked:
         _create_new_dataset_from_dialog()
-    _render_rename_controls()
+    _render_rename_panel()
 
 
 def _render_browse_button() -> bool:
@@ -90,6 +99,14 @@ def _render_load_button(load_path: str) -> bool:
         "Load",
         width="stretch",
         disabled=not load_path.strip() or dataset_already_loaded,
+    )
+
+
+def _render_rename_button() -> bool:
+    return st.button(
+        "Rename Dataset",
+        disabled=not st.session_state.get("loaded_path"),
+        width="stretch",
     )
 
 
@@ -189,44 +206,82 @@ def _render_recent_datasets() -> None:
         return
 
     st.markdown("**Recent Datasets**")
-    for index, recent_path in enumerate(recent_paths):
-        path = Path(recent_path).expanduser()
-        exists = path.exists()
-        label = recent_path if exists else f"{recent_path} (not found)"
-        button_col, _spacer = st.columns([2, 3])
-        with button_col:
+    with st.container(key="recent_dataset_list"):
+        for index, recent_path in enumerate(recent_paths):
+            path = Path(recent_path).expanduser()
+            exists = path.exists()
+            label = recent_path if exists else f"{recent_path} (not found)"
             if st.button(
                 label,
                 key=f"btn_recent_dataset_{index}",
                 disabled=not exists,
-                width="stretch",
+                type="tertiary",
             ):
-                _load_dataset(recent_path)
+                _queue_recent_dataset_load(recent_path)
 
 
-def _render_rename_controls() -> None:
+def _queue_recent_dataset_load(recent_path: str) -> None:
+    st.session_state[PENDING_RECENT_DATASET_LOAD_KEY] = recent_path
+    st.rerun()
+
+
+def _render_pending_recent_dataset_load() -> None:
+    recent_path = st.session_state.pop(PENDING_RECENT_DATASET_LOAD_KEY, "")
+    if recent_path:
+        _load_dataset(str(recent_path))
+
+
+def _open_rename_dataset_panel() -> None:
     loaded_path = st.session_state.get("loaded_path")
     if not loaded_path:
         return
+    st.session_state[RENAME_DATASET_PANEL_KEY] = True
+    st.session_state[RENAME_DATASET_SOURCE_KEY] = loaded_path
+    st.session_state[RENAME_DATASET_NAME_KEY] = Path(loaded_path).stem
+
+
+def _close_rename_dataset_panel() -> None:
+    st.session_state[RENAME_DATASET_PANEL_KEY] = False
+    st.session_state.pop(RENAME_DATASET_NAME_KEY, None)
+    st.session_state.pop(RENAME_DATASET_SOURCE_KEY, None)
+
+
+def _render_rename_panel() -> None:
+    if not st.session_state.get(RENAME_DATASET_PANEL_KEY):
+        return
+    loaded_path = st.session_state.get("loaded_path")
+    if not loaded_path:
+        _close_rename_dataset_panel()
+        return
 
     current_path = Path(loaded_path)
-    rename_col, _rename_spacer = st.columns([1, 1])
-    with rename_col:
-        with st.expander("Rename dataset"):
-            new_name = st.text_input(
-                "New dataset name",
-                value=current_path.stem,
-                key="manage_rename_dataset_name",
-                help="Use only letters, numbers, dashes, and underscores.",
-            )
-            unchanged = new_name.strip() == current_path.stem
+    if st.session_state.get(RENAME_DATASET_SOURCE_KEY) != loaded_path:
+        st.session_state[RENAME_DATASET_SOURCE_KEY] = loaded_path
+        st.session_state[RENAME_DATASET_NAME_KEY] = current_path.stem
+
+    st.caption(f"Current loaded dataset: `{loaded_path}`")
+    with st.container(border=True):
+        st.markdown("**Rename Dataset**")
+        new_name = st.text_input(
+            "New dataset name",
+            key=RENAME_DATASET_NAME_KEY,
+            help="Use only letters, numbers, dashes, and underscores.",
+        )
+        unchanged = new_name.strip() == current_path.stem
+        confirm_col, cancel_col, _spacer = st.columns([1, 1, 2])
+        with confirm_col:
             if st.button(
-                "Rename",
+                "Confirm Rename",
                 width="stretch",
                 disabled=not new_name.strip() or unchanged,
             ):
                 _rename_loaded_dataset(new_name.strip())
-    st.caption(f"Current loaded dataset: `{loaded_path}`")
+        with cancel_col:
+            st.button(
+                "Cancel",
+                width="stretch",
+                on_click=_close_rename_dataset_panel,
+            )
 
 
 def _rename_loaded_dataset(new_name: str) -> None:

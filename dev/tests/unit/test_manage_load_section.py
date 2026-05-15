@@ -56,13 +56,39 @@ class FakeLayoutStreamlit:
         self.clicked_buttons = {"Load"}
 
     def columns(self, spec):
+        count = spec if isinstance(spec, int) else len(spec)
         return [
             _TrackingColumn(self, f"col_{index}")
-            for index in range(len(spec))
+            for index in range(count)
         ]
 
     def button(self, label, **_kwargs):
         return label in self.clicked_buttons
+
+
+class FakeRecentStreamlit:
+    def __init__(self, recent_paths: list[str]):
+        self.session_state = FakeSessionState(
+            prefs={load_section.RECENT_DATASETS_KEY: recent_paths},
+        )
+        self.button_calls: list[dict] = []
+        self.clicked_buttons: set[str] = set()
+        self.markdowns: list[str] = []
+        self.rerun_count = 0
+
+    def markdown(self, message):
+        self.markdowns.append(message)
+
+    def button(self, label, **kwargs):
+        self.button_calls.append({"label": label, **kwargs})
+        return kwargs.get("key") in self.clicked_buttons
+
+    def rerun(self):
+        self.rerun_count += 1
+
+    def container(self, *, key=None):
+        self.container_key = key
+        return _TrackingColumn(self, "container")
 
 
 def test_foreign_load_updates_manage_path_to_working_copy(monkeypatch, tmp_path):
@@ -134,7 +160,7 @@ def test_load_controls_run_selected_action_after_button_columns(monkeypatch):
     action_columns: list[str | None] = []
     monkeypatch.setattr(load_section, "st", fake)
     monkeypatch.setattr(load_section, "path_input", lambda *args, **kwargs: "dataset.jsonl")
-    monkeypatch.setattr(load_section, "_render_rename_controls", lambda: None)
+    monkeypatch.setattr(load_section, "_render_rename_panel", lambda: None)
     monkeypatch.setattr(
         load_section,
         "_load_dataset",
@@ -144,6 +170,78 @@ def test_load_controls_run_selected_action_after_button_columns(monkeypatch):
     load_section._render_load_controls()
 
     assert action_columns == [None]
+
+
+def test_recent_datasets_render_as_full_width_borderless_rows(monkeypatch, tmp_path):
+    recent_path = tmp_path / "a" / "very" / "long" / "dataset" / "path.jsonl"
+    recent_path.parent.mkdir(parents=True)
+    recent_path.write_text("{}", encoding="utf-8")
+    fake = FakeRecentStreamlit([str(recent_path)])
+    monkeypatch.setattr(load_section, "st", fake)
+
+    load_section._render_recent_datasets()
+
+    assert fake.markdowns == ["**Recent Datasets**"]
+    assert fake.container_key == "recent_dataset_list"
+    assert fake.button_calls == [
+        {
+            "label": str(recent_path),
+            "key": "btn_recent_dataset_0",
+            "disabled": False,
+            "type": "tertiary",
+        }
+    ]
+
+
+def test_recent_dataset_click_queues_load_for_next_render(monkeypatch, tmp_path):
+    recent_path = tmp_path / "dataset.jsonl"
+    recent_path.write_text("{}", encoding="utf-8")
+    fake = FakeRecentStreamlit([str(recent_path)])
+    fake.clicked_buttons.add("btn_recent_dataset_0")
+    load_calls: list[str] = []
+    monkeypatch.setattr(load_section, "st", fake)
+    monkeypatch.setattr(load_section, "_load_dataset", load_calls.append)
+
+    load_section._render_recent_datasets()
+
+    assert fake.session_state[load_section.PENDING_RECENT_DATASET_LOAD_KEY] == str(
+        recent_path
+    )
+    assert fake.rerun_count == 1
+    assert load_calls == []
+
+
+def test_pending_recent_dataset_load_renders_before_recent_list(monkeypatch):
+    state = FakeSessionState(
+        {load_section.PENDING_RECENT_DATASET_LOAD_KEY: "queued.jsonl"}
+    )
+    fake = _fake_streamlit(state)
+    load_calls: list[str] = []
+    monkeypatch.setattr(load_section, "st", fake)
+    monkeypatch.setattr(load_section, "_load_dataset", load_calls.append)
+
+    load_section._render_pending_recent_dataset_load()
+
+    assert load_calls == ["queued.jsonl"]
+    assert load_section.PENDING_RECENT_DATASET_LOAD_KEY not in state
+
+
+def test_open_and_close_rename_dataset_panel(monkeypatch, tmp_path):
+    loaded_path = tmp_path / "training_data" / "dataset" / "dataset.jsonl"
+    state = FakeSessionState(loaded_path=str(loaded_path))
+    monkeypatch.setattr(load_section, "st", _fake_streamlit(state))
+
+    load_section._open_rename_dataset_panel()
+
+    assert state[load_section.RENAME_DATASET_PANEL_KEY] is True
+    assert state[load_section.RENAME_DATASET_SOURCE_KEY] == str(loaded_path)
+    assert state[load_section.RENAME_DATASET_NAME_KEY] == "dataset"
+
+    load_section._close_rename_dataset_panel()
+
+    assert state[load_section.RENAME_DATASET_PANEL_KEY] is False
+    assert load_section.RENAME_DATASET_SOURCE_KEY not in state
+    assert load_section.RENAME_DATASET_NAME_KEY not in state
 
 
 def test_default_new_dataset_filename_is_timestamped():

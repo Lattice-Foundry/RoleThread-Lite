@@ -150,6 +150,25 @@ div[data-testid="stAlert"] {{
     width: 75% !important;
     padding-right: 0.65rem !important;
 }}
+/* Manage Dataset recent-file rows: borderless, left-aligned, and compact. */
+div.st-key-recent_dataset_list div[data-testid="stButton"] {{
+    margin-bottom: -0.5rem !important;
+}}
+div.st-key-recent_dataset_list button[data-testid="baseButton-tertiary"],
+div.st-key-recent_dataset_list button[kind="tertiary"] {{
+    justify-content: flex-start !important;
+    min-height: 1.65rem !important;
+    padding: 0.05rem 0.35rem !important;
+    text-align: left !important;
+    width: auto !important;
+    max-width: 100% !important;
+}}
+div.st-key-recent_dataset_list button[data-testid="baseButton-tertiary"] p,
+div.st-key-recent_dataset_list button[kind="tertiary"] p {{
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+}}
 /* Warning alerts only — replace Streamlit's muddy yellow-green default. */
 div[data-testid="stAlert"]:has(div[data-testid="stAlertContentWarning"]) {{
     background-color: {COLOR_WARNING_BACKGROUND} !important;

@@ -55,11 +55,8 @@ def render_load_format_summary(
             )
         untagged_entries = _count_untagged_entries(normalization.entries)
         if untagged_entries:
-            render_recommended_action(
-                f"{count_phrase(untagged_entries, 'entry', 'entries')} are untagged.",
-                button_label="Tag them in Manage Dataset →",
-                target_page="Manage Dataset",
-                key="guidance_load_untagged",
+            st.info(
+                f"{count_phrase(untagged_entries, 'entry', 'entries')} are untagged."
             )
 
     if correction_saved:
