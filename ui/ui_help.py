@@ -18,6 +18,7 @@ from ui.help_docs import (
     load_help_document,
     resolve_help_article_id,
 )
+from ui.navigation import render_sidebar_branding
 
 
 HELP_ACTIVE_ARTICLE_KEY = "help_active_article_id"
@@ -214,6 +215,7 @@ def _scroll_to_top_on_article_change(article_id: str) -> None:
 
 
 def _render_help_sidebar(active_article_id: str) -> None:
+    render_sidebar_branding()
     st.sidebar.markdown("**Help Documentation**")
     for category, articles in get_help_articles_by_category().items():
         expanded = any(

@@ -72,20 +72,45 @@ from ui.theme import (
 ensure_app_directories()
 st.set_page_config(page_title="LoreForge Lite", layout="wide")
 
-st.markdown(
-    f"<h1 style='color:{COLOR_PRIMARY}'>LoreForge Lite</h1>"
-    f"<p style='margin-top:-0.75rem;color:{COLOR_SUBTITLE};font-size:1.05rem'>"
-    "Local-First Dataset Crafting for Narrative AI"
-    "</p>",
-    unsafe_allow_html=True,
-)
-
 st.markdown(f"""
 <style>
 /* Sidebar gets its own graphite shade, separate from input/card grey. */
 section[data-testid="stSidebar"],
 section[data-testid="stSidebar"] > div {{
     background-color: {COLOR_SIDEBAR_BACKGROUND} !important;
+}}
+/* Sidebar shell branding. */
+.loreforge-sidebar-brand {{
+    align-items: center;
+    display: flex;
+    gap: 0.72rem;
+    justify-content: center;
+    margin: 0.35rem 0 1.35rem 0;
+    padding-bottom: 0.3rem;
+}}
+.loreforge-sidebar-logo {{
+    flex: 0 0 auto;
+    height: 4.55rem;
+    width: 4.55rem;
+}}
+.loreforge-sidebar-copy {{
+    min-width: 0;
+    text-align: left;
+}}
+.loreforge-sidebar-title {{
+    color: {COLOR_PRIMARY};
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.05;
+    margin: 0;
+}}
+.loreforge-sidebar-subtitle {{
+    color: {COLOR_SUBTITLE};
+    font-size: 0.82rem;
+    font-weight: 540;
+    letter-spacing: 0;
+    line-height: 1.25;
+    margin-top: 0.24rem;
 }}
 /* Native top navigation: align hover/current indicators with LoreForge mint. */
 div[data-testid="stTopNavLinkContainer"]:hover,

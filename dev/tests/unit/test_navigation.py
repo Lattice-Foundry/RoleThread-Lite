@@ -62,6 +62,17 @@ def test_page_registry_exposes_legacy_pages():
     assert navigation.is_known_page("Not A Page") is False
 
 
+def test_sidebar_branding_metadata_is_compact_shell_identity():
+    assert navigation.APP_BRAND_TITLE == "LoreForge Lite"
+    assert navigation.APP_BRAND_SUBTITLE == "Narrative Intelligence"
+
+
+def test_sidebar_brand_logo_is_available_as_png_data_uri():
+    logo_data_uri = navigation.get_sidebar_brand_logo_data_uri()
+
+    assert logo_data_uri.startswith("data:image/png;base64,")
+
+
 def test_page_registry_has_unique_titles_and_paths():
     registry = navigation.get_page_registry()
     titles = [page.title for page in registry.values()]

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 import streamlit as st
 
@@ -165,6 +168,11 @@ _PAGES_WITH_OWN_SIDEBAR = frozenset({PAGE_HELP})
 _PENDING_NATIVE_PAGE_KEY = "_pending_native_page"
 _NATIVE_PAGES: dict[str, object] = {}
 PageRenderer = Callable[[], None]
+APP_BRAND_TITLE = "LoreForge Lite"
+APP_BRAND_SUBTITLE = "Narrative Intelligence"
+APP_BRAND_LOGO_PATH = (
+    Path(__file__).resolve().parents[1] / "notes" / "logo" / "logo_crop.png"
+)
 
 
 def get_page_registry() -> dict[str, PageDefinition]:
@@ -195,6 +203,41 @@ def page_owns_sidebar(page_id: str | None) -> bool:
     """Return whether a page replaces the global quick-navigation rail."""
 
     return resolve_page(page_id) in _PAGES_WITH_OWN_SIDEBAR
+
+
+def render_sidebar_branding() -> None:
+    """Render the shared LoreForge shell identity at the top of the sidebar."""
+
+    logo_data_uri = get_sidebar_brand_logo_data_uri()
+    logo_markup = ""
+    if logo_data_uri:
+        logo_markup = (
+            f'<img class="loreforge-sidebar-logo" src="{logo_data_uri}" '
+            f'alt="{APP_BRAND_TITLE} logo" />'
+        )
+
+    st.sidebar.markdown(
+        f"""
+        <div class="loreforge-sidebar-brand">
+            {logo_markup}
+            <div class="loreforge-sidebar-copy">
+                <div class="loreforge-sidebar-title">{APP_BRAND_TITLE}</div>
+                <div class="loreforge-sidebar-subtitle">{APP_BRAND_SUBTITLE}</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+@lru_cache(maxsize=1)
+def get_sidebar_brand_logo_data_uri() -> str:
+    """Return the sidebar brand logo as a PNG data URI when available."""
+
+    if not APP_BRAND_LOGO_PATH.exists():
+        return ""
+    encoded_logo = base64.b64encode(APP_BRAND_LOGO_PATH.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded_logo}"
 
 
 def resolve_page(page_id: str | None) -> str | None:
@@ -293,6 +336,7 @@ def build_native_pages(
 
 
 def _render_quick_navigation_rail(active_page: str) -> None:
+    render_sidebar_branding()
     page_registry = get_page_registry()
     for section_label, page_ids in get_quick_navigation_pages().items():
         st.sidebar.markdown(f"**{section_label}**")
