@@ -474,6 +474,12 @@ def _render_dev_webapp_launch_status() -> None:
             headless_label = "Unknown"
         else:
             headless_label = "Yes" if guidance.streamlit_headless else "No"
+        st.caption(
+            _format_about_row(
+                "External launcher",
+                f"`{'Yes' if guidance.external_launcher else 'No'}`",
+            )
+        )
         st.caption(_format_about_row("Streamlit headless", f"`{headless_label}`"))
         st.caption(
             _format_about_row(
@@ -484,6 +490,36 @@ def _render_dev_webapp_launch_status() -> None:
         st.caption(_format_about_row("Recommended dev command", f"`{guidance.recommended_command}`"))
         if guidance.warning:
             st.caption(_format_about_row("Web-app note", guidance.message))
+    _render_edge_debug_report()
+
+
+def _render_edge_debug_report() -> None:
+    report = st.session_state.get("_dev_edge_debug_report")
+    if report is None:
+        return
+
+    st.caption("Experimental Edge debug")
+    st.caption(_format_about_row("PIDs before", _format_pid_tuple(report.before_pids)))
+    st.caption(_format_about_row("PIDs after", _format_pid_tuple(report.after_pids)))
+    st.caption(_format_about_row("New candidate PIDs", _format_pid_tuple(report.new_pids)))
+    st.caption(_format_about_row("Observation", report.distinguishability_note))
+    if report.new_processes:
+        for process in report.new_processes:
+            title = process.window_title or "No visible title"
+            parent = process.parent_pid if process.parent_pid is not None else "Unknown"
+            command = process.command_line or "No command line captured"
+            st.caption(
+                _format_about_row(
+                    f"Candidate {process.pid}",
+                    f"parent `{parent}`; title `{title}`; command `{command}`",
+                )
+            )
+
+
+def _format_pid_tuple(pids: tuple[int, ...]) -> str:
+    if not pids:
+        return "`None observed`"
+    return "`" + ", ".join(str(pid) for pid in pids) + "`"
 
 
 def _format_path_source(source: str) -> str:

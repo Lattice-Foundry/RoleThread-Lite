@@ -5,15 +5,18 @@ compatibility live in ui.navigation.
 """
 import atexit
 from pathlib import Path
+import time
 
 import streamlit as st
 from streamlit import config as st_config
 
 from core.launch import (
     attempt_webapp_launch,
+    capture_edge_process_snapshot,
+    diff_edge_process_snapshots,
     get_webapp_launch_guidance,
-    parse_launch_flags,
     should_attempt_webapp_launch,
+    parse_launch_flags,
 )
 from core.runtime import get_python_runtime_status
 
@@ -40,12 +43,23 @@ if _launch_flags.webapp:
         _launch_flags,
         streamlit_headless=_get_streamlit_headless_config(),
     )
-if should_attempt_webapp_launch(
-    _launch_flags,
-    already_attempted=st.session_state.get("_dev_webapp_launch_attempted", False),
-):
-    st.session_state["_dev_webapp_launch_attempted"] = True
-    st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(_launch_flags)
+    _debug_before = (
+        capture_edge_process_snapshot() if _launch_flags.edge_debug else None
+    )
+    _should_attempt_webapp_launch = should_attempt_webapp_launch(
+        _launch_flags,
+        already_attempted=bool(st.session_state.get("_dev_webapp_launch_attempted")),
+    )
+    if _should_attempt_webapp_launch:
+        st.session_state["_dev_webapp_launch_attempted"] = True
+        st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(_launch_flags)
+        if _launch_flags.edge_debug and _debug_before is not None:
+            time.sleep(1.0)
+            _debug_after = capture_edge_process_snapshot()
+            st.session_state["_dev_edge_debug_report"] = diff_edge_process_snapshots(
+                _debug_before,
+                _debug_after,
+            )
 
 from core.cloud_sync import (
     get_cloud_restore_candidate,

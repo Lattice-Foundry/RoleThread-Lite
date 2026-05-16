@@ -113,25 +113,29 @@ The safest pattern is:
 LoreForge V1 defines platform-aware launch policy and diagnostics. Production
 installer, shortcut, and packaged browser behavior are still planned later.
 
-For development testing on Windows, LoreForge supports an optional Microsoft
-Edge web-app flag:
+For V1, run LoreForge normally and use the browser workflow that is most
+reliable on your machine. If you want an app-style window, use your browser's
+built-in install or shortcut option manually. In Microsoft Edge, open the local
+LoreForge URL and use **Apps > Install this site as an app** or the equivalent
+shortcut option.
 
-```bat
-streamlit run app.py --server.headless true -- webapp
-```
+The experimental `webapp` flag attempts to open Microsoft Edge app mode during
+development, but Streamlit may also open its normal browser window before
+LoreForge can influence launch behavior. Adding `edge-debug` records observe-only
+Edge process diagnostics to help research whether the two windows can be
+distinguished safely. It does not close windows, kill processes, or mutate
+browser state.
 
-The `webapp` flag asks LoreForge to open the local Streamlit app in Microsoft
-Edge app mode when Edge is detected. The `--server.headless true` option belongs
-to Streamlit; it suppresses Streamlit's normal browser auto-open. If you run
-`streamlit run app.py -- webapp` without headless mode, Streamlit may also open
-a regular browser window before LoreForge app code can stop it.
+Automated cleanup of Streamlit's extra browser window is deferred to the final
+launcher/installer phase. The experimental flags should not be treated as the
+official V1 launch path.
 
 Windows:
 
 - preferred future workflow: Microsoft Edge web app when Edge is detected
 - fallback: default browser when Edge is unavailable
 - installer and shortcut integration are planned later
-- development-only test workflow: Edge app mode through the `webapp` flag
+- V1 workflow: normal browser launch, with manual browser install-as-app if desired
 
 Linux:
 

@@ -115,16 +115,26 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Windows/dev Edge web-app test mode:
+Windows/dev app-style browser workflow:
+
+Run LoreForge normally, then use your browser's built-in app shortcut feature
+if you want a standalone window. In Microsoft Edge, open the local LoreForge
+URL and use **Apps > Install this site as an app** or the equivalent shortcut
+option. This remains the reliable V1 fallback.
+
+For development experiments, `streamlit run app.py -- webapp` attempts to open
+the local app in Microsoft Edge app mode when Edge is available. Streamlit may
+also open its normal browser window because that behavior is controlled before
+`app.py` runs. Adding `edge-debug` enables observe-only Edge process diagnostics:
 
 ```bat
-streamlit run app.py --server.headless true -- webapp
+streamlit run app.py -- webapp edge-debug
 ```
 
-The `webapp` flag is development-only. `--server.headless true` suppresses
-Streamlit's normal browser auto-open so LoreForge opens only the Microsoft Edge
-app-mode window. Without headless mode, Streamlit may also open a regular
-browser tab before app code can intervene.
+The debug mode records Edge process IDs and visible window metadata where
+Windows exposes it. It does not close windows, kill processes, or change browser
+state. Automated cleanup of the extra browser window is deferred to the final
+launcher/installer phase.
 
 ## OS Compatibility and Storage
 

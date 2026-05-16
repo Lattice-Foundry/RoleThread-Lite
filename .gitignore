@@ -2,6 +2,9 @@
 .pytest_cache/
 .streamlit/*
 !.streamlit/config.toml
+start.bat
+lfstart.bat
+lfserver.bat
 .pytest_tmp/
 pytest_tmp_*/
 .cache/

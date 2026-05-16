@@ -10,8 +10,8 @@ This checklist defines the stable-release gate for LoreForge Lite 1.0.
 - Confirm the runtime is Python `3.14.4`, the official supported V1 runtime
 - Confirm OS compatibility docs describe Windows/Linux primary support and
   macOS beta support
-- Confirm dev Edge web-app testing docs use
-  `streamlit run app.py --server.headless true -- webapp`
+- Confirm launch docs describe the normal browser workflow and manual
+  install-as-app fallback for V1
 - Confirm fresh-install storage defaults are documented for Windows, Linux,
   and macOS
 - Confirm README status describes the V1 stable surface
@@ -41,6 +41,17 @@ The following are intentionally outside the Lite V1 release surface:
 - hosted inference or training orchestration
 - multi-user permissions, review queues, or cloud workers
 - automatic creative rewriting or hidden AI-driven dataset generation
+- automated Edge/web-app launcher orchestration
+
+## Release Backlog
+
+Final launcher work must own the full application lifecycle:
+
+- server startup
+- readiness detection
+- browser or web-app launch
+- shutdown handling
+- fallback messaging when Edge or a target browser is unavailable
 
 These boundaries keep the stable release local, inspectable, deterministic, and
 recoverable.
