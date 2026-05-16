@@ -203,9 +203,9 @@ def _migrate_legacy_source_status_category(session) -> None:
     move_targets = {
         "manual": (source, "manual", 0),
         "ai_generated": (source, "ai_generated", 1),
-        "reviewed": (status, "needs_review", 0),
-        "needs_review": (status, "needs_review", 0),
-        "needs_edit": (status, "needs_edit", 1),
+        "reviewed": (status, "approved", 3),
+        "needs_review": (status, "needs_review", 1),
+        "needs_edit": (status, "needs_edit", 2),
     }
     for old_slug, (category, new_slug, sort_order) in move_targets.items():
         legacy_tag = (

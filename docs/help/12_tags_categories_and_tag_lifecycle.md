@@ -6,17 +6,16 @@ A tag is metadata. It helps you find, filter, export, and understand entries. It
 
 ## What Tags Are For
 
-Use tags to mark what an entry is about.
+Use tags to mark how an entry functions in your dataset.
 
 Examples:
 
-- scene type
-- tone
-- relationship dynamic
-- training goal
-- cleanup status
-- content category
-- review priority
+- behavior pattern
+- interaction structure
+- writing style
+- source or provenance
+- review status
+- operational cleanup state
 
 Tags become useful everywhere:
 
@@ -33,17 +32,25 @@ Categories group related tags.
 
 For example, you might have categories such as:
 
-- Tone
-- Scene Type
-- Character Dynamic
-- Review Status
+- Behavior
+- Interaction
+- Style
 - Source
+- Status
 
 Categories keep a growing registry readable. They also make it easier to decide where a new tag belongs.
 
 ## Built-In Tags
 
-LoreForge Lite includes built-in tags for common dataset workflows.
+LoreForge Lite includes a small built-in taxonomy for common conversational dataset workflows.
+
+The V1 built-in categories are:
+
+- **Behavior**: conversational behavior and instruction-following patterns.
+- **Interaction**: the shape of the exchange, such as greetings, Q&A, correction, or task completion.
+- **Style**: response style, density, and presentation.
+- **Source**: where the entry came from or how it was produced.
+- **Status**: operational review state.
 
 Built-in tags are locked to keep them consistent across datasets. This matters because built-in tags may be used by validation, organization, or future workflows.
 
@@ -60,6 +67,8 @@ You can use them for anything that helps you work:
 - `medical-scene`
 - `combat-training`
 - `high-emotion`
+
+Custom tags are the right place for domain, topic, genre, character, project, or niche workflow vocabulary. The bundled defaults stay broad on purpose.
 
 Custom tags can be edited, renamed, or deleted.
 

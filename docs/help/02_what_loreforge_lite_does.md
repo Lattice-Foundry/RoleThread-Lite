@@ -2,7 +2,7 @@
 
 LoreForge Lite is a local-first toolkit for crafting narrative AI training datasets. It focuses on the practical work around dataset creation: writing entries, editing conversations, validating structure, organizing metadata, merging files, searching entries, reviewing quality, and exporting clean training data.
 
-It is built for creators working with roleplay, character-driven scenes, storytelling, worldbuilding, and other narrative interaction data.
+It is built for creators working with narrative, conversational, instructional, roleplay, character-driven, and other interaction-heavy training data.
 
 ## The Core Idea
 

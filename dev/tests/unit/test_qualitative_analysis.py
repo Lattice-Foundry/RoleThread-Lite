@@ -40,24 +40,24 @@ def _snapshot() -> TagRegistrySnapshot:
     return TagRegistrySnapshot(
         active_registry={
             "Style": ["dialogue", "narration"],
-            "Scene": ["medical"],
+            "Interaction": ["explanation"],
         },
         active_categories=[
             {"slug": "style", "name": "Style"},
-            {"slug": "scene", "name": "Scene"},
+            {"slug": "interaction", "name": "Interaction"},
         ],
-        active_tag_slugs=["dialogue", "narration", "medical"],
-        active_tag_slug_set={"dialogue", "narration", "medical"},
+        active_tag_slugs=["dialogue", "narration", "explanation"],
+        active_tag_slug_set={"dialogue", "narration", "explanation"},
         tag_label_map={
             "dialogue": "Style / dialogue",
             "narration": "Style / narration",
-            "medical": "Scene / medical",
+            "explanation": "Interaction / explanation",
         },
         tag_label_map_with_untagged={},
         tag_category_map={
             "dialogue": "Style",
             "narration": "Style",
-            "medical": "Scene",
+            "explanation": "Interaction",
         },
         visible_archived_tags=[],
         default_category_slugs=set(),
@@ -86,10 +86,10 @@ def test_diversity_detects_near_duplicate_entries_and_tag_metrics():
     entry_c = _entry(
         system="Unique system prompt C that is comfortably over fifty chars.",
         assistant_text=(
-            "A completely different medical assessment unfolds with clinical pacing, "
-            "triage details, and grounded bedside reassurance."
+            "A completely different explanation unfolds with clear pacing, "
+            "step-by-step details, and grounded reassurance."
         ),
-        tags=["medical"],
+        tags=["explanation"],
     )
 
     report = analyze_dataset_quality([entry_a, entry_b, entry_c], tag_snapshot=_snapshot())
@@ -278,7 +278,7 @@ def test_single_entry_and_identical_entries_edge_cases():
 
 
 def test_analysis_does_not_mutate_entries():
-    entries = [_entry(tags=["dialogue", "medical"])]
+    entries = [_entry(tags=["dialogue", "explanation"])]
     before = deepcopy(entries)
 
     analyze_dataset_quality(entries, tag_snapshot=_snapshot())

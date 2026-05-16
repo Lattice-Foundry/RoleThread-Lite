@@ -42,11 +42,28 @@ DEFAULT_SYSTEM_PROMPT = (
 )
 
 TAGS: dict[str, list[str]] = {
-    "Behavior": ["pacing", "boundaries", "no_user_control", "followup_question", "emotional_awareness"],
-    "Scene": ["greeting", "medical", "comfort", "tension", "assessment", "aftercare"],
-    "Style": ["dialogue", "narration", "descriptive", "subtle", "grounded"],
-    "Source": ["manual", "ai_generated"],
-    "Status": ["needs_review", "needs_edit"],
+    "Behavior": [
+        "pacing",
+        "boundaries",
+        "no_user_control",
+        "followup_question",
+        "emotional_awareness",
+        "instruction_following",
+        "consistency",
+        "initiative",
+    ],
+    "Interaction": [
+        "greeting",
+        "roleplay",
+        "question_answer",
+        "task_completion",
+        "explanation",
+        "feedback",
+        "correction",
+    ],
+    "Style": ["dialogue", "narration", "descriptive", "concise", "detailed", "grounded"],
+    "Source": ["manual", "ai_generated", "imported", "converted"],
+    "Status": ["draft", "needs_review", "needs_edit", "approved", "invalid", "duplicate"],
 }
 
 SUPPORTED_DATASET_EXTENSIONS = {".jsonl", ".json", ".txt"}

@@ -5,7 +5,7 @@
 LoreForge Lite is a local-first tool for creating, validating, repairing,
 organizing, merging, and exporting narrative AI training datasets.
 
-Built for writers, roleplay dataset builders, and fine-tuning creators,
+Built for writers, conversational dataset builders, and fine-tuning creators,
 LoreForge Lite keeps your JSONL files, registry database, backups, and sidecar
 metadata on your machine while giving you practical tools for structured
 dataset engineering.
@@ -17,7 +17,7 @@ dataset engineering.
 * ChatML dataset creation and management
 * ShareGPT import/export with ChatML conversion support
 * Quick edit and full edit workflows for multi-turn entries
-* Entry search across Manage Dataset and Edit Entries with role scopes and match modes
+* Entry search across Manage Dataset and Deep Edit with role scopes and match modes
 * Validation page with auto-fixable repairs and character role mapping
 * Custom tag categories, active/archived tag lifecycle handling, and alias repair
 * Character registry and per-entry character-to-turn metadata

@@ -113,20 +113,54 @@ def test_seed_default_tags_uses_current_category_order_without_unsorted(tag_db):
     assert not hasattr(tag_registry, "ensure_unsorted_category")
     assert [category["name"] for category in registry] == [
         "Behavior",
-        "Scene",
+        "Interaction",
         "Style",
         "Source",
         "Status",
     ]
+    assert [tag["slug"] for tag in registry[0]["tags"]] == [
+        "pacing",
+        "boundaries",
+        "no_user_control",
+        "followup_question",
+        "emotional_awareness",
+        "instruction_following",
+        "consistency",
+        "initiative",
+    ]
+    assert [tag["slug"] for tag in registry[1]["tags"]] == [
+        "greeting",
+        "roleplay",
+        "question_answer",
+        "task_completion",
+        "explanation",
+        "feedback",
+        "correction",
+    ]
+    assert [tag["slug"] for tag in registry[2]["tags"]] == [
+        "dialogue",
+        "narration",
+        "descriptive",
+        "concise",
+        "detailed",
+        "grounded",
+    ]
     assert [tag["slug"] for tag in registry[3]["tags"]] == [
         "manual",
         "ai_generated",
+        "imported",
+        "converted",
     ]
     assert [tag["slug"] for tag in registry[4]["tags"]] == [
+        "draft",
         "needs_review",
         "needs_edit",
+        "approved",
+        "invalid",
+        "duplicate",
     ]
     assert "reviewed" not in tag_registry.get_tag_registry_snapshot().active_tag_slugs
+    assert "medical" not in tag_registry.get_tag_registry_snapshot().active_tag_slugs
 
 
 def test_seed_default_tags_migrates_source_status_and_reviewed(tag_db):
@@ -158,7 +192,7 @@ def test_seed_default_tags_migrates_source_status_and_reviewed(tag_db):
     registry = tag_registry.get_full_tag_registry()
     assert [category["name"] for category in registry] == [
         "Behavior",
-        "Scene",
+        "Interaction",
         "Style",
         "Source",
         "Status",
@@ -167,12 +201,28 @@ def test_seed_default_tags_migrates_source_status_and_reviewed(tag_db):
 
     source = next(category for category in registry if category["name"] == "Source")
     status = next(category for category in registry if category["name"] == "Status")
-    assert [tag["slug"] for tag in source["tags"]] == ["manual", "ai_generated"]
+    assert [tag["slug"] for tag in source["tags"]] == [
+        "manual",
+        "ai_generated",
+        "imported",
+        "converted",
+    ]
     assert [tag["slug"] for tag in status["tags"]] == [
+        "draft",
         "needs_review",
         "needs_edit",
+        "approved",
+        "invalid",
+        "duplicate",
     ]
-    assert [tag["name"] for tag in status["tags"]] == ["Needs Review", "Needs Edit"]
+    assert [tag["name"] for tag in status["tags"]] == [
+        "Draft",
+        "Needs Review",
+        "Needs Edit",
+        "Approved",
+        "Invalid",
+        "Duplicate",
+    ]
 
     session = tag_db()
     try:
@@ -958,10 +1008,15 @@ def test_tag_registry_snapshot_matches_existing_read_helpers(tag_db):
     session = tag_db()
     try:
         behavior = _add_category(session, name="Behavior", slug="behavior")
-        scene = _add_category(session, name="Scene", slug="scene")
-        scene.sort_order = 1
+        interaction = _add_category(session, name="Interaction", slug="interaction")
+        interaction.sort_order = 1
         _add_tag(session, slug="active_tag", name="Active Tag", category=behavior)
-        second = _add_tag(session, slug="second_tag", name="Second Tag", category=scene)
+        second = _add_tag(
+            session,
+            slug="second_tag",
+            name="Second Tag",
+            category=interaction,
+        )
         second.sort_order = 2
         imported = _add_tag(
             session,
@@ -1004,23 +1059,23 @@ def test_tag_registry_snapshot_matches_existing_read_helpers(tag_db):
 
     assert snapshot.active_registry == {
         "Behavior": ["active_tag"],
-        "Scene": ["second_tag"],
+        "Interaction": ["second_tag"],
     }
     assert snapshot.active_categories == tag_registry.get_full_tag_registry()
     assert snapshot.active_tag_slugs == ["active_tag", "second_tag"]
     assert snapshot.active_tag_slug_set == {"active_tag", "second_tag"}
     assert snapshot.tag_label_map == {
         "active_tag": "Behavior / Active Tag",
-        "second_tag": "Scene / Second Tag",
+        "second_tag": "Interaction / Second Tag",
     }
     assert snapshot.tag_label_map_with_untagged == {
         "__custom_untagged__": "Untagged",
         "active_tag": "Behavior / Active Tag",
-        "second_tag": "Scene / Second Tag",
+        "second_tag": "Interaction / Second Tag",
     }
     assert snapshot.tag_category_map == {
         "active_tag": "Behavior",
-        "second_tag": "Scene",
+        "second_tag": "Interaction",
     }
     assert snapshot.visible_archived_tags == tag_registry.get_visible_archived_tags()
     assert snapshot.default_category_slugs == {
@@ -1324,6 +1379,32 @@ def test_ensure_tags_exist_for_dataset_adopts_unknown_tags_as_archived_imported(
         assert unsorted is None
     finally:
         session.close()
+
+
+def test_removed_prototype_defaults_are_preserved_as_archived_imports(tag_db):
+    tag_registry.seed_default_tags()
+
+    summary = tag_registry.ensure_tags_exist_for_dataset(
+        [{"tags": ["medical", "comfort", "tension", "assessment", "aftercare"]}]
+    )
+
+    assert summary.created_slugs == [
+        "aftercare",
+        "assessment",
+        "comfort",
+        "medical",
+        "tension",
+    ]
+    snapshot = tag_registry.get_tag_registry_snapshot()
+    for slug in summary.created_slugs:
+        assert slug not in snapshot.active_tag_slugs
+    assert [tag["slug"] for tag in tag_registry.get_imported_archived_tags()] == [
+        "aftercare",
+        "assessment",
+        "comfort",
+        "medical",
+        "tension",
+    ]
 
 
 def test_ensure_tags_exist_for_dataset_writes_import_archived_history(tag_db):

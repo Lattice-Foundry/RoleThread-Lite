@@ -280,7 +280,7 @@ def seed_default_tags() -> None:
                 tag_slug = slugify_tag_name(tag_raw)
                 tag_name = prettify_tag_name(tag_slug)
                 lookup_slugs = [tag_slug]
-                if tag_slug == "needs_review":
+                if tag_slug == "approved":
                     lookup_slugs.append("reviewed")
 
                 # Primary lookup: by slug (Phase 1.5+ rows)
