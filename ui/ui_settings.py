@@ -17,7 +17,12 @@ from core.cloud_sync import (
     save_backup_config_from_settings,
     sync_configured_backups_to_cloud,
 )
-from core.platform import detect_onedrive_path, detect_platform
+from core.platform import (
+    PATH_SOURCE_PLATFORM_DEFAULT,
+    detect_onedrive_path,
+    detect_platform,
+    get_platform_path_resolutions,
+)
 from core.preferences import export_settings, import_settings
 from ui.file_dialogs import (
     browse_directory,
@@ -320,18 +325,9 @@ def _render_platform_about() -> None:
             f"({diagnostics.python_implementation})"
         )
 
-    st.markdown("**Platform Capabilities**")
-    capability_labels = (
-        ("Installer support", capabilities.supports_installer),
-        ("Edge web app support", capabilities.supports_edge_webapp),
-        ("Default browser support", capabilities.supports_default_browser),
-        ("OneDrive detection", capabilities.supports_onedrive),
-        ("Safe cloud sync support", capabilities.supports_safe_cloud_sync),
-        ("Linux manual run support", capabilities.supports_linux_manual_run),
-        ("macOS beta support", capabilities.supports_macos_beta),
-    )
-    for label, enabled in capability_labels:
-        st.caption(f"{label}: {'Yes' if enabled else 'No'}")
+    with st.expander("Platform Capabilities"):
+        for label, enabled in _platform_capability_labels(capabilities):
+            st.caption(f"{label}: {'Yes' if enabled else 'No'}")
 
     with st.expander("Raw Platform Diagnostics"):
         st.caption(f"Platform slug: `{platform_info.platform_slug}`")
@@ -342,6 +338,45 @@ def _render_platform_about() -> None:
         st.caption(f"Machine: `{diagnostics.machine}`")
         st.caption(f"Processor: `{diagnostics.processor}`")
         st.caption(f"Python architecture: `{diagnostics.python_architecture}`")
+
+    platform_paths = get_platform_path_resolutions(
+        preferences=st.session_state.get("prefs", {})
+    )
+    with st.expander("Platform Path Defaults"):
+        for label, resolved_path in (
+            ("App data", platform_paths.app_data_root),
+            ("Workspace", platform_paths.workspace_root),
+            ("Training data", platform_paths.training_data_dir),
+            ("Exports", platform_paths.exports_dir),
+            ("Imports", platform_paths.imports_dir),
+            ("Backups", platform_paths.backups_dir),
+            ("Logs", platform_paths.logs_dir),
+            ("Cache", platform_paths.cache_dir),
+            ("Database", platform_paths.database_path),
+            ("Preferences", platform_paths.preferences_path),
+        ):
+            st.caption(
+                f"{label}: `{resolved_path.path}` "
+                f"({_format_path_source(resolved_path.source)})"
+            )
+
+
+def _platform_capability_labels(capabilities) -> tuple[tuple[str, bool], ...]:
+    return (
+        ("Installer support", capabilities.supports_installer),
+        ("Edge web app support", capabilities.supports_edge_webapp),
+        ("Default browser support", capabilities.supports_default_browser),
+        ("OneDrive detection", capabilities.supports_onedrive),
+        ("Safe cloud sync support", capabilities.supports_safe_cloud_sync),
+        ("Linux manual run support", capabilities.supports_linux_manual_run),
+        ("macOS beta support", capabilities.supports_macos_beta),
+    )
+
+
+def _format_path_source(source: str) -> str:
+    if source == PATH_SOURCE_PLATFORM_DEFAULT:
+        return "Platform Default"
+    return "User Override"
 
 
 def _normalize_folder_path(raw_path: str, *, label: str) -> str:

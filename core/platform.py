@@ -15,6 +15,8 @@ OS_UNKNOWN = "unknown"
 SUPPORT_PRIMARY = "primary"
 SUPPORT_BETA = "beta"
 SUPPORT_UNSUPPORTED = "unsupported"
+PATH_SOURCE_PLATFORM_DEFAULT = "platform_default"
+PATH_SOURCE_USER_OVERRIDE = "user_override"
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,50 @@ class PlatformDiagnostics:
     python_version: str
     python_implementation: str
     python_architecture: str
+
+
+@dataclass(frozen=True)
+class PlatformPaths:
+    """Platform-aware default local paths for future storage integration."""
+
+    app_data_root: Path
+    workspace_root: Path
+    training_data_dir: Path
+    exports_dir: Path
+    imports_dir: Path
+    backups_dir: Path
+    logs_dir: Path
+    cache_dir: Path
+    database_path: Path
+    preferences_path: Path
+
+
+@dataclass(frozen=True)
+class PlatformPathResolution:
+    """One resolved path plus whether it came from defaults or preferences."""
+
+    path: Path
+    source: str
+
+    @property
+    def is_user_override(self) -> bool:
+        return self.source == PATH_SOURCE_USER_OVERRIDE
+
+
+@dataclass(frozen=True)
+class PlatformPathSources:
+    """Path origin metadata keyed to PlatformPaths fields."""
+
+    app_data_root: str
+    workspace_root: str
+    training_data_dir: str
+    exports_dir: str
+    imports_dir: str
+    backups_dir: str
+    logs_dir: str
+    cache_dir: str
+    database_path: str
+    preferences_path: str
 
 
 @dataclass(frozen=True)
@@ -157,6 +203,156 @@ def detect_platform(system_name: str | None = None) -> PlatformInfo:
         capabilities=profile.capabilities,
         diagnostics=collect_platform_diagnostics(detected_name),
     )
+
+
+def get_platform_paths(
+    system_name: str | None = None,
+    *,
+    home: Path | str | None = None,
+    env: dict[str, str] | None = None,
+    preferences: dict | None = None,
+) -> PlatformPaths:
+    """Return platform-aware default paths without creating directories."""
+
+    resolved_paths = get_platform_path_resolutions(
+        system_name,
+        home=home,
+        env=env,
+        preferences=preferences,
+    )
+
+    return PlatformPaths(
+        app_data_root=resolved_paths.app_data_root.path,
+        workspace_root=resolved_paths.workspace_root.path,
+        training_data_dir=resolved_paths.training_data_dir.path,
+        exports_dir=resolved_paths.exports_dir.path,
+        imports_dir=resolved_paths.imports_dir.path,
+        backups_dir=resolved_paths.backups_dir.path,
+        logs_dir=resolved_paths.logs_dir.path,
+        cache_dir=resolved_paths.cache_dir.path,
+        database_path=resolved_paths.database_path.path,
+        preferences_path=resolved_paths.preferences_path.path,
+    )
+
+
+@dataclass(frozen=True)
+class PlatformPathResolutions:
+    """Resolved platform paths with source metadata for each path."""
+
+    app_data_root: PlatformPathResolution
+    workspace_root: PlatformPathResolution
+    training_data_dir: PlatformPathResolution
+    exports_dir: PlatformPathResolution
+    imports_dir: PlatformPathResolution
+    backups_dir: PlatformPathResolution
+    logs_dir: PlatformPathResolution
+    cache_dir: PlatformPathResolution
+    database_path: PlatformPathResolution
+    preferences_path: PlatformPathResolution
+
+
+def get_platform_path_resolutions(
+    system_name: str | None = None,
+    *,
+    home: Path | str | None = None,
+    env: dict[str, str] | None = None,
+    preferences: dict | None = None,
+) -> PlatformPathResolutions:
+    """Return platform-aware paths with source metadata."""
+
+    platform_info = detect_platform(system_name)
+    home_path = Path(home).expanduser() if home is not None else Path.home()
+    env_values = os.environ if env is None else env
+
+    if platform_info.os_name == OS_WINDOWS:
+        user_profile = Path(env_values.get("USERPROFILE") or home_path).expanduser()
+        local_app_data = Path(
+            env_values.get("LOCALAPPDATA")
+            or user_profile / "AppData" / "Local"
+        ).expanduser()
+        app_data_root = local_app_data / "LoreForge"
+        workspace_root = user_profile / "LoreForge"
+    elif platform_info.os_name == OS_LINUX:
+        app_data_root = home_path / ".local" / "share" / "loreforge"
+        workspace_root = home_path / "LoreForge"
+    elif platform_info.os_name == OS_MACOS:
+        app_data_root = home_path / "Library" / "Application Support" / "LoreForge"
+        workspace_root = home_path / "LoreForge"
+    else:
+        workspace_root = home_path / "LoreForge"
+        app_data_root = workspace_root
+
+    configured_training_dir = str(
+        (preferences or {}).get("default_dataset_directory") or ""
+    ).strip()
+    configured_backup_dir = str(
+        (preferences or {}).get("backup_directory") or ""
+    ).strip()
+    training_data = _resolve_platform_path(
+        workspace_root / "training_data",
+        configured_training_dir,
+    )
+    backups = _resolve_platform_path(
+        workspace_root / "backups",
+        configured_backup_dir,
+    )
+
+    return PlatformPathResolutions(
+        app_data_root=PlatformPathResolution(app_data_root, PATH_SOURCE_PLATFORM_DEFAULT),
+        workspace_root=PlatformPathResolution(workspace_root, PATH_SOURCE_PLATFORM_DEFAULT),
+        training_data_dir=training_data,
+        exports_dir=PlatformPathResolution(workspace_root / "exports", PATH_SOURCE_PLATFORM_DEFAULT),
+        imports_dir=PlatformPathResolution(workspace_root / "imports", PATH_SOURCE_PLATFORM_DEFAULT),
+        backups_dir=backups,
+        logs_dir=PlatformPathResolution(app_data_root / "logs", PATH_SOURCE_PLATFORM_DEFAULT),
+        cache_dir=PlatformPathResolution(app_data_root / "cache", PATH_SOURCE_PLATFORM_DEFAULT),
+        database_path=PlatformPathResolution(
+            app_data_root / "loreforge.db",
+            PATH_SOURCE_PLATFORM_DEFAULT,
+        ),
+        preferences_path=PlatformPathResolution(
+            app_data_root / "preferences.json",
+            PATH_SOURCE_PLATFORM_DEFAULT,
+        ),
+    )
+
+
+def get_platform_path_sources(
+    system_name: str | None = None,
+    *,
+    home: Path | str | None = None,
+    env: dict[str, str] | None = None,
+    preferences: dict | None = None,
+) -> PlatformPathSources:
+    """Return only path source labels for callers that already have paths."""
+
+    resolutions = get_platform_path_resolutions(
+        system_name,
+        home=home,
+        env=env,
+        preferences=preferences,
+    )
+    return PlatformPathSources(
+        app_data_root=resolutions.app_data_root.source,
+        workspace_root=resolutions.workspace_root.source,
+        training_data_dir=resolutions.training_data_dir.source,
+        exports_dir=resolutions.exports_dir.source,
+        imports_dir=resolutions.imports_dir.source,
+        backups_dir=resolutions.backups_dir.source,
+        logs_dir=resolutions.logs_dir.source,
+        cache_dir=resolutions.cache_dir.source,
+        database_path=resolutions.database_path.source,
+        preferences_path=resolutions.preferences_path.source,
+    )
+
+
+def _resolve_platform_path(default_path: Path, configured_path: str) -> PlatformPathResolution:
+    if configured_path:
+        return PlatformPathResolution(
+            Path(configured_path).expanduser(),
+            PATH_SOURCE_USER_OVERRIDE,
+        )
+    return PlatformPathResolution(default_path, PATH_SOURCE_PLATFORM_DEFAULT)
 
 
 IS_WINDOWS = detect_platform().os_name == OS_WINDOWS
