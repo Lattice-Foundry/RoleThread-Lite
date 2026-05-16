@@ -25,6 +25,8 @@ from core.launch import (
     RECOMMENDED_WEBAPP_STREAMLIT_COMMAND,
     WEBAPP_AUTOMATION_DEFERRED_MESSAGE,
     WEBAPP_DEBUG_FLAG,
+    WEBAPP_LAUNCH_STATUS_FALLBACK,
+    WEBAPP_UNSUPPORTED_PLATFORM_MESSAGE,
     attempt_webapp_launch,
     build_external_webapp_launch_status,
     build_edge_webapp_command,
@@ -43,6 +45,7 @@ from core.launch import (
     reset_webapp_launch_guard_for_tests,
     should_attempt_webapp_launch,
     should_show_dev_diagnostics,
+    supports_managed_webapp_launch,
 )
 from core.platform import detect_browser_capabilities
 
@@ -269,8 +272,8 @@ def test_attempt_webapp_launch_falls_back_when_edge_missing_on_windows():
     assert "Edge was not detected" in status.message
 
 
-def test_attempt_webapp_launch_does_not_attempt_edge_on_non_windows():
-    for system_name in ("Linux", "Darwin"):
+def test_attempt_webapp_launch_does_not_attempt_edge_on_unsupported_platforms():
+    for system_name in ("Linux", "Darwin", "FreeBSD"):
         reset_webapp_launch_guard_for_tests()
         detection = detect_browser_capabilities(
             system_name,
@@ -292,7 +295,40 @@ def test_attempt_webapp_launch_does_not_attempt_edge_on_non_windows():
         assert status.attempted is False
         assert status.launched is False
         assert status.fallback_used is True
-        assert "Windows/Microsoft Edge only" in status.message
+        assert status.message == WEBAPP_UNSUPPORTED_PLATFORM_MESSAGE
+        assert status.status_code == WEBAPP_LAUNCH_STATUS_FALLBACK
+
+
+def test_supports_managed_webapp_launch_is_windows_edge_only():
+    windows = detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/User",
+        env={},
+        which_fn=lambda name: "C:/Edge/msedge.exe",
+    )
+    linux = detect_browser_capabilities(
+        "Linux",
+        home="/home/user",
+        env={},
+        which_fn=lambda name: None,
+    )
+    macos = detect_browser_capabilities(
+        "Darwin",
+        home="/Users/user",
+        env={},
+        which_fn=lambda name: None,
+    )
+    unknown = detect_browser_capabilities(
+        "FreeBSD",
+        home="/home/user",
+        env={},
+        which_fn=lambda name: None,
+    )
+
+    assert supports_managed_webapp_launch(windows) is True
+    assert supports_managed_webapp_launch(linux) is False
+    assert supports_managed_webapp_launch(macos) is False
+    assert supports_managed_webapp_launch(unknown) is False
 
 
 def test_attempt_webapp_launch_reports_nonfatal_launch_failure():

@@ -55,6 +55,10 @@ WEBAPP_LAUNCH_STATUS_FAILED = "failed"
 WEBAPP_LAUNCH_STATUS_FALLBACK = "fallback"
 WEBAPP_LAUNCH_STATUS_LAUNCHED = "launched"
 WEBAPP_LAUNCH_STATUS_NOT_REQUESTED = "not_requested"
+WEBAPP_UNSUPPORTED_PLATFORM_MESSAGE = (
+    "LoreForge webapp mode is only supported on Windows with Microsoft Edge. "
+    "Continuing in normal browser mode."
+)
 
 _webapp_launch_attempted = False
 _webapp_launch_status: "EdgeWebappLaunchStatus | None" = None
@@ -254,6 +258,17 @@ def should_attempt_webapp_launch(
     """Return whether this caller should ask the process-level launcher to run."""
 
     return flags.webapp and not already_attempted and not external_launcher
+
+
+def supports_managed_webapp_launch(
+    browser_detection: BrowserDetectionResult,
+) -> bool:
+    """Return whether LoreForge should run managed Edge webapp launch work."""
+
+    return (
+        browser_detection.platform.os_name == OS_WINDOWS
+        and browser_detection.platform.capabilities.supports_edge_webapp
+    )
 
 
 def get_webapp_launch_guidance(
@@ -1276,10 +1291,7 @@ def attempt_webapp_launch(
             url=target_url,
             edge_path=edge_path,
             command=(),
-            message=(
-                "Dev web-app mode is currently Windows/Microsoft Edge only. "
-                "LoreForge will continue in the normal Streamlit browser flow."
-            ),
+            message=WEBAPP_UNSUPPORTED_PLATFORM_MESSAGE,
             status_code=WEBAPP_LAUNCH_STATUS_FALLBACK,
         )
         return _webapp_launch_status

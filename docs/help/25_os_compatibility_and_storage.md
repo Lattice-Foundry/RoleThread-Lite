@@ -123,7 +123,9 @@ The `webapp` flag is LoreForge's internal Windows web-app launch method for
 future launcher and installer workflows. It opens Microsoft Edge app mode when
 Edge is available. If Streamlit opens a normal browser window first, LoreForge
 attempts to close only that duplicate browser window after the Edge app window
-is observed.
+is observed. On Linux, macOS, or unknown platforms, the flag does not attempt
+Windows-specific launch or cleanup work; LoreForge continues in normal browser
+mode.
 
 Developer diagnostics are hidden unless LoreForge is started with the `dev`
 flag. `edge-debug` and `webapp-debug` are developer-only investigation flags and

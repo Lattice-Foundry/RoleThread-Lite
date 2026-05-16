@@ -42,9 +42,11 @@ Use `webapp` to start LoreForge through the internal Edge webapp launch pathway:
 streamlit run app.py -- webapp
 ```
 
-This path is currently Windows/Edge focused. It is the method future launchers or installers should call when webapp launch mode is enabled. It may require a fresh relaunch to take effect because the launch mode is evaluated during startup.
+This path is Windows/Microsoft Edge only. It is the method future launchers or installers should call when webapp launch mode is enabled. It may require a fresh relaunch to take effect because the launch mode is evaluated during startup.
 
 When Edge is available, LoreForge attempts to open the app in Microsoft Edge app mode. If Streamlit opens a normal browser window first, LoreForge may close only that duplicate browser window after the Edge app window is identified.
+
+On Linux, macOS, or unknown platforms, `webapp` does not attempt Edge launch, Windows window inspection, or duplicate-browser cleanup. LoreForge shows a controlled note and continues in normal browser mode. Use your browser's manual install-as-app or create-shortcut feature if you want an app-like shell on those platforms.
 
 ## Webapp Mode With Diagnostics
 

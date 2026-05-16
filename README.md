@@ -127,7 +127,8 @@ that future launcher and installer workflows will call. It opens the local app
 in Microsoft Edge app mode when Edge is available. If Streamlit opens a normal
 browser window first, LoreForge attempts to close only that duplicate browser
 window by targeting the exact Windows window handle after the Edge app window is
-observed.
+observed. On Linux, macOS, or unknown platforms, the flag is a safe no-op:
+LoreForge continues in normal browser mode.
 
 Developer diagnostics are hidden by default. Add `dev` to expose launch and
 platform internals in Settings. Add `edge-debug` or `webapp-debug` only when

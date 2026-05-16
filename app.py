@@ -22,7 +22,9 @@ from core.launch import (
     should_attempt_webapp_launch,
     should_show_dev_diagnostics,
     parse_launch_flags,
+    supports_managed_webapp_launch,
 )
+from core.platform import detect_browser_capabilities
 from core.runtime import get_python_runtime_status
 
 st.set_page_config(page_title="LoreForge Lite", layout="wide")
@@ -46,6 +48,7 @@ _launch_flags = parse_launch_flags()
 st.session_state["_runtime_launch_flags"] = _launch_flags
 st.session_state["_dev_mode"] = should_show_dev_diagnostics(_launch_flags)
 if _launch_flags.webapp:
+    _browser_detection = detect_browser_capabilities()
     if _launch_flags.dev:
         st.session_state["_dev_webapp_launch_guidance"] = get_webapp_launch_guidance(
             _launch_flags,
@@ -56,11 +59,21 @@ if _launch_flags.webapp:
         already_attempted=bool(st.session_state.get("_dev_webapp_launch_attempted")),
     )
     if _should_attempt_webapp_launch:
-        _edge_before = capture_edge_process_snapshot()
-        _edge_windows_before = capture_edge_window_snapshot()
         st.session_state["_dev_webapp_launch_attempted"] = True
-        st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(_launch_flags)
-        if st.session_state["_dev_webapp_launch_status"].launched:
+        _managed_webapp_supported = supports_managed_webapp_launch(_browser_detection)
+        if _managed_webapp_supported:
+            _edge_before = capture_edge_process_snapshot()
+            _edge_windows_before = capture_edge_window_snapshot()
+        st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(
+            _launch_flags,
+            browser_detection=_browser_detection,
+        )
+        if not _managed_webapp_supported:
+            st.session_state["_webapp_unsupported_notice"] = (
+                st.session_state["_dev_webapp_launch_status"].message
+                + " See documentation for manual configuration options."
+            )
+        if _managed_webapp_supported and st.session_state["_dev_webapp_launch_status"].launched:
             time.sleep(0.4)
             _edge_poll = capture_edge_process_snapshot_poll()
             _edge_after = _edge_poll.snapshot
@@ -90,6 +103,9 @@ if _launch_flags.webapp:
                     f"result={_cleanup_status.result}; "
                     f"message={_cleanup_status.message}"
                 )
+
+if st.session_state.get("_webapp_unsupported_notice"):
+    st.info(st.session_state["_webapp_unsupported_notice"])
 
 from core.cloud_sync import (
     get_cloud_restore_candidate,
