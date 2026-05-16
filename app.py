@@ -13,7 +13,11 @@ from streamlit import config as st_config
 from core.launch import (
     attempt_webapp_launch,
     capture_edge_process_snapshot,
+    capture_edge_process_snapshot_poll,
+    capture_edge_window_snapshot,
+    close_duplicate_edge_browser_window,
     diff_edge_process_snapshots,
+    diff_edge_window_snapshots,
     get_webapp_launch_guidance,
     should_attempt_webapp_launch,
     parse_launch_flags,
@@ -43,22 +47,43 @@ if _launch_flags.webapp:
         _launch_flags,
         streamlit_headless=_get_streamlit_headless_config(),
     )
-    _debug_before = (
-        capture_edge_process_snapshot() if _launch_flags.edge_debug else None
-    )
     _should_attempt_webapp_launch = should_attempt_webapp_launch(
         _launch_flags,
         already_attempted=bool(st.session_state.get("_dev_webapp_launch_attempted")),
     )
     if _should_attempt_webapp_launch:
+        _edge_before = capture_edge_process_snapshot()
+        _edge_windows_before = capture_edge_window_snapshot()
         st.session_state["_dev_webapp_launch_attempted"] = True
         st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(_launch_flags)
-        if _launch_flags.edge_debug and _debug_before is not None:
-            time.sleep(1.0)
-            _debug_after = capture_edge_process_snapshot()
-            st.session_state["_dev_edge_debug_report"] = diff_edge_process_snapshots(
-                _debug_before,
-                _debug_after,
+        if st.session_state["_dev_webapp_launch_status"].launched:
+            time.sleep(0.4)
+            _edge_poll = capture_edge_process_snapshot_poll()
+            _edge_after = _edge_poll.snapshot
+            _edge_windows_after = capture_edge_window_snapshot()
+            _edge_diff = diff_edge_process_snapshots(_edge_before, _edge_after)
+            _edge_window_diff = diff_edge_window_snapshots(
+                _edge_windows_before,
+                _edge_windows_after,
+            )
+            st.session_state["_dev_edge_snapshot_poll"] = _edge_poll
+            if _launch_flags.edge_debug:
+                st.session_state["_dev_edge_debug_report"] = _edge_diff
+                st.session_state["_dev_edge_window_debug_report"] = _edge_window_diff
+            st.session_state["_dev_edge_cleanup_status"] = close_duplicate_edge_browser_window(
+                _launch_flags,
+                _edge_diff,
+                window_diff=_edge_window_diff,
+            )
+            _cleanup_status = st.session_state["_dev_edge_cleanup_status"]
+            print(
+                "LoreForge Edge cleanup: "
+                f"status={_cleanup_status.status_code}; "
+                f"attempted={_cleanup_status.attempted}; "
+                f"method={_cleanup_status.method}; "
+                f"target={_cleanup_status.target_pid}; "
+                f"result={_cleanup_status.result}; "
+                f"message={_cleanup_status.message}"
             )
 
 from core.cloud_sync import (

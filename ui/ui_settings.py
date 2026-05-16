@@ -490,7 +490,26 @@ def _render_dev_webapp_launch_status() -> None:
         st.caption(_format_about_row("Recommended dev command", f"`{guidance.recommended_command}`"))
         if guidance.warning:
             st.caption(_format_about_row("Web-app note", guidance.message))
+    _render_edge_cleanup_status()
     _render_edge_debug_report()
+
+
+def _render_edge_cleanup_status() -> None:
+    cleanup = st.session_state.get("_dev_edge_cleanup_status")
+    if cleanup is None:
+        return
+
+    st.caption("Experimental duplicate-browser cleanup")
+    st.caption(
+        _format_about_row("Cleanup attempted", f"`{'Yes' if cleanup.attempted else 'No'}`")
+    )
+    st.caption(_format_about_row("Cleanup status", f"`{cleanup.status_code}`"))
+    st.caption(_format_about_row("Cleanup method", f"`{cleanup.method}`"))
+    if cleanup.target_pid is not None:
+        title = cleanup.target_title or "No visible title"
+        st.caption(_format_about_row("Cleanup target", f"`{cleanup.target_pid}` / `{title}`"))
+    st.caption(_format_about_row("Cleanup result", f"`{cleanup.result}`"))
+    st.caption(_format_about_row("Cleanup note", cleanup.message))
 
 
 def _render_edge_debug_report() -> None:
@@ -499,6 +518,16 @@ def _render_edge_debug_report() -> None:
         return
 
     st.caption("Experimental Edge debug")
+    poll = st.session_state.get("_dev_edge_snapshot_poll")
+    if poll is not None:
+        st.caption(
+            _format_about_row(
+                "Snapshot polling",
+                f"`{poll.attempts}` attempts / `{poll.delay_seconds}` seconds",
+            )
+        )
+        if poll.error:
+            st.caption(_format_about_row("Snapshot polling note", poll.error))
     st.caption(_format_about_row("PIDs before", _format_pid_tuple(report.before_pids)))
     st.caption(_format_about_row("PIDs after", _format_pid_tuple(report.after_pids)))
     st.caption(_format_about_row("New candidate PIDs", _format_pid_tuple(report.new_pids)))
@@ -535,12 +564,43 @@ def _render_edge_debug_report() -> None:
                     ),
                 )
             )
+    _render_edge_window_debug_report()
+
+
+def _render_edge_window_debug_report() -> None:
+    report = st.session_state.get("_dev_edge_window_debug_report")
+    if report is None:
+        return
+
+    st.caption("Experimental Edge window debug")
+    st.caption(_format_about_row("Window handles before", _format_text_tuple(report.before_handles)))
+    st.caption(_format_about_row("Window handles after", _format_text_tuple(report.after_handles)))
+    st.caption(_format_about_row("New window handles", _format_text_tuple(report.new_handles)))
+    st.caption(_format_about_row("Window observation", report.note))
+    for window in report.new_windows:
+        command = window.command_line or "No command line captured"
+        st.caption(
+            _format_about_row(
+                f"Window {window.handle}",
+                (
+                    f"pid `{window.pid}`; process `{window.process_name or 'Unknown'}`; "
+                    f"class `{window.class_name or 'Unknown'}`; "
+                    f"title `{window.title or 'No visible title'}`; command `{command}`"
+                ),
+            )
+        )
 
 
 def _format_pid_tuple(pids: tuple[int, ...]) -> str:
     if not pids:
         return "`None observed`"
     return "`" + ", ".join(str(pid) for pid in pids) + "`"
+
+
+def _format_text_tuple(values: tuple[str, ...]) -> str:
+    if not values:
+        return "`None observed`"
+    return "`" + "`, `".join(values) + "`"
 
 
 def _format_path_source(source: str) -> str:

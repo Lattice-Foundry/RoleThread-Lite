@@ -4,9 +4,15 @@ import subprocess
 from core.launch import (
     EdgeProcessInfo,
     EdgeProcessSnapshot,
+    EdgeWindowInfo,
+    EdgeWindowSnapshot,
     EDGE_CLASSIFICATION_APP,
     EDGE_CLASSIFICATION_BROWSER,
     EDGE_CLASSIFICATION_UNCERTAIN,
+    EDGE_CLEANUP_STATUS_ATTEMPTED,
+    EDGE_CLEANUP_STATUS_SKIPPED,
+    EDGE_CLEANUP_METHOD_CLOSE_WINDOW_HANDLE,
+    EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID,
     EDGE_CONFIDENCE_LIKELY,
     EDGE_CONFIDENCE_PARTIAL,
     EDGE_CONFIDENCE_UNRELIABLE,
@@ -22,8 +28,12 @@ from core.launch import (
     build_external_webapp_launch_status,
     build_edge_webapp_command,
     capture_edge_process_snapshot,
+    capture_edge_process_snapshot_poll,
+    capture_edge_window_snapshot,
     classify_edge_process,
+    close_duplicate_edge_browser_window,
     diff_edge_process_snapshots,
+    diff_edge_window_snapshots,
     get_streamlit_local_url,
     get_webapp_launch_guidance,
     get_webapp_launch_status,
@@ -393,6 +403,160 @@ def test_capture_edge_process_snapshot_handles_empty_output():
     assert snapshot.error == ""
 
 
+def test_capture_edge_window_snapshot_parses_visible_top_level_windows():
+    captured_script = ""
+
+    def run_fn(command, **kwargs):
+        nonlocal captured_script
+        captured_script = command[-1]
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                '[{"handle":"0x1001","pid":101,"title":"LoreForge Lite",'
+                '"process_name":"msedge.exe","class_name":"Chrome_WidgetWin_1",'
+                '"command_line":"msedge --app=http://localhost:8501"},'
+                '{"handle":"0x1002","pid":102,"title":"LoreForge Lite",'
+                '"process_name":"ApplicationFrameHost.exe","class_name":"Chrome_WidgetWin_1",'
+                '"command_line":"msedge http://localhost:8501"}]'
+            ),
+            stderr="",
+        )
+
+    snapshot = capture_edge_window_snapshot(system_name="Windows", run_fn=run_fn)
+
+    assert len(snapshot.windows) == 2
+    assert snapshot.windows[0].handle == "0x1001"
+    assert snapshot.windows[0].pid == 101
+    assert snapshot.windows[0].process_name == "msedge.exe"
+    assert snapshot.windows[0].class_name == "Chrome_WidgetWin_1"
+    assert "--app=http://localhost:8501" in snapshot.windows[0].command_line
+    assert "Stop-Process" not in captured_script
+    assert "taskkill" not in captured_script.lower()
+
+
+def test_capture_edge_window_snapshot_is_windows_only():
+    calls = []
+
+    def run_fn(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("should not inspect windows on non-Windows")
+
+    snapshot = capture_edge_window_snapshot(system_name="Linux", run_fn=run_fn)
+
+    assert snapshot.windows == ()
+    assert "Windows-only" in snapshot.error
+    assert calls == []
+
+
+def test_diff_edge_window_snapshots_reports_new_handles():
+    before = EdgeWindowSnapshot(
+        windows=(
+            EdgeWindowInfo(
+                handle="0x1001",
+                pid=101,
+                process_name="msedge.exe",
+                title="Existing Edge",
+                class_name="Chrome_WidgetWin_1",
+            ),
+        )
+    )
+    after = EdgeWindowSnapshot(
+        windows=(
+            before.windows[0],
+            EdgeWindowInfo(
+                handle="0x1002",
+                pid=102,
+                process_name="msedge.exe",
+                title="LoreForge Lite",
+                class_name="Chrome_WidgetWin_1",
+                command_line="msedge http://localhost:8501",
+            ),
+        )
+    )
+
+    diff = diff_edge_window_snapshots(before, after)
+
+    assert diff.before_handles == ("0x1001",)
+    assert diff.after_handles == ("0x1001", "0x1002")
+    assert diff.new_handles == ("0x1002",)
+    assert diff.new_windows[0].pid == 102
+    assert "1 new Edge top-level window" in diff.note
+
+
+def test_capture_edge_process_snapshot_poll_merges_late_metadata():
+    snapshots = [
+        EdgeProcessSnapshot(
+            processes=(
+                EdgeProcessInfo(
+                    pid=101,
+                    parent_pid=10,
+                    command_line="",
+                    executable_path="C:\\Edge\\msedge.exe",
+                    window_title="",
+                ),
+            )
+        ),
+        EdgeProcessSnapshot(
+            processes=(
+                EdgeProcessInfo(
+                    pid=101,
+                    parent_pid=10,
+                    command_line="msedge http://localhost:8501",
+                    executable_path="",
+                    window_title="LoreForge Lite - Streamlit",
+                    creation_time="20260516010101.000000-300",
+                ),
+            )
+        ),
+    ]
+    calls = []
+
+    def snapshot_fn():
+        calls.append("snapshot")
+        return snapshots[min(len(calls) - 1, len(snapshots) - 1)]
+
+    delays = []
+    result = capture_edge_process_snapshot_poll(
+        attempts=2,
+        delay_seconds=0.01,
+        sleep_fn=lambda delay: delays.append(delay),
+        snapshot_fn=snapshot_fn,
+    )
+
+    assert result.attempts == 2
+    assert delays == [0.01]
+    assert len(result.snapshot.processes) == 1
+    merged = result.snapshot.processes[0]
+    assert merged.command_line == "msedge http://localhost:8501"
+    assert merged.executable_path == "C:\\Edge\\msedge.exe"
+    assert merged.window_title == "LoreForge Lite - Streamlit"
+
+
+def test_capture_edge_process_snapshot_uses_detected_platform_diagnostics(monkeypatch):
+    calls = []
+
+    def fake_detection():
+        return detect_browser_capabilities(
+            "Windows",
+            home="C:/Users/Scott",
+            env={},
+            which_fn=lambda name: "C:/Edge/msedge.exe",
+        )
+
+    def run_fn(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("core.launch.detect_browser_capabilities", fake_detection)
+
+    snapshot = capture_edge_process_snapshot(run_fn=run_fn)
+
+    assert snapshot.processes == ()
+    assert snapshot.error == ""
+    assert calls
+
+
 def test_diff_edge_process_snapshots_reports_new_candidates():
     before = EdgeProcessSnapshot(
         processes=(
@@ -441,6 +605,331 @@ def test_diff_edge_process_snapshots_reports_new_candidates():
     assert "normal-browser candidate" in diff.distinguishability_note
     assert "101:app_window_candidate" in diff.process_order_note
     assert "102:browser_window_candidate" in diff.process_order_note
+
+
+def _edge_diff_with_new_processes(*processes: EdgeProcessInfo) -> object:
+    before = EdgeProcessSnapshot(
+        processes=(
+            EdgeProcessInfo(
+                pid=100,
+                parent_pid=10,
+                command_line="msedge existing",
+                executable_path="C:\\Edge\\msedge.exe",
+                window_title="Existing",
+            ),
+        )
+    )
+    after = EdgeProcessSnapshot(processes=(before.processes[0], *processes))
+    return diff_edge_process_snapshots(before, after)
+
+
+def _app_process(pid: int = 101) -> EdgeProcessInfo:
+    return EdgeProcessInfo(
+        pid=pid,
+        parent_pid=10,
+        command_line="msedge --app=http://localhost:8501",
+        executable_path="C:\\Edge\\msedge.exe",
+        window_title="LoreForge Lite",
+        creation_time="20260516010101.000000-300",
+    )
+
+
+def _browser_process(pid: int = 102, *, command_line: str | None = None) -> EdgeProcessInfo:
+    return EdgeProcessInfo(
+        pid=pid,
+        parent_pid=10,
+        command_line=command_line or "msedge http://localhost:8501",
+        executable_path="C:\\Edge\\msedge.exe",
+        window_title="LoreForge Lite - Streamlit",
+        creation_time="20260516010102.000000-300",
+    )
+
+
+def _uncertain_process(pid: int = 103) -> EdgeProcessInfo:
+    return EdgeProcessInfo(
+        pid=pid,
+        parent_pid=10,
+        command_line="msedge --type=utility",
+        executable_path="C:\\Edge\\msedge.exe",
+        window_title="",
+    )
+
+
+def _window_diff_with_preexisting_browser_and_new_app() -> object:
+    before = EdgeWindowSnapshot(
+        windows=(
+            EdgeWindowInfo(
+                handle="0xBEEF",
+                pid=23456,
+                process_name="msedge.exe",
+                title="LoreForge Lite - Personal - Microsoft Edge",
+                class_name="Chrome_WidgetWin_1",
+                command_line=(
+                    '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" '
+                    "--single-argument http://localhost:8501/"
+                ),
+            ),
+        )
+    )
+    after = EdgeWindowSnapshot(
+        windows=(
+            before.windows[0],
+            EdgeWindowInfo(
+                handle="0xCAFE",
+                pid=23456,
+                process_name="msedge.exe",
+                title="LoreForge Lite",
+                class_name="Chrome_WidgetWin_1",
+                command_line=(
+                    '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" '
+                    "--single-argument http://localhost:8501/"
+                ),
+            ),
+        )
+    )
+    return diff_edge_window_snapshots(before, after)
+
+
+def test_edge_cleanup_closes_single_likely_browser_candidate_gracefully():
+    diff = _edge_diff_with_new_processes(_app_process(), _browser_process())
+    commands = []
+
+    def run_fn(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="close_main_window_sent",
+            stderr="",
+        )
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        system_name="Windows",
+        run_fn=run_fn,
+    )
+
+    assert status.attempted is True
+    assert status.skipped is False
+    assert status.target_pid == 102
+    assert status.status_code == EDGE_CLEANUP_STATUS_ATTEMPTED
+    assert status.result == "close_main_window_sent"
+    assert commands
+    script = commands[0][-1]
+    assert "CloseMainWindow" in script
+    assert "taskkill" not in script.lower()
+
+
+def test_edge_cleanup_uses_window_handle_when_browser_preexists_but_app_window_is_new():
+    diff = _edge_diff_with_new_processes(_uncertain_process(pid=9340))
+    window_diff = _window_diff_with_preexisting_browser_and_new_app()
+    commands = []
+
+    def run_fn(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="wm_close_sent",
+            stderr="",
+        )
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        window_diff=window_diff,
+        system_name="Windows",
+        run_fn=run_fn,
+    )
+
+    assert status.attempted is True
+    assert status.skipped is False
+    assert status.target_pid == 23456
+    assert status.target_title == "LoreForge Lite - Personal - Microsoft Edge"
+    assert status.method == EDGE_CLEANUP_METHOD_CLOSE_WINDOW_HANDLE
+    assert status.result == "wm_close_sent"
+    assert commands
+    script = commands[0][-1]
+    assert "PostMessage" in script
+    assert "0xBEEF" in script
+    assert "Stop-Process" not in script
+    assert "taskkill" not in script.lower()
+
+
+def test_edge_cleanup_never_targets_app_candidate():
+    diff = _edge_diff_with_new_processes(_app_process())
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        system_name="Windows",
+        run_fn=lambda command, **kwargs: (_ for _ in ()).throw(
+            AssertionError("should not close app candidate")
+        ),
+    )
+
+    assert status.skipped is True
+    assert status.status_code == EDGE_CLEANUP_STATUS_SKIPPED
+
+
+def test_edge_cleanup_skips_uncertain_candidate():
+    diff = _edge_diff_with_new_processes(_app_process(), _uncertain_process())
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        system_name="Windows",
+        run_fn=lambda command, **kwargs: (_ for _ in ()).throw(
+            AssertionError("should not close uncertain candidate")
+        ),
+    )
+
+    assert status.skipped is True
+    assert "confidence" in status.message
+
+
+def test_edge_cleanup_skips_preexisting_browser_pid():
+    existing_browser = _browser_process(pid=100)
+    before = EdgeProcessSnapshot(processes=(existing_browser,))
+    after = EdgeProcessSnapshot(processes=(existing_browser, _app_process()))
+    diff = diff_edge_process_snapshots(before, after)
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        system_name="Windows",
+        run_fn=lambda command, **kwargs: (_ for _ in ()).throw(
+            AssertionError("should not close preexisting browser")
+        ),
+    )
+
+    assert status.skipped is True
+    assert status.target_pid is None
+
+
+def test_edge_cleanup_skips_multiple_browser_candidates():
+    diff = _edge_diff_with_new_processes(
+        _app_process(),
+        _browser_process(pid=102),
+        _browser_process(pid=103, command_line="msedge http://localhost:8501 --new-window"),
+    )
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        system_name="Windows",
+        run_fn=lambda command, **kwargs: (_ for _ in ()).throw(
+            AssertionError("should not close ambiguous browser candidates")
+        ),
+    )
+
+    assert status.skipped is True
+    assert "Expected exactly one" in status.message
+
+
+def test_edge_cleanup_failure_is_nonfatal():
+    diff = _edge_diff_with_new_processes(_app_process(), _browser_process())
+
+    def fail(command, **kwargs):
+        raise OSError("nope")
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        system_name="Windows",
+        run_fn=fail,
+    )
+
+    assert status.attempted is True
+    assert status.result == "exception"
+    assert "nonfatally" in status.message
+
+
+def test_edge_cleanup_falls_back_to_exact_pid_stop_after_graceful_failure():
+    diff = _edge_diff_with_new_processes(_app_process(), _browser_process())
+    commands = []
+
+    def run_fn(command, **kwargs):
+        commands.append(command)
+        if len(commands) == 1:
+            return subprocess.CompletedProcess(
+                command,
+                3,
+                stdout="no_main_window",
+                stderr="",
+            )
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="stop_process_sent",
+            stderr="",
+        )
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        system_name="Windows",
+        run_fn=run_fn,
+    )
+
+    assert status.attempted is True
+    assert status.target_pid == 102
+    assert status.method == EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID
+    assert status.result == "stop_process_sent"
+    assert len(commands) == 2
+    assert "CloseMainWindow" in commands[0][-1]
+    assert "Stop-Process -Id 102" in commands[1][-1]
+    assert "taskkill" not in commands[1][-1].lower()
+
+
+def test_edge_cleanup_skips_without_webapp_flag():
+    diff = _edge_diff_with_new_processes(_app_process(), _browser_process())
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=False),
+        diff,
+        system_name="Windows",
+        run_fn=lambda command, **kwargs: (_ for _ in ()).throw(
+            AssertionError("should not close without webapp flag")
+        ),
+    )
+
+    assert status.skipped is True
+    assert "not active" in status.message
+
+
+def test_edge_cleanup_uses_detected_platform_diagnostics(monkeypatch):
+    diff = _edge_diff_with_new_processes(_app_process(), _browser_process())
+    calls = []
+
+    def fake_detection():
+        return detect_browser_capabilities(
+            "Windows",
+            home="C:/Users/Scott",
+            env={},
+            which_fn=lambda name: "C:/Edge/msedge.exe",
+        )
+
+    def run_fn(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="close_main_window_sent",
+            stderr="",
+        )
+
+    monkeypatch.setattr("core.launch.detect_browser_capabilities", fake_detection)
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        run_fn=run_fn,
+    )
+
+    assert status.attempted is True
+    assert calls
 
 
 def test_classify_edge_process_detects_app_mode_arguments():

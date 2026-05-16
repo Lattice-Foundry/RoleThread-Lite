@@ -28,9 +28,10 @@ WEBAPP_EXPERIMENTAL_MESSAGE = (
     "that browser behavior is controlled before app.py runs."
 )
 WEBAPP_AUTOMATION_DEFERRED_MESSAGE = (
-    "Automated cleanup of Streamlit's extra browser window is deferred for V1. "
-    "Run LoreForge normally and use the browser's install-as-app or "
-    "create-shortcut feature manually for the reliable V1 workflow."
+    "Experimental duplicate-window cleanup may attempt a graceful close only "
+    "when Edge metadata is classified as safe. Run LoreForge normally and use "
+    "the browser's install-as-app or create-shortcut feature manually for the "
+    "reliable V1 workflow."
 )
 RECOMMENDED_WEBAPP_STREAMLIT_COMMAND = (
     "trainer\\Scripts\\python.exe -m streamlit run app.py "
@@ -43,6 +44,11 @@ EDGE_CONFIDENCE_INSUFFICIENT = "insufficient_evidence"
 EDGE_CONFIDENCE_LIKELY = "likely_distinguishable"
 EDGE_CONFIDENCE_PARTIAL = "partially_distinguishable"
 EDGE_CONFIDENCE_UNRELIABLE = "unreliable"
+EDGE_CLEANUP_METHOD_CLOSE_MAIN_WINDOW = "close_main_window"
+EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID = "stop_process_exact_pid"
+EDGE_CLEANUP_METHOD_CLOSE_WINDOW_HANDLE = "close_window_handle"
+EDGE_CLEANUP_STATUS_ATTEMPTED = "attempted"
+EDGE_CLEANUP_STATUS_SKIPPED = "skipped"
 WEBAPP_LAUNCH_STATUS_ALREADY_ATTEMPTED = "already_attempted"
 WEBAPP_LAUNCH_STATUS_EXTERNAL = "external_orchestrated"
 WEBAPP_LAUNCH_STATUS_FAILED = "failed"
@@ -123,6 +129,39 @@ class EdgeProcessSnapshot:
 
 
 @dataclass(frozen=True)
+class EdgeWindowInfo:
+    """Observe-only metadata for one visible Microsoft Edge top-level window."""
+
+    handle: str
+    pid: int
+    process_name: str
+    title: str
+    class_name: str
+    command_line: str = ""
+
+
+@dataclass(frozen=True)
+class EdgeWindowSnapshot:
+    """Observe-only Microsoft Edge top-level window snapshot."""
+
+    windows: tuple[EdgeWindowInfo, ...]
+    error: str = ""
+
+
+@dataclass(frozen=True)
+class EdgeWindowDiff:
+    """Observe-only diff between Edge top-level window snapshots."""
+
+    before_handles: tuple[str, ...]
+    after_handles: tuple[str, ...]
+    new_handles: tuple[str, ...]
+    before_windows: tuple[EdgeWindowInfo, ...]
+    after_windows: tuple[EdgeWindowInfo, ...]
+    new_windows: tuple[EdgeWindowInfo, ...]
+    note: str
+
+
+@dataclass(frozen=True)
 class EdgeProcessDiff:
     """Observe-only diff between two Edge process snapshots."""
 
@@ -134,6 +173,31 @@ class EdgeProcessDiff:
     confidence_level: str
     distinguishability_note: str
     process_order_note: str
+
+
+@dataclass(frozen=True)
+class EdgeDuplicateCleanupStatus:
+    """Result of the experimental duplicate browser close attempt."""
+
+    cleanup_requested: bool
+    attempted: bool
+    skipped: bool
+    target_pid: int | None
+    target_title: str
+    method: str
+    result: str
+    message: str
+    status_code: str
+
+
+@dataclass(frozen=True)
+class EdgeSnapshotPollResult:
+    """Merged after-launch Edge observation snapshots."""
+
+    snapshot: EdgeProcessSnapshot
+    attempts: int
+    delay_seconds: float
+    error: str = ""
 
 
 def parse_launch_flags(argv: Sequence[str] | None = None) -> LaunchFlags:
@@ -276,7 +340,7 @@ def capture_edge_process_snapshot(
 ) -> EdgeProcessSnapshot:
     """Capture observe-only Microsoft Edge process metadata on Windows."""
 
-    target_system = system_name or detect_browser_capabilities().platform.raw_system
+    target_system = system_name or detect_browser_capabilities().platform.diagnostics.raw_system
     if target_system.lower() != "windows":
         return EdgeProcessSnapshot(
             processes=(),
@@ -354,6 +418,224 @@ Get-CimInstance Win32_Process -Filter "name='msedge.exe'" -ErrorAction SilentlyC
     return EdgeProcessSnapshot(processes=tuple(sorted(processes, key=lambda item: item.pid)))
 
 
+def capture_edge_process_snapshot_poll(
+    *,
+    attempts: int = 5,
+    delay_seconds: float = 0.35,
+    sleep_fn: Callable[[float], object] | None = None,
+    snapshot_fn: Callable[[], EdgeProcessSnapshot] | None = None,
+) -> EdgeSnapshotPollResult:
+    """Capture and merge several Edge snapshots to wait out Chromium metadata timing."""
+
+    import time
+
+    sleep = sleep_fn or time.sleep
+    capture = snapshot_fn or capture_edge_process_snapshot
+    merged: dict[int, EdgeProcessInfo] = {}
+    errors: list[str] = []
+    safe_attempts = max(1, attempts)
+
+    for attempt in range(safe_attempts):
+        snapshot = capture()
+        if snapshot.error:
+            errors.append(snapshot.error)
+        for process in snapshot.processes:
+            existing = merged.get(process.pid)
+            merged[process.pid] = _merge_edge_process_info(existing, process)
+        if attempt < safe_attempts - 1:
+            sleep(delay_seconds)
+
+    return EdgeSnapshotPollResult(
+        snapshot=EdgeProcessSnapshot(
+            processes=tuple(sorted(merged.values(), key=lambda item: item.pid)),
+            error="; ".join(dict.fromkeys(errors)),
+        ),
+        attempts=safe_attempts,
+        delay_seconds=delay_seconds,
+        error="; ".join(dict.fromkeys(errors)),
+    )
+
+
+def capture_edge_window_snapshot(
+    *,
+    system_name: str | None = None,
+    run_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> EdgeWindowSnapshot:
+    """Capture observe-only visible Microsoft Edge top-level window metadata."""
+
+    target_system = system_name or detect_browser_capabilities().platform.diagnostics.raw_system
+    if target_system.lower() != "windows":
+        return EdgeWindowSnapshot(
+            windows=(),
+            error="Edge window observation is Windows-only.",
+        )
+
+    script = r"""
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public class Win32WindowProbe {
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+    public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+}
+"@
+
+$processNames = @{}
+$processCommands = @{}
+Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | ForEach-Object {
+    $processNames[[int]$_.ProcessId] = [string]$_.Name
+    $processCommands[[int]$_.ProcessId] = [string]$_.CommandLine
+}
+
+$rows = New-Object System.Collections.Generic.List[object]
+$callback = [Win32WindowProbe+EnumWindowsProc]{
+    param([IntPtr]$hWnd, [IntPtr]$lParam)
+    if (-not [Win32WindowProbe]::IsWindowVisible($hWnd)) { return $true }
+    [uint32]$windowPid = 0
+    [void][Win32WindowProbe]::GetWindowThreadProcessId($hWnd, [ref]$windowPid)
+
+    $titleBuilder = New-Object System.Text.StringBuilder 512
+    [void][Win32WindowProbe]::GetWindowText($hWnd, $titleBuilder, $titleBuilder.Capacity)
+    $classBuilder = New-Object System.Text.StringBuilder 256
+    [void][Win32WindowProbe]::GetClassName($hWnd, $classBuilder, $classBuilder.Capacity)
+
+    $title = [string]$titleBuilder.ToString()
+    $className = [string]$classBuilder.ToString()
+    $processName = [string]$processNames[[int]$windowPid]
+    $commandLine = [string]$processCommands[[int]$windowPid]
+    $looksLikeEdge = $processName -ieq 'msedge.exe'
+    $looksLikeLoreForge = $title -like '*LoreForge*'
+    $looksLikeChromiumWindow = $className -like 'Chrome_WidgetWin*'
+
+    if (-not ($looksLikeEdge -or $looksLikeLoreForge -or $looksLikeChromiumWindow)) {
+        return $true
+    }
+
+    $rows.Add([PSCustomObject]@{
+        handle = "0x{0:X}" -f $hWnd.ToInt64()
+        pid = [int]$windowPid
+        process_name = $processName
+        title = $title
+        class_name = $className
+        command_line = $commandLine
+    })
+    return $true
+}
+[void][Win32WindowProbe]::EnumWindows($callback, [IntPtr]::Zero)
+$rows | ConvertTo-Json -Compress
+"""
+    try:
+        result = run_fn(
+            ["powershell", "-NoProfile", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception as exc:
+        return EdgeWindowSnapshot(windows=(), error=f"Edge window observation failed: {exc}")
+
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout or "").strip()
+        return EdgeWindowSnapshot(
+            windows=(),
+            error=f"Edge window observation command failed: {message}".strip(),
+        )
+
+    payload = (result.stdout or "").strip()
+    if not payload:
+        return EdgeWindowSnapshot(windows=())
+
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        return EdgeWindowSnapshot(
+            windows=(),
+            error=f"Edge window observation returned unreadable JSON: {exc}",
+        )
+
+    records = parsed if isinstance(parsed, list) else [parsed]
+    windows: list[EdgeWindowInfo] = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        handle = str(record.get("handle") or "").strip()
+        if not handle:
+            continue
+        try:
+            pid = int(record.get("pid", 0))
+        except (TypeError, ValueError):
+            continue
+        if pid <= 0:
+            continue
+        windows.append(
+            EdgeWindowInfo(
+                handle=handle,
+                pid=pid,
+                process_name=str(record.get("process_name") or ""),
+                title=str(record.get("title") or ""),
+                class_name=str(record.get("class_name") or ""),
+                command_line=str(record.get("command_line") or ""),
+            )
+        )
+
+    return EdgeWindowSnapshot(windows=tuple(sorted(windows, key=lambda item: item.handle)))
+
+
+def diff_edge_window_snapshots(
+    before: EdgeWindowSnapshot,
+    after: EdgeWindowSnapshot,
+) -> EdgeWindowDiff:
+    """Diff Edge top-level windows to catch reused-process browser windows."""
+
+    before_handles = tuple(window.handle for window in before.windows)
+    after_handles = tuple(window.handle for window in after.windows)
+    new_windows = tuple(
+        window for window in after.windows if window.handle not in set(before_handles)
+    )
+    if new_windows:
+        note = f"{len(new_windows)} new Edge top-level window(s) were observed."
+    else:
+        note = "No new Edge top-level windows were observed."
+    if before.error or after.error:
+        errors = "; ".join(part for part in (before.error, after.error) if part)
+        note = f"{note} Observation note: {errors}"
+    return EdgeWindowDiff(
+        before_handles=before_handles,
+        after_handles=after_handles,
+        new_handles=tuple(window.handle for window in new_windows),
+        before_windows=before.windows,
+        after_windows=after.windows,
+        new_windows=new_windows,
+        note=note,
+    )
+
+
+def _merge_edge_process_info(
+    existing: EdgeProcessInfo | None,
+    current: EdgeProcessInfo,
+) -> EdgeProcessInfo:
+    if existing is None:
+        return current
+    return EdgeProcessInfo(
+        pid=current.pid,
+        parent_pid=current.parent_pid if current.parent_pid is not None else existing.parent_pid,
+        command_line=current.command_line or existing.command_line,
+        executable_path=current.executable_path or existing.executable_path,
+        window_title=current.window_title or existing.window_title,
+        creation_time=current.creation_time or existing.creation_time,
+    )
+
+
 def diff_edge_process_snapshots(
     before: EdgeProcessSnapshot,
     after: EdgeProcessSnapshot,
@@ -380,6 +662,365 @@ def diff_edge_process_snapshots(
         confidence_level=confidence_level,
         distinguishability_note=distinguishability_note,
         process_order_note=process_order_note,
+    )
+
+
+def close_duplicate_edge_browser_window(
+    flags: LaunchFlags,
+    diff: EdgeProcessDiff,
+    *,
+    window_diff: EdgeWindowDiff | None = None,
+    system_name: str | None = None,
+    run_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> EdgeDuplicateCleanupStatus:
+    """Experimentally close only a newly observed duplicate Edge browser window."""
+
+    if not flags.webapp:
+        return _skip_edge_cleanup("Web-app flag is not active.")
+
+    target_system = system_name or detect_browser_capabilities().platform.diagnostics.raw_system
+    if target_system.lower() != "windows":
+        return _skip_edge_cleanup("Duplicate Edge cleanup is Windows-only.")
+
+    if diff.confidence_level != EDGE_CONFIDENCE_LIKELY:
+        window_status = _close_duplicate_edge_browser_window_by_handle(
+            flags,
+            window_diff,
+            run_fn=run_fn,
+        )
+        if window_status is not None:
+            return window_status
+        return _skip_edge_cleanup(
+            f"Classification confidence is {diff.confidence_level}, not likely_distinguishable."
+        )
+
+    classifications = {item.pid: item for item in diff.classifications}
+    new_processes = {process.pid: process for process in diff.new_processes}
+    browser_candidates = [
+        new_processes[item.pid]
+        for item in diff.classifications
+        if item.classification == EDGE_CLASSIFICATION_BROWSER
+        and item.confidence == EDGE_CONFIDENCE_LIKELY
+        and item.pid in diff.new_pids
+        and item.pid in new_processes
+    ]
+
+    if len(browser_candidates) != 1:
+        return _skip_edge_cleanup(
+            f"Expected exactly one likely new browser candidate, found {len(browser_candidates)}."
+        )
+
+    target = browser_candidates[0]
+    classification = classifications.get(target.pid)
+    if classification is None or classification.classification != EDGE_CLASSIFICATION_BROWSER:
+        return _skip_edge_cleanup("Target process classification was not a browser candidate.")
+    if target.pid in diff.before_pids:
+        return _skip_edge_cleanup("Target process existed before web-app launch.")
+    command = target.command_line.lower()
+    if not command or DEFAULT_STREAMLIT_LOCAL_URL.lower() not in command or "--app" in command:
+        return _skip_edge_cleanup(
+            "Target command line did not safely identify a normal Streamlit browser window."
+        )
+
+    close_script = f"""
+$ErrorActionPreference = 'Stop'
+$process = Get-Process -Id {target.pid} -ErrorAction Stop
+if ($process.ProcessName -ne 'msedge') {{
+    Write-Output 'not_msedge'
+    exit 4
+}}
+if ($process.MainWindowHandle -eq 0) {{
+    Write-Output 'no_main_window'
+    exit 3
+}}
+$closed = $process.CloseMainWindow()
+if ($closed) {{
+    Write-Output 'close_main_window_sent'
+    exit 0
+}}
+Write-Output 'close_main_window_failed'
+exit 2
+"""
+    try:
+        result = run_fn(
+            ["powershell", "-NoProfile", "-Command", close_script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception as exc:
+        return EdgeDuplicateCleanupStatus(
+            cleanup_requested=True,
+            attempted=True,
+            skipped=False,
+            target_pid=target.pid,
+            target_title=target.window_title,
+            method=EDGE_CLEANUP_METHOD_CLOSE_MAIN_WINDOW,
+            result="exception",
+            message=f"Duplicate browser cleanup failed nonfatally: {exc}",
+            status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+        )
+
+    output = (result.stdout or result.stderr or "").strip()
+    if result.returncode == 0:
+        return EdgeDuplicateCleanupStatus(
+            cleanup_requested=True,
+            attempted=True,
+            skipped=False,
+            target_pid=target.pid,
+            target_title=target.window_title,
+            method=EDGE_CLEANUP_METHOD_CLOSE_MAIN_WINDOW,
+            result=output or "close_main_window_sent",
+            message=(
+                "Experimental duplicate Edge browser cleanup sent a graceful close "
+                f"request to PID {target.pid}."
+            ),
+            status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+        )
+
+    stop_result = _stop_exact_edge_process(
+        target,
+        run_fn=run_fn,
+        close_result=output or f"return_code_{result.returncode}",
+    )
+    if stop_result is not None:
+        return stop_result
+
+    return EdgeDuplicateCleanupStatus(
+        cleanup_requested=True,
+        attempted=True,
+        skipped=False,
+        target_pid=target.pid,
+        target_title=target.window_title,
+        method=EDGE_CLEANUP_METHOD_CLOSE_MAIN_WINDOW,
+        result=output or f"return_code_{result.returncode}",
+        message=(
+            "Experimental duplicate Edge browser cleanup attempted a graceful close "
+            f"for PID {target.pid}, but Windows reported no successful close."
+        ),
+        status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+    )
+
+
+def _stop_exact_edge_process(
+    target: EdgeProcessInfo,
+    *,
+    run_fn: Callable[..., subprocess.CompletedProcess[str]],
+    close_result: str,
+) -> EdgeDuplicateCleanupStatus | None:
+    """Fallback to exact-PID process close after graceful window close fails."""
+
+    script = f"""
+$ErrorActionPreference = 'Stop'
+$process = Get-Process -Id {target.pid} -ErrorAction Stop
+if ($process.ProcessName -ne 'msedge') {{
+    Write-Output 'not_msedge'
+    exit 4
+}}
+Stop-Process -Id {target.pid} -ErrorAction Stop
+Write-Output 'stop_process_sent'
+exit 0
+"""
+    try:
+        result = run_fn(
+            ["powershell", "-NoProfile", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception as exc:
+        return EdgeDuplicateCleanupStatus(
+            cleanup_requested=True,
+            attempted=True,
+            skipped=False,
+            target_pid=target.pid,
+            target_title=target.window_title,
+            method=EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID,
+            result="exception",
+            message=(
+                "Graceful duplicate browser close failed, and exact-PID fallback "
+                f"failed nonfatally: {exc}. Graceful result: {close_result}"
+            ),
+            status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+        )
+
+    output = (result.stdout or result.stderr or "").strip()
+    if result.returncode == 0:
+        return EdgeDuplicateCleanupStatus(
+            cleanup_requested=True,
+            attempted=True,
+            skipped=False,
+            target_pid=target.pid,
+            target_title=target.window_title,
+            method=EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID,
+            result=output or "stop_process_sent",
+            message=(
+                "Graceful duplicate browser close was unavailable, so LoreForge "
+                f"sent an exact-PID process close to browser candidate PID {target.pid}. "
+                f"Graceful result: {close_result}"
+            ),
+            status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+        )
+
+    return EdgeDuplicateCleanupStatus(
+        cleanup_requested=True,
+        attempted=True,
+        skipped=False,
+        target_pid=target.pid,
+        target_title=target.window_title,
+        method=EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID,
+        result=output or f"return_code_{result.returncode}",
+        message=(
+            "Graceful duplicate browser close failed, and exact-PID fallback did "
+            f"not report success. Graceful result: {close_result}"
+        ),
+        status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+    )
+
+
+def _close_duplicate_edge_browser_window_by_handle(
+    flags: LaunchFlags,
+    window_diff: EdgeWindowDiff | None,
+    *,
+    run_fn: Callable[..., subprocess.CompletedProcess[str]],
+) -> EdgeDuplicateCleanupStatus | None:
+    """Close a pre-launch normal browser HWND only when a new app window appeared."""
+
+    if not flags.webapp or window_diff is None:
+        return None
+
+    browser_candidates = [
+        window
+        for window in window_diff.before_windows
+        if _is_streamlit_browser_window_candidate(window)
+    ]
+    app_candidates = [
+        window for window in window_diff.new_windows if _is_loreforge_app_window_candidate(window)
+    ]
+
+    if len(browser_candidates) != 1 or len(app_candidates) != 1:
+        return None
+
+    target = browser_candidates[0]
+    close_script = f"""
+$ErrorActionPreference = 'Stop'
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public class LoreForgeWindowCloser {{
+    [DllImport("user32.dll", SetLastError=true)]
+    public static extern bool PostMessage(IntPtr hWnd, UInt32 Msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+}}
+"@
+$handle = [IntPtr]([Convert]::ToInt64("{target.handle}", 16))
+[uint32]$windowPid = 0
+[void][LoreForgeWindowCloser]::GetWindowThreadProcessId($handle, [ref]$windowPid)
+if ([int]$windowPid -ne {target.pid}) {{
+    Write-Output "pid_mismatch"
+    exit 5
+}}
+$process = Get-Process -Id {target.pid} -ErrorAction Stop
+if ($process.ProcessName -ne 'msedge') {{
+    Write-Output 'not_msedge'
+    exit 4
+}}
+$command = [string](Get-CimInstance Win32_Process -Filter "ProcessId={target.pid}" -ErrorAction Stop).CommandLine
+if ($command -notlike '*localhost:8501*' -or $command -like '*--app=*') {{
+    Write-Output 'unsafe_command'
+    exit 3
+}}
+$titleBuilder = New-Object System.Text.StringBuilder 512
+[void][LoreForgeWindowCloser]::GetWindowText($handle, $titleBuilder, $titleBuilder.Capacity)
+$title = [string]$titleBuilder.ToString()
+if ($title -notlike '*LoreForge*' -or $title -notlike '*Microsoft*Edge*') {{
+    Write-Output 'unsafe_title'
+    exit 2
+}}
+$sent = [LoreForgeWindowCloser]::PostMessage($handle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+if ($sent) {{
+    Write-Output 'wm_close_sent'
+    exit 0
+}}
+Write-Output 'wm_close_failed'
+exit 1
+"""
+    try:
+        result = run_fn(
+            ["powershell", "-NoProfile", "-Command", close_script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception as exc:
+        return EdgeDuplicateCleanupStatus(
+            cleanup_requested=True,
+            attempted=True,
+            skipped=False,
+            target_pid=target.pid,
+            target_title=target.title,
+            method=EDGE_CLEANUP_METHOD_CLOSE_WINDOW_HANDLE,
+            result="exception",
+            message=f"Window-handle duplicate browser cleanup failed nonfatally: {exc}",
+            status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+        )
+
+    output = (result.stdout or result.stderr or "").strip()
+    return EdgeDuplicateCleanupStatus(
+        cleanup_requested=True,
+        attempted=True,
+        skipped=False,
+        target_pid=target.pid,
+        target_title=target.title,
+        method=EDGE_CLEANUP_METHOD_CLOSE_WINDOW_HANDLE,
+        result=output or f"return_code_{result.returncode}",
+        message=(
+            "Experimental duplicate Edge browser cleanup used the pre-launch "
+            f"normal browser window handle {target.handle} after observing a new "
+            "LoreForge app window."
+        ),
+        status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+    )
+
+
+def _is_streamlit_browser_window_candidate(window: EdgeWindowInfo) -> bool:
+    command = window.command_line.lower()
+    title = window.title.lower()
+    return (
+        window.process_name.lower() == "msedge.exe"
+        and DEFAULT_STREAMLIT_LOCAL_URL.lower() in command
+        and "--app" not in command
+        and "loreforge" in title
+        and "microsoft" in title
+        and "edge" in title
+    )
+
+
+def _is_loreforge_app_window_candidate(window: EdgeWindowInfo) -> bool:
+    title = window.title.strip().lower()
+    return (
+        window.class_name.startswith("Chrome_WidgetWin")
+        and "loreforge" in title
+        and "microsoft" not in title
+        and "edge" not in title
+    )
+
+
+def _skip_edge_cleanup(reason: str) -> EdgeDuplicateCleanupStatus:
+    return EdgeDuplicateCleanupStatus(
+        cleanup_requested=False,
+        attempted=False,
+        skipped=True,
+        target_pid=None,
+        target_title="",
+        method="none",
+        result="skipped",
+        message=reason,
+        status_code=EDGE_CLEANUP_STATUS_SKIPPED,
     )
 
 

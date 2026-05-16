@@ -121,15 +121,16 @@ shortcut option.
 
 The experimental `webapp` flag attempts to open Microsoft Edge app mode during
 development, but Streamlit may also open its normal browser window before
-LoreForge can influence launch behavior. Adding `edge-debug` records observe-only
-Edge process diagnostics to help research whether the two windows can be
-distinguished safely. The diagnostic labels new candidates as app-window,
-normal-browser, or uncertain with a confidence note. It does not close windows,
-kill processes, or mutate browser state.
+LoreForge can influence launch behavior. LoreForge may then attempt an
+experimental graceful close of only the newly observed normal-browser candidate
+when Edge metadata is classified as safe enough.
 
-Automated cleanup of Streamlit's extra browser window is deferred to the final
-launcher/installer phase. The experimental flags should not be treated as the
-official V1 launch path.
+Adding `edge-debug` records Edge process diagnostics to help inspect the
+decision. The diagnostic labels new candidates as app-window, normal-browser, or
+uncertain with a confidence note. Cleanup uses a polite window-close request only
+for a single new, likely normal-browser candidate; it does not use `taskkill`,
+close app-window candidates, or touch pre-existing Edge windows. The experimental
+flags should not be treated as the official V1 launch path.
 
 Windows:
 

@@ -125,7 +125,9 @@ option. This remains the reliable V1 fallback.
 For development experiments, `streamlit run app.py -- webapp` attempts to open
 the local app in Microsoft Edge app mode when Edge is available. Streamlit may
 also open its normal browser window because that behavior is controlled before
-`app.py` runs. Adding `edge-debug` enables observe-only Edge process diagnostics:
+`app.py` runs. LoreForge may then attempt an experimental graceful close of only
+the newly observed normal-browser candidate when Edge metadata is classified as
+safe enough. Adding `edge-debug` enables detailed Edge process diagnostics:
 
 ```bat
 streamlit run app.py -- webapp edge-debug
@@ -133,9 +135,9 @@ streamlit run app.py -- webapp edge-debug
 
 The debug mode records Edge process IDs and visible window metadata where
 Windows exposes it. It also labels new candidates as app-window, normal-browser,
-or uncertain with a confidence note. It does not close windows, kill processes,
-or change browser state. Automated cleanup of the extra browser window is
-deferred to the final launcher/installer phase.
+or uncertain with a confidence note. Cleanup uses a polite window-close request
+only for a single new, likely normal-browser candidate; it does not use
+`taskkill`, close app-window candidates, or touch pre-existing Edge windows.
 
 ## OS Compatibility and Storage
 
