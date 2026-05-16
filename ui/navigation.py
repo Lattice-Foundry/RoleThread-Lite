@@ -133,6 +133,9 @@ _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
     ),
 )
 
+# Preserve old visible labels that may still be stored in session state,
+# query params, saved links, or pre-rename tests. Canonical routing remains
+# PAGE_INSIGHTS and PAGE_EDIT_ENTRIES.
 _PAGE_ALIASES = {
     "Statistics": PAGE_INSIGHTS,
     "Deep Edit": PAGE_EDIT_ENTRIES,

@@ -18,12 +18,15 @@ from core.dataset import (
     entry_text_length,
     filter_entries_by_tags,
     filter_entry_pairs_by_tags,
+    get_all_tags,
     get_available_filter_tags,
     get_entry_messages,
     get_entry_tags,
     get_entry_by_uuid,
     get_entry_index_by_uuid,
     get_role_messages,
+    get_tag_category_map,
+    get_tag_label_map,
     get_used_tags,
     has_untagged_entries,
     load_dataset,
@@ -109,6 +112,19 @@ def test_canonicalize_entry_tag_aliases_rewrites_and_deduplicates_without_mutati
 
 def _error_text(errors):
     return "\n".join(errors)
+
+
+def test_builtin_tag_fallback_helpers_reflect_v1_taxonomy():
+    tags = get_all_tags()
+    category_map = get_tag_category_map()
+    label_map = get_tag_label_map()
+
+    assert tags[:3] == ["pacing", "boundaries", "no_user_control"]
+    assert "comfort" not in tags
+    assert category_map["question_answer"] == "Interaction"
+    assert category_map["approved"] == "Status"
+    assert label_map["__untagged__"] == "Untagged"
+    assert label_map["converted"] == "Source / converted"
 
 
 def test_validate_entry_accepts_valid_single_turn_entry():

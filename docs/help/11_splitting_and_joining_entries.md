@@ -58,7 +58,7 @@ LoreForge creates a backup before applying the split.
 
 ## Split Examples
 
-### Split a Long Scene
+### Split a Long Entry
 
 If exchanges 1-4 are an introduction and exchanges 5-9 are a conflict, split at the point where the second beat begins. You now have two focused training examples instead of one oversized entry.
 

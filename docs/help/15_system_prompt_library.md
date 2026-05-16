@@ -87,11 +87,11 @@ Templates do not replace review, validation, or good writing judgment.
 
 ## Workflow Examples
 
-### Reuse a Group Scene Setup
+### Reuse a Group Chat Setup
 
-1. Create a template for a recurring group scene.
+1. Create a template for a recurring group interaction.
 2. Load it in Create Entry.
-3. Adjust any scene-specific details.
+3. Adjust any entry-specific details.
 4. Use Group Chat mode to assign characters per turn.
 5. Save the entry.
 

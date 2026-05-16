@@ -123,7 +123,7 @@ If a mapping references a character that is missing or inactive, LoreForge shoul
 
 ## Workflow Examples
 
-### Create a Group Scene
+### Create a Group Chat Entry
 
 1. Add characters in Character Management.
 2. Open Create Entry.

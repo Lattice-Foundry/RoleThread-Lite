@@ -248,6 +248,9 @@ def _warn_duplicate_tag_slugs(session) -> None:
 def seed_default_tags() -> None:
     """Idempotently seed built-in tags without deleting user data."""
     init_db()
+    # Startup compatibility checks are schema/content-gated and idempotent.
+    # They keep old dev/test registries loadable without mutating fresh DBs
+    # beyond normal default seeding.
     _migrate_tags_slug_column()
     _migrate_tag_lifecycle_schema()
 

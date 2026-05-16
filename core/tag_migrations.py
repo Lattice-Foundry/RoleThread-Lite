@@ -148,7 +148,11 @@ def _migrate_tag_lifecycle_schema() -> None:
         conn.commit()
 
 def _migrate_tag_history_table() -> None:
-    """Copy old tag_history rows into tag_lifecycle_metadata if needed."""
+    """Copy old tag_history rows into tag_lifecycle_metadata if needed.
+
+    This startup compatibility check is intentionally idempotent: it only runs
+    when both tables exist and skips rows already copied into lifecycle metadata.
+    """
     inspector = sa_inspect(engine)
     tables = set(inspector.get_table_names())
     if "tag_history" not in tables or "tag_lifecycle_metadata" not in tables:
@@ -195,6 +199,15 @@ def _migrate_tag_history_table() -> None:
 
 def _migrate_legacy_source_status_category(session) -> None:
     """Move old Source & Status built-ins into Source and Status categories."""
+    legacy_category = session.query(TagCategory).filter_by(slug="source_status").first()
+    legacy_reviewed_tags = (
+        session.query(Tag)
+        .filter(Tag.slug == "reviewed", Tag.is_builtin.is_(True))
+        .all()
+    )
+    if legacy_category is None and not legacy_reviewed_tags:
+        return
+
     source = session.query(TagCategory).filter_by(slug="source").first()
     status = session.query(TagCategory).filter_by(slug="status").first()
     if source is None or status is None:
@@ -238,15 +251,9 @@ def _migrate_legacy_source_status_category(session) -> None:
         legacy_tag.is_active = True
         legacy_tag.status = TAG_STATUS_ACTIVE
 
-    legacy_category = session.query(TagCategory).filter_by(slug="source_status").first()
     if legacy_category is not None:
         legacy_category.is_active = False
 
-    legacy_reviewed_tags = (
-        session.query(Tag)
-        .filter(Tag.slug == "reviewed", Tag.is_builtin.is_(True))
-        .all()
-    )
     for legacy_tag in legacy_reviewed_tags:
         legacy_tag.is_active = False
 

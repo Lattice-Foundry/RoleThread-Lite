@@ -522,12 +522,17 @@ def set_entry_system_prompt(entry: dict, system_prompt: str) -> dict:
 # ── Tag helpers ───────────────────────────────────────────────────────────────
 
 def get_all_tags() -> list[str]:
-    """Return a flat list of all tags from TAGS in category order."""
+    """Return built-in fallback tags in category order.
+
+    Most UI reads tags from the registry. These helpers remain as pure,
+    Streamlit-free fallback data for early startup, tests, and callers that
+    intentionally operate without a seeded registry snapshot.
+    """
     return [tag for tags in TAGS.values() for tag in tags]
 
 
 def get_tag_category_map() -> dict[str, str]:
-    """Return {tag: category} for all known tags."""
+    """Return {tag: category} from the built-in fallback taxonomy."""
     return {tag: cat for cat, tags in TAGS.items() for tag in tags}
 
 
@@ -535,7 +540,7 @@ def get_tag_label_map(
     include_untagged: bool = True,
     untagged_key: str = "__untagged__",
 ) -> dict[str, str]:
-    """Return display labels: {"pacing": "Behavior / pacing", "__untagged__": "Untagged", …}."""
+    """Return display labels from the built-in fallback taxonomy."""
     result: dict[str, str] = {}
     if include_untagged:
         result[untagged_key] = "Untagged"

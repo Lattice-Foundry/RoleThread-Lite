@@ -132,7 +132,7 @@ When this happens, Manage Dataset shows a banner explaining the focused view. Us
 4. Add tags.
 5. Clear the filter when finished.
 
-### Find a Remembered Scene
+### Find a Remembered Exchange
 
 1. Open Manage Dataset.
 2. Enter a phrase in Search Entries.
