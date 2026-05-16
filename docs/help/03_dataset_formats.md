@@ -47,8 +47,8 @@ ShareGPT-style records usually use a `conversations` list instead of `messages`:
 ```json
 {
   "conversations": [
-    {"from": "human", "value": "Say hello as Nicole."},
-    {"from": "gpt", "value": "Hi, Scott. I missed you."}
+    {"from": "human", "value": "Say hello as Assistant."},
+    {"from": "gpt", "value": "Hi, User. I missed you."}
   ],
   "tags": ["greeting"]
 }

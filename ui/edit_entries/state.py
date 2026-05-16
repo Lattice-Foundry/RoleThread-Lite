@@ -66,8 +66,8 @@ def editor_turn_display_names(entry: dict) -> dict[int, str]:
 
     display_names = get_turn_display_names(
         entry,
-        st.session_state.get("preview_user_name", "Scott"),
-        st.session_state.get("preview_assistant_name", "Nicole"),
+        st.session_state.get("preview_user_name", "User"),
+        st.session_state.get("preview_assistant_name", "Assistant"),
     )
     messages = entry.get("messages") if isinstance(entry, dict) else None
     if not isinstance(messages, list):

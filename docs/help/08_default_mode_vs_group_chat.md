@@ -59,8 +59,8 @@ Group Chat mode does not turn JSONL roles into character names.
 Even if a preview shows:
 
 ```text
-Scott:
-Nicole:
+User:
+Assistant:
 Kai:
 ```
 
@@ -122,7 +122,7 @@ If imported data contains custom speaker names as roles, LoreForge may help dete
 
 ## Common Mistake
 
-**Mistake:** Expecting Group Chat mode to export roles like `Nicole` or `Kai`.
+**Mistake:** Expecting Group Chat mode to export roles like `Assistant` or `Kai`.
 
 **Better mental model:** Group Chat mode preserves character identity as metadata. Clean training records still use `system`, `user`, and `assistant`.
 

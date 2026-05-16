@@ -33,7 +33,7 @@ Example shape:
   "messages": [
     {"role": "system", "content": "You are writing a grounded character scene."},
     {"role": "user", "content": "Ask about the locked door."},
-    {"role": "assistant", "content": "Nicole studies the frame, then lowers her voice..."}
+    {"role": "assistant", "content": "Assistant studies the frame, then lowers her voice..."}
   ]
 }
 ```
@@ -142,10 +142,10 @@ That is useful in some Group Chat scenes, but it can make a behavior feel tied t
 Example:
 
 ```text
-Nicole walks over to the table and smiles at Scott.
+Assistant walks over to the table and smiles at User.
 ```
 
-This is clear, but repeated name-heavy narration can over-bind the behavior to Nicole and Scott.
+This is clear, but repeated name-heavy narration can over-bind the behavior to Assistant and User.
 
 For more reusable behavior, pronouns may generalize better:
 

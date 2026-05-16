@@ -286,8 +286,8 @@ def _apply_preferences_to_session(prefs: dict) -> None:
     st.session_state.prefs = prefs
     st.session_state.system_prompt = prefs.get("last_system_prompt") or DEFAULT_SYSTEM_PROMPT
     st.session_state.confirm_delete_entries = prefs.get("confirm_delete_entries", True)
-    st.session_state.preview_user_name = prefs.get("preview_user_name", "Scott")
-    st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Nicole")
+    st.session_state.preview_user_name = prefs.get("preview_user_name", "User")
+    st.session_state.preview_assistant_name = prefs.get("preview_assistant_name", "Assistant")
     st.session_state.default_dataset_directory = prefs.get("default_dataset_directory", "")
     st.session_state.auto_backups_enabled = prefs.get("auto_backups_enabled", True)
     st.session_state.backup_directory = prefs.get("backup_directory", "")

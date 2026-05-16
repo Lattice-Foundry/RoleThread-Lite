@@ -87,6 +87,13 @@ def test_load_preferences_returns_defaults_when_db_empty_and_file_missing(settin
     assert loaded is not preferences.DEFAULTS
 
 
+def test_default_preview_names_are_public_neutral_values():
+    defaults = preferences.get_default_preferences()
+
+    assert defaults["preview_user_name"] == "User"
+    assert defaults["preview_assistant_name"] == "Assistant"
+
+
 def test_get_default_preferences_uses_windows_platform_paths():
     defaults = preferences.get_default_preferences(
         "Windows",

@@ -41,8 +41,8 @@ Display names are for humans.
 They make previews and editors easier to read:
 
 ```text
-Scott:
-Nicole:
+User:
+Assistant:
 Kai:
 ```
 
@@ -61,8 +61,8 @@ A **character mapping** connects a character to a specific message turn.
 
 For example:
 
-- exchange 1 user turn belongs to Scott
-- exchange 1 assistant turn belongs to Nicole
+- exchange 1 user turn belongs to User
+- exchange 1 assistant turn belongs to Assistant
 - exchange 2 assistant turn belongs to Kai
 
 LoreForge stores those assignments as metadata tied to the entry UUID and turn position.

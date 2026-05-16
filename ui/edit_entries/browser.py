@@ -225,8 +225,8 @@ def render_edit_entries_browser(tag_snapshot) -> None:
                 include_system=include_system,
                 display_names=get_turn_display_names(
                     entry,
-                    st.session_state.get("preview_user_name", "Scott"),
-                    st.session_state.get("preview_assistant_name", "Nicole"),
+                    st.session_state.get("preview_user_name", "User"),
+                    st.session_state.get("preview_assistant_name", "Assistant"),
                     character_display_cache,
                 ),
             )
