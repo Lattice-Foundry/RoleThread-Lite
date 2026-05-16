@@ -5,26 +5,13 @@ compatibility live in ui.navigation.
 """
 import atexit
 from pathlib import Path
-import time
 
 import streamlit as st
-from streamlit import config as st_config
 
 from core.launch import (
-    attempt_webapp_launch,
-    capture_edge_process_snapshot,
-    capture_edge_process_snapshot_poll,
-    capture_edge_window_snapshot,
-    close_duplicate_edge_browser_window,
-    diff_edge_process_snapshots,
-    diff_edge_window_snapshots,
-    get_webapp_launch_guidance,
-    should_attempt_webapp_launch,
     should_show_dev_diagnostics,
     parse_launch_flags,
-    supports_managed_webapp_launch,
 )
-from core.platform import detect_browser_capabilities
 from core.runtime import get_python_runtime_status
 
 st.set_page_config(page_title="LoreForge Lite", layout="wide")
@@ -38,71 +25,100 @@ if _runtime_status.is_newer_than_tested:
 
 
 def _get_streamlit_headless_config() -> bool | None:
+    from streamlit import config as st_config
+
     try:
         return bool(st_config.get_option("server.headless"))
     except Exception:
         return None
 
 
+def _handle_webapp_launch(flags) -> None:
+    """Run managed webapp launch work only when the webapp flag is active."""
+
+    import time
+
+    from core.launch import (
+        attempt_webapp_launch,
+        capture_edge_process_snapshot,
+        capture_edge_process_snapshot_poll,
+        capture_edge_window_snapshot,
+        close_duplicate_edge_browser_window,
+        diff_edge_process_snapshots,
+        diff_edge_window_snapshots,
+        get_webapp_launch_guidance,
+        should_attempt_webapp_launch,
+        supports_managed_webapp_launch,
+    )
+    from core.platform import detect_browser_capabilities
+
+    browser_detection = detect_browser_capabilities()
+    if flags.dev:
+        st.session_state["_dev_webapp_launch_guidance"] = get_webapp_launch_guidance(
+            flags,
+            streamlit_headless=_get_streamlit_headless_config(),
+        )
+    should_attempt = should_attempt_webapp_launch(
+        flags,
+        already_attempted=bool(st.session_state.get("_dev_webapp_launch_attempted")),
+    )
+    if not should_attempt:
+        return
+
+    st.session_state["_dev_webapp_launch_attempted"] = True
+    managed_webapp_supported = supports_managed_webapp_launch(browser_detection)
+    if managed_webapp_supported:
+        edge_before = capture_edge_process_snapshot()
+        edge_windows_before = capture_edge_window_snapshot()
+    st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(
+        flags,
+        browser_detection=browser_detection,
+    )
+    if not managed_webapp_supported:
+        st.session_state["_webapp_unsupported_notice"] = (
+            st.session_state["_dev_webapp_launch_status"].message
+            + " See documentation for manual configuration options."
+        )
+        return
+    if not st.session_state["_dev_webapp_launch_status"].launched:
+        return
+
+    time.sleep(0.4)
+    edge_poll = capture_edge_process_snapshot_poll()
+    edge_after = edge_poll.snapshot
+    edge_windows_after = capture_edge_window_snapshot()
+    edge_diff = diff_edge_process_snapshots(edge_before, edge_after)
+    edge_window_diff = diff_edge_window_snapshots(
+        edge_windows_before,
+        edge_windows_after,
+    )
+    st.session_state["_dev_edge_snapshot_poll"] = edge_poll
+    if flags.edge_debug:
+        st.session_state["_dev_edge_debug_report"] = edge_diff
+        st.session_state["_dev_edge_window_debug_report"] = edge_window_diff
+    st.session_state["_dev_edge_cleanup_status"] = close_duplicate_edge_browser_window(
+        flags,
+        edge_diff,
+        window_diff=edge_window_diff,
+    )
+    cleanup_status = st.session_state["_dev_edge_cleanup_status"]
+    if flags.dev:
+        print(
+            "LoreForge Edge cleanup: "
+            f"status={cleanup_status.status_code}; "
+            f"attempted={cleanup_status.attempted}; "
+            f"method={cleanup_status.method}; "
+            f"target={cleanup_status.target_pid}; "
+            f"result={cleanup_status.result}; "
+            f"message={cleanup_status.message}"
+        )
+
+
 _launch_flags = parse_launch_flags()
 st.session_state["_runtime_launch_flags"] = _launch_flags
 st.session_state["_dev_mode"] = should_show_dev_diagnostics(_launch_flags)
 if _launch_flags.webapp:
-    _browser_detection = detect_browser_capabilities()
-    if _launch_flags.dev:
-        st.session_state["_dev_webapp_launch_guidance"] = get_webapp_launch_guidance(
-            _launch_flags,
-            streamlit_headless=_get_streamlit_headless_config(),
-        )
-    _should_attempt_webapp_launch = should_attempt_webapp_launch(
-        _launch_flags,
-        already_attempted=bool(st.session_state.get("_dev_webapp_launch_attempted")),
-    )
-    if _should_attempt_webapp_launch:
-        st.session_state["_dev_webapp_launch_attempted"] = True
-        _managed_webapp_supported = supports_managed_webapp_launch(_browser_detection)
-        if _managed_webapp_supported:
-            _edge_before = capture_edge_process_snapshot()
-            _edge_windows_before = capture_edge_window_snapshot()
-        st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(
-            _launch_flags,
-            browser_detection=_browser_detection,
-        )
-        if not _managed_webapp_supported:
-            st.session_state["_webapp_unsupported_notice"] = (
-                st.session_state["_dev_webapp_launch_status"].message
-                + " See documentation for manual configuration options."
-            )
-        if _managed_webapp_supported and st.session_state["_dev_webapp_launch_status"].launched:
-            time.sleep(0.4)
-            _edge_poll = capture_edge_process_snapshot_poll()
-            _edge_after = _edge_poll.snapshot
-            _edge_windows_after = capture_edge_window_snapshot()
-            _edge_diff = diff_edge_process_snapshots(_edge_before, _edge_after)
-            _edge_window_diff = diff_edge_window_snapshots(
-                _edge_windows_before,
-                _edge_windows_after,
-            )
-            st.session_state["_dev_edge_snapshot_poll"] = _edge_poll
-            if _launch_flags.edge_debug:
-                st.session_state["_dev_edge_debug_report"] = _edge_diff
-                st.session_state["_dev_edge_window_debug_report"] = _edge_window_diff
-            st.session_state["_dev_edge_cleanup_status"] = close_duplicate_edge_browser_window(
-                _launch_flags,
-                _edge_diff,
-                window_diff=_edge_window_diff,
-            )
-            _cleanup_status = st.session_state["_dev_edge_cleanup_status"]
-            if _launch_flags.dev:
-                print(
-                    "LoreForge Edge cleanup: "
-                    f"status={_cleanup_status.status_code}; "
-                    f"attempted={_cleanup_status.attempted}; "
-                    f"method={_cleanup_status.method}; "
-                    f"target={_cleanup_status.target_pid}; "
-                    f"result={_cleanup_status.result}; "
-                    f"message={_cleanup_status.message}"
-                )
+    _handle_webapp_launch(_launch_flags)
 
 if st.session_state.get("_webapp_unsupported_notice"):
     st.info(st.session_state["_webapp_unsupported_notice"])

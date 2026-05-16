@@ -398,6 +398,10 @@ def test_should_attempt_webapp_launch_guards_reruns():
         external_launcher=True,
     )
     assert not should_attempt_webapp_launch(LaunchFlags(webapp=False), already_attempted=False)
+    assert not should_attempt_webapp_launch(
+        LaunchFlags(dev=True, edge_debug=True),
+        already_attempted=False,
+    )
 
 
 def test_capture_edge_process_snapshot_is_windows_only():
