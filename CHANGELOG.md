@@ -16,6 +16,12 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.63] - 2026-05-16
+
+### Added
+
+- Added a lighter FAQ note about LoreForge Lite's intentionally cautious design philosophy.
+
 ## [1.3.62] - 2026-05-16
 
 ### Added
@@ -32,4 +38,3 @@ Future version bumps should update this file with concise user-facing or maintai
 - Verified remaining startup migrations are idempotent compatibility checks.
 - Kept transitional navigation aliases for stored session/page compatibility.
 - Kept built-in tag fallback helpers as pure startup/test fallback utilities.
-

@@ -232,6 +232,10 @@
     "answer": "Dataset cleanup often involves judgment. Removing tags, rewriting prompts, deleting entries, or resolving metadata conflicts can change meaning.\n\nLoreForge automates safe predictable fixes, then leaves creative or semantic choices to you."
   },
   {
+    "question": "Safety and identity: Is LoreForge Lite ridiculously and unnecessarily over-engineered?",
+    "answer": "Probably. But losing training data is worse."
+  },
+  {
     "question": "Operational expectations: Why does LoreForge prefer deterministic workflows?",
     "answer": "Deterministic tools are easier to inspect, repeat, and trust. Search, validation, export, merge policy, and cleanup behavior should be predictable.\n\nThat matters when you are preparing training data and need to understand what changed."
   },
