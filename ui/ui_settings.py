@@ -23,6 +23,7 @@ from core.platform import (
     detect_onedrive_path,
     detect_platform,
     get_platform_path_resolutions,
+    get_platform_launch_plan,
 )
 from core.preferences import export_settings, get_all_settings, import_settings
 from core.runtime import get_python_runtime_status
@@ -336,6 +337,7 @@ def _render_platform_about() -> None:
             st.caption(_format_about_row(label, f"`{'Yes' if enabled else 'No'}`"))
 
     browser_detection = detect_browser_capabilities(platform_info=platform_info)
+    launch_plan = get_platform_launch_plan(browser_detection)
     with st.expander("Browser Support"):
         st.caption(
             _format_about_row(
@@ -360,6 +362,24 @@ def _render_platform_about() -> None:
             )
         )
         st.caption(_format_about_row("Browser mode", browser_detection.message))
+
+    with st.expander("Launch Behavior"):
+        st.caption(_format_about_row("Preferred launch mode", f"`{launch_plan.preferred_label}`"))
+        st.caption(_format_about_row("Fallback behavior", f"`{launch_plan.fallback_label}`"))
+        st.caption(
+            _format_about_row(
+                "Preferred mode available",
+                f"`{'Yes' if launch_plan.is_preferred_available else 'No'}`",
+            )
+        )
+        st.caption(
+            _format_about_row(
+                "Edge web app readiness",
+                f"`{'Ready' if launch_plan.edge_webapp_ready else 'Not ready'}`",
+            )
+        )
+        for note in launch_plan.notes:
+            st.caption(_format_about_row("Note", note))
 
     with st.expander("Raw Platform Diagnostics"):
         st.caption(_format_about_row("Platform slug", f"`{platform_info.platform_slug}`"))

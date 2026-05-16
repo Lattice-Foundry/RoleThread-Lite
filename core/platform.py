@@ -18,6 +18,10 @@ SUPPORT_BETA = "beta"
 SUPPORT_UNSUPPORTED = "unsupported"
 PATH_SOURCE_PLATFORM_DEFAULT = "platform_default"
 PATH_SOURCE_USER_OVERRIDE = "user_override"
+LAUNCH_MODE_EDGE_WEBAPP = "edge_webapp"
+LAUNCH_MODE_DEFAULT_BROWSER = "default_browser"
+LAUNCH_MODE_MANUAL = "manual"
+LAUNCH_MODE_UNSUPPORTED = "unsupported"
 
 
 @dataclass(frozen=True)
@@ -141,6 +145,19 @@ class BrowserDetectionResult:
     browser: BrowserInfo
     capabilities: BrowserCapabilities
     message: str
+
+
+@dataclass(frozen=True)
+class LaunchPlan:
+    """Declarative launch recommendation for the current platform."""
+
+    preferred_mode: str
+    preferred_label: str
+    fallback_mode: str | None
+    fallback_label: str
+    is_preferred_available: bool
+    edge_webapp_ready: bool
+    notes: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -357,6 +374,101 @@ def detect_browser_capabilities(
         browser=edge_info,
         capabilities=capabilities,
         message=_browser_detection_message(info, capabilities),
+    )
+
+
+def get_platform_launch_plan(
+    browser_detection: BrowserDetectionResult | None = None,
+    **browser_detection_kwargs,
+) -> LaunchPlan:
+    """Return a platform-aware launch recommendation without launching anything."""
+
+    detection = browser_detection or detect_browser_capabilities(
+        **browser_detection_kwargs
+    )
+    platform_info = detection.platform
+    browser_capabilities = detection.capabilities
+
+    if browser_capabilities.edge_webapp_available:
+        return LaunchPlan(
+            preferred_mode=LAUNCH_MODE_EDGE_WEBAPP,
+            preferred_label="Microsoft Edge web app",
+            fallback_mode=LAUNCH_MODE_DEFAULT_BROWSER,
+            fallback_label="Default browser",
+            is_preferred_available=True,
+            edge_webapp_ready=True,
+            notes=(
+                "Edge is available for the future Windows web-app launch flow.",
+                "Installer and shortcut integration are planned later.",
+            ),
+        )
+
+    if platform_info.capabilities.supports_edge_webapp:
+        return LaunchPlan(
+            preferred_mode=LAUNCH_MODE_DEFAULT_BROWSER,
+            preferred_label="Default browser",
+            fallback_mode=None,
+            fallback_label="None",
+            is_preferred_available=browser_capabilities.supports_default_browser,
+            edge_webapp_ready=False,
+            notes=(
+                "Microsoft Edge was not detected.",
+                "Future Windows launch behavior should fall back to the default browser.",
+                "Installer and shortcut integration are planned later.",
+            ),
+        )
+
+    if platform_info.capabilities.supports_linux_manual_run:
+        return LaunchPlan(
+            preferred_mode=LAUNCH_MODE_DEFAULT_BROWSER,
+            preferred_label="Default browser",
+            fallback_mode=LAUNCH_MODE_MANUAL,
+            fallback_label="Manual Streamlit URL",
+            is_preferred_available=browser_capabilities.supports_default_browser,
+            edge_webapp_ready=False,
+            notes=(
+                "Manual or git-clone setup is the expected Linux workflow for V1.",
+                "No Edge web-app workflow is planned for Linux V1.",
+            ),
+        )
+
+    if platform_info.capabilities.supports_macos_beta:
+        return LaunchPlan(
+            preferred_mode=LAUNCH_MODE_DEFAULT_BROWSER,
+            preferred_label="Default browser",
+            fallback_mode=LAUNCH_MODE_MANUAL,
+            fallback_label="Manual Streamlit URL",
+            is_preferred_available=browser_capabilities.supports_default_browser,
+            edge_webapp_ready=False,
+            notes=(
+                "macOS is beta-supported for V1.",
+                "Safari web-app style workflows are user-managed and outside V1 automation.",
+                "A macOS installer is not planned for V1.",
+            ),
+        )
+
+    if browser_capabilities.supports_default_browser:
+        return LaunchPlan(
+            preferred_mode=LAUNCH_MODE_DEFAULT_BROWSER,
+            preferred_label="Default browser",
+            fallback_mode=LAUNCH_MODE_MANUAL,
+            fallback_label="Manual Streamlit URL",
+            is_preferred_available=True,
+            edge_webapp_ready=False,
+            notes=("Default browser workflow is the safest available option.",),
+        )
+
+    return LaunchPlan(
+        preferred_mode=LAUNCH_MODE_UNSUPPORTED,
+        preferred_label="Unsupported",
+        fallback_mode=LAUNCH_MODE_MANUAL,
+        fallback_label="Manual Streamlit URL",
+        is_preferred_available=False,
+        edge_webapp_ready=False,
+        notes=(
+            "This platform is not officially supported for V1.",
+            "Browser launch automation should degrade gracefully.",
+        ),
     )
 
 

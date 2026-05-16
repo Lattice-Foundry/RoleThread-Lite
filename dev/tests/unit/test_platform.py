@@ -197,6 +197,112 @@ def test_browser_detection_gracefully_degrades_on_unknown_platform():
     assert "Browser workflows are not supported" in result.message
 
 
+def test_launch_plan_prefers_edge_webapp_when_edge_available_on_windows():
+    detection = platform_helpers.detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/Scott",
+        env={},
+        which_fn=lambda name: "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+    )
+
+    plan = platform_helpers.get_platform_launch_plan(detection)
+
+    assert plan.preferred_mode == platform_helpers.LAUNCH_MODE_EDGE_WEBAPP
+    assert plan.preferred_label == "Microsoft Edge web app"
+    assert plan.fallback_mode == platform_helpers.LAUNCH_MODE_DEFAULT_BROWSER
+    assert plan.fallback_label == "Default browser"
+    assert plan.is_preferred_available is True
+    assert plan.edge_webapp_ready is True
+    assert any("future Windows web-app launch flow" in note for note in plan.notes)
+
+
+def test_launch_plan_falls_back_to_default_browser_when_edge_missing_on_windows():
+    detection = platform_helpers.detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/Scott",
+        env={},
+        which_fn=lambda name: None,
+        path_exists_fn=lambda path: False,
+    )
+
+    plan = platform_helpers.get_platform_launch_plan(detection)
+
+    assert plan.preferred_mode == platform_helpers.LAUNCH_MODE_DEFAULT_BROWSER
+    assert plan.preferred_label == "Default browser"
+    assert plan.fallback_mode is None
+    assert plan.fallback_label == "None"
+    assert plan.is_preferred_available is True
+    assert plan.edge_webapp_ready is False
+    assert any("Edge was not detected" in note for note in plan.notes)
+
+
+def test_launch_plan_prefers_default_browser_for_linux():
+    detection = platform_helpers.detect_browser_capabilities(
+        "Linux",
+        home="/home/scott",
+        env={},
+        which_fn=lambda name: None,
+        path_exists_fn=lambda path: False,
+    )
+
+    plan = platform_helpers.get_platform_launch_plan(detection)
+
+    assert plan.preferred_mode == platform_helpers.LAUNCH_MODE_DEFAULT_BROWSER
+    assert plan.fallback_mode == platform_helpers.LAUNCH_MODE_MANUAL
+    assert plan.is_preferred_available is True
+    assert plan.edge_webapp_ready is False
+    assert any("Linux workflow" in note for note in plan.notes)
+
+
+def test_launch_plan_prefers_default_browser_for_macos_beta():
+    detection = platform_helpers.detect_browser_capabilities(
+        "Darwin",
+        home="/Users/scott",
+        env={},
+        which_fn=lambda name: None,
+        path_exists_fn=lambda path: False,
+    )
+
+    plan = platform_helpers.get_platform_launch_plan(detection)
+
+    assert plan.preferred_mode == platform_helpers.LAUNCH_MODE_DEFAULT_BROWSER
+    assert plan.fallback_mode == platform_helpers.LAUNCH_MODE_MANUAL
+    assert plan.is_preferred_available is True
+    assert plan.edge_webapp_ready is False
+    assert any("Safari web-app style workflows" in note for note in plan.notes)
+
+
+def test_launch_plan_gracefully_degrades_on_unknown_platform():
+    detection = platform_helpers.detect_browser_capabilities(
+        "Plan9",
+        home="/home/scott",
+        env={},
+        which_fn=lambda name: None,
+        path_exists_fn=lambda path: False,
+    )
+
+    plan = platform_helpers.get_platform_launch_plan(detection)
+
+    assert plan.preferred_mode == platform_helpers.LAUNCH_MODE_UNSUPPORTED
+    assert plan.fallback_mode == platform_helpers.LAUNCH_MODE_MANUAL
+    assert plan.is_preferred_available is False
+    assert plan.edge_webapp_ready is False
+    assert any("not officially supported" in note for note in plan.notes)
+
+
+def test_launch_plan_helper_accepts_browser_detection_kwargs():
+    plan = platform_helpers.get_platform_launch_plan(
+        system_name="Windows",
+        home="C:/Users/Scott",
+        env={},
+        which_fn=lambda name: None,
+        path_exists_fn=lambda path: False,
+    )
+
+    assert plan.preferred_mode == platform_helpers.LAUNCH_MODE_DEFAULT_BROWSER
+    assert plan.edge_webapp_ready is False
+
+
 def test_detect_platform_uses_platform_system_when_not_supplied(monkeypatch):
     monkeypatch.setattr(platform_helpers._platform, "system", lambda: "Linux")
 
