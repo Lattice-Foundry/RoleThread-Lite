@@ -132,9 +132,10 @@ streamlit run app.py -- webapp edge-debug
 ```
 
 The debug mode records Edge process IDs and visible window metadata where
-Windows exposes it. It does not close windows, kill processes, or change browser
-state. Automated cleanup of the extra browser window is deferred to the final
-launcher/installer phase.
+Windows exposes it. It also labels new candidates as app-window, normal-browser,
+or uncertain with a confidence note. It does not close windows, kill processes,
+or change browser state. Automated cleanup of the extra browser window is
+deferred to the final launcher/installer phase.
 
 ## OS Compatibility and Storage
 

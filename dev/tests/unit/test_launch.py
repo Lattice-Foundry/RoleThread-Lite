@@ -4,6 +4,12 @@ import subprocess
 from core.launch import (
     EdgeProcessInfo,
     EdgeProcessSnapshot,
+    EDGE_CLASSIFICATION_APP,
+    EDGE_CLASSIFICATION_BROWSER,
+    EDGE_CLASSIFICATION_UNCERTAIN,
+    EDGE_CONFIDENCE_LIKELY,
+    EDGE_CONFIDENCE_PARTIAL,
+    EDGE_CONFIDENCE_UNRELIABLE,
     DEFAULT_STREAMLIT_LOCAL_URL,
     EDGE_DEBUG_FLAG,
     EXTERNAL_WEBAPP_LAUNCH_ENV,
@@ -16,6 +22,7 @@ from core.launch import (
     build_external_webapp_launch_status,
     build_edge_webapp_command,
     capture_edge_process_snapshot,
+    classify_edge_process,
     diff_edge_process_snapshots,
     get_streamlit_local_url,
     get_webapp_launch_guidance,
@@ -356,9 +363,11 @@ def test_capture_edge_process_snapshot_parses_powershell_json_without_kill_comma
             0,
             stdout=(
                 '[{"pid":101,"parent_pid":50,"command_line":"msedge --app=http://localhost:8501",'
-                '"executable_path":"C:\\\\Edge\\\\msedge.exe","window_title":"LoreForge Lite"},'
+                '"executable_path":"C:\\\\Edge\\\\msedge.exe","window_title":"LoreForge Lite",'
+                '"creation_time":"20260516010101.000000-300"},'
                 '{"pid":102,"parent_pid":50,"command_line":"msedge http://localhost:8501",'
-                '"executable_path":"C:\\\\Edge\\\\msedge.exe","window_title":"LoreForge Lite - Streamlit"}]'
+                '"executable_path":"C:\\\\Edge\\\\msedge.exe","window_title":"LoreForge Lite - Streamlit",'
+                '"creation_time":"20260516010102.000000-300"}]'
             ),
             stderr="",
         )
@@ -369,6 +378,7 @@ def test_capture_edge_process_snapshot_parses_powershell_json_without_kill_comma
     assert snapshot.processes[0].pid == 101
     assert snapshot.processes[0].parent_pid == 50
     assert snapshot.processes[0].window_title == "LoreForge Lite"
+    assert snapshot.processes[0].creation_time == "20260516010101.000000-300"
     assert "Stop-Process" not in captured_script
     assert "taskkill" not in captured_script.lower()
 
@@ -404,6 +414,7 @@ def test_diff_edge_process_snapshots_reports_new_candidates():
                 command_line="msedge --app=http://localhost:8501",
                 executable_path="C:\\Edge\\msedge.exe",
                 window_title="LoreForge Lite",
+                creation_time="20260516010101.000000-300",
             ),
             EdgeProcessInfo(
                 pid=102,
@@ -411,6 +422,7 @@ def test_diff_edge_process_snapshots_reports_new_candidates():
                 command_line="msedge http://localhost:8501",
                 executable_path="C:\\Edge\\msedge.exe",
                 window_title="LoreForge Lite - Streamlit",
+                creation_time="20260516010102.000000-300",
             ),
         )
     )
@@ -420,5 +432,74 @@ def test_diff_edge_process_snapshots_reports_new_candidates():
     assert diff.before_pids == (100,)
     assert diff.after_pids == (100, 101, 102)
     assert diff.new_pids == (101, 102)
-    assert "app-mode candidate" in diff.distinguishability_note
+    assert diff.confidence_level == EDGE_CONFIDENCE_LIKELY
+    assert [item.classification for item in diff.classifications] == [
+        EDGE_CLASSIFICATION_APP,
+        EDGE_CLASSIFICATION_BROWSER,
+    ]
+    assert "app-window candidate" in diff.distinguishability_note
     assert "normal-browser candidate" in diff.distinguishability_note
+    assert "101:app_window_candidate" in diff.process_order_note
+    assert "102:browser_window_candidate" in diff.process_order_note
+
+
+def test_classify_edge_process_detects_app_mode_arguments():
+    classification = classify_edge_process(
+        EdgeProcessInfo(
+            pid=1,
+            parent_pid=0,
+            command_line="msedge --app=http://localhost:8501",
+            executable_path="C:\\Edge\\msedge.exe",
+            window_title="LoreForge Lite",
+        )
+    )
+
+    assert classification.classification == EDGE_CLASSIFICATION_APP
+    assert classification.confidence == EDGE_CONFIDENCE_LIKELY
+    assert any("app-mode" in reason for reason in classification.reasons)
+
+
+def test_classify_edge_process_detects_normal_browser_by_local_url():
+    classification = classify_edge_process(
+        EdgeProcessInfo(
+            pid=2,
+            parent_pid=0,
+            command_line="msedge http://localhost:8501",
+            executable_path="C:\\Edge\\msedge.exe",
+            window_title="LoreForge Lite - Streamlit",
+        )
+    )
+
+    assert classification.classification == EDGE_CLASSIFICATION_BROWSER
+    assert classification.confidence == EDGE_CONFIDENCE_LIKELY
+    assert any("local Streamlit URL" in reason for reason in classification.reasons)
+
+
+def test_classify_edge_process_uses_window_title_as_partial_browser_signal():
+    classification = classify_edge_process(
+        EdgeProcessInfo(
+            pid=3,
+            parent_pid=0,
+            command_line="msedge --type=renderer",
+            executable_path="C:\\Edge\\msedge.exe",
+            window_title="LoreForge Lite - Streamlit",
+        )
+    )
+
+    assert classification.classification == EDGE_CLASSIFICATION_BROWSER
+    assert classification.confidence == EDGE_CONFIDENCE_PARTIAL
+
+
+def test_classify_edge_process_marks_opaque_metadata_uncertain():
+    classification = classify_edge_process(
+        EdgeProcessInfo(
+            pid=4,
+            parent_pid=0,
+            command_line="msedge --type=utility",
+            executable_path="C:\\Edge\\msedge.exe",
+            window_title="",
+        )
+    )
+
+    assert classification.classification == EDGE_CLASSIFICATION_UNCERTAIN
+    assert classification.confidence == EDGE_CONFIDENCE_UNRELIABLE

@@ -123,8 +123,9 @@ The experimental `webapp` flag attempts to open Microsoft Edge app mode during
 development, but Streamlit may also open its normal browser window before
 LoreForge can influence launch behavior. Adding `edge-debug` records observe-only
 Edge process diagnostics to help research whether the two windows can be
-distinguished safely. It does not close windows, kill processes, or mutate
-browser state.
+distinguished safely. The diagnostic labels new candidates as app-window,
+normal-browser, or uncertain with a confidence note. It does not close windows,
+kill processes, or mutate browser state.
 
 Automated cleanup of Streamlit's extra browser window is deferred to the final
 launcher/installer phase. The experimental flags should not be treated as the

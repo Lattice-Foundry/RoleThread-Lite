@@ -36,6 +36,13 @@ RECOMMENDED_WEBAPP_STREAMLIT_COMMAND = (
     "trainer\\Scripts\\python.exe -m streamlit run app.py "
     "--server.headless true --server.port 8501 -- webapp"
 )
+EDGE_CLASSIFICATION_APP = "app_window_candidate"
+EDGE_CLASSIFICATION_BROWSER = "browser_window_candidate"
+EDGE_CLASSIFICATION_UNCERTAIN = "uncertain"
+EDGE_CONFIDENCE_INSUFFICIENT = "insufficient_evidence"
+EDGE_CONFIDENCE_LIKELY = "likely_distinguishable"
+EDGE_CONFIDENCE_PARTIAL = "partially_distinguishable"
+EDGE_CONFIDENCE_UNRELIABLE = "unreliable"
 WEBAPP_LAUNCH_STATUS_ALREADY_ATTEMPTED = "already_attempted"
 WEBAPP_LAUNCH_STATUS_EXTERNAL = "external_orchestrated"
 WEBAPP_LAUNCH_STATUS_FAILED = "failed"
@@ -94,6 +101,17 @@ class EdgeProcessInfo:
     command_line: str
     executable_path: str
     window_title: str
+    creation_time: str = ""
+
+
+@dataclass(frozen=True)
+class EdgeProcessClassification:
+    """Observe-only app/browser classification for one Edge process."""
+
+    pid: int
+    classification: str
+    confidence: str
+    reasons: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -112,7 +130,10 @@ class EdgeProcessDiff:
     after_pids: tuple[int, ...]
     new_pids: tuple[int, ...]
     new_processes: tuple[EdgeProcessInfo, ...]
+    classifications: tuple[EdgeProcessClassification, ...]
+    confidence_level: str
     distinguishability_note: str
+    process_order_note: str
 
 
 def parse_launch_flags(argv: Sequence[str] | None = None) -> LaunchFlags:
@@ -274,6 +295,7 @@ Get-CimInstance Win32_Process -Filter "name='msedge.exe'" -ErrorAction SilentlyC
         command_line = [string]$_.CommandLine
         executable_path = [string]$_.ExecutablePath
         window_title = [string]$titles[[int]$_.ProcessId]
+        creation_time = [string]$_.CreationDate
     }
 } | ConvertTo-Json -Compress
 """
@@ -325,6 +347,7 @@ Get-CimInstance Win32_Process -Filter "name='msedge.exe'" -ErrorAction SilentlyC
                 command_line=str(record.get("command_line") or ""),
                 executable_path=str(record.get("executable_path") or ""),
                 window_title=str(record.get("window_title") or ""),
+                creation_time=str(record.get("creation_time") or ""),
             )
         )
 
@@ -344,13 +367,67 @@ def diff_edge_process_snapshots(
         process for process in after.processes if process.pid not in before_set
     )
     new_pids = tuple(process.pid for process in new_processes)
-    distinguishability_note = _describe_edge_process_distinguishability(new_processes)
+    classifications = tuple(classify_edge_process(process) for process in new_processes)
+    confidence_level = _resolve_edge_debug_confidence(classifications, new_processes)
+    distinguishability_note = _describe_edge_process_distinguishability(classifications)
+    process_order_note = _describe_edge_process_order(new_processes, classifications)
     return EdgeProcessDiff(
         before_pids=before_pids,
         after_pids=after_pids,
         new_pids=new_pids,
         new_processes=new_processes,
+        classifications=classifications,
+        confidence_level=confidence_level,
         distinguishability_note=distinguishability_note,
+        process_order_note=process_order_note,
+    )
+
+
+def classify_edge_process(process: EdgeProcessInfo) -> EdgeProcessClassification:
+    """Classify one observed Edge process without mutating browser state."""
+
+    command = process.command_line.lower()
+    title = process.window_title.lower()
+    reasons: list[str] = []
+
+    if "--app=" in command or "--app-id=" in command:
+        reasons.append("command line contains Edge app-mode argument")
+        return EdgeProcessClassification(
+            pid=process.pid,
+            classification=EDGE_CLASSIFICATION_APP,
+            confidence=EDGE_CONFIDENCE_LIKELY,
+            reasons=tuple(reasons),
+        )
+
+    if DEFAULT_STREAMLIT_LOCAL_URL.lower() in command:
+        reasons.append("command line references the local Streamlit URL without app mode")
+        return EdgeProcessClassification(
+            pid=process.pid,
+            classification=EDGE_CLASSIFICATION_BROWSER,
+            confidence=EDGE_CONFIDENCE_LIKELY,
+            reasons=tuple(reasons),
+        )
+
+    if DEFAULT_STREAMLIT_LOCAL_URL.lower() in title or "streamlit" in title:
+        reasons.append("visible window title looks like a normal Streamlit browser tab")
+        return EdgeProcessClassification(
+            pid=process.pid,
+            classification=EDGE_CLASSIFICATION_BROWSER,
+            confidence=EDGE_CONFIDENCE_PARTIAL,
+            reasons=tuple(reasons),
+        )
+
+    if title.strip():
+        reasons.append("visible title captured, but it does not expose app/browser metadata")
+    if process.creation_time:
+        reasons.append("process creation time captured for order comparison")
+    if not reasons:
+        reasons.append("no app-mode argument, local URL, or useful window title was captured")
+    return EdgeProcessClassification(
+        pid=process.pid,
+        classification=EDGE_CLASSIFICATION_UNCERTAIN,
+        confidence=EDGE_CONFIDENCE_UNRELIABLE,
+        reasons=tuple(reasons),
     )
 
 
@@ -361,40 +438,78 @@ def _coerce_optional_int(value: object) -> int | None:
         return None
 
 
-def _describe_edge_process_distinguishability(
+def _resolve_edge_debug_confidence(
+    classifications: tuple[EdgeProcessClassification, ...],
     processes: tuple[EdgeProcessInfo, ...],
 ) -> str:
     if not processes:
+        return EDGE_CONFIDENCE_INSUFFICIENT
+    has_likely_app = any(
+        item.classification == EDGE_CLASSIFICATION_APP
+        and item.confidence == EDGE_CONFIDENCE_LIKELY
+        for item in classifications
+    )
+    has_likely_browser = any(
+        item.classification == EDGE_CLASSIFICATION_BROWSER
+        and item.confidence == EDGE_CONFIDENCE_LIKELY
+        for item in classifications
+    )
+    if has_likely_app and has_likely_browser:
+        return EDGE_CONFIDENCE_LIKELY
+    if any(item.classification != EDGE_CLASSIFICATION_UNCERTAIN for item in classifications):
+        return EDGE_CONFIDENCE_PARTIAL
+    return EDGE_CONFIDENCE_UNRELIABLE
+
+
+def _describe_edge_process_distinguishability(
+    classifications: tuple[EdgeProcessClassification, ...],
+) -> str:
+    if not classifications:
         return "No new Edge processes were observed."
 
     app_mode = [
-        process
-        for process in processes
-        if "--app=" in process.command_line.lower()
+        item for item in classifications if item.classification == EDGE_CLASSIFICATION_APP
     ]
-    local_url = [
-        process
-        for process in processes
-        if DEFAULT_STREAMLIT_LOCAL_URL in process.command_line
-        and "--app=" not in process.command_line.lower()
+    browser = [
+        item
+        for item in classifications
+        if item.classification == EDGE_CLASSIFICATION_BROWSER
     ]
-    titled = [process for process in processes if process.window_title.strip()]
+    uncertain = [
+        item
+        for item in classifications
+        if item.classification == EDGE_CLASSIFICATION_UNCERTAIN
+    ]
 
     notes: list[str] = []
     if app_mode:
-        notes.append(f"{len(app_mode)} app-mode candidate(s) include --app in the command line.")
-    if local_url:
+        notes.append(f"{len(app_mode)} app-window candidate(s) were identified.")
+    if browser:
         notes.append(
-            f"{len(local_url)} normal-browser candidate(s) reference the local Streamlit URL."
+            f"{len(browser)} normal-browser candidate(s) were identified."
         )
-    if titled:
-        notes.append(f"{len(titled)} new process(es) exposed a visible window title.")
-    if not notes:
+    if uncertain:
         notes.append(
-            "New Edge processes were observed, but app-mode and normal browser windows "
-            "were not clearly distinguishable from process metadata alone."
+            f"{len(uncertain)} new Edge process(es) remained uncertain from metadata alone."
         )
     return " ".join(notes)
+
+
+def _describe_edge_process_order(
+    processes: tuple[EdgeProcessInfo, ...],
+    classifications: tuple[EdgeProcessClassification, ...],
+) -> str:
+    timed = [process for process in processes if process.creation_time]
+    if not timed:
+        return "Process creation timing was not available."
+
+    by_pid = {item.pid: item.classification for item in classifications}
+    ordered = sorted(timed, key=lambda process: (process.creation_time, process.pid))
+    parts = [
+        f"{process.pid}:{by_pid.get(process.pid, EDGE_CLASSIFICATION_UNCERTAIN)}"
+        for process in ordered
+    ]
+    return "Observed creation order: " + " -> ".join(parts)
 
 
 def build_external_webapp_launch_status(

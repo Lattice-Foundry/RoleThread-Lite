@@ -502,16 +502,37 @@ def _render_edge_debug_report() -> None:
     st.caption(_format_about_row("PIDs before", _format_pid_tuple(report.before_pids)))
     st.caption(_format_about_row("PIDs after", _format_pid_tuple(report.after_pids)))
     st.caption(_format_about_row("New candidate PIDs", _format_pid_tuple(report.new_pids)))
+    st.caption(_format_about_row("Confidence", f"`{report.confidence_level}`"))
     st.caption(_format_about_row("Observation", report.distinguishability_note))
+    st.caption(_format_about_row("Timing", report.process_order_note))
     if report.new_processes:
+        classifications = {
+            classification.pid: classification
+            for classification in report.classifications
+        }
         for process in report.new_processes:
             title = process.window_title or "No visible title"
             parent = process.parent_pid if process.parent_pid is not None else "Unknown"
             command = process.command_line or "No command line captured"
+            classification = classifications.get(process.pid)
+            classification_label = (
+                classification.classification if classification is not None else "uncertain"
+            )
+            confidence = (
+                classification.confidence if classification is not None else "unreliable"
+            )
+            reasons = (
+                "; ".join(classification.reasons)
+                if classification is not None
+                else "No classification details captured"
+            )
             st.caption(
                 _format_about_row(
                     f"Candidate {process.pid}",
-                    f"parent `{parent}`; title `{title}`; command `{command}`",
+                    (
+                        f"`{classification_label}` / `{confidence}`; parent `{parent}`; "
+                        f"title `{title}`; reasons {reasons}; command `{command}`"
+                    ),
                 )
             )
 
