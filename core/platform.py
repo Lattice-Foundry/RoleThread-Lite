@@ -105,6 +105,14 @@ class PlatformInfo:
 
 
 @dataclass(frozen=True)
+class PlatformSupportMessage:
+    """User-facing platform support note for Settings/About."""
+
+    label: str
+    message: str
+
+
+@dataclass(frozen=True)
 class _PlatformProfile:
     os_name: str
     display_name: str
@@ -204,6 +212,77 @@ def detect_platform(system_name: str | None = None) -> PlatformInfo:
         capabilities=profile.capabilities,
         diagnostics=collect_platform_diagnostics(detected_name),
     )
+
+
+def get_platform_support_messages(
+    platform_info: PlatformInfo | None = None,
+) -> tuple[PlatformSupportMessage, ...]:
+    """Return centralized user-facing support notes for a platform."""
+
+    info = platform_info or detect_platform()
+    capabilities = info.capabilities
+
+    if capabilities.supports_linux_manual_run:
+        return (
+            PlatformSupportMessage(
+                "Support",
+                "Linux is a primary V1 support platform.",
+            ),
+            PlatformSupportMessage(
+                "Run model",
+                "Manual or git-clone setup is the expected Linux workflow for V1.",
+            ),
+        )
+
+    if capabilities.supports_macos_beta:
+        return (
+            PlatformSupportMessage(
+                "Support",
+                "macOS is beta-supported for V1.",
+            ),
+            PlatformSupportMessage(
+                "Testing",
+                "macOS behavior is community-tested until maintainer hardware is available.",
+            ),
+            PlatformSupportMessage(
+                "Installer",
+                "A macOS installer is not planned for V1.",
+            ),
+        )
+
+    if info.support_level == SUPPORT_UNSUPPORTED:
+        return (
+            PlatformSupportMessage(
+                "Support",
+                "This platform is not officially supported for V1.",
+            ),
+            PlatformSupportMessage(
+                "Behavior",
+                "Platform-specific features are disabled where support is unknown.",
+            ),
+        )
+
+    messages = [
+        PlatformSupportMessage(
+            "Support",
+            f"{info.display_name} is a primary V1 support platform.",
+        )
+    ]
+    if capabilities.supports_installer:
+        messages.append(
+            PlatformSupportMessage(
+                "Installer",
+                "Installer support is planned for V1 distribution.",
+            )
+        )
+    if capabilities.supports_edge_webapp:
+        messages.append(
+            PlatformSupportMessage(
+                "Web app",
+                "Edge web app support is planned for a later launcher pass.",
+            )
+        )
+    return tuple(messages)
 
 
 def get_platform_paths(

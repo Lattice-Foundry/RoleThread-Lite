@@ -22,6 +22,7 @@ from core.platform import (
     detect_onedrive_path,
     detect_platform,
     get_platform_path_resolutions,
+    get_platform_support_messages,
 )
 from core.preferences import export_settings, get_all_settings, import_settings
 from core.runtime import get_python_runtime_status
@@ -324,6 +325,10 @@ def _render_platform_about() -> None:
         st.markdown("**Python**")
         st.caption(runtime_status.current_version)
 
+    with st.expander("Platform Support Notes"):
+        for note in get_platform_support_messages(platform_info):
+            st.caption(_format_about_row(note.label, note.message))
+
     with st.expander("Python Runtime Compatibility"):
         st.caption(_format_about_row("Current Python", f"`{runtime_status.current_version}`"))
         st.caption(_format_about_row("Official Python", f"`{runtime_status.official_version}`"))
@@ -469,25 +474,24 @@ def _render_cloud_backup_settings() -> None:
     """Render optional cloud backup destination controls."""
 
     st.markdown("**Cloud Backup Destination**")
-    destination_options = [("Local (no cloud sync)", BACKUP_DESTINATION_LOCAL)]
-    if detect_platform().capabilities.supports_onedrive:
-        destination_options.append(
-            ("OneDrive (auto-detected)", BACKUP_DESTINATION_ONEDRIVE)
-        )
-    destination_options.extend([
-        ("Google Drive", BACKUP_DESTINATION_GOOGLE_DRIVE),
-        ("Dropbox", BACKUP_DESTINATION_DROPBOX),
-        ("iCloud Drive", BACKUP_DESTINATION_ICLOUD_DRIVE),
-        ("Box", BACKUP_DESTINATION_BOX),
-    ])
+    platform_info = detect_platform()
+    destination_options = _cloud_destination_options(platform_info.capabilities)
 
     current_type = st.session_state.prefs.get(
         "backup_destination_type",
         BACKUP_DESTINATION_LOCAL,
     )
     option_values = [value for _, value in destination_options]
+    unavailable_reason = ""
     if current_type not in option_values:
+        if current_type == BACKUP_DESTINATION_ONEDRIVE:
+            unavailable_reason = (
+                "OneDrive backup is unavailable on this platform. "
+                "Choose another cloud provider or local-only backups."
+            )
         current_type = BACKUP_DESTINATION_LOCAL
+    if unavailable_reason:
+        st.info(unavailable_reason)
     option_labels = [label for label, _value in destination_options]
     current_label = option_labels[option_values.index(current_type)]
 
@@ -576,6 +580,21 @@ def _cloud_provider_display_name(provider_type: str) -> str:
         BACKUP_DESTINATION_BOX: "Box",
         BACKUP_DESTINATION_CUSTOM: "Custom",
     }.get(provider_type, "Cloud")
+
+
+def _cloud_destination_options(capabilities) -> list[tuple[str, str]]:
+    destination_options = [("Local (no cloud sync)", BACKUP_DESTINATION_LOCAL)]
+    if capabilities.supports_onedrive:
+        destination_options.append(
+            ("OneDrive (auto-detected)", BACKUP_DESTINATION_ONEDRIVE)
+        )
+    destination_options.extend([
+        ("Google Drive", BACKUP_DESTINATION_GOOGLE_DRIVE),
+        ("Dropbox", BACKUP_DESTINATION_DROPBOX),
+        ("iCloud Drive", BACKUP_DESTINATION_ICLOUD_DRIVE),
+        ("Box", BACKUP_DESTINATION_BOX),
+    ])
+    return destination_options
 
 
 def _render_cloud_provider_confirmation(

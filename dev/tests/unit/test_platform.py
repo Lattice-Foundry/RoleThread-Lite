@@ -71,6 +71,44 @@ def test_detect_platform_unknown_is_unsupported():
     assert info.capabilities.supports_macos_beta is False
 
 
+def test_platform_support_messages_describe_windows_planned_features():
+    info = platform_helpers.detect_platform("Windows")
+    messages = platform_helpers.get_platform_support_messages(info)
+    text = " ".join(message.message for message in messages)
+
+    assert "primary V1 support platform" in text
+    assert "Installer support is planned" in text
+    assert "Edge web app support is planned" in text
+
+
+def test_platform_support_messages_describe_linux_manual_workflow():
+    info = platform_helpers.detect_platform("Linux")
+    messages = platform_helpers.get_platform_support_messages(info)
+    text = " ".join(message.message for message in messages)
+
+    assert "Linux is a primary V1 support platform" in text
+    assert "Manual or git-clone setup" in text
+
+
+def test_platform_support_messages_describe_macos_beta_status():
+    info = platform_helpers.detect_platform("Darwin")
+    messages = platform_helpers.get_platform_support_messages(info)
+    text = " ".join(message.message for message in messages)
+
+    assert "macOS is beta-supported" in text
+    assert "community-tested" in text
+    assert "installer is not planned" in text
+
+
+def test_platform_support_messages_describe_unknown_graceful_degradation():
+    info = platform_helpers.detect_platform("Plan9")
+    messages = platform_helpers.get_platform_support_messages(info)
+    text = " ".join(message.message for message in messages)
+
+    assert "not officially supported" in text
+    assert "disabled where support is unknown" in text
+
+
 def test_detect_platform_uses_platform_system_when_not_supplied(monkeypatch):
     monkeypatch.setattr(platform_helpers._platform, "system", lambda: "Linux")
 
