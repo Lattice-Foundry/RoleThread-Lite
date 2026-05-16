@@ -380,6 +380,7 @@ def _render_platform_about() -> None:
         )
         for note in launch_plan.notes:
             st.caption(_format_about_row("Note", note))
+        _render_dev_webapp_launch_status()
 
     with st.expander("Raw Platform Diagnostics"):
         st.caption(_format_about_row("Platform slug", f"`{platform_info.platform_slug}`"))
@@ -436,6 +437,37 @@ def _platform_capability_labels(capabilities) -> tuple[tuple[str, bool], ...]:
         ("Linux manual run support", capabilities.supports_linux_manual_run),
         ("macOS beta support", capabilities.supports_macos_beta),
     )
+
+
+def _render_dev_webapp_launch_status() -> None:
+    """Render status for the optional dev-only Edge web-app launch flag."""
+
+    status = st.session_state.get("_dev_webapp_launch_status")
+    if status is None:
+        st.caption(_format_about_row("Dev web-app flag", "`Not requested`"))
+        return
+
+    st.caption(_format_about_row("Dev web-app flag", "`Detected`"))
+    st.caption(_format_about_row("Launch URL", f"`{status.url}`"))
+    st.caption(_format_about_row("Launch status", f"`{status.status_code}`"))
+    st.caption(
+        _format_about_row("Edge available", f"`{'Yes' if status.edge_available else 'No'}`")
+    )
+    st.caption(
+        _format_about_row("Launch attempted", f"`{'Yes' if status.attempted else 'No'}`")
+    )
+    st.caption(
+        _format_about_row(
+            "Launch result",
+            f"`{'Launched' if status.launched else 'Not launched'}`",
+        )
+    )
+    st.caption(
+        _format_about_row("Fallback used", f"`{'Yes' if status.fallback_used else 'No'}`")
+    )
+    if status.edge_path is not None:
+        st.caption(_format_about_row("Edge path", f"`{status.edge_path}`"))
+    st.caption(_format_about_row("Status", status.message))
 
 
 def _format_path_source(source: str) -> str:

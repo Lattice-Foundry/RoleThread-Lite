@@ -8,6 +8,11 @@ from pathlib import Path
 
 import streamlit as st
 
+from core.launch import (
+    attempt_webapp_launch,
+    parse_launch_flags,
+    should_attempt_webapp_launch,
+)
 from core.runtime import get_python_runtime_status
 
 st.set_page_config(page_title="LoreForge Lite", layout="wide")
@@ -18,6 +23,14 @@ if _runtime_status.is_below_minimum:
     st.stop()
 if _runtime_status.is_newer_than_tested:
     st.warning(_runtime_status.message)
+
+_launch_flags = parse_launch_flags()
+if should_attempt_webapp_launch(
+    _launch_flags,
+    already_attempted=st.session_state.get("_dev_webapp_launch_attempted", False),
+):
+    st.session_state["_dev_webapp_launch_attempted"] = True
+    st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(_launch_flags)
 
 from core.cloud_sync import (
     get_cloud_restore_candidate,
@@ -287,6 +300,22 @@ div[data-baseweb="menu"] li[role="option"][aria-selected="true"] {{
 }}
 </style>
 """, unsafe_allow_html=True)
+
+
+def _render_dev_webapp_launch_status_once() -> None:
+    """Show the dev web-app launch status without cluttering every rerun."""
+
+    status = st.session_state.get("_dev_webapp_launch_status")
+    if status is None or st.session_state.get("_dev_webapp_launch_status_rendered"):
+        return
+    if status.launched:
+        st.success(status.message)
+    else:
+        st.info(status.message)
+    st.session_state["_dev_webapp_launch_status_rendered"] = True
+
+
+_render_dev_webapp_launch_status_once()
 
 # ── Cloud backup startup hooks ────────────────────────────────────────────────
 def _sync_cloud_backups_on_exit() -> None:
