@@ -20,7 +20,11 @@ from core.db_backups import (
     DB_BACKUP_SUFFIX,
     get_db_backup_dir,
 )
-from core.platform import default_onedrive_backup_path, detect_onedrive_path
+from core.platform import (
+    default_onedrive_backup_path,
+    detect_onedrive_path,
+    detect_platform,
+)
 from core.preferences import (
     import_settings,
     load_preferences,
@@ -146,6 +150,8 @@ def resolve_cloud_backup_destination(settings: dict | None = None) -> Path | Non
     )
     configured = str(settings.get("backup_destination_custom_path") or "").strip()
     if destination_type == BACKUP_DESTINATION_ONEDRIVE:
+        if not detect_platform().capabilities.supports_onedrive:
+            return None
         if configured:
             return cloud_backup_destination_path(Path(configured).expanduser())
         return default_onedrive_backup_path()
@@ -161,6 +167,8 @@ def resolve_cloud_backup_destination_from_config(config: dict | None = None) -> 
     destination_type = config.get("backup_destination_type")
     configured = str(config.get("backup_destination_custom_path") or "").strip()
     if destination_type == BACKUP_DESTINATION_ONEDRIVE:
+        if not detect_platform().capabilities.supports_onedrive:
+            return None
         if configured:
             return cloud_backup_destination_path(Path(configured).expanduser())
         return default_onedrive_backup_path()

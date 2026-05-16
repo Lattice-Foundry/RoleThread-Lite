@@ -111,13 +111,47 @@ def test_resolve_cloud_backup_destination_uses_custom_path(tmp_path):
 
 def test_resolve_cloud_backup_destination_uses_onedrive_setting_before_detection(
     tmp_path,
+    monkeypatch,
 ):
     destination = tmp_path / "OneDrive"
+    monkeypatch.setattr(
+        cloud_sync,
+        "detect_platform",
+        lambda: type(
+            "Platform",
+            (),
+            {"capabilities": type("Capabilities", (), {"supports_onedrive": True})()},
+        )(),
+    )
 
     assert cloud_sync.resolve_cloud_backup_destination({
         "backup_destination_type": "onedrive",
         "backup_destination_custom_path": str(destination),
     }) == destination / "LoreForge Lite" / "backups"
+
+
+def test_resolve_cloud_backup_destination_ignores_stale_onedrive_off_windows(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        cloud_sync,
+        "detect_platform",
+        lambda: type(
+            "Platform",
+            (),
+            {"capabilities": type("Capabilities", (), {"supports_onedrive": False})()},
+        )(),
+    )
+
+    assert cloud_sync.resolve_cloud_backup_destination({
+        "backup_destination_type": "onedrive",
+        "backup_destination_custom_path": str(tmp_path / "OneDrive"),
+    }) is None
+    assert cloud_sync.resolve_cloud_backup_destination_from_config({
+        "backup_destination_type": "onedrive",
+        "backup_destination_custom_path": str(tmp_path / "OneDrive"),
+    }) is None
 
 
 def test_cloud_backup_destination_path_does_not_double_append(tmp_path):

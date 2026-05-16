@@ -71,7 +71,7 @@ That protects the original source from accidental edits.
 
 Cloud sync is optional.
 
-It mirrors the latest backup material to a configured cloud sync folder, such as a OneDrive, Google Drive, Dropbox, iCloud Drive, Box, or custom folder location.
+It mirrors the latest backup material to a configured cloud sync folder, such as OneDrive on Windows, Google Drive, Dropbox, iCloud Drive, Box, or a custom folder location.
 
 Cloud sync is not live collaboration.
 
