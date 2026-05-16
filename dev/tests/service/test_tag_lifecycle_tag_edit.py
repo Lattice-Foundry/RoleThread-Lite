@@ -116,6 +116,71 @@ def test_rename_custom_active_tag_rewrites_dataset_and_aliases_old_slug(
     assert resolved.result_type == TAG_RESOLUTION_ALIAS_MAPPED
     assert resolved.resolved_slug == "follow_up_question"
 
+
+def test_rename_chain_preserves_alias_history_and_resolves_original_slug(
+    tag_lifecycle_db,
+    tmp_path,
+    monkeypatch,
+):
+    _fake_dataset_backup(tmp_path, monkeypatch)
+    entries = [_entry(["old_tag"])]
+    path = _write_dataset(tmp_path, entries)
+
+    session = tag_lifecycle_db()
+    try:
+        category = _add_category(session)
+        _add_tag(session, slug="old_tag", name="Old Tag", category=category)
+        session.commit()
+    finally:
+        session.close()
+
+    first = edit_active_tag(
+        old_slug="old_tag",
+        new_display_name="Middle Tag",
+        category_slug="behavior",
+        dataset_path=str(path),
+        entries=entries,
+    )
+    second = edit_active_tag(
+        old_slug="middle_tag",
+        new_display_name="Final Tag",
+        category_slug="behavior",
+        dataset_path=str(path),
+        entries=first.entries,
+    )
+
+    assert first.ok is True
+    assert second.ok is True
+    assert _without_loreforge_meta(second.entries) == [_entry(["final_tag"])]
+
+    session = tag_lifecycle_db()
+    try:
+        aliases = (
+            session.query(TagLifecycleMetadata)
+            .filter_by(action=TAG_LIFECYCLE_METADATA_RENAME)
+            .order_by(TagLifecycleMetadata.id)
+            .all()
+        )
+        assert [(alias.old_slug, alias.new_slug) for alias in aliases] == [
+            ("old_tag", "middle_tag"),
+            ("middle_tag", "final_tag"),
+        ]
+        assert session.query(Tag).filter_by(slug="final_tag").one().status == (
+            TAG_STATUS_ACTIVE
+        )
+        assert session.query(Tag).filter_by(slug="old_tag").count() == 0
+        assert session.query(Tag).filter_by(slug="middle_tag").count() == 0
+    finally:
+        session.close()
+
+    original = tag_resolution.resolve_tag_lifecycle("Old Tag")
+    intermediate = tag_resolution.resolve_tag_lifecycle("Middle Tag")
+    assert original.result_type == TAG_RESOLUTION_ALIAS_MAPPED
+    assert original.resolved_slug == "final_tag"
+    assert intermediate.result_type == TAG_RESOLUTION_ALIAS_MAPPED
+    assert intermediate.resolved_slug == "final_tag"
+
+
 def test_rename_custom_active_tag_deduplicates_rewritten_entry_tags(
     tag_lifecycle_db,
     tmp_path,
