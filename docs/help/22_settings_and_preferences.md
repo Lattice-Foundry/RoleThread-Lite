@@ -118,6 +118,7 @@ Settings includes installation details that are useful when troubleshooting:
 - detected platform and support level
 - current Python runtime and the official supported V1 runtime
 - platform/runtime diagnostics
+- browser support and launch behavior
 - resolved platform path defaults
 - whether important paths are platform defaults or user overrides
 
@@ -125,6 +126,19 @@ LoreForge Lite V1 officially supports Python 3.14.4. Newer Python versions may
 work, but they are untested for V1 unless documented later. Older Python
 versions are unsupported and should be replaced with Python 3.14.4 before
 recreating the virtual environment.
+
+For full platform policy, see **OS Compatibility and Storage Policy** in Help.
+
+Fresh installs use platform-native defaults:
+
+- Windows app state: `%LOCALAPPDATA%\LoreForge`
+- Windows workspace: `%USERPROFILE%\LoreForge`
+- Linux app state: `~/.local/share/loreforge`
+- Linux workspace: `~/LoreForge`
+- macOS app state: `~/Library/Application Support/LoreForge`
+- macOS workspace: `~/LoreForge`
+
+Configured dataset and backup folders remain user overrides. LoreForge does not move existing datasets just because platform defaults change.
 
 ## What Changes Immediately
 

@@ -346,6 +346,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Configuration, backup settings, safety controls, and portability.",
         (
             "backups-cloud-sync-and-recovery",
+            "os-compatibility-and-storage-policy",
             "getting-started",
         ),
     ),
@@ -360,6 +361,19 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
             "getting-started",
             "what-loreforge-lite-does",
             "understanding-the-main-workspaces",
+        ),
+    ),
+    HelpArticle(
+        "os-compatibility-and-storage-policy",
+        "25_os_compatibility_and_storage.md",
+        "OS Compatibility and Storage Policy",
+        "Reference",
+        235,
+        "Official V1 platform support, runtime, storage, and launch policy.",
+        (
+            "settings-and-preferences",
+            "backups-cloud-sync-and-recovery",
+            "v1-limitations-and-future-boundaries",
         ),
     ),
     HelpArticle(

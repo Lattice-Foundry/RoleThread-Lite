@@ -95,10 +95,14 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 24
+    assert len(registry) == 25
     assert get_default_help_article_id() == "getting-started"
     assert registry["getting-started"].file_name == "01_getting_started.md"
     assert registry["glossary"].category == "Reference"
+    assert (
+        registry["os-compatibility-and-storage-policy"].file_name
+        == "25_os_compatibility_and_storage.md"
+    )
     assert len(registry) == len(set(registry))
 
 
@@ -112,6 +116,20 @@ def test_deep_edit_article_keeps_legacy_article_id_and_file_name():
 
     assert article.title == "Deep Edit"
     assert article.file_name == "09_editing_entries.md"
+
+
+def test_os_compatibility_help_article_documents_v1_policy():
+    document = load_help_document("os-compatibility-and-storage-policy")
+
+    assert "Windows is a primary V1 support platform" in document.content
+    assert "Linux is a primary V1 support platform" in document.content
+    assert "macOS is beta-supported for V1" in document.content
+    assert "Python 3.14.4" in document.content
+    assert "%LOCALAPPDATA%\\LoreForge" in document.content
+    assert "~/.local/share/loreforge" in document.content
+    assert "~/Library/Application Support/LoreForge" in document.content
+    assert "Edge web app" in document.content
+    assert "Cloud sync folders are optional backup or sync targets" in document.content
 
 
 def test_help_article_registry_has_unique_file_names_and_orders():
@@ -148,6 +166,7 @@ def test_help_article_category_order_and_grouping():
     ]
     assert [article.article_id for article in grouped["Reference"]] == [
         "glossary",
+        "os-compatibility-and-storage-policy",
         "v1-limitations-and-future-boundaries",
     ]
 

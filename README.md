@@ -115,6 +115,36 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## OS Compatibility and Storage
+
+LoreForge Lite V1 supports Windows and Linux as primary platforms. macOS is
+beta-supported because direct maintainer testing is limited for V1. Unknown
+platforms are unsupported and should expect graceful degradation rather than
+platform-specific integrations.
+
+Fresh installs use platform-native storage defaults:
+
+* Windows app state: `%LOCALAPPDATA%\LoreForge`
+* Windows workspace: `%USERPROFILE%\LoreForge`
+* Linux app state: `~/.local/share/loreforge`
+* Linux workspace: `~/LoreForge`
+* macOS app state: `~/Library/Application Support/LoreForge`
+* macOS workspace: `~/LoreForge`
+
+Workspace folders include `training_data`, `exports`, `imports`, and `backups`.
+Existing user-configured paths remain preserved.
+
+Cloud sync folders are optional backup/sync targets, not the preferred active
+working directory. Using OneDrive or another sync folder as live working
+storage can cause constant sync activity, file locking, conflicts, or odd
+timestamps. If OneDrive keeps syncing LoreForge files, review OneDrive backup
+and sync settings for folders such as Documents or Desktop.
+
+Launch policy is defined but not automated in V1 foundation passes. Windows
+will prefer an Edge web-app workflow when Edge is available and fall back to
+the default browser when it is not. Linux and macOS use default-browser or
+manual local-URL workflows.
+
 The V1 stability gate is:
 
 * Full unit and service suite passes with `python -m pytest`
