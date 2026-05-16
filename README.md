@@ -88,6 +88,33 @@ available for a clear restore if the machine or process fails mid-operation.
 LoreForge Lite 1.0 is the stable local-first release surface for dataset
 craftsmanship.
 
+## Supported Runtime
+
+LoreForge Lite V1 officially supports Python `3.14.4`.
+
+Other Python versions may run, but they are not guaranteed for V1 unless they
+are tested later. Python versions below `3.14.4` are unsupported. Windows
+installer work will bundle or target the supported runtime later; manual
+Linux/macOS setup should use `python3.14`.
+
+Linux/macOS manual setup:
+
+```bash
+python3.14 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Windows/dev setup:
+
+```bat
+py -3.14 -m venv trainer
+trainer\Scripts\activate
+pip install -r requirements.txt
+streamlit run app.py
+```
+
 The V1 stability gate is:
 
 * Full unit and service suite passes with `python -m pytest`

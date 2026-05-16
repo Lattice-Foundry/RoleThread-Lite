@@ -8,6 +8,17 @@ from pathlib import Path
 
 import streamlit as st
 
+from core.runtime import get_python_runtime_status
+
+st.set_page_config(page_title="LoreForge Lite", layout="wide")
+
+_runtime_status = get_python_runtime_status()
+if _runtime_status.is_below_minimum:
+    st.error(_runtime_status.message)
+    st.stop()
+if _runtime_status.is_newer_than_tested:
+    st.warning(_runtime_status.message)
+
 from core.cloud_sync import (
     get_cloud_restore_candidate,
     restore_cloud_backup,
@@ -70,7 +81,6 @@ from ui.theme import (
 
 # ── Page config ────────────────────────────────────────────────────────────────
 ensure_app_directories()
-st.set_page_config(page_title="LoreForge Lite", layout="wide")
 
 st.markdown(f"""
 <style>

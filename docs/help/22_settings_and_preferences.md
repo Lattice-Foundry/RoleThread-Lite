@@ -111,6 +111,21 @@ This is useful when:
 
 Settings export is not the same as dataset export. It saves app preferences, not the dataset entries.
 
+## Installation Diagnostics
+
+Settings includes installation details that are useful when troubleshooting:
+
+- detected platform and support level
+- current Python runtime and the official supported V1 runtime
+- platform/runtime diagnostics
+- resolved platform path defaults
+- whether important paths are platform defaults or user overrides
+
+LoreForge Lite V1 officially supports Python 3.14.4. Newer Python versions may
+work, but they are untested for V1 unless documented later. Older Python
+versions are unsupported and should be replaced with Python 3.14.4 before
+recreating the virtual environment.
+
 ## What Changes Immediately
 
 Some settings affect the current session right away, such as:

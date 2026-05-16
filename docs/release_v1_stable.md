@@ -6,7 +6,8 @@ This checklist defines the stable-release gate for LoreForge Lite 1.0.
 
 - Run `python -m pytest`
 - Confirm the suite passes from a clean workspace
-- Confirm `core/version.py` reports `1.0.0`
+- Confirm `core/version.py` reports the intended release version
+- Confirm the runtime is Python `3.14.4`, the official supported V1 runtime
 - Confirm README status describes the V1 stable surface
 - Confirm Help and FAQ tests pass
 - Confirm V1 limitations and future boundaries remain documented

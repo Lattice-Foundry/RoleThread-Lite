@@ -24,6 +24,7 @@ from core.platform import (
     get_platform_path_resolutions,
 )
 from core.preferences import export_settings, get_all_settings, import_settings
+from core.runtime import get_python_runtime_status
 from ui.file_dialogs import (
     browse_directory,
     browse_settings_export_file,
@@ -307,6 +308,7 @@ def _render_platform_about() -> None:
     platform_info = detect_platform()
     capabilities = platform_info.capabilities
     diagnostics = platform_info.diagnostics
+    runtime_status = get_python_runtime_status()
     st.subheader("About This Installation")
     platform_col, support_col, arch_col, python_col = st.columns(4)
     with platform_col:
@@ -320,10 +322,13 @@ def _render_platform_about() -> None:
         st.caption(diagnostics.machine or diagnostics.python_architecture or "Unknown")
     with python_col:
         st.markdown("**Python**")
-        st.caption(
-            f"{diagnostics.python_version} "
-            f"({diagnostics.python_implementation})"
-        )
+        st.caption(runtime_status.current_version)
+
+    with st.expander("Python Runtime Compatibility"):
+        st.caption(_format_about_row("Current Python", f"`{runtime_status.current_version}`"))
+        st.caption(_format_about_row("Official Python", f"`{runtime_status.official_version}`"))
+        st.caption(_format_about_row("Runtime status", f"`{runtime_status.status_label}`"))
+        st.caption(_format_about_row("Message", runtime_status.message))
 
     with st.expander("Platform Capabilities"):
         for label, enabled in _platform_capability_labels(capabilities):
@@ -343,6 +348,12 @@ def _render_platform_about() -> None:
             _format_about_row(
                 "Python architecture",
                 f"`{diagnostics.python_architecture}`",
+            )
+        )
+        st.caption(
+            _format_about_row(
+                "Python implementation",
+                f"`{diagnostics.python_implementation}`",
             )
         )
 

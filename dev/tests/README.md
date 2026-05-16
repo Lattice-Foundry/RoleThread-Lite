@@ -35,6 +35,25 @@ on stable contracts that protect local-first data safety.
 
 ## Setup
 
+LoreForge Lite V1 is developed and tested on Python `3.14.4`. Other runtimes
+may work, but `3.14.4` is the official supported V1 runtime.
+
+Windows/dev environment:
+
+```bat
+py -3.14 -m venv trainer
+trainer\Scripts\activate
+pip install -r requirements-dev.txt
+```
+
+Linux/macOS manual environment:
+
+```bash
+python3.14 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
 Install runtime and test dependencies:
 
 ```bat
