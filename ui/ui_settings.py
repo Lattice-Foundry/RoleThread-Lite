@@ -308,6 +308,7 @@ def _render_platform_about() -> None:
     """Render current OS support information without changing behavior."""
 
     platform_info = detect_platform()
+    dev_mode = _is_dev_mode()
     capabilities = platform_info.capabilities
     diagnostics = platform_info.diagnostics
     runtime_status = get_python_runtime_status()
@@ -332,37 +333,8 @@ def _render_platform_about() -> None:
         st.caption(_format_about_row("Runtime status", f"`{runtime_status.status_label}`"))
         st.caption(_format_about_row("Message", runtime_status.message))
 
-    with st.expander("Platform Capabilities"):
-        for label, enabled in _platform_capability_labels(capabilities):
-            st.caption(_format_about_row(label, f"`{'Yes' if enabled else 'No'}`"))
-
     browser_detection = detect_browser_capabilities(platform_info=platform_info)
     launch_plan = get_platform_launch_plan(browser_detection)
-    with st.expander("Browser Support"):
-        st.caption(
-            _format_about_row(
-                "Edge detected",
-                f"`{'Yes' if browser_detection.browser.edge_detected else 'No'}`",
-            )
-        )
-        if browser_detection.browser.edge_path is not None:
-            st.caption(
-                _format_about_row("Edge path", f"`{browser_detection.browser.edge_path}`")
-            )
-        st.caption(
-            _format_about_row(
-                "Default browser fallback",
-                f"`{'Yes' if browser_detection.capabilities.fallback_to_default_browser else 'No'}`",
-            )
-        )
-        st.caption(
-            _format_about_row(
-                "Edge web app available",
-                f"`{'Yes' if browser_detection.capabilities.edge_webapp_available else 'No'}`",
-            )
-        )
-        st.caption(_format_about_row("Browser mode", browser_detection.message))
-
     with st.expander("Launch Behavior"):
         st.caption(_format_about_row("Preferred launch mode", f"`{launch_plan.preferred_label}`"))
         st.caption(_format_about_row("Fallback behavior", f"`{launch_plan.fallback_label}`"))
@@ -380,33 +352,65 @@ def _render_platform_about() -> None:
         )
         for note in launch_plan.notes:
             st.caption(_format_about_row("Note", note))
-        _render_dev_webapp_launch_status()
+        if dev_mode:
+            _render_dev_webapp_launch_status()
 
-    with st.expander("Raw Platform Diagnostics"):
-        st.caption(_format_about_row("Platform slug", f"`{platform_info.platform_slug}`"))
-        st.caption(_format_about_row("Raw system", f"`{diagnostics.raw_system}`"))
-        st.caption(_format_about_row("Release", f"`{diagnostics.release}`"))
-        st.caption(_format_about_row("Version", f"`{diagnostics.version}`"))
-        st.caption(
-            _format_about_row("Platform string", f"`{diagnostics.platform_string}`")
-        )
-        st.caption(_format_about_row("Machine", f"`{diagnostics.machine}`"))
-        st.caption(_format_about_row("Processor", f"`{diagnostics.processor}`"))
-        st.caption(
-            _format_about_row(
-                "Python architecture",
-                f"`{diagnostics.python_architecture}`",
+    if dev_mode:
+        with st.expander("Platform Capabilities"):
+            for label, enabled in _platform_capability_labels(capabilities):
+                st.caption(_format_about_row(label, f"`{'Yes' if enabled else 'No'}`"))
+
+        with st.expander("Browser Support"):
+            st.caption(
+                _format_about_row(
+                    "Edge detected",
+                    f"`{'Yes' if browser_detection.browser.edge_detected else 'No'}`",
+                )
             )
-        )
-        st.caption(
-            _format_about_row(
-                "Python implementation",
-                f"`{diagnostics.python_implementation}`",
+            if browser_detection.browser.edge_path is not None:
+                st.caption(
+                    _format_about_row("Edge path", f"`{browser_detection.browser.edge_path}`")
+                )
+            st.caption(
+                _format_about_row(
+                    "Default browser fallback",
+                    f"`{'Yes' if browser_detection.capabilities.fallback_to_default_browser else 'No'}`",
+                )
             )
-        )
+            st.caption(
+                _format_about_row(
+                    "Edge web app available",
+                    f"`{'Yes' if browser_detection.capabilities.edge_webapp_available else 'No'}`",
+                )
+            )
+            st.caption(_format_about_row("Browser mode", browser_detection.message))
+
+        with st.expander("Raw Platform Diagnostics"):
+            st.caption(_format_about_row("Platform slug", f"`{platform_info.platform_slug}`"))
+            st.caption(_format_about_row("Raw system", f"`{diagnostics.raw_system}`"))
+            st.caption(_format_about_row("Release", f"`{diagnostics.release}`"))
+            st.caption(_format_about_row("Version", f"`{diagnostics.version}`"))
+            st.caption(
+                _format_about_row("Platform string", f"`{diagnostics.platform_string}`")
+            )
+            st.caption(_format_about_row("Machine", f"`{diagnostics.machine}`"))
+            st.caption(_format_about_row("Processor", f"`{diagnostics.processor}`"))
+            st.caption(
+                _format_about_row(
+                    "Python architecture",
+                    f"`{diagnostics.python_architecture}`",
+                )
+            )
+            st.caption(
+                _format_about_row(
+                    "Python implementation",
+                    f"`{diagnostics.python_implementation}`",
+                )
+            )
 
     platform_paths = get_platform_path_resolutions(preferences=get_all_settings())
-    with st.expander("Platform Path Defaults"):
+    path_expander_label = "Platform Path Defaults" if dev_mode else "Storage Locations"
+    with st.expander(path_expander_label):
         for label, resolved_path in (
             ("App data", platform_paths.app_data_root),
             ("Workspace", platform_paths.workspace_root),
@@ -422,7 +426,7 @@ def _render_platform_about() -> None:
             st.caption(
                 _format_about_row(
                     label,
-                    _format_platform_path_value(resolved_path),
+                    _format_platform_path_value(resolved_path, include_source=dev_mode),
                 )
             )
 
@@ -609,7 +613,13 @@ def _format_path_source(source: str) -> str:
     return "User Override"
 
 
-def _format_platform_path_value(resolved_path) -> str:
+def _is_dev_mode() -> bool:
+    return bool(st.session_state.get("_dev_mode"))
+
+
+def _format_platform_path_value(resolved_path, *, include_source: bool = True) -> str:
+    if not include_source:
+        return f"`{resolved_path.path}`"
     source_label = _format_path_source(resolved_path.source)
     value = f"`{resolved_path.path}` ({source_label})"
     if resolved_path.source != PATH_SOURCE_PLATFORM_DEFAULT:

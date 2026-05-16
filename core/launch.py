@@ -17,21 +17,21 @@ from core.platform import (
 
 
 WEBAPP_FLAG = "webapp"
+DEV_FLAG = "dev"
 EDGE_DEBUG_FLAG = "edge-debug"
 WEBAPP_DEBUG_FLAG = "webapp-debug"
 EXTERNAL_WEBAPP_LAUNCH_ENV = "LOREFORGE_EXTERNAL_WEBAPP_LAUNCH"
 DEFAULT_STREAMLIT_LOCAL_URL = "http://localhost:8501"
 RECOMMENDED_V1_LAUNCH_COMMAND = "streamlit run app.py"
 WEBAPP_EXPERIMENTAL_MESSAGE = (
-    "The dev-only webapp flag attempts to open Microsoft Edge app mode when "
-    "available. Streamlit may still open its normal browser window because "
-    "that browser behavior is controlled before app.py runs."
+    "The webapp flag opens Microsoft Edge app mode when available. Streamlit "
+    "may still open its normal browser window before app.py runs; LoreForge "
+    "then closes the duplicate browser window when Windows metadata identifies "
+    "a safe exact window target."
 )
 WEBAPP_AUTOMATION_DEFERRED_MESSAGE = (
-    "Experimental duplicate-window cleanup may attempt a graceful close only "
-    "when Edge metadata is classified as safe. Run LoreForge normally and use "
-    "the browser's install-as-app or create-shortcut feature manually for the "
-    "reliable V1 workflow."
+    "Future installer and shortcut workflows will call this internal launch "
+    "method. Manual browser install-as-app remains the reliable fallback."
 )
 RECOMMENDED_WEBAPP_STREAMLIT_COMMAND = (
     "trainer\\Scripts\\python.exe -m streamlit run app.py "
@@ -64,6 +64,7 @@ _webapp_launch_status: "EdgeWebappLaunchStatus | None" = None
 class LaunchFlags:
     """Runtime flags passed after Streamlit's app arguments separator."""
 
+    dev: bool = False
     webapp: bool = False
     edge_debug: bool = False
 
@@ -205,9 +206,16 @@ def parse_launch_flags(argv: Sequence[str] | None = None) -> LaunchFlags:
 
     args = tuple(sys.argv[1:] if argv is None else argv)
     return LaunchFlags(
+        dev=DEV_FLAG in args,
         webapp=WEBAPP_FLAG in args,
         edge_debug=EDGE_DEBUG_FLAG in args or WEBAPP_DEBUG_FLAG in args,
     )
+
+
+def should_show_dev_diagnostics(flags: LaunchFlags) -> bool:
+    """Return whether raw/internal diagnostics should be visible in the UI."""
+
+    return flags.dev
 
 
 def get_streamlit_local_url(env: dict[str, str] | None = None) -> str:

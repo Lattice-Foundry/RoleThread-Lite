@@ -10,6 +10,13 @@ from core.cloud_sync import (
 from ui import ui_settings
 
 
+class _ResolvedPath:
+    def __init__(self, path, source, platform_default):
+        self.path = path
+        self.source = source
+        self.platform_default = platform_default
+
+
 def _option_values(options):
     return [value for _label, value in options]
 
@@ -42,3 +49,29 @@ def test_cloud_destination_options_hide_onedrive_when_capability_unsupported():
         BACKUP_DESTINATION_ICLOUD_DRIVE,
         BACKUP_DESTINATION_BOX,
     ]
+
+
+def test_platform_path_format_hides_source_outside_dev_mode():
+    resolved = _ResolvedPath(
+        path="C:/Users/digit/LoreForge/training_data",
+        source="user_override",
+        platform_default="C:/Users/digit/LoreForge/training_data",
+    )
+
+    assert ui_settings._format_platform_path_value(
+        resolved,
+        include_source=False,
+    ) == "`C:/Users/digit/LoreForge/training_data`"
+
+
+def test_platform_path_format_shows_source_in_dev_mode():
+    resolved = _ResolvedPath(
+        path="X:/custom/training_data",
+        source="user_override",
+        platform_default="C:/Users/digit/LoreForge/training_data",
+    )
+
+    value = ui_settings._format_platform_path_value(resolved, include_source=True)
+
+    assert "User Override" in value
+    assert "default `C:/Users/digit/LoreForge/training_data`" in value

@@ -115,29 +115,32 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Windows/dev app-style browser workflow:
+Windows app-style browser workflow:
 
 Run LoreForge normally, then use your browser's built-in app shortcut feature
 if you want a standalone window. In Microsoft Edge, open the local LoreForge
 URL and use **Apps > Install this site as an app** or the equivalent shortcut
 option. This remains the reliable V1 fallback.
 
-For development experiments, `streamlit run app.py -- webapp` attempts to open
-the local app in Microsoft Edge app mode when Edge is available. Streamlit may
-also open its normal browser window because that behavior is controlled before
-`app.py` runs. LoreForge may then attempt an experimental graceful close of only
-the newly observed normal-browser candidate when Edge metadata is classified as
-safe enough. Adding `edge-debug` enables detailed Edge process diagnostics:
+`streamlit run app.py -- webapp` is the internal Windows web-app launch method
+that future launcher and installer workflows will call. It opens the local app
+in Microsoft Edge app mode when Edge is available. If Streamlit opens a normal
+browser window first, LoreForge attempts to close only that duplicate browser
+window by targeting the exact Windows window handle after the Edge app window is
+observed.
+
+Developer diagnostics are hidden by default. Add `dev` to expose launch and
+platform internals in Settings. Add `edge-debug` or `webapp-debug` only when
+investigating Edge launch behavior:
 
 ```bat
-streamlit run app.py -- webapp edge-debug
+streamlit run app.py -- webapp dev edge-debug
 ```
 
 The debug mode records Edge process IDs and visible window metadata where
-Windows exposes it. It also labels new candidates as app-window, normal-browser,
-or uncertain with a confidence note. Cleanup uses a polite window-close request
-only for a single new, likely normal-browser candidate; it does not use
-`taskkill`, close app-window candidates, or touch pre-existing Edge windows.
+Windows exposes it. Cleanup uses a polite window-close request against an exact
+window handle or a tightly classified candidate; it does not use `taskkill` or
+close app-window candidates.
 
 ## OS Compatibility and Storage
 

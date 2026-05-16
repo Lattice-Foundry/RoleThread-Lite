@@ -20,6 +20,7 @@ from core.launch import (
     diff_edge_window_snapshots,
     get_webapp_launch_guidance,
     should_attempt_webapp_launch,
+    should_show_dev_diagnostics,
     parse_launch_flags,
 )
 from core.runtime import get_python_runtime_status
@@ -42,11 +43,14 @@ def _get_streamlit_headless_config() -> bool | None:
 
 
 _launch_flags = parse_launch_flags()
+st.session_state["_runtime_launch_flags"] = _launch_flags
+st.session_state["_dev_mode"] = should_show_dev_diagnostics(_launch_flags)
 if _launch_flags.webapp:
-    st.session_state["_dev_webapp_launch_guidance"] = get_webapp_launch_guidance(
-        _launch_flags,
-        streamlit_headless=_get_streamlit_headless_config(),
-    )
+    if _launch_flags.dev:
+        st.session_state["_dev_webapp_launch_guidance"] = get_webapp_launch_guidance(
+            _launch_flags,
+            streamlit_headless=_get_streamlit_headless_config(),
+        )
     _should_attempt_webapp_launch = should_attempt_webapp_launch(
         _launch_flags,
         already_attempted=bool(st.session_state.get("_dev_webapp_launch_attempted")),
@@ -76,15 +80,16 @@ if _launch_flags.webapp:
                 window_diff=_edge_window_diff,
             )
             _cleanup_status = st.session_state["_dev_edge_cleanup_status"]
-            print(
-                "LoreForge Edge cleanup: "
-                f"status={_cleanup_status.status_code}; "
-                f"attempted={_cleanup_status.attempted}; "
-                f"method={_cleanup_status.method}; "
-                f"target={_cleanup_status.target_pid}; "
-                f"result={_cleanup_status.result}; "
-                f"message={_cleanup_status.message}"
-            )
+            if _launch_flags.dev:
+                print(
+                    "LoreForge Edge cleanup: "
+                    f"status={_cleanup_status.status_code}; "
+                    f"attempted={_cleanup_status.attempted}; "
+                    f"method={_cleanup_status.method}; "
+                    f"target={_cleanup_status.target_pid}; "
+                    f"result={_cleanup_status.result}; "
+                    f"message={_cleanup_status.message}"
+                )
 
 from core.cloud_sync import (
     get_cloud_restore_candidate,

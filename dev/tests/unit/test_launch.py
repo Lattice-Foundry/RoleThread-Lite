@@ -16,6 +16,7 @@ from core.launch import (
     EDGE_CONFIDENCE_LIKELY,
     EDGE_CONFIDENCE_PARTIAL,
     EDGE_CONFIDENCE_UNRELIABLE,
+    DEV_FLAG,
     DEFAULT_STREAMLIT_LOCAL_URL,
     EDGE_DEBUG_FLAG,
     EXTERNAL_WEBAPP_LAUNCH_ENV,
@@ -41,6 +42,7 @@ from core.launch import (
     parse_launch_flags,
     reset_webapp_launch_guard_for_tests,
     should_attempt_webapp_launch,
+    should_show_dev_diagnostics,
 )
 from core.platform import detect_browser_capabilities
 
@@ -54,6 +56,18 @@ def test_parse_launch_flags_detects_webapp_flag():
     assert parse_launch_flags(["--server.port=8502", "webapp"]).webapp is True
 
 
+def test_parse_launch_flags_detects_dev_flag():
+    flags = parse_launch_flags([DEV_FLAG])
+    combined = parse_launch_flags(["webapp", DEV_FLAG, EDGE_DEBUG_FLAG])
+
+    assert flags.dev is True
+    assert flags.webapp is False
+    assert should_show_dev_diagnostics(flags) is True
+    assert combined.dev is True
+    assert combined.webapp is True
+    assert combined.edge_debug is True
+
+
 def test_parse_launch_flags_detects_edge_debug_flag_and_alias():
     flags = parse_launch_flags(["webapp", EDGE_DEBUG_FLAG])
     alias_flags = parse_launch_flags(["webapp", WEBAPP_DEBUG_FLAG])
@@ -65,8 +79,10 @@ def test_parse_launch_flags_detects_edge_debug_flag_and_alias():
 
 def test_parse_launch_flags_without_webapp_flag():
     assert parse_launch_flags([]).webapp is False
+    assert parse_launch_flags([]).dev is False
     assert parse_launch_flags(["--server.port=8502"]).webapp is False
     assert parse_launch_flags(["--server.port=8502"]).edge_debug is False
+    assert should_show_dev_diagnostics(parse_launch_flags(["edge-debug"])) is False
 
 
 def test_get_streamlit_local_url_uses_default_and_env_override():

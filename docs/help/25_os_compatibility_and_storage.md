@@ -119,18 +119,18 @@ built-in install or shortcut option manually. In Microsoft Edge, open the local
 LoreForge URL and use **Apps > Install this site as an app** or the equivalent
 shortcut option.
 
-The experimental `webapp` flag attempts to open Microsoft Edge app mode during
-development, but Streamlit may also open its normal browser window before
-LoreForge can influence launch behavior. LoreForge may then attempt an
-experimental graceful close of only the newly observed normal-browser candidate
-when Edge metadata is classified as safe enough.
+The `webapp` flag is LoreForge's internal Windows web-app launch method for
+future launcher and installer workflows. It opens Microsoft Edge app mode when
+Edge is available. If Streamlit opens a normal browser window first, LoreForge
+attempts to close only that duplicate browser window after the Edge app window
+is observed.
 
-Adding `edge-debug` records Edge process diagnostics to help inspect the
-decision. The diagnostic labels new candidates as app-window, normal-browser, or
-uncertain with a confidence note. Cleanup uses a polite window-close request only
-for a single new, likely normal-browser candidate; it does not use `taskkill`,
-close app-window candidates, or touch pre-existing Edge windows. The experimental
-flags should not be treated as the official V1 launch path.
+Developer diagnostics are hidden unless LoreForge is started with the `dev`
+flag. `edge-debug` and `webapp-debug` are developer-only investigation flags and
+should be combined with `dev` when detailed process/window metadata is needed.
+Cleanup uses a polite window-close request against an exact Windows window
+handle or a tightly classified candidate; it does not use `taskkill` or close
+app-window candidates.
 
 Windows:
 
