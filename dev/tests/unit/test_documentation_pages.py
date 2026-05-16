@@ -8,7 +8,9 @@ import ui.ui_faq as ui_faq
 from ui.ui_faq import (
     FAQEntry,
     derive_faq_category,
+    derive_related_help_ids,
     filter_faq_entries,
+    get_faq_category_description,
     get_faq_category_order,
     get_faq_entries_by_category,
     load_faq_entries,
@@ -624,6 +626,7 @@ def test_load_faq_entries_reads_json(tmp_path):
             answer="A FAQ.",
             category="Metadata and Characters",
             source_prefix="Tags and metadata",
+            related_help_ids=("tags-categories-and-tag-lifecycle",),
         ),
     )
     assert entries[0].display_question == "What is this?"
@@ -653,6 +656,31 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert sum(len(group) for group in grouped.values()) == len(entries)
     assert all(entry.category in get_faq_category_order() for entry in entries)
     assert all(grouped[category] for category in get_faq_category_order())
+
+
+def test_faq_category_descriptions_are_available_for_reader_polish():
+    for category in get_faq_category_order():
+        assert get_faq_category_description(category)
+
+
+def test_faq_related_help_ids_are_known_and_lightweight():
+    entries = load_faq_entries()
+    help_article_ids = set(get_help_article_registry())
+
+    assert all(set(entry.related_help_ids) <= help_article_ids for entry in entries)
+    assert all(len(entry.related_help_ids) <= 3 for entry in entries)
+    assert derive_related_help_ids(
+        "Working copies and sidecars: Why did LoreForge create a working copy?"
+    ) == (
+        "loading-datasets-and-working-copies",
+        "sidecars-and-portable-metadata",
+    )
+    assert derive_related_help_ids(
+        "Workflow philosophy: Why isn't Deep Edit the primary editing workspace?"
+    ) == (
+        "understanding-the-main-workspaces",
+        "editing-entries",
+    )
 
 
 def test_filter_faq_entries_matches_question_and_answer():
@@ -697,6 +725,28 @@ def test_select_faq_category_hides_search_results_and_reruns(monkeypatch):
     )
     assert fake.session_state[ui_faq.FAQ_SEARCH_QUERY_KEY] == "tag"
     assert fake.session_state[ui_faq.FAQ_SEARCH_RESULTS_VISIBLE_KEY] is False
+
+
+def test_open_related_help_article_uses_help_selection_and_page_navigation(monkeypatch):
+    selected_articles = []
+    navigated_pages = []
+
+    def fake_select_help_article(article_id, *, rerun=True):
+        selected_articles.append((article_id, rerun))
+        return article_id
+
+    def fake_navigate_to_page(page_id, *, rerun=True):
+        navigated_pages.append((page_id, rerun))
+        return page_id
+
+    monkeypatch.setattr(ui_faq, "select_help_article", fake_select_help_article)
+    monkeypatch.setattr(ui_faq, "navigate_to_page", fake_navigate_to_page)
+
+    selected_id = ui_faq.open_related_help_article("validation-and-repair")
+
+    assert selected_id == "validation-and-repair"
+    assert selected_articles == [("validation-and-repair", False)]
+    assert navigated_pages == [("Help", True)]
 
 
 def test_faq_sidebar_category_and_search_controls_render_browser_state():

@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
 import streamlit as st
 
-from ui.navigation import render_sidebar_branding
+from ui.help_docs import get_help_article, get_help_article_registry
+from ui.navigation import PAGE_HELP, navigate_to_page, render_sidebar_branding
 from ui.search_controls import render_document_search_controls
+from ui.ui_help import select_help_article
 
 
 DOCS_ROOT = Path(__file__).resolve().parents[1] / "docs"
@@ -27,6 +30,14 @@ FAQ_CATEGORY_ORDER = (
     "Validation, Export, and Training",
     "Safety, Backups, and Boundaries",
 )
+
+FAQ_CATEGORY_DESCRIPTIONS = {
+    "Getting Started": "First-run questions, examples, and the basic app rhythm.",
+    "Workflow and Editing": "Daily workflow, Deep Edit, split/join, and dataset craft.",
+    "Metadata and Characters": "Tags, sidecars, character identity, and portable context.",
+    "Validation, Export, and Training": "Quality review, clean export, and downstream use.",
+    "Safety, Backups, and Boundaries": "Recovery, trust, local-first scope, and Lite limits.",
+}
 
 _FAQ_PREFIX_CATEGORY_MAP = {
     "getting started": "Getting Started",
@@ -46,6 +57,58 @@ _FAQ_PREFIX_CATEGORY_MAP = {
     "lite boundaries": "Safety, Backups, and Boundaries",
 }
 
+_FAQ_PREFIX_HELP_RELATED = {
+    "working copies and sidecars": (
+        "loading-datasets-and-working-copies",
+        "sidecars-and-portable-metadata",
+    ),
+    "tags and metadata": ("tags-categories-and-tag-lifecycle",),
+    "group chat and characters": (
+        "character-registry-and-character-mappings",
+        "default-mode-vs-group-chat",
+    ),
+    "validation and insights": (
+        "validation-and-repair",
+        "insights-and-dataset-quality",
+    ),
+    "export and training": ("exporting-datasets", "dataset-formats"),
+    "backups and recovery": ("backups-cloud-sync-and-recovery",),
+    "workflow philosophy": ("understanding-the-main-workspaces", "editing-entries"),
+    "dataset craftsmanship": (
+        "splitting-and-joining-entries",
+        "insights-and-dataset-quality",
+    ),
+    "metadata philosophy": ("sidecars-and-portable-metadata",),
+    "safety and identity": (
+        "loading-datasets-and-working-copies",
+        "backups-cloud-sync-and-recovery",
+    ),
+}
+
+_FAQ_QUESTION_HELP_RELATED = {
+    "Where should I spend most of my time?": (
+        "understanding-the-main-workspaces",
+        "editing-entries",
+    ),
+    "Why did LoreForge create a working copy?": (
+        "loading-datasets-and-working-copies",
+    ),
+    "Why is there a .registry.json file?": ("sidecars-and-portable-metadata",),
+    "When should I use Group Chat mode?": (
+        "default-mode-vs-group-chat",
+        "character-registry-and-character-mappings",
+    ),
+    "Why does Validation show warnings if LoreForge validates before save?": (
+        "validation-and-repair",
+    ),
+    "What is clean export?": ("exporting-datasets",),
+    "Why did merge create a new dataset UUID?": ("merging-datasets",),
+    "Why isn't Deep Edit the primary editing workspace?": (
+        "understanding-the-main-workspaces",
+        "editing-entries",
+    ),
+}
+
 
 @dataclass(frozen=True)
 class FAQEntry:
@@ -55,6 +118,7 @@ class FAQEntry:
     answer: str
     category: str = "Getting Started"
     source_prefix: str = ""
+    related_help_ids: tuple[str, ...] = ()
 
     @property
     def display_question(self) -> str:
@@ -101,6 +165,28 @@ def derive_faq_category(question: str, explicit_category: str | None = None) -> 
     return _FAQ_PREFIX_CATEGORY_MAP.get(prefix.lower(), FAQ_CATEGORY_ORDER[0])
 
 
+def derive_related_help_ids(
+    question: str,
+    explicit_related_ids: tuple[str, ...] | list[str] | None = None,
+) -> tuple[str, ...]:
+    """Return lightweight related Help article IDs for a FAQ entry."""
+
+    registry = get_help_article_registry()
+    raw_ids = tuple(explicit_related_ids or ())
+    if raw_ids:
+        return tuple(help_id for help_id in raw_ids if help_id in registry)
+
+    prefix, display_question = _split_question_prefix(question)
+    related_ids = list(_FAQ_PREFIX_HELP_RELATED.get(prefix.lower(), ()))
+    related_ids.extend(_FAQ_QUESTION_HELP_RELATED.get(display_question, ()))
+
+    unique_ids: list[str] = []
+    for help_id in related_ids:
+        if help_id in registry and help_id not in unique_ids:
+            unique_ids.append(help_id)
+    return tuple(unique_ids[:3])
+
+
 def _coerce_faq_entries(raw_entries: list[dict[str, Any]]) -> tuple[FAQEntry, ...]:
     entries: list[FAQEntry] = []
     for raw_entry in raw_entries:
@@ -110,12 +196,19 @@ def _coerce_faq_entries(raw_entries: list[dict[str, Any]]) -> tuple[FAQEntry, ..
             continue
         prefix, _ = _split_question_prefix(question)
         category = derive_faq_category(question, raw_entry.get("category"))
+        raw_related_ids = raw_entry.get("related_help_ids")
+        related_ids = (
+            tuple(str(help_id) for help_id in raw_related_ids)
+            if isinstance(raw_related_ids, list)
+            else None
+        )
         entries.append(
             FAQEntry(
                 question=question,
                 answer=answer,
                 category=category,
                 source_prefix=prefix,
+                related_help_ids=derive_related_help_ids(question, related_ids),
             )
         )
     return tuple(entries)
@@ -139,6 +232,12 @@ def get_faq_category_order() -> tuple[str, ...]:
     """Return FAQ sidebar category order."""
 
     return FAQ_CATEGORY_ORDER
+
+
+def get_faq_category_description(category: str) -> str:
+    """Return a short reader-facing description for a FAQ category."""
+
+    return FAQ_CATEGORY_DESCRIPTIONS.get(resolve_faq_category(category), "")
 
 
 def get_faq_entries_by_category(
@@ -203,6 +302,19 @@ def filter_faq_entries(
     )
 
 
+def open_related_help_article(article_id: str, *, rerun: bool = True) -> str:
+    """Open Help to a related article from FAQ."""
+
+    selected_article_id = select_help_article(article_id, rerun=False)
+    navigate_to_page(PAGE_HELP, rerun=rerun)
+    return selected_article_id
+
+
+def _faq_entry_key(entry: FAQEntry) -> str:
+    digest = hashlib.sha1(entry.question.encode("utf-8")).hexdigest()[:12]
+    return digest
+
+
 def _render_faq_sidebar(active_category: str, entries: tuple[FAQEntry, ...]) -> None:
     render_sidebar_branding()
     st.sidebar.markdown("**FAQ Categories**")
@@ -218,14 +330,36 @@ def _render_faq_sidebar(active_category: str, entries: tuple[FAQEntry, ...]) -> 
             select_faq_category(category)
 
 
-def _render_faq_entries(entries: tuple[FAQEntry, ...]) -> None:
+def _render_faq_entries(entries: tuple[FAQEntry, ...], *, key_prefix: str) -> None:
     if not entries:
         st.info("No FAQ entries are available yet.")
         return
-    for entry in entries:
+    for index, entry in enumerate(entries):
         with st.expander(entry.display_question):
             st.caption(entry.category)
             st.markdown(entry.answer)
+            _render_related_help_links(
+                entry,
+                key_prefix=f"{key_prefix}_{index}_{_faq_entry_key(entry)}",
+            )
+
+
+def _render_related_help_links(entry: FAQEntry, *, key_prefix: str) -> None:
+    if not entry.related_help_ids:
+        return
+
+    st.markdown("**See also**")
+    columns = st.columns(min(2, len(entry.related_help_ids)))
+    for index, article_id in enumerate(entry.related_help_ids):
+        article = get_help_article(article_id)
+        with columns[index % len(columns)]:
+            if st.button(
+                article.title,
+                key=f"_faq_help_{key_prefix}_{article.article_id}",
+                width="stretch",
+                icon=":material/article:",
+            ):
+                open_related_help_article(article.article_id)
 
 
 def _render_search_results(
@@ -242,7 +376,8 @@ def _render_search_results(
         st.divider()
         return
 
-    _render_faq_entries(matches)
+    st.caption("Matching FAQ entries are shown below. Clear search to return to the selected category.")
+    _render_faq_entries(matches, key_prefix="search")
     st.divider()
 
 
@@ -273,5 +408,9 @@ def render_faq_page() -> None:
 
     active_category = get_active_faq_category()
     grouped_entries = get_faq_entries_by_category(entries)
+    category_entries = grouped_entries[active_category]
     st.markdown(f"### {active_category}")
-    _render_faq_entries(grouped_entries[active_category])
+    description = get_faq_category_description(active_category)
+    if description:
+        st.caption(f"{description} {len(category_entries)} questions.")
+    _render_faq_entries(category_entries, key_prefix="category")

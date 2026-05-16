@@ -17,7 +17,7 @@ from core.cloud_sync import (
     save_backup_config_from_settings,
     sync_configured_backups_to_cloud,
 )
-from core.platform import IS_WINDOWS, detect_onedrive_path
+from core.platform import detect_onedrive_path, detect_platform
 from core.preferences import export_settings, import_settings
 from ui.file_dialogs import (
     browse_directory,
@@ -265,6 +265,9 @@ def render_settings_page() -> None:
                 st.success("Settings imported.")
                 st.rerun()
 
+    st.divider()
+    _render_platform_about()
+
 
 def _apply_preferences_to_session(prefs: dict) -> None:
     """Refresh settings-related session state after a DB import."""
@@ -291,6 +294,54 @@ def _apply_preferences_to_session(prefs: dict) -> None:
         "auto_correct_validation_errors",
         prefs.get("auto_normalize_on_load", True),
     )
+
+
+def _render_platform_about() -> None:
+    """Render current OS support information without changing behavior."""
+
+    platform_info = detect_platform()
+    capabilities = platform_info.capabilities
+    diagnostics = platform_info.diagnostics
+    st.subheader("About This Installation")
+    platform_col, support_col, arch_col, python_col = st.columns(4)
+    with platform_col:
+        st.markdown("**Detected Platform**")
+        st.caption(platform_info.display_name)
+    with support_col:
+        st.markdown("**Support Level**")
+        st.caption(platform_info.support_level.title())
+    with arch_col:
+        st.markdown("**Architecture**")
+        st.caption(diagnostics.machine or diagnostics.python_architecture or "Unknown")
+    with python_col:
+        st.markdown("**Python**")
+        st.caption(
+            f"{diagnostics.python_version} "
+            f"({diagnostics.python_implementation})"
+        )
+
+    st.markdown("**Platform Capabilities**")
+    capability_labels = (
+        ("Installer support", capabilities.supports_installer),
+        ("Edge web app support", capabilities.supports_edge_webapp),
+        ("Default browser support", capabilities.supports_default_browser),
+        ("OneDrive detection", capabilities.supports_onedrive),
+        ("Safe cloud sync support", capabilities.supports_safe_cloud_sync),
+        ("Linux manual run support", capabilities.supports_linux_manual_run),
+        ("macOS beta support", capabilities.supports_macos_beta),
+    )
+    for label, enabled in capability_labels:
+        st.caption(f"{label}: {'Yes' if enabled else 'No'}")
+
+    with st.expander("Raw Platform Diagnostics"):
+        st.caption(f"Platform slug: `{platform_info.platform_slug}`")
+        st.caption(f"Raw system: `{diagnostics.raw_system}`")
+        st.caption(f"Release: `{diagnostics.release}`")
+        st.caption(f"Version: `{diagnostics.version}`")
+        st.caption(f"Platform string: `{diagnostics.platform_string}`")
+        st.caption(f"Machine: `{diagnostics.machine}`")
+        st.caption(f"Processor: `{diagnostics.processor}`")
+        st.caption(f"Python architecture: `{diagnostics.python_architecture}`")
 
 
 def _normalize_folder_path(raw_path: str, *, label: str) -> str:
@@ -354,7 +405,7 @@ def _render_cloud_backup_settings() -> None:
 
     st.markdown("**Cloud Backup Destination**")
     destination_options = [("Local (no cloud sync)", BACKUP_DESTINATION_LOCAL)]
-    if IS_WINDOWS:
+    if detect_platform().capabilities.supports_onedrive:
         destination_options.append(
             ("OneDrive (auto-detected)", BACKUP_DESTINATION_ONEDRIVE)
         )
