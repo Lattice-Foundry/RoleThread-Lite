@@ -6,6 +6,7 @@ They must not import Streamlit or touch session state.
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 import traceback
@@ -98,6 +99,7 @@ class _DatasetMutationWrite:
 
     backup_path: str | None
     save_result: DatasetSaveResult
+    warnings: tuple[str, ...] = ()
 
 
 def _copy_entries(entries: list[dict]) -> list[dict]:
@@ -488,6 +490,50 @@ def _save_entries_with_backup(
     return _DatasetMutationWrite(backup_path=backup_path, save_result=save_result), None
 
 
+def _dataset_mutation_pipeline(
+    *,
+    dataset_path: str,
+    entries: list[dict],
+    backup_enabled: bool,
+    backup_reason: str,
+    backup_error_prefix: str = "Failed to create dataset backup",
+    save_error_prefix: str = "Failed to save dataset",
+    after_save: Callable[
+        [DatasetSaveResult],
+        tuple[DatasetSaveResult, list[str]],
+    ] | None = None,
+) -> tuple[_DatasetMutationWrite | None, DatasetOperationResult | None]:
+    """Run the shared dataset mutation write path with optional post-save metadata work."""
+
+    write, error_result = _save_entries_with_backup(
+        dataset_path=dataset_path,
+        entries=entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+        backup_error_prefix=backup_error_prefix,
+        save_error_prefix=save_error_prefix,
+    )
+    if error_result is not None or write is None:
+        return None, error_result
+    if after_save is None:
+        return write, None
+
+    try:
+        save_result, warnings = after_save(write.save_result)
+    except Exception as exc:
+        traceback.print_exc()
+        return None, DatasetOperationResult(
+            ok=False,
+            message=f"{save_error_prefix}: {exc}",
+        )
+
+    return _DatasetMutationWrite(
+        backup_path=write.backup_path,
+        save_result=save_result,
+        warnings=tuple(warnings),
+    ), None
+
+
 def save_quick_edit_service(
     *,
     dataset_path: str,
@@ -527,7 +573,7 @@ def save_quick_edit_service(
     proposed_entries = _normalize_entries(
         _replace_entry_at_index(entries, entry_index, edited_entry)
     )
-    write, error_result = _save_entries_with_backup(
+    write, error_result = _dataset_mutation_pipeline(
         dataset_path=dataset_path,
         entries=proposed_entries,
         backup_enabled=backup_enabled,
@@ -592,31 +638,29 @@ def save_full_edit_service(
     proposed_entries = _normalize_entries(
         _replace_entry_at_index(entries, entry_index, edited_entry)
     )
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-        entry_uuid = get_entry_uuid(proposed_entries[entry_index])
-        save_result, warnings = _apply_character_turn_update(
+    def after_save(save_result: DatasetSaveResult) -> tuple[DatasetSaveResult, list[str]]:
+        saved_entries = save_result.entries
+        entry_uuid = get_entry_uuid(saved_entries[entry_index])
+        return _apply_character_turn_update(
             save_result,
             entry_uuid=entry_uuid,
             character_turns=character_turns,
             clear_character_mappings=clear_character_mappings,
         )
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save dataset: {exc}",
-        )
+
+    write, error_result = _dataset_mutation_pipeline(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+        after_save=after_save,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -625,7 +669,7 @@ def save_full_edit_service(
         backup_path=backup_path,
         affected_count=1,
         dataset_path=saved_path,
-        warnings=warnings,
+        warnings=list(write.warnings),
         **_sidecar_result_fields(save_result),
     )
 
@@ -668,7 +712,7 @@ def replace_single_entry_tags_service(
     proposed_entries = _normalize_entries(
         _replace_entry_at_index(entries, entry_index, edited_entry)
     )
-    write, error_result = _save_entries_with_backup(
+    write, error_result = _dataset_mutation_pipeline(
         dataset_path=dataset_path,
         entries=proposed_entries,
         backup_enabled=backup_enabled,
@@ -723,7 +767,7 @@ def replace_tags_bulk_service(
         replace_entry_tags(proposed_entries[index], tags)
     proposed_entries = _normalize_entries(proposed_entries)
 
-    write, error_result = _save_entries_with_backup(
+    write, error_result = _dataset_mutation_pipeline(
         dataset_path=dataset_path,
         entries=proposed_entries,
         backup_enabled=backup_enabled,
@@ -772,7 +816,7 @@ def clear_tags_bulk_service(
         replace_entry_tags(proposed_entries[index], [])
     proposed_entries = _normalize_entries(proposed_entries)
 
-    write, error_result = _save_entries_with_backup(
+    write, error_result = _dataset_mutation_pipeline(
         dataset_path=dataset_path,
         entries=proposed_entries,
         backup_enabled=backup_enabled,
@@ -824,7 +868,7 @@ def replace_system_prompt_bulk_service(
         set_entry_system_prompt(proposed_entries[index], system_prompt)
     proposed_entries = _normalize_entries(proposed_entries)
 
-    write, error_result = _save_entries_with_backup(
+    write, error_result = _dataset_mutation_pipeline(
         dataset_path=dataset_path,
         entries=proposed_entries,
         backup_enabled=backup_enabled,
@@ -876,7 +920,7 @@ def delete_entries_service(
     ]
     proposed_entries = _normalize_entries(proposed_entries)
 
-    write, error_result = _save_entries_with_backup(
+    write, error_result = _dataset_mutation_pipeline(
         dataset_path=dataset_path,
         entries=proposed_entries,
         backup_enabled=backup_enabled,
@@ -994,21 +1038,11 @@ def split_entry_service(
     proposed_entries[entry_index:entry_index + 1] = split_entries
     proposed_entries = _normalize_entries(proposed_entries)
 
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
+    def after_save(save_result: DatasetSaveResult) -> tuple[DatasetSaveResult, list[str]]:
+        saved_entries = save_result.entries
         replacements = []
         for offset, turns_for_segment in enumerate(pending_mappings_by_segment):
-            saved_entry_uuid = get_entry_uuid(proposed_entries[entry_index + offset])
+            saved_entry_uuid = get_entry_uuid(saved_entries[entry_index + offset])
             if saved_entry_uuid:
                 replacements.append((saved_entry_uuid, turns_for_segment))
         save_result, warnings = _apply_character_mapping_replacements(
@@ -1019,12 +1053,22 @@ def split_entry_service(
             delete_entry_character_turns(entry_uuid)
         except Exception as exc:
             warnings.append(f"Original character mappings could not be cleared: {exc}")
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save split entries: {exc}",
-        )
+        return save_result, warnings
+
+    write, error_result = _dataset_mutation_pipeline(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+        save_error_prefix="Failed to save split entries",
+        after_save=after_save,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -1033,7 +1077,7 @@ def split_entry_service(
         backup_path=backup_path,
         affected_count=len(split_entries),
         dataset_path=saved_path,
-        warnings=warnings,
+        warnings=list(write.warnings),
         **_sidecar_result_fields(save_result),
     )
 
@@ -1128,19 +1172,9 @@ def join_entries_service(
         proposed_entries.append(joined_entry)
     proposed_entries = _normalize_entries(proposed_entries)
 
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-        joined_uuid = get_entry_uuid(proposed_entries[first_selected_index])
+    def after_save(save_result: DatasetSaveResult) -> tuple[DatasetSaveResult, list[str]]:
+        saved_entries = save_result.entries
+        joined_uuid = get_entry_uuid(saved_entries[first_selected_index])
         replacements = [(joined_uuid, pending_mappings)] if joined_uuid else []
         save_result, mapping_warnings = _apply_character_mapping_replacements(
             save_result,
@@ -1152,12 +1186,23 @@ def join_entries_service(
                 delete_entry_character_turns(removed_uuid)
             except Exception as exc:
                 warnings.append(f"Old character mappings could not be cleared: {exc}")
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save joined entry: {exc}",
-        )
+        return save_result, warnings
+
+    write, error_result = _dataset_mutation_pipeline(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+        save_error_prefix="Failed to save joined entry",
+        after_save=after_save,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
+    warnings = list(write.warnings)
 
     if system_prompts_differ:
         warnings.append("System prompts differed; the first selected system prompt was used.")
@@ -1277,7 +1322,7 @@ def save_repaired_entries_service(
         for entry in repaired_entries
     ]
     proposed_entries = _canonicalize_alias_tags(proposed_entries)
-    write, error_result = _save_entries_with_backup(
+    write, error_result = _dataset_mutation_pipeline(
         dataset_path=dataset_path,
         entries=proposed_entries,
         backup_enabled=True,
@@ -1342,30 +1387,30 @@ def create_entry_service(
     entry_to_append, _ = normalize_entry_tags(new_entry)
     proposed_entries.append(entry_to_append)
     proposed_entries = _normalize_entries(proposed_entries)
-    try:
-        backup_path = _create_backup_if_enabled(dataset_path, backup_enabled, backup_reason)
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
-        entry_uuid = get_entry_uuid(proposed_entries[-1]) if proposed_entries else None
-        save_result, warnings = _apply_character_turn_update(
+
+    def after_save(save_result: DatasetSaveResult) -> tuple[DatasetSaveResult, list[str]]:
+        saved_entries = save_result.entries
+        entry_uuid = get_entry_uuid(saved_entries[-1]) if saved_entries else None
+        return _apply_character_turn_update(
             save_result,
             entry_uuid=entry_uuid,
             character_turns=character_turns,
         )
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to save: {exc}",
-        )
+
+    write, error_result = _dataset_mutation_pipeline(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason=backup_reason,
+        save_error_prefix="Failed to save",
+        after_save=after_save,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -1374,7 +1419,7 @@ def create_entry_service(
         backup_path=backup_path,
         affected_count=1,
         dataset_path=saved_path,
-        warnings=warnings,
+        warnings=list(write.warnings),
         **_sidecar_result_fields(save_result),
     )
 
@@ -1423,37 +1468,32 @@ def duplicate_entry_service(
     proposed_entries = _copy_entries(entries)
     proposed_entries.append(duplicate_entry)
     proposed_entries = _normalize_entries(proposed_entries)
-    try:
-        backup_path = _create_backup_if_enabled(
-            dataset_path,
-            backup_enabled,
-            "before_duplicate_entry",
-        )
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to create dataset backup: {exc}",
-        )
 
-    try:
-        save_result = _save_dataset_with_sidecar(dataset_path, proposed_entries)
-        saved_path = save_result.dataset_path
-        proposed_entries = save_result.entries
+    def after_save(save_result: DatasetSaveResult) -> tuple[DatasetSaveResult, list[str]]:
+        saved_entries = save_result.entries
         source_uuid = get_entry_uuid(source_entry)
-        new_uuid = get_entry_uuid(proposed_entries[-1]) if proposed_entries else None
+        new_uuid = get_entry_uuid(saved_entries[-1]) if saved_entries else None
         character_turns = _character_turn_payloads(source_uuid)
-        save_result, warnings = _apply_character_turn_update(
+        return _apply_character_turn_update(
             save_result,
             entry_uuid=new_uuid,
             character_turns=character_turns,
         )
-    except Exception as exc:
-        traceback.print_exc()
-        return DatasetOperationResult(
-            ok=False,
-            message=f"Failed to duplicate entry: {exc}",
-        )
+
+    write, error_result = _dataset_mutation_pipeline(
+        dataset_path=dataset_path,
+        entries=proposed_entries,
+        backup_enabled=backup_enabled,
+        backup_reason="before_duplicate_entry",
+        save_error_prefix="Failed to duplicate entry",
+        after_save=after_save,
+    )
+    if error_result is not None:
+        return error_result
+    save_result = write.save_result
+    backup_path = write.backup_path
+    saved_path = save_result.dataset_path
+    proposed_entries = save_result.entries
 
     return DatasetOperationResult(
         ok=True,
@@ -1462,7 +1502,7 @@ def duplicate_entry_service(
         backup_path=backup_path,
         affected_count=1,
         dataset_path=saved_path,
-        warnings=warnings,
+        warnings=list(write.warnings),
         **_sidecar_result_fields(save_result),
     )
 
