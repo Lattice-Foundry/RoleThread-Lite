@@ -109,6 +109,94 @@ def test_platform_support_messages_describe_unknown_graceful_degradation():
     assert "disabled where support is unknown" in text
 
 
+def test_browser_detection_finds_edge_with_path_lookup_on_windows():
+    result = platform_helpers.detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/Scott",
+        env={},
+        which_fn=lambda name: "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
+    )
+
+    assert result.capabilities.supports_edge_webapp is True
+    assert result.browser.edge_detected is True
+    assert result.browser.edge_path == Path(
+        "C:/Program Files/Microsoft/Edge/Application/msedge.exe"
+    )
+    assert result.browser.edge_detection_method == "path"
+    assert result.capabilities.edge_webapp_available is True
+    assert result.capabilities.fallback_to_default_browser is False
+    assert "Edge is available" in result.message
+
+
+def test_browser_detection_finds_edge_common_install_path_on_windows():
+    edge_path = Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe")
+    result = platform_helpers.detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/Scott",
+        env={"PROGRAMFILES": "C:/Program Files"},
+        which_fn=lambda name: None,
+        path_exists_fn=lambda path: path == edge_path,
+    )
+
+    assert result.browser.edge_detected is True
+    assert result.browser.edge_path == edge_path
+    assert result.browser.edge_detection_method == "common_install_path"
+    assert result.capabilities.edge_webapp_available is True
+
+
+def test_browser_detection_falls_back_when_edge_missing_on_windows():
+    result = platform_helpers.detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/Scott",
+        env={},
+        which_fn=lambda name: None,
+        path_exists_fn=lambda path: False,
+    )
+
+    assert result.browser.edge_detected is False
+    assert result.browser.edge_path is None
+    assert result.browser.edge_detection_method == "not_found"
+    assert result.capabilities.supports_edge_webapp is True
+    assert result.capabilities.edge_webapp_available is False
+    assert result.capabilities.fallback_to_default_browser is True
+    assert "fall back to the default browser" in result.message
+
+
+def test_browser_detection_uses_default_browser_only_on_linux_and_macos():
+    for system_name in ("Linux", "Darwin"):
+        result = platform_helpers.detect_browser_capabilities(
+            system_name,
+            home="/home/scott",
+            env={},
+            which_fn=lambda name: "ignored",
+            path_exists_fn=lambda path: True,
+        )
+
+        assert result.browser.edge_detected is False
+        assert result.browser.edge_path is None
+        assert result.browser.edge_detection_method == "not_applicable"
+        assert result.capabilities.supports_edge_webapp is False
+        assert result.capabilities.edge_webapp_available is False
+        assert result.capabilities.supports_default_browser is True
+        assert result.capabilities.fallback_to_default_browser is True
+        assert "Default browser workflows are supported" in result.message
+
+
+def test_browser_detection_gracefully_degrades_on_unknown_platform():
+    result = platform_helpers.detect_browser_capabilities(
+        "Plan9",
+        home="/home/scott",
+        env={},
+        which_fn=lambda name: "ignored",
+        path_exists_fn=lambda path: True,
+    )
+
+    assert result.browser.edge_detected is False
+    assert result.capabilities.supports_default_browser is False
+    assert result.capabilities.fallback_to_default_browser is False
+    assert "Browser workflows are not supported" in result.message
+
+
 def test_detect_platform_uses_platform_system_when_not_supplied(monkeypatch):
     monkeypatch.setattr(platform_helpers._platform, "system", lambda: "Linux")
 

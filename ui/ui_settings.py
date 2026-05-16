@@ -19,10 +19,10 @@ from core.cloud_sync import (
 )
 from core.platform import (
     PATH_SOURCE_PLATFORM_DEFAULT,
+    detect_browser_capabilities,
     detect_onedrive_path,
     detect_platform,
     get_platform_path_resolutions,
-    get_platform_support_messages,
 )
 from core.preferences import export_settings, get_all_settings, import_settings
 from core.runtime import get_python_runtime_status
@@ -325,10 +325,6 @@ def _render_platform_about() -> None:
         st.markdown("**Python**")
         st.caption(runtime_status.current_version)
 
-    with st.expander("Platform Support Notes"):
-        for note in get_platform_support_messages(platform_info):
-            st.caption(_format_about_row(note.label, note.message))
-
     with st.expander("Python Runtime Compatibility"):
         st.caption(_format_about_row("Current Python", f"`{runtime_status.current_version}`"))
         st.caption(_format_about_row("Official Python", f"`{runtime_status.official_version}`"))
@@ -338,6 +334,32 @@ def _render_platform_about() -> None:
     with st.expander("Platform Capabilities"):
         for label, enabled in _platform_capability_labels(capabilities):
             st.caption(_format_about_row(label, f"`{'Yes' if enabled else 'No'}`"))
+
+    browser_detection = detect_browser_capabilities(platform_info=platform_info)
+    with st.expander("Browser Support"):
+        st.caption(
+            _format_about_row(
+                "Edge detected",
+                f"`{'Yes' if browser_detection.browser.edge_detected else 'No'}`",
+            )
+        )
+        if browser_detection.browser.edge_path is not None:
+            st.caption(
+                _format_about_row("Edge path", f"`{browser_detection.browser.edge_path}`")
+            )
+        st.caption(
+            _format_about_row(
+                "Default browser fallback",
+                f"`{'Yes' if browser_detection.capabilities.fallback_to_default_browser else 'No'}`",
+            )
+        )
+        st.caption(
+            _format_about_row(
+                "Edge web app available",
+                f"`{'Yes' if browser_detection.capabilities.edge_webapp_available else 'No'}`",
+            )
+        )
+        st.caption(_format_about_row("Browser mode", browser_detection.message))
 
     with st.expander("Raw Platform Diagnostics"):
         st.caption(_format_about_row("Platform slug", f"`{platform_info.platform_slug}`"))

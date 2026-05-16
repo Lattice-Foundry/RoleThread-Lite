@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import os
 import platform as _platform
 from pathlib import Path
+import shutil
 
 
 OS_WINDOWS = "windows"
@@ -109,6 +110,36 @@ class PlatformSupportMessage:
     """User-facing platform support note for Settings/About."""
 
     label: str
+    message: str
+
+
+@dataclass(frozen=True)
+class BrowserInfo:
+    """Detected local browser availability details."""
+
+    edge_detected: bool
+    edge_path: Path | None
+    edge_detection_method: str
+
+
+@dataclass(frozen=True)
+class BrowserCapabilities:
+    """Browser workflow capability metadata for the current platform."""
+
+    supports_default_browser: bool
+    supports_edge_webapp: bool
+    edge_available: bool
+    edge_webapp_available: bool
+    fallback_to_default_browser: bool
+
+
+@dataclass(frozen=True)
+class BrowserDetectionResult:
+    """Combined platform browser capability and availability result."""
+
+    platform: PlatformInfo
+    browser: BrowserInfo
+    capabilities: BrowserCapabilities
     message: str
 
 
@@ -283,6 +314,110 @@ def get_platform_support_messages(
             )
         )
     return tuple(messages)
+
+
+def detect_browser_capabilities(
+    system_name: str | None = None,
+    *,
+    platform_info: PlatformInfo | None = None,
+    home: Path | str | None = None,
+    env: dict[str, str] | None = None,
+    which_fn=None,
+    path_exists_fn=None,
+) -> BrowserDetectionResult:
+    """Detect browser workflow availability without launching anything."""
+
+    info = platform_info or detect_platform(system_name)
+    env_values = os.environ if env is None else env
+    home_path = Path(home).expanduser() if home is not None else Path.home()
+    edge_info = _detect_edge_browser(
+        info,
+        home=home_path,
+        env=env_values,
+        which_fn=which_fn or shutil.which,
+        path_exists_fn=path_exists_fn or _path_exists,
+    )
+    edge_webapp_available = (
+        info.capabilities.supports_edge_webapp
+        and edge_info.edge_detected
+    )
+    fallback_to_default_browser = (
+        info.capabilities.supports_default_browser
+        and not edge_webapp_available
+    )
+    capabilities = BrowserCapabilities(
+        supports_default_browser=info.capabilities.supports_default_browser,
+        supports_edge_webapp=info.capabilities.supports_edge_webapp,
+        edge_available=edge_info.edge_detected,
+        edge_webapp_available=edge_webapp_available,
+        fallback_to_default_browser=fallback_to_default_browser,
+    )
+    return BrowserDetectionResult(
+        platform=info,
+        browser=edge_info,
+        capabilities=capabilities,
+        message=_browser_detection_message(info, capabilities),
+    )
+
+
+def _detect_edge_browser(
+    platform_info: PlatformInfo,
+    *,
+    home: Path,
+    env: dict[str, str],
+    which_fn,
+    path_exists_fn,
+) -> BrowserInfo:
+    if not platform_info.capabilities.supports_edge_webapp:
+        return BrowserInfo(False, None, "not_applicable")
+
+    which_path = which_fn("msedge")
+    if which_path:
+        return BrowserInfo(True, Path(which_path).expanduser(), "path")
+
+    for candidate in _edge_candidate_paths(env, home):
+        if path_exists_fn(candidate):
+            return BrowserInfo(True, candidate, "common_install_path")
+
+    return BrowserInfo(False, None, "not_found")
+
+
+def _edge_candidate_paths(env: dict[str, str], home: Path) -> tuple[Path, ...]:
+    roots = [
+        env.get("PROGRAMFILES"),
+        env.get("PROGRAMFILES(X86)"),
+        env.get("LOCALAPPDATA"),
+    ]
+    candidates: list[Path] = []
+    for root in roots:
+        if not root:
+            continue
+        root_path = Path(root).expanduser()
+        candidates.append(root_path / "Microsoft" / "Edge" / "Application" / "msedge.exe")
+    candidates.append(
+        home / "AppData" / "Local" / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+    )
+    return tuple(dict.fromkeys(candidates))
+
+
+def _browser_detection_message(
+    platform_info: PlatformInfo,
+    capabilities: BrowserCapabilities,
+) -> str:
+    if capabilities.edge_webapp_available:
+        return "Microsoft Edge is available for future Windows web-app workflows."
+    if platform_info.capabilities.supports_edge_webapp:
+        return (
+            "Microsoft Edge was not detected. Future browser launch flows should "
+            "fall back to the default browser."
+        )
+    if capabilities.supports_default_browser:
+        return "Default browser workflows are supported on this platform."
+    return "Browser workflows are not supported on this platform."
+
+
+def _path_exists(path: Path) -> bool:
+    return path.exists()
 
 
 def get_platform_paths(
