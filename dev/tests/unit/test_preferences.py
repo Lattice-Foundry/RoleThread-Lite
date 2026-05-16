@@ -26,6 +26,7 @@ EXPECTED_DEFAULT_KEYS = {
     "backup_destination_custom_path",
     "cloud_backup_last_sync_at",
     "auto_correct_validation_errors",
+    "enable_webapp_launch_mode",
 }
 
 
@@ -100,6 +101,7 @@ def test_get_default_preferences_uses_windows_platform_paths():
         "C:\\Users\\Scott\\LoreForge\\training_data"
     )
     assert defaults["backup_directory"] == "C:\\Users\\Scott\\LoreForge\\backups"
+    assert defaults["enable_webapp_launch_mode"] is False
 
 
 def test_get_default_preferences_uses_linux_platform_paths():

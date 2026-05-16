@@ -389,6 +389,18 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
             "glossary",
         ),
     ),
+    HelpArticle(
+        "developer-launch-flags",
+        "26_developer_launch_flags.md",
+        "Developer Launch Flags",
+        "Reference",
+        250,
+        "Developer/tester launch flags for diagnostics and webapp startup.",
+        (
+            "os-compatibility-and-storage-policy",
+            "settings-and-preferences",
+        ),
+    ),
 )
 
 

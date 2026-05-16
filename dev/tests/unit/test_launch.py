@@ -349,7 +349,7 @@ def test_attempt_webapp_launch_is_process_idempotent():
     assert second.launched is False
     assert second.attempted is False
     assert second.status_code == "already_attempted"
-    assert "already attempted" in second.message
+    assert "already handled" in second.message
     assert commands == [first.command]
 
 

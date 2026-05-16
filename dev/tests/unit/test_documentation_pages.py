@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 25
+    assert len(registry) == 26
     assert get_default_help_article_id() == "getting-started"
     assert registry["getting-started"].file_name == "01_getting_started.md"
     assert registry["glossary"].category == "Reference"
@@ -103,6 +103,8 @@ def test_help_article_registry_has_expected_articles():
         registry["os-compatibility-and-storage-policy"].file_name
         == "25_os_compatibility_and_storage.md"
     )
+    assert registry["developer-launch-flags"].file_name == "26_developer_launch_flags.md"
+    assert registry["developer-launch-flags"].category == "Reference"
     assert len(registry) == len(set(registry))
 
 
@@ -116,6 +118,17 @@ def test_deep_edit_article_keeps_legacy_article_id_and_file_name():
 
     assert article.title == "Deep Edit"
     assert article.file_name == "09_editing_entries.md"
+
+
+def test_developer_launch_flags_help_article_documents_supported_flags():
+    document = load_help_document("developer-launch-flags")
+
+    assert document.article.title == "Developer Launch Flags"
+    assert "`dev`" in document.content
+    assert "`webapp`" in document.content
+    assert "`edge-debug`" in document.content
+    assert "`webapp-debug`" in document.content
+    assert "streamlit run app.py -- webapp dev edge-debug" in document.content
 
 
 def test_os_compatibility_help_article_documents_v1_policy():
@@ -149,7 +162,7 @@ def test_help_article_order_is_global_reader_order():
     ordered_ids = [article.article_id for article in get_help_article_order()]
 
     assert ordered_ids[0] == "getting-started"
-    assert ordered_ids[-1] == "v1-limitations-and-future-boundaries"
+    assert ordered_ids[-1] == "developer-launch-flags"
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
 
 
@@ -168,6 +181,7 @@ def test_help_article_category_order_and_grouping():
         "glossary",
         "os-compatibility-and-storage-policy",
         "v1-limitations-and-future-boundaries",
+        "developer-launch-flags",
     ]
 
 
@@ -317,7 +331,12 @@ def test_adjacent_help_articles_follow_global_order():
     assert previous_article.article_id == "understanding-the-main-workspaces"
     assert next_article.article_id == "default-mode-vs-group-chat"
     assert get_adjacent_help_articles("getting-started")[0] is None
-    assert get_adjacent_help_articles("v1-limitations-and-future-boundaries")[1] is None
+    previous_article, next_article = get_adjacent_help_articles(
+        "v1-limitations-and-future-boundaries"
+    )
+    assert previous_article.article_id == "os-compatibility-and-storage-policy"
+    assert next_article.article_id == "developer-launch-flags"
+    assert get_adjacent_help_articles("developer-launch-flags")[1] is None
 
 
 def test_related_help_articles_follow_registry_metadata():

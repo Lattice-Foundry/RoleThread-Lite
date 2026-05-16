@@ -1240,8 +1240,7 @@ def attempt_webapp_launch(
                 edge_path=_webapp_launch_status.edge_path,
                 command=_webapp_launch_status.command,
                 message=(
-                    "Dev web-app launch was already attempted for this Python process; "
-                    "skipping this rerun."
+                    "Webapp launch was already handled for this Python process."
                 ),
                 status_code=WEBAPP_LAUNCH_STATUS_ALREADY_ATTEMPTED,
             )
@@ -1255,8 +1254,7 @@ def attempt_webapp_launch(
             edge_path=None,
             command=(),
             message=(
-                "Dev web-app launch was already attempted for this Python process; "
-                "skipping this rerun."
+                "Webapp launch was already handled for this Python process."
             ),
             status_code=WEBAPP_LAUNCH_STATUS_ALREADY_ATTEMPTED,
         )

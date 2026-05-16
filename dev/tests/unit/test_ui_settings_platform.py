@@ -75,3 +75,11 @@ def test_platform_path_format_shows_source_in_dev_mode():
 
     assert "User Override" in value
     assert "default `C:/Users/digit/LoreForge/training_data`" in value
+
+
+def test_webapp_experimental_preference_uses_platform_capability():
+    windows_capabilities = detect_platform("Windows").capabilities
+    linux_capabilities = detect_platform("Linux").capabilities
+
+    assert ui_settings._supports_webapp_launch_preference(windows_capabilities) is True
+    assert ui_settings._supports_webapp_launch_preference(linux_capabilities) is False

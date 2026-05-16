@@ -364,6 +364,9 @@ div[data-baseweb="menu"] li[role="option"][aria-selected="true"] {{
 def _render_dev_webapp_launch_status_once() -> None:
     """Show the dev web-app launch status without cluttering every rerun."""
 
+    if not st.session_state.get("_dev_mode"):
+        return
+
     status = st.session_state.get("_dev_webapp_launch_status")
     guidance = st.session_state.get("_dev_webapp_launch_guidance")
     if st.session_state.get("_dev_webapp_launch_status_rendered"):
