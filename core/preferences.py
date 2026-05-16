@@ -12,34 +12,52 @@ from typing import Any
 
 from core.db import SessionLocal, init_db
 from core.models import AppSetting
+from core.platform import get_platform_paths
 from core.storage import (
     APP_DATA_DIR,
     ensure_app_directories,
-    get_backups_dir,
-    get_default_training_data_dir,
 )
 
 ensure_app_directories()
 
 PREFS_FILE = APP_DATA_DIR / "preferences.json"
 
-DEFAULTS: dict = {
-    "last_loaded_dataset_path": "",
-    "recent_dataset_paths": [],
-    "last_open_directory": "",
-    "last_system_prompt": "",
-    "preview_user_name": "Scott",
-    "preview_assistant_name": "Nicole",
-    "confirm_delete_entries": True,
-    "default_dataset_directory": str(get_default_training_data_dir()),
-    "auto_backups_enabled": True,
-    "backup_directory": str(get_backups_dir()),
-    "backups_per_dataset": 25,
-    "backup_destination_type": "local",
-    "backup_destination_custom_path": "",
-    "cloud_backup_last_sync_at": "",
-    "auto_correct_validation_errors": True,
-}
+
+def get_default_preferences(
+    system_name: str | None = None,
+    *,
+    home: Path | str | None = None,
+    env: dict[str, str] | None = None,
+) -> dict:
+    """Return official platform-aware defaults for a fresh installation."""
+
+    platform_paths = get_platform_paths(system_name, home=home, env=env)
+    return {
+        "last_loaded_dataset_path": "",
+        "recent_dataset_paths": [],
+        "last_open_directory": "",
+        "last_system_prompt": "",
+        "preview_user_name": "Scott",
+        "preview_assistant_name": "Nicole",
+        "confirm_delete_entries": True,
+        "default_dataset_directory": str(platform_paths.training_data_dir),
+        "auto_backups_enabled": True,
+        "backup_directory": str(platform_paths.backups_dir),
+        "backups_per_dataset": 25,
+        "backup_destination_type": "local",
+        "backup_destination_custom_path": "",
+        "cloud_backup_last_sync_at": "",
+        "auto_correct_validation_errors": True,
+    }
+
+
+DEFAULTS: dict = get_default_preferences()
+
+
+def resolve_preferences(stored: dict | None) -> dict:
+    """Merge stored preferences over current platform defaults."""
+
+    return {**get_default_preferences(), **dict(stored or {})}
 
 
 def get_setting(key: str, default: Any = None) -> Any:
@@ -150,7 +168,7 @@ def load_preferences() -> dict:
     ):
         stored["auto_correct_validation_errors"] = stored["auto_normalize_on_load"]
         set_setting("auto_correct_validation_errors", stored["auto_normalize_on_load"])
-    return {**DEFAULTS, **stored}
+    return resolve_preferences(stored)
 
 
 def save_preferences(prefs: dict) -> None:

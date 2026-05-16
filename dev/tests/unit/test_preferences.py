@@ -1,10 +1,12 @@
 import inspect
 import json
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import core.platform as platform_helpers
 import core.preferences as preferences
 from core.models import AppSetting, Base
 
@@ -82,6 +84,118 @@ def test_load_preferences_returns_defaults_when_db_empty_and_file_missing(settin
 
     assert loaded == preferences.DEFAULTS
     assert loaded is not preferences.DEFAULTS
+
+
+def test_get_default_preferences_uses_windows_platform_paths():
+    defaults = preferences.get_default_preferences(
+        "Windows",
+        home="C:/Users/Fallback",
+        env={
+            "LOCALAPPDATA": "C:/Users/Scott/AppData/Local",
+            "USERPROFILE": "C:/Users/Scott",
+        },
+    )
+
+    assert defaults["default_dataset_directory"] == (
+        "C:\\Users\\Scott\\LoreForge\\training_data"
+    )
+    assert defaults["backup_directory"] == "C:\\Users\\Scott\\LoreForge\\backups"
+
+
+def test_get_default_preferences_uses_linux_platform_paths():
+    defaults = preferences.get_default_preferences(
+        "Linux",
+        home="/home/scott",
+        env={},
+    )
+
+    assert Path(defaults["default_dataset_directory"]) == Path(
+        "/home/scott/LoreForge/training_data"
+    )
+    assert Path(defaults["backup_directory"]) == Path("/home/scott/LoreForge/backups")
+
+
+def test_get_default_preferences_uses_macos_platform_paths():
+    defaults = preferences.get_default_preferences(
+        "Darwin",
+        home="/Users/scott",
+        env={},
+    )
+
+    assert Path(defaults["default_dataset_directory"]) == Path(
+        "/Users/scott/LoreForge/training_data"
+    )
+    assert Path(defaults["backup_directory"]) == Path("/Users/scott/LoreForge/backups")
+
+
+def test_get_default_preferences_uses_unknown_safe_fallback():
+    defaults = preferences.get_default_preferences(
+        "Plan9",
+        home="/home/scott",
+        env={},
+    )
+
+    assert Path(defaults["default_dataset_directory"]) == Path(
+        "/home/scott/LoreForge/training_data"
+    )
+    assert Path(defaults["backup_directory"]) == Path("/home/scott/LoreForge/backups")
+
+
+def test_load_preferences_uses_current_platform_defaults_when_empty(
+    settings_db,
+    monkeypatch,
+):
+    fake_paths = platform_helpers.PlatformPaths(
+        app_data_root=Path("/app-data"),
+        workspace_root=Path("/workspace"),
+        training_data_dir=Path("/workspace/training_data"),
+        exports_dir=Path("/workspace/exports"),
+        imports_dir=Path("/workspace/imports"),
+        backups_dir=Path("/workspace/backups"),
+        logs_dir=Path("/app-data/logs"),
+        cache_dir=Path("/app-data/cache"),
+        database_path=Path("/app-data/loreforge.db"),
+        preferences_path=Path("/app-data/preferences.json"),
+    )
+    monkeypatch.setattr(
+        preferences,
+        "get_platform_paths",
+        lambda *args, **kwargs: fake_paths,
+    )
+
+    loaded = preferences.load_preferences()
+
+    assert Path(loaded["default_dataset_directory"]) == Path("/workspace/training_data")
+    assert Path(loaded["backup_directory"]) == Path("/workspace/backups")
+
+
+def test_resolve_preferences_preserves_existing_configured_paths(monkeypatch):
+    fake_paths = platform_helpers.PlatformPaths(
+        app_data_root=Path("/app-data"),
+        workspace_root=Path("/workspace"),
+        training_data_dir=Path("/workspace/training_data"),
+        exports_dir=Path("/workspace/exports"),
+        imports_dir=Path("/workspace/imports"),
+        backups_dir=Path("/workspace/backups"),
+        logs_dir=Path("/app-data/logs"),
+        cache_dir=Path("/app-data/cache"),
+        database_path=Path("/app-data/loreforge.db"),
+        preferences_path=Path("/app-data/preferences.json"),
+    )
+    monkeypatch.setattr(
+        preferences,
+        "get_platform_paths",
+        lambda *args, **kwargs: fake_paths,
+    )
+
+    resolved = preferences.resolve_preferences({
+        "default_dataset_directory": "/custom/datasets",
+        "backup_directory": "/custom/backups",
+    })
+
+    assert resolved["default_dataset_directory"] == "/custom/datasets"
+    assert resolved["backup_directory"] == "/custom/backups"
+    assert resolved["backup_destination_type"] == "local"
 
 
 def test_load_preferences_merges_db_settings_over_defaults(settings_db):

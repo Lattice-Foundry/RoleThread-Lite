@@ -23,7 +23,7 @@ from core.platform import (
     detect_platform,
     get_platform_path_resolutions,
 )
-from core.preferences import export_settings, import_settings
+from core.preferences import export_settings, get_all_settings, import_settings
 from ui.file_dialogs import (
     browse_directory,
     browse_settings_export_file,
@@ -346,9 +346,7 @@ def _render_platform_about() -> None:
             )
         )
 
-    platform_paths = get_platform_path_resolutions(
-        preferences=st.session_state.get("prefs", {})
-    )
+    platform_paths = get_platform_path_resolutions(preferences=get_all_settings())
     with st.expander("Platform Path Defaults"):
         for label, resolved_path in (
             ("App data", platform_paths.app_data_root),
@@ -365,8 +363,7 @@ def _render_platform_about() -> None:
             st.caption(
                 _format_about_row(
                     label,
-                    f"`{resolved_path.path}` "
-                    f"({_format_path_source(resolved_path.source)})",
+                    _format_platform_path_value(resolved_path),
                 )
             )
 
@@ -387,6 +384,14 @@ def _format_path_source(source: str) -> str:
     if source == PATH_SOURCE_PLATFORM_DEFAULT:
         return "Platform Default"
     return "User Override"
+
+
+def _format_platform_path_value(resolved_path) -> str:
+    source_label = _format_path_source(resolved_path.source)
+    value = f"`{resolved_path.path}` ({source_label})"
+    if resolved_path.source != PATH_SOURCE_PLATFORM_DEFAULT:
+        value += f"; default `{resolved_path.platform_default}`"
+    return value
 
 
 def _format_about_row(label: str, value: str) -> str:

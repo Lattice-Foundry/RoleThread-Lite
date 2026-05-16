@@ -69,6 +69,7 @@ class PlatformPathResolution:
 
     path: Path
     source: str
+    platform_default: Path
 
     @property
     def is_user_override(self) -> bool:
@@ -298,21 +299,47 @@ def get_platform_path_resolutions(
     )
 
     return PlatformPathResolutions(
-        app_data_root=PlatformPathResolution(app_data_root, PATH_SOURCE_PLATFORM_DEFAULT),
-        workspace_root=PlatformPathResolution(workspace_root, PATH_SOURCE_PLATFORM_DEFAULT),
+        app_data_root=PlatformPathResolution(
+            app_data_root,
+            PATH_SOURCE_PLATFORM_DEFAULT,
+            app_data_root,
+        ),
+        workspace_root=PlatformPathResolution(
+            workspace_root,
+            PATH_SOURCE_PLATFORM_DEFAULT,
+            workspace_root,
+        ),
         training_data_dir=training_data,
-        exports_dir=PlatformPathResolution(workspace_root / "exports", PATH_SOURCE_PLATFORM_DEFAULT),
-        imports_dir=PlatformPathResolution(workspace_root / "imports", PATH_SOURCE_PLATFORM_DEFAULT),
+        exports_dir=PlatformPathResolution(
+            workspace_root / "exports",
+            PATH_SOURCE_PLATFORM_DEFAULT,
+            workspace_root / "exports",
+        ),
+        imports_dir=PlatformPathResolution(
+            workspace_root / "imports",
+            PATH_SOURCE_PLATFORM_DEFAULT,
+            workspace_root / "imports",
+        ),
         backups_dir=backups,
-        logs_dir=PlatformPathResolution(app_data_root / "logs", PATH_SOURCE_PLATFORM_DEFAULT),
-        cache_dir=PlatformPathResolution(app_data_root / "cache", PATH_SOURCE_PLATFORM_DEFAULT),
+        logs_dir=PlatformPathResolution(
+            app_data_root / "logs",
+            PATH_SOURCE_PLATFORM_DEFAULT,
+            app_data_root / "logs",
+        ),
+        cache_dir=PlatformPathResolution(
+            app_data_root / "cache",
+            PATH_SOURCE_PLATFORM_DEFAULT,
+            app_data_root / "cache",
+        ),
         database_path=PlatformPathResolution(
             app_data_root / "loreforge.db",
             PATH_SOURCE_PLATFORM_DEFAULT,
+            app_data_root / "loreforge.db",
         ),
         preferences_path=PlatformPathResolution(
             app_data_root / "preferences.json",
             PATH_SOURCE_PLATFORM_DEFAULT,
+            app_data_root / "preferences.json",
         ),
     )
 
@@ -351,8 +378,13 @@ def _resolve_platform_path(default_path: Path, configured_path: str) -> Platform
         return PlatformPathResolution(
             Path(configured_path).expanduser(),
             PATH_SOURCE_USER_OVERRIDE,
+            default_path,
         )
-    return PlatformPathResolution(default_path, PATH_SOURCE_PLATFORM_DEFAULT)
+    return PlatformPathResolution(
+        default_path,
+        PATH_SOURCE_PLATFORM_DEFAULT,
+        default_path,
+    )
 
 
 IS_WINDOWS = detect_platform().os_name == OS_WINDOWS

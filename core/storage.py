@@ -5,12 +5,31 @@ startup. It must stay independent of Streamlit.
 """
 from pathlib import Path
 
+from core.platform import get_platform_paths
+
 
 APP_ROOT = Path(__file__).resolve().parent.parent
-APP_DATA_DIR = APP_ROOT / "app_data"
-BACKUPS_DIR = APP_DATA_DIR / "backups"
-TEMP_DIR = APP_DATA_DIR / "temp"
-TRAINING_DATA_DIR = APP_ROOT / "training_data"
+LEGACY_APP_DATA_DIR = APP_ROOT / "app_data"
+_PLATFORM_PATHS = get_platform_paths()
+
+
+def _legacy_app_data_has_state(path: Path = LEGACY_APP_DATA_DIR) -> bool:
+    """Return whether an existing repo-local app state folder should be honored."""
+
+    return any(
+        (path / name).exists()
+        for name in ("loreforge.db", "preferences.json", "backup_config.json")
+    )
+
+
+APP_DATA_DIR = (
+    LEGACY_APP_DATA_DIR
+    if _legacy_app_data_has_state()
+    else _PLATFORM_PATHS.app_data_root
+)
+BACKUPS_DIR = _PLATFORM_PATHS.backups_dir
+TEMP_DIR = _PLATFORM_PATHS.cache_dir
+TRAINING_DATA_DIR = _PLATFORM_PATHS.training_data_dir
 
 
 def ensure_app_directories() -> None:

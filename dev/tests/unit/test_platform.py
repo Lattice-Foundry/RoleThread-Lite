@@ -209,6 +209,9 @@ def test_platform_path_resolutions_mark_default_sources():
         resolutions.training_data_dir.source
         == platform_helpers.PATH_SOURCE_PLATFORM_DEFAULT
     )
+    assert resolutions.training_data_dir.platform_default == Path(
+        "/home/scott/LoreForge/training_data"
+    )
     assert resolutions.training_data_dir.is_user_override is False
     assert resolutions.backups_dir.source == platform_helpers.PATH_SOURCE_PLATFORM_DEFAULT
     assert resolutions.exports_dir.source == platform_helpers.PATH_SOURCE_PLATFORM_DEFAULT
@@ -226,9 +229,15 @@ def test_platform_path_resolutions_mark_user_overrides():
     )
 
     assert resolutions.training_data_dir.path == Path("/custom/datasets")
+    assert resolutions.training_data_dir.platform_default == Path(
+        "/home/scott/LoreForge/training_data"
+    )
     assert resolutions.training_data_dir.source == platform_helpers.PATH_SOURCE_USER_OVERRIDE
     assert resolutions.training_data_dir.is_user_override is True
     assert resolutions.backups_dir.path == Path("/custom/backups")
+    assert resolutions.backups_dir.platform_default == Path(
+        "/home/scott/LoreForge/backups"
+    )
     assert resolutions.backups_dir.source == platform_helpers.PATH_SOURCE_USER_OVERRIDE
     assert resolutions.exports_dir.source == platform_helpers.PATH_SOURCE_PLATFORM_DEFAULT
 
