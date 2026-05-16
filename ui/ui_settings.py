@@ -442,6 +442,7 @@ def _platform_capability_labels(capabilities) -> tuple[tuple[str, bool], ...]:
 def _render_dev_webapp_launch_status() -> None:
     """Render status for the optional dev-only Edge web-app launch flag."""
 
+    guidance = st.session_state.get("_dev_webapp_launch_guidance")
     status = st.session_state.get("_dev_webapp_launch_status")
     if status is None:
         st.caption(_format_about_row("Dev web-app flag", "`Not requested`"))
@@ -468,6 +469,21 @@ def _render_dev_webapp_launch_status() -> None:
     if status.edge_path is not None:
         st.caption(_format_about_row("Edge path", f"`{status.edge_path}`"))
     st.caption(_format_about_row("Status", status.message))
+    if guidance is not None:
+        if guidance.streamlit_headless is None:
+            headless_label = "Unknown"
+        else:
+            headless_label = "Yes" if guidance.streamlit_headless else "No"
+        st.caption(_format_about_row("Streamlit headless", f"`{headless_label}`"))
+        st.caption(
+            _format_about_row(
+                "Normal browser suppressed",
+                f"`{'Yes' if guidance.normal_browser_suppressed else 'No'}`",
+            )
+        )
+        st.caption(_format_about_row("Recommended dev command", f"`{guidance.recommended_command}`"))
+        if guidance.warning:
+            st.caption(_format_about_row("Web-app note", guidance.message))
 
 
 def _format_path_source(source: str) -> str:

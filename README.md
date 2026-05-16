@@ -115,6 +115,17 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+Windows/dev Edge web-app test mode:
+
+```bat
+streamlit run app.py --server.headless true -- webapp
+```
+
+The `webapp` flag is development-only. `--server.headless true` suppresses
+Streamlit's normal browser auto-open so LoreForge opens only the Microsoft Edge
+app-mode window. Without headless mode, Streamlit may also open a regular
+browser tab before app code can intervene.
+
 ## OS Compatibility and Storage
 
 LoreForge Lite V1 supports Windows and Linux as primary platforms. macOS is

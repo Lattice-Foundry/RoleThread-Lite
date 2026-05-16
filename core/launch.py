@@ -17,6 +17,7 @@ from core.platform import (
 
 WEBAPP_FLAG = "webapp"
 DEFAULT_STREAMLIT_LOCAL_URL = "http://localhost:8501"
+RECOMMENDED_WEBAPP_DEV_COMMAND = "streamlit run app.py --server.headless true -- webapp"
 WEBAPP_LAUNCH_STATUS_ALREADY_ATTEMPTED = "already_attempted"
 WEBAPP_LAUNCH_STATUS_FAILED = "failed"
 WEBAPP_LAUNCH_STATUS_FALLBACK = "fallback"
@@ -50,6 +51,19 @@ class EdgeWebappLaunchStatus:
     status_code: str
 
 
+@dataclass(frozen=True)
+class WebappLaunchGuidance:
+    """User/developer guidance for suppressing Streamlit's normal browser launch."""
+
+    webapp_requested: bool
+    streamlit_headless: bool | None
+    normal_browser_suppressed: bool
+    warning: bool
+    can_suppress_from_app: bool
+    recommended_command: str
+    message: str
+
+
 def parse_launch_flags(argv: Sequence[str] | None = None) -> LaunchFlags:
     """Parse LoreForge runtime launch flags from command-line arguments."""
 
@@ -76,6 +90,68 @@ def should_attempt_webapp_launch(flags: LaunchFlags, *, already_attempted: bool)
     """Return whether this caller should ask the process-level launcher to run."""
 
     return flags.webapp and not already_attempted
+
+
+def get_webapp_launch_guidance(
+    flags: LaunchFlags,
+    *,
+    streamlit_headless: bool | None,
+) -> WebappLaunchGuidance:
+    """Return dev guidance for Streamlit's command/config-controlled browser open."""
+
+    if not flags.webapp:
+        return WebappLaunchGuidance(
+            webapp_requested=False,
+            streamlit_headless=streamlit_headless,
+            normal_browser_suppressed=False,
+            warning=False,
+            can_suppress_from_app=False,
+            recommended_command=RECOMMENDED_WEBAPP_DEV_COMMAND,
+            message="Web-app launch mode is not active.",
+        )
+
+    if streamlit_headless is True:
+        return WebappLaunchGuidance(
+            webapp_requested=True,
+            streamlit_headless=True,
+            normal_browser_suppressed=True,
+            warning=False,
+            can_suppress_from_app=False,
+            recommended_command=RECOMMENDED_WEBAPP_DEV_COMMAND,
+            message=(
+                "Streamlit headless mode is active, so the normal browser auto-open "
+                "should be suppressed while LoreForge opens the Edge app window."
+            ),
+        )
+
+    if streamlit_headless is False:
+        return WebappLaunchGuidance(
+            webapp_requested=True,
+            streamlit_headless=False,
+            normal_browser_suppressed=False,
+            warning=True,
+            can_suppress_from_app=False,
+            recommended_command=RECOMMENDED_WEBAPP_DEV_COMMAND,
+            message=(
+                "Streamlit's normal browser auto-open is controlled before app.py "
+                "can suppress it. For only the Edge app window, launch with: "
+                f"{RECOMMENDED_WEBAPP_DEV_COMMAND}"
+            ),
+        )
+
+    return WebappLaunchGuidance(
+        webapp_requested=True,
+        streamlit_headless=None,
+        normal_browser_suppressed=False,
+        warning=True,
+        can_suppress_from_app=False,
+        recommended_command=RECOMMENDED_WEBAPP_DEV_COMMAND,
+        message=(
+            "LoreForge could not confirm Streamlit headless mode. If a normal browser "
+            "window also opens, use: "
+            f"{RECOMMENDED_WEBAPP_DEV_COMMAND}"
+        ),
+    )
 
 
 def reset_webapp_launch_guard_for_tests() -> None:

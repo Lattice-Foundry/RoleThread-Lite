@@ -10,6 +10,8 @@ This checklist defines the stable-release gate for LoreForge Lite 1.0.
 - Confirm the runtime is Python `3.14.4`, the official supported V1 runtime
 - Confirm OS compatibility docs describe Windows/Linux primary support and
   macOS beta support
+- Confirm dev Edge web-app testing docs use
+  `streamlit run app.py --server.headless true -- webapp`
 - Confirm fresh-install storage defaults are documented for Windows, Linux,
   and macOS
 - Confirm README status describes the V1 stable surface

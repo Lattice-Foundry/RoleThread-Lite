@@ -110,13 +110,28 @@ The safest pattern is:
 
 ## Launch Behavior Policy
 
-LoreForge V1 currently defines launch behavior policy and diagnostics, but does not automate browser launching in this documentation pass.
+LoreForge V1 defines platform-aware launch policy and diagnostics. Production
+installer, shortcut, and packaged browser behavior are still planned later.
+
+For development testing on Windows, LoreForge supports an optional Microsoft
+Edge web-app flag:
+
+```bat
+streamlit run app.py --server.headless true -- webapp
+```
+
+The `webapp` flag asks LoreForge to open the local Streamlit app in Microsoft
+Edge app mode when Edge is detected. The `--server.headless true` option belongs
+to Streamlit; it suppresses Streamlit's normal browser auto-open. If you run
+`streamlit run app.py -- webapp` without headless mode, Streamlit may also open
+a regular browser window before LoreForge app code can stop it.
 
 Windows:
 
 - preferred future workflow: Microsoft Edge web app when Edge is detected
 - fallback: default browser when Edge is unavailable
 - installer and shortcut integration are planned later
+- development-only test workflow: Edge app mode through the `webapp` flag
 
 Linux:
 

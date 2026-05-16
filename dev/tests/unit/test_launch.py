@@ -3,9 +3,11 @@ from pathlib import Path
 from core.launch import (
     DEFAULT_STREAMLIT_LOCAL_URL,
     LaunchFlags,
+    RECOMMENDED_WEBAPP_DEV_COMMAND,
     attempt_webapp_launch,
     build_edge_webapp_command,
     get_streamlit_local_url,
+    get_webapp_launch_guidance,
     get_webapp_launch_status,
     parse_launch_flags,
     reset_webapp_launch_guard_for_tests,
@@ -33,6 +35,58 @@ def test_get_streamlit_local_url_uses_default_and_env_override():
     assert get_streamlit_local_url({"LOREFORGE_STREAMLIT_URL": "http://localhost:8502"}) == (
         "http://localhost:8502"
     )
+
+
+def test_webapp_guidance_warns_when_streamlit_headless_is_inactive():
+    guidance = get_webapp_launch_guidance(
+        LaunchFlags(webapp=True),
+        streamlit_headless=False,
+    )
+
+    assert guidance.webapp_requested is True
+    assert guidance.streamlit_headless is False
+    assert guidance.normal_browser_suppressed is False
+    assert guidance.warning is True
+    assert guidance.can_suppress_from_app is False
+    assert guidance.recommended_command == RECOMMENDED_WEBAPP_DEV_COMMAND
+    assert "--server.headless true" in guidance.message
+
+
+def test_webapp_guidance_confirms_headless_suppression():
+    guidance = get_webapp_launch_guidance(
+        LaunchFlags(webapp=True),
+        streamlit_headless=True,
+    )
+
+    assert guidance.webapp_requested is True
+    assert guidance.streamlit_headless is True
+    assert guidance.normal_browser_suppressed is True
+    assert guidance.warning is False
+    assert guidance.can_suppress_from_app is False
+
+
+def test_webapp_guidance_handles_unknown_streamlit_headless_state():
+    guidance = get_webapp_launch_guidance(
+        LaunchFlags(webapp=True),
+        streamlit_headless=None,
+    )
+
+    assert guidance.webapp_requested is True
+    assert guidance.streamlit_headless is None
+    assert guidance.normal_browser_suppressed is False
+    assert guidance.warning is True
+    assert guidance.recommended_command in guidance.message
+
+
+def test_webapp_guidance_is_quiet_when_flag_is_missing():
+    guidance = get_webapp_launch_guidance(
+        LaunchFlags(webapp=False),
+        streamlit_headless=False,
+    )
+
+    assert guidance.webapp_requested is False
+    assert guidance.warning is False
+    assert guidance.message == "Web-app launch mode is not active."
 
 
 def test_build_edge_webapp_command():

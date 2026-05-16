@@ -7,9 +7,11 @@ import atexit
 from pathlib import Path
 
 import streamlit as st
+from streamlit import config as st_config
 
 from core.launch import (
     attempt_webapp_launch,
+    get_webapp_launch_guidance,
     parse_launch_flags,
     should_attempt_webapp_launch,
 )
@@ -24,7 +26,20 @@ if _runtime_status.is_below_minimum:
 if _runtime_status.is_newer_than_tested:
     st.warning(_runtime_status.message)
 
+
+def _get_streamlit_headless_config() -> bool | None:
+    try:
+        return bool(st_config.get_option("server.headless"))
+    except Exception:
+        return None
+
+
 _launch_flags = parse_launch_flags()
+if _launch_flags.webapp:
+    st.session_state["_dev_webapp_launch_guidance"] = get_webapp_launch_guidance(
+        _launch_flags,
+        streamlit_headless=_get_streamlit_headless_config(),
+    )
 if should_attempt_webapp_launch(
     _launch_flags,
     already_attempted=st.session_state.get("_dev_webapp_launch_attempted", False),
@@ -306,12 +321,18 @@ def _render_dev_webapp_launch_status_once() -> None:
     """Show the dev web-app launch status without cluttering every rerun."""
 
     status = st.session_state.get("_dev_webapp_launch_status")
-    if status is None or st.session_state.get("_dev_webapp_launch_status_rendered"):
+    guidance = st.session_state.get("_dev_webapp_launch_guidance")
+    if st.session_state.get("_dev_webapp_launch_status_rendered"):
         return
-    if status.launched:
-        st.success(status.message)
-    else:
-        st.info(status.message)
+    if status is not None:
+        if status.launched:
+            st.success(status.message)
+        else:
+            st.info(status.message)
+    if guidance is not None and guidance.warning:
+        st.warning(guidance.message)
+    if status is None and guidance is None:
+        return
     st.session_state["_dev_webapp_launch_status_rendered"] = True
 
 
