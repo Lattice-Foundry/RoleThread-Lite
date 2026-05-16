@@ -20,6 +20,20 @@ streamlit run app.py -- dev
 
 Dev mode is useful when checking platform detection, runtime details, browser availability, launch behavior, path resolution, or support diagnostics. Diagnostic details may change before release.
 
+In dev mode, **Settings > About This Installation** adds a diagnostics stack:
+
+- Launch Flags Detected
+- Platform Capabilities
+- Browser Support
+- Platform Path Defaults with source/provenance
+- Raw Platform Diagnostics
+- Webapp Launch Diagnostics
+- Duplicate Browser Cleanup Diagnostics
+- Edge Window Debug
+- Edge Process Debug
+
+The normal About view keeps only the support-oriented summary, runtime compatibility, launch behavior, and storage locations.
+
 ## Webapp Mode
 
 Use `webapp` to start LoreForge through the internal Edge webapp launch pathway:
@@ -49,6 +63,8 @@ streamlit run app.py -- webapp dev edge-debug
 ```
 
 `edge-debug` should generally be combined with `dev`; otherwise detailed diagnostic UI stays hidden. It records Edge process IDs, window handles, candidate classifications, and cleanup decisions where Windows exposes that metadata.
+
+Edge Window Debug is currently the most useful diagnostic for duplicate browser cleanup because the normal browser window may already exist before `app.py` runs. Edge Process Debug remains available as secondary process-level evidence.
 
 ## Webapp Debug Alias
 

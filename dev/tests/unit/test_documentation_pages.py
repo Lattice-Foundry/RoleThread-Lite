@@ -129,6 +129,8 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     assert "`edge-debug`" in document.content
     assert "`webapp-debug`" in document.content
     assert "streamlit run app.py -- webapp dev edge-debug" in document.content
+    assert "Launch Flags Detected" in document.content
+    assert "Edge Window Debug" in document.content
 
 
 def test_os_compatibility_help_article_documents_v1_policy():

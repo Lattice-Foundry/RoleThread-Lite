@@ -1,4 +1,5 @@
 from core.platform import detect_platform
+from core.launch import LaunchFlags
 from core.cloud_sync import (
     BACKUP_DESTINATION_BOX,
     BACKUP_DESTINATION_DROPBOX,
@@ -83,3 +84,25 @@ def test_webapp_experimental_preference_uses_platform_capability():
 
     assert ui_settings._supports_webapp_launch_preference(windows_capabilities) is True
     assert ui_settings._supports_webapp_launch_preference(linux_capabilities) is False
+
+
+def test_public_launch_mode_summarizes_active_or_preferred_mode():
+    assert ui_settings._format_public_launch_mode(
+        LaunchFlags(),
+        {},
+    ) == "`Normal mode`"
+    assert ui_settings._format_public_launch_mode(
+        LaunchFlags(webapp=True),
+        {},
+    ) == "`Webapp mode`"
+    assert "future launchers" in ui_settings._format_public_launch_mode(
+        LaunchFlags(),
+        {"enable_webapp_launch_mode": True},
+    )
+
+
+def test_launch_flags_detected_summary_is_compact():
+    assert ui_settings._format_launch_flags_detected(LaunchFlags()) == "`None`"
+    assert ui_settings._format_launch_flags_detected(
+        LaunchFlags(dev=True, webapp=True, edge_debug=True)
+    ) == "`dev`, `webapp`, `edge-debug/webapp-debug`"
