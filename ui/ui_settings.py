@@ -327,17 +327,24 @@ def _render_platform_about() -> None:
 
     with st.expander("Platform Capabilities"):
         for label, enabled in _platform_capability_labels(capabilities):
-            st.caption(f"{label}: {'Yes' if enabled else 'No'}")
+            st.caption(_format_about_row(label, f"`{'Yes' if enabled else 'No'}`"))
 
     with st.expander("Raw Platform Diagnostics"):
-        st.caption(f"Platform slug: `{platform_info.platform_slug}`")
-        st.caption(f"Raw system: `{diagnostics.raw_system}`")
-        st.caption(f"Release: `{diagnostics.release}`")
-        st.caption(f"Version: `{diagnostics.version}`")
-        st.caption(f"Platform string: `{diagnostics.platform_string}`")
-        st.caption(f"Machine: `{diagnostics.machine}`")
-        st.caption(f"Processor: `{diagnostics.processor}`")
-        st.caption(f"Python architecture: `{diagnostics.python_architecture}`")
+        st.caption(_format_about_row("Platform slug", f"`{platform_info.platform_slug}`"))
+        st.caption(_format_about_row("Raw system", f"`{diagnostics.raw_system}`"))
+        st.caption(_format_about_row("Release", f"`{diagnostics.release}`"))
+        st.caption(_format_about_row("Version", f"`{diagnostics.version}`"))
+        st.caption(
+            _format_about_row("Platform string", f"`{diagnostics.platform_string}`")
+        )
+        st.caption(_format_about_row("Machine", f"`{diagnostics.machine}`"))
+        st.caption(_format_about_row("Processor", f"`{diagnostics.processor}`"))
+        st.caption(
+            _format_about_row(
+                "Python architecture",
+                f"`{diagnostics.python_architecture}`",
+            )
+        )
 
     platform_paths = get_platform_path_resolutions(
         preferences=st.session_state.get("prefs", {})
@@ -356,8 +363,11 @@ def _render_platform_about() -> None:
             ("Preferences", platform_paths.preferences_path),
         ):
             st.caption(
-                f"{label}: `{resolved_path.path}` "
-                f"({_format_path_source(resolved_path.source)})"
+                _format_about_row(
+                    label,
+                    f"`{resolved_path.path}` "
+                    f"({_format_path_source(resolved_path.source)})",
+                )
             )
 
 
@@ -377,6 +387,10 @@ def _format_path_source(source: str) -> str:
     if source == PATH_SOURCE_PLATFORM_DEFAULT:
         return "Platform Default"
     return "User Override"
+
+
+def _format_about_row(label: str, value: str) -> str:
+    return f"{label}: {value}"
 
 
 def _normalize_folder_path(raw_path: str, *, label: str) -> str:
