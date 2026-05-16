@@ -19,6 +19,11 @@ from ui.help_docs import (
     resolve_help_article_id,
 )
 from ui.navigation import render_sidebar_branding
+from ui.search_controls import (
+    clear_document_search,
+    render_document_search_controls,
+    show_document_search_results,
+)
 
 
 HELP_ACTIVE_ARTICLE_KEY = "help_active_article_id"
@@ -143,13 +148,17 @@ def _render_article_selection_button(
 
 
 def _show_help_search_results() -> None:
-    query = str(st.session_state.get(HELP_SEARCH_QUERY_KEY) or "").strip()
-    st.session_state[HELP_SEARCH_RESULTS_VISIBLE_KEY] = bool(query)
+    show_document_search_results(
+        HELP_SEARCH_QUERY_KEY,
+        HELP_SEARCH_RESULTS_VISIBLE_KEY,
+    )
 
 
 def _clear_help_search() -> None:
-    st.session_state[HELP_SEARCH_QUERY_KEY] = ""
-    st.session_state[HELP_SEARCH_RESULTS_VISIBLE_KEY] = False
+    clear_document_search(
+        HELP_SEARCH_QUERY_KEY,
+        HELP_SEARCH_RESULTS_VISIBLE_KEY,
+    )
 
 
 def _scroll_to_top_on_article_change(article_id: str) -> None:
@@ -267,34 +276,18 @@ def _render_search_results(
 
 
 def _render_search_controls() -> None:
-    with st.form("help_search_form", clear_on_submit=False):
-        query = st.text_input(
-            "Search help articles...",
-            key=HELP_SEARCH_QUERY_KEY,
-        )
-        search_col, clear_col, _ = st.columns([0.125, 0.125, 0.75])
-        with search_col:
-            st.form_submit_button(
-                "Search",
-                key="_help_search_submit",
-                type="primary",
-                width="stretch",
-                on_click=_show_help_search_results,
-            )
-        with clear_col:
-            st.form_submit_button(
-                "Clear",
-                key="_help_search_clear",
-                width="stretch",
-                on_click=_clear_help_search,
-            )
-
-    query = str(query or "")
-    results_visible = bool(st.session_state.get(HELP_SEARCH_RESULTS_VISIBLE_KEY))
-    if results_visible:
-        matches = build_help_search_results(query)
-        _render_search_results(query, matches)
-    elif query.strip():
+    search_state = render_document_search_controls(
+        form_key="help_search_form",
+        input_label="Search help articles...",
+        query_key=HELP_SEARCH_QUERY_KEY,
+        results_visible_key=HELP_SEARCH_RESULTS_VISIBLE_KEY,
+        search_button_key="_help_search_submit",
+        clear_button_key="_help_search_clear",
+    )
+    if search_state.results_visible:
+        matches = build_help_search_results(search_state.query)
+        _render_search_results(search_state.query, matches)
+    elif search_state.query.strip():
         st.caption("Search query preserved. Click Search to show results again.")
 
 

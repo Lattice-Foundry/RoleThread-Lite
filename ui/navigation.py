@@ -164,7 +164,7 @@ _QUICK_NAVIGATION_SECONDARY = (
     PAGE_HELP,
 )
 
-_PAGES_WITH_OWN_SIDEBAR = frozenset({PAGE_HELP})
+_PAGES_WITH_OWN_SIDEBAR = frozenset({PAGE_HELP, PAGE_FAQ})
 _PENDING_NATIVE_PAGE_KEY = "_pending_native_page"
 _NATIVE_PAGES: dict[str, object] = {}
 PageRenderer = Callable[[], None]

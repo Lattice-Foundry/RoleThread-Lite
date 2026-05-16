@@ -4,7 +4,15 @@ from pathlib import Path
 from streamlit.testing.v1 import AppTest
 
 import ui.ui_help as ui_help
-from ui.ui_faq import FAQEntry, filter_faq_entries, load_faq_entries
+import ui.ui_faq as ui_faq
+from ui.ui_faq import (
+    FAQEntry,
+    derive_faq_category,
+    filter_faq_entries,
+    get_faq_category_order,
+    get_faq_entries_by_category,
+    load_faq_entries,
+)
 from ui.ui_help import HelpTopic, clean_help_topic_title, filter_help_topics, load_help_topics
 from ui.help_docs import (
     HELP_DIR,
@@ -43,6 +51,15 @@ class FakeHelpStreamlit:
             "height": height,
             "width": width,
         })
+
+
+class FakeFAQStreamlit:
+    def __init__(self):
+        self.session_state = {}
+        self.rerun_count = 0
+
+    def rerun(self):
+        self.rerun_count += 1
 
 
 def test_clean_help_topic_title_formats_filename():
@@ -593,7 +610,7 @@ def test_format_section_outline_supports_informational_and_clickable_lines():
 def test_load_faq_entries_reads_json(tmp_path):
     (tmp_path / "faq.json").write_text(
         json.dumps([
-            {"question": "What is this?", "answer": "A FAQ."},
+            {"question": "Tags and metadata: What is this?", "answer": "A FAQ."},
             {"question": "", "answer": "Skipped."},
         ]),
         encoding="utf-8",
@@ -601,15 +618,117 @@ def test_load_faq_entries_reads_json(tmp_path):
 
     entries = load_faq_entries(tmp_path)
 
-    assert entries == (FAQEntry(question="What is this?", answer="A FAQ."),)
+    assert entries == (
+        FAQEntry(
+            question="Tags and metadata: What is this?",
+            answer="A FAQ.",
+            category="Metadata and Characters",
+            source_prefix="Tags and metadata",
+        ),
+    )
+    assert entries[0].display_question == "What is this?"
+
+
+def test_faq_category_derivation_maps_legacy_prefixes_to_browser_categories():
+    assert derive_faq_category("Getting started: What is Lite?") == "Getting Started"
+    assert derive_faq_category("Dataset craftsmanship: Why split?") == (
+        "Workflow and Editing"
+    )
+    assert derive_faq_category("Group Chat and characters: Why mappings?") == (
+        "Metadata and Characters"
+    )
+    assert derive_faq_category("Export and training: What is clean export?") == (
+        "Validation, Export, and Training"
+    )
+    assert derive_faq_category("Lite boundaries: Why local-first?") == (
+        "Safety, Backups, and Boundaries"
+    )
+
+
+def test_faq_entries_group_into_clean_sidebar_categories():
+    entries = load_faq_entries()
+    grouped = get_faq_entries_by_category(entries)
+
+    assert tuple(grouped) == get_faq_category_order()
+    assert sum(len(group) for group in grouped.values()) == len(entries)
+    assert all(entry.category in get_faq_category_order() for entry in entries)
+    assert all(grouped[category] for category in get_faq_category_order())
 
 
 def test_filter_faq_entries_matches_question_and_answer():
     entries = (
         FAQEntry(question="What is Lite?", answer="A local-first app."),
-        FAQEntry(question="How do I export?", answer="Use the Export page."),
+        FAQEntry(
+            question="How do I export?",
+            answer="Use the Export page.",
+            category="Validation, Export, and Training",
+        ),
     )
 
     assert filter_faq_entries(entries, "export") == (entries[1],)
     assert filter_faq_entries(entries, "local") == (entries[0],)
+    assert filter_faq_entries(entries, "training") == (entries[1],)
     assert filter_faq_entries(entries, "") == entries
+
+
+def test_active_faq_category_repairs_invalid_state(monkeypatch):
+    fake = FakeFAQStreamlit()
+    fake.session_state[ui_faq.FAQ_ACTIVE_CATEGORY_KEY] = "Missing"
+    monkeypatch.setattr(ui_faq, "st", fake)
+
+    assert ui_faq.get_active_faq_category() == "Getting Started"
+    assert fake.session_state[ui_faq.FAQ_ACTIVE_CATEGORY_KEY] == "Getting Started"
+
+
+def test_select_faq_category_hides_search_results_and_reruns(monkeypatch):
+    fake = FakeFAQStreamlit()
+    fake.session_state[ui_faq.FAQ_SEARCH_QUERY_KEY] = "tag"
+    fake.session_state[ui_faq.FAQ_SEARCH_RESULTS_VISIBLE_KEY] = True
+    monkeypatch.setattr(ui_faq, "st", fake)
+
+    category = ui_faq.select_faq_category(
+        "Metadata and Characters",
+        rerun=False,
+    )
+
+    assert category == "Metadata and Characters"
+    assert fake.session_state[ui_faq.FAQ_ACTIVE_CATEGORY_KEY] == (
+        "Metadata and Characters"
+    )
+    assert fake.session_state[ui_faq.FAQ_SEARCH_QUERY_KEY] == "tag"
+    assert fake.session_state[ui_faq.FAQ_SEARCH_RESULTS_VISIBLE_KEY] is False
+
+
+def test_faq_sidebar_category_and_search_controls_render_browser_state():
+    app = AppTest.from_string(
+        "from ui.ui_faq import render_faq_page\nrender_faq_page()\n",
+        default_timeout=10,
+    ).run()
+
+    assert app.session_state[ui_faq.FAQ_ACTIVE_CATEGORY_KEY] == "Getting Started"
+    assert any(value == "### Getting Started" for value in _markdown_values(app))
+
+    app.button(key="_faq_category_Metadata and Characters").click().run()
+
+    assert app.session_state[ui_faq.FAQ_ACTIVE_CATEGORY_KEY] == (
+        "Metadata and Characters"
+    )
+    assert any(value == "### Metadata and Characters" for value in _markdown_values(app))
+
+    app.text_input[0].input("sidecar").run()
+    app.button(key="_faq_search_submit").click().run()
+
+    assert app.session_state[ui_faq.FAQ_SEARCH_QUERY_KEY] == "sidecar"
+    assert app.session_state[ui_faq.FAQ_SEARCH_RESULTS_VISIBLE_KEY] is True
+    assert any(
+        value.startswith("**Search Results")
+        for value in _markdown_values(app)
+    )
+
+    app.button(key="_faq_search_submit").click().run()
+    assert app.session_state[ui_faq.FAQ_SEARCH_RESULTS_VISIBLE_KEY] is True
+
+    app.button(key="_faq_search_clear").click().run()
+
+    assert app.session_state[ui_faq.FAQ_SEARCH_QUERY_KEY] == ""
+    assert app.session_state[ui_faq.FAQ_SEARCH_RESULTS_VISIBLE_KEY] is False
