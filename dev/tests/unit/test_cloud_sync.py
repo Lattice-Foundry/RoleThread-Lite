@@ -153,6 +153,7 @@ def test_detect_cloud_sync_provider_for_path_uses_common_folder_names(tmp_path):
 def test_sync_backups_to_cloud_copies_db_sidecars_and_settings(tmp_path, monkeypatch):
     _settings_db(tmp_path, monkeypatch)
     _patch_backup_config_paths(tmp_path, monkeypatch)
+    publish_observations = []
 
     db_backup_dir = tmp_path / "local_backups" / "database"
     db_backup_dir.mkdir(parents=True)
@@ -174,9 +175,32 @@ def test_sync_backups_to_cloud_copies_db_sidecars_and_settings(tmp_path, monkeyp
         "preview_user_name": "Scott",
     })
 
+    original_publish = cloud_sync._publish_staged_cloud_sync
+
+    def observe_publish(staging, destination):
+        publish_observations.append({
+            "destination_exists": destination.exists(),
+            "staged_db_exists": (staging / "database" / latest_db.name).exists(),
+            "staged_sidecar_exists": (
+                staging / "sidecars" / "scene" / "scene.registry.json"
+            ).exists(),
+            "staged_settings_exists": (staging / "settings.json").exists(),
+        })
+        return original_publish(staging, destination)
+
+    monkeypatch.setattr(cloud_sync, "_publish_staged_cloud_sync", observe_publish)
+
     result = cloud_sync.sync_backups_to_cloud(tmp_path / "cloud")
 
     assert result.ok is True
+    assert publish_observations == [
+        {
+            "destination_exists": False,
+            "staged_db_exists": True,
+            "staged_sidecar_exists": True,
+            "staged_settings_exists": True,
+        }
+    ]
     assert (tmp_path / "cloud" / "database" / latest_db.name).read_text(
         encoding="utf-8"
     ) == "latest"
@@ -186,6 +210,46 @@ def test_sync_backups_to_cloud_copies_db_sidecars_and_settings(tmp_path, monkeyp
     assert settings["preview_user_name"] == "Scott"
     assert preferences.get_setting("cloud_backup_last_sync_at")
     assert cloud_sync.load_backup_config()["backup_destination_type"] == "custom"
+
+
+def test_atomic_file_copy_preserves_existing_target_on_failure(tmp_path, monkeypatch):
+    source = tmp_path / "source.db"
+    target = tmp_path / "cloud" / "database" / "backup.db"
+    source.write_text("new backup", encoding="utf-8")
+    target.parent.mkdir(parents=True)
+    target.write_text("existing backup", encoding="utf-8")
+
+    def fail_copy(_source, temp_target):
+        temp_target.write_text("partial backup", encoding="utf-8")
+        raise OSError("copy interrupted")
+
+    monkeypatch.setattr(cloud_sync.shutil, "copy2", fail_copy)
+
+    with pytest.raises(OSError, match="copy interrupted"):
+        cloud_sync._copy_file_atomically(source, target)
+
+    assert target.read_text(encoding="utf-8") == "existing backup"
+    assert list(target.parent.glob(f".{target.name}.tmp-*")) == []
+
+
+def test_atomic_text_write_preserves_existing_target_on_replace_failure(
+    tmp_path,
+    monkeypatch,
+):
+    target = tmp_path / "cloud" / "settings.json"
+    target.parent.mkdir(parents=True)
+    target.write_text('{"existing": true}\n', encoding="utf-8")
+
+    def fail_replace(_source, _target):
+        raise OSError("replace interrupted")
+
+    monkeypatch.setattr(cloud_sync.os, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="replace interrupted"):
+        cloud_sync._write_text_atomically(target, '{"new": true}\n')
+
+    assert target.read_text(encoding="utf-8") == '{"existing": true}\n'
+    assert list(target.parent.glob(f".{target.name}.tmp-*")) == []
 
 
 def test_sync_backups_to_cloud_keeps_previous_publish_on_staging_failure(

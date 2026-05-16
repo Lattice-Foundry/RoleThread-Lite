@@ -253,7 +253,7 @@ def sync_backups_to_cloud(destination_path: str | Path) -> CloudSyncResult:
             db_target_dir = staging / "database"
             db_target_dir.mkdir(parents=True, exist_ok=True)
             db_target = db_target_dir / latest_db_backup.name
-            shutil.copy2(latest_db_backup, db_target)
+            _copy_file_atomically(latest_db_backup, db_target)
             db_backup_copied = str(destination / "database" / latest_db_backup.name)
 
         sidecars_copied = _copy_training_sidecars(staging / "sidecars")
@@ -416,10 +416,9 @@ def _write_settings_snapshot(path: Path, synced_at: str) -> None:
 
     settings = load_preferences()
     settings["cloud_backup_last_sync_at"] = synced_at
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    _write_text_atomically(
+        path,
         json.dumps(settings, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
     )
 
 
@@ -500,6 +499,45 @@ def _remove_path(path: Path) -> str | None:
     return None
 
 
+def _copy_file_atomically(source: Path, target: Path) -> None:
+    """Copy source to target through a sibling temp file before publishing."""
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = _temporary_sibling_path(target)
+    try:
+        shutil.copy2(source, temp_path)
+        _fsync_file(temp_path)
+        os.replace(temp_path, target)
+    except Exception:
+        _remove_path(temp_path)
+        raise
+
+
+def _write_text_atomically(path: Path, text: str) -> None:
+    """Write text through a sibling temp file before publishing."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = _temporary_sibling_path(path)
+    try:
+        with temp_path.open("w", encoding="utf-8") as file:
+            file.write(text)
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temp_path, path)
+    except Exception:
+        _remove_path(temp_path)
+        raise
+
+
+def _temporary_sibling_path(path: Path) -> Path:
+    return path.with_name(f".{path.name}.tmp-{os.getpid()}")
+
+
+def _fsync_file(path: Path) -> None:
+    with path.open("r+b") as file:
+        os.fsync(file.fileno())
+
+
 def _path_is_inside(path: Path, possible_parent: Path) -> bool:
     try:
         path.expanduser().resolve().relative_to(possible_parent.expanduser().resolve())
@@ -540,7 +578,6 @@ def _copy_training_sidecars(target_root: Path) -> int:
             continue
         relative = sidecar.relative_to(TRAINING_DATA_DIR)
         target = target_root / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(sidecar, target)
+        _copy_file_atomically(sidecar, target)
         copied += 1
     return copied
