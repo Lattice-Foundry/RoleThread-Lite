@@ -313,14 +313,6 @@ Cloud backup copies stored outside the local RoleThread folders are not
 removed. Delete those manually from the cloud provider or sync folder if
 desired.
 
-The uninstaller also shows a **Developer clean uninstall / remove installer
-test state** prompt. This is intended for repeated installer testing and clean
-machine-state checks. For now, it maps to the same local RoleThread-owned data
-roots as full local data removal, with testing intent logged by the
-uninstaller. It does not remove source repositories, `.venv`, `.dev`, Git data,
-generated source-tree build artifacts, arbitrary custom paths, or
-external/cloud backup destinations.
-
 Close RoleThread Lite before uninstalling. If `RoleThreadLauncher.exe` is still
 running, the uninstaller asks the user to close RoleThread and stops before
 removing files. It does not broadly kill Python, Streamlit, Edge, or unrelated
@@ -360,7 +352,7 @@ To test webapp mode, set `enable_webapp_launch_mode` in the local launcher
 preferences or installer seed, then run the launcher again. Manual source users
 can use `streamlit run app.py -- webapp` instead of editing preferences.
 
-## Developer User-Data Cleanup
+## Installer Test Reset
 
 Installer testing can create state in the same platform-default locations used
 by normal RoleThread runs:
@@ -370,30 +362,14 @@ by normal RoleThread runs:
 %USERPROFILE%\RoleThread\
 ```
 
-The developer cleanup helper is intentionally more aggressive than the future
-normal uninstaller flow. Use it only when local test data can be deleted.
+For clean installer testing, use the normal Windows uninstaller and answer
+**Yes** when prompted to remove local RoleThread user data. That covers the
+two RoleThread-owned user-data roots while keeping cleanup behavior in the real
+uninstall path.
 
-Dry run:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\clean_rolethread_user_data.ps1
-```
-
-Destructive cleanup:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\clean_rolethread_user_data.ps1 -ConfirmDelete
-```
-
-The script reports the targets before deleting anything. It removes RoleThread
-local app state, preferences, logs, cache, training data, imports, exports,
-backups, and workspace data. It handles missing folders as a normal skip.
-
-Safety guards prevent the script from deleting folders that do not end in
-`RoleThread`, are outside the expected `%LOCALAPPDATA%` or `%USERPROFILE%`
-parents, or appear to contain a Git repository or Python virtual environment.
-It does not touch the source repository, `.venv`, `.dev`, generated bundle
-folders, Git data, or unrelated user folders.
+The uninstall cleanup does not touch the source repository, `.venv`, `.dev`,
+Git data, generated source-tree build artifacts, arbitrary custom paths, or
+external/cloud backup destinations.
 
 The launcher is responsible for:
 

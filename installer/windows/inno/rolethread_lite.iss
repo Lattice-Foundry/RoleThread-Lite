@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "1.3.97"
+#define AppVersion "1.3.98"
 #endif
 
 #define AppName "RoleThread Lite"
@@ -50,7 +50,6 @@ Filename: "{app}\{#AppExeName}"; Description: "Launch RoleThread Lite"; Flags: n
 [Code]
 var
   RemoveLocalDataOnUninstall: Boolean;
-  DeveloperCleanUninstall: Boolean;
 
 const
   SW_RESTORE = 9;
@@ -135,11 +134,9 @@ end;
 function InitializeUninstall(): Boolean;
 var
   RemoveAnswer: Integer;
-  DeveloperAnswer: Integer;
 begin
   Result := True;
   RemoveLocalDataOnUninstall := False;
-  DeveloperCleanUninstall := False;
 
   if IsRoleThreadLauncherRunning() then
   begin
@@ -167,18 +164,6 @@ begin
     MB_YESNO or MB_DEFBUTTON2
   );
   RemoveLocalDataOnUninstall := (RemoveAnswer = IDYES);
-
-  DeveloperAnswer := MsgBox(
-    'Developer clean uninstall / remove installer test state?' + #13#10#13#10 +
-    'This option is intended for installer testing and clean-machine reset checks. It currently removes the same local RoleThread-owned user-data roots as full local data removal, with testing intent logged by the uninstaller.' + #13#10#13#10 +
-    'It does not remove source repositories, .venv, .dev, Git data, generated source-tree build artifacts, arbitrary custom paths, or external/cloud backup destinations.',
-    mbConfirmation,
-    MB_YESNO or MB_DEFBUTTON2
-  );
-  DeveloperCleanUninstall := (DeveloperAnswer = IDYES);
-
-  if DeveloperCleanUninstall then
-    RemoveLocalDataOnUninstall := True;
 end;
 
 procedure DeleteRoleThreadRoot(Path: string; Description: string);
@@ -205,13 +190,9 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then
   begin
-    if RemoveLocalDataOnUninstall or DeveloperCleanUninstall then
+    if RemoveLocalDataOnUninstall then
     begin
-      if DeveloperCleanUninstall then
-        Log('Developer clean uninstall requested. Cleanup remains scoped to RoleThread-owned local data roots.')
-      else
-        Log('Full local RoleThread user-data removal requested.');
-
+      Log('Full local RoleThread user-data removal requested.');
       DeleteRoleThreadRoot(RoleThreadAppDataRoot(), 'RoleThread local app data');
       DeleteRoleThreadRoot(RoleThreadWorkspaceRoot(), 'RoleThread workspace data');
       Log('External/cloud backup destinations outside RoleThread-owned local roots are preserved.');

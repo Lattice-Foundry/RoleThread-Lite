@@ -50,6 +50,8 @@ Prioritize tests for:
 - backup and cloud sync behavior
 - preferences and platform paths
 - launcher command construction
+- installer/runtime boundaries and version guards
+- HWND classification and shutdown lifecycle behavior
 - Help/FAQ registry changes
 
 Avoid brittle UI-heavy tests when a pure helper or service test can prove the rule more directly.
@@ -59,6 +61,20 @@ Avoid brittle UI-heavy tests when a pure helper or service test can prove the ru
 Update Help or developer docs when a change alters workflow semantics, setup expectations, or contributor-facing architecture.
 
 Docs should stay practical and specific. Avoid marketing language and avoid implementation detail that does not help users or contributors make decisions.
+
+## Installer and Launcher Changes
+
+Most contributors should not need to edit installer or launcher internals. If
+you only need to produce a Windows setup executable, follow the build
+instructions in **Build and Packaging Overview** and use
+`installer/windows/scripts/build_installer.ps1`.
+
+Change `installer/windows/launcher/`, the PyInstaller spec, or the Inno script
+only when the feature or bug fix actually requires launcher or installer
+behavior changes. That code owns subprocess startup, Windows Edge app-window
+monitoring, shutdown fallback, local port release, uninstall behavior, and
+stale-bundle protection; casual edits can break installed-app lifecycle in ways
+normal source runs will not catch.
 
 ## Naming and Style
 
@@ -74,6 +90,8 @@ Avoid changes that:
 - bypass service-layer safety behavior
 - silently discard unknown metadata
 - add platform-specific checks outside centralized helpers
+- package stale generated bundles into setup executables
+- replace HWND-based webapp logic with PID/process kill heuristics
 - introduce generated build artifacts into Git
 - make Lite carry workflows better suited to future Studio work
 

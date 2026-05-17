@@ -118,10 +118,6 @@ destructive option deletes local database/app state, preferences, logs, cache,
 training data, imports, exports, backups, and workspace data under the two
 RoleThread-owned roots above.
 
-The **Developer clean uninstall / remove installer test state** option is for
-installer testing and clean-machine checks. It is more aggressive in intent,
-but remains scoped to RoleThread-owned local user-data roots.
-
 Cloud backup copies and external sync folders outside the local RoleThread
 folders are preserved. Delete those manually from the cloud provider or sync
 folder if desired.

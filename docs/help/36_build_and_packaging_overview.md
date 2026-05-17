@@ -5,21 +5,35 @@ RoleThread Lite packaging supports two execution models:
 - bundled Windows install for normal users
 - source checkout for contributors and technical users
 
-The bundled path removes Python, virtual environment, pip, and Streamlit command knowledge from the installed-user workflow.
+The bundled path removes Python, virtual environment, pip, and Streamlit command
+knowledge from the installed-user workflow. The source path remains available
+for contributors and technical users who want direct control over runtime
+dependencies.
 
 ## Packaging Direction
 
 The V1 Windows packaging direction is:
 
-- PyInstaller one-folder bundle for the runnable app and bundled runtime
+- PyInstaller one-folder bundle for the launcher, app, bundled Python runtime,
+  Streamlit runtime, project code, docs, assets, and dependency metadata
 - Inno Setup for the final Windows setup executable
 - GitHub Releases for publishing generated installer artifacts
 
-The installer packages a tested release snapshot. It does not clone from Git, pull source code, or depend on system Python.
+The installer packages a tested release snapshot. It does not clone from Git,
+pull source code, or depend on system Python.
 
 ## Bundled Runtime Philosophy
 
-The bundled Windows app includes the runtime and dependencies needed to start RoleThread.
+The bundled Windows app includes the runtime and dependencies needed to start
+RoleThread. The installed shortcut targets `RoleThreadLauncher.exe`, not
+`streamlit`, `python`, or `app.py` directly.
+
+The bundle includes the bundled Python runtime and bundled Streamlit runtime
+needed by the installed app.
+
+The bundle is intentionally one-folder rather than one-file. That keeps
+dependency extraction simpler, makes missing-data issues easier to diagnose,
+and matches the current Inno packaging model.
 
 Manual source workflows remain available for power users, contributors, and Linux/macOS users.
 
@@ -51,7 +65,29 @@ installer/windows/scripts/
 
 Scripts should print useful status, fail clearly, and avoid hiding packaging assumptions.
 
-The current PyInstaller script produces a one-folder launcher bundle. Installer passes can consume that output without changing app runtime behavior.
+The current PyInstaller script produces a one-folder launcher bundle. Installer
+passes consume that output without changing app runtime behavior.
+
+For most contributor and release-test work, do not edit installer or launcher
+source. Build with the scripts:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_installer.ps1
+```
+
+That command rebuilds the PyInstaller bundle first, validates the bundled
+version against the source tree, then runs Inno Setup. Use the lower-level
+bundle script only when you specifically need to smoke-test the one-folder
+bundle before packaging:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_bundle.ps1
+```
+
+Treat `installer/windows/launcher/`, the PyInstaller spec, and the Inno script
+as lifecycle-sensitive code. Touch them only when the change requires launcher
+or installer behavior changes and you understand the subprocess, HWND, shutdown,
+and stale-bundle safety implications.
 
 ## Generated Artifacts
 
@@ -65,7 +101,9 @@ That includes:
 - generated setup executables
 - temporary packaging folders
 
-Final setup executables belong in GitHub Releases after a release build is tested.
+Final setup executables belong in GitHub Releases after a release build is
+tested. Generated bundles and setup executables should not be committed to the
+source tree.
 
 ## Release Workflow
 
@@ -84,6 +122,12 @@ compares the source-tree `core/version.py` value with the bundled
 they differ. Reusing an existing bundle requires an explicit opt-out and still
 runs the version check.
 
+This guard exists because installer testing once packaged an older PyInstaller
+bundle into a newer setup executable. The stale backend looked healthy on port
+`8501`, but it was running old app code. Rebuilding the bundle by default and
+checking source/bundle versions prevents updates from silently shipping stale
+runtime behavior.
+
 The Windows installer defaults to the managed Edge webapp launch mode because
 that path has the strongest launcher-owned lifecycle behavior. Normal browser
 mode remains available by clearing the installer option during setup.
@@ -94,7 +138,8 @@ check the taskbar for the RoleThread Lite installer.
 
 Normal uninstall preserves RoleThread user data by default. The uninstaller can
 also remove local RoleThread app data and workspace folders when the user
-explicitly confirms that destructive option.
+explicitly confirms that destructive option. That same removal path is the
+clean-state workflow for installer testing.
 
 Cloud backup copies outside those local RoleThread folders are preserved.
 
@@ -107,5 +152,9 @@ CI/CD may automate pieces later; the source tree should stay free of generated a
 
 ## Current Status
 
-Packaging is still evolving before V1. The architecture is fixed around a bundled Windows app plus a source-based contributor workflow.
+Packaging is still evolving before V1. The architecture is fixed around a
+bundled Windows app plus a source-based contributor workflow. Installer UX may
+continue to improve across Windows and Edge machine differences, but the
+runtime boundary is stable: installer builds package release snapshots, while
+manual users run from source.
 

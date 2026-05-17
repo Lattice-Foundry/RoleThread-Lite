@@ -52,7 +52,14 @@ Core modules should not import Streamlit. They are the most reusable part of the
 
 The `installer/` area contains Windows packaging and launcher work.
 
-It includes the Windows launcher, PyInstaller bundle configuration, Inno Setup planning, and packaging documentation. The launcher is separate from the Streamlit app because it owns startup orchestration, runtime selection, and installed-user behavior.
+It includes the Windows launcher, PyInstaller bundle configuration, Inno Setup
+script, build helpers, and packaging documentation. The launcher is separate
+from the Streamlit app because it owns startup orchestration, bundled runtime
+selection, installed Edge webapp startup, HWND monitoring, and backend shutdown
+lifecycle.
+
+Installer code should not duplicate dataset, UI, or app-owned browser cleanup
+logic. Its boundary is runtime packaging and process lifecycle.
 
 ### `docs/`
 

@@ -77,7 +77,7 @@ Separating the layers helps:
 - reduce accidental UI-driven behavior changes
 - make service tests faster and clearer
 - preserve data-safety rules
-- support future launcher and installer work
+- support launcher and installer work without moving runtime logic into UI code
 - keep future Studio options open
 
 ## Practical, Not Rigid

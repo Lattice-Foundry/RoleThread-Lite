@@ -615,8 +615,7 @@ def test_inno_installer_script_packages_launcher_bundle():
     assert "WizardIsTaskSelected('webappmode')" in inno_text
     assert "Remove local RoleThread user data" in inno_text
     assert "database/app state, preferences, logs, cache" in inno_text
-    assert "Developer clean uninstall / remove installer test state" in inno_text
-    assert "source repositories, .venv, .dev, Git data" in inno_text
+    assert "Developer clean uninstall / remove installer test state" not in inno_text
     assert "RoleThreadLauncher.exe" in inno_text
     assert "tasklist" in inno_text
     assert "RoleThreadAppDataRoot()" in inno_text
@@ -656,6 +655,21 @@ def test_build_installer_script_validates_bundle_and_inno_compiler():
     assert "$bundleVersion -ne $version" in script_text
     assert "LOCALAPPDATA" in script_text
     assert "Programs\\Inno Setup 6\\ISCC.exe" in script_text
+
+
+def test_obsolete_developer_cleanup_script_is_removed_from_installer_docs():
+    repo_root = Path(__file__).parents[3]
+    cleanup_script = (
+        repo_root / "installer" / "windows" / "scripts" / "clean_rolethread_user_data.ps1"
+    )
+    readme_text = (
+        repo_root / "installer" / "windows" / "README.md"
+    ).read_text(encoding="utf-8")
+
+    assert not cleanup_script.exists()
+    assert "clean_rolethread_user_data.ps1" not in readme_text
+    assert "Developer clean uninstall" not in readme_text
+    assert "normal Windows uninstaller" in readme_text
 
 
 def test_shutdown_control_resolves_only_when_launcher_env_is_complete():

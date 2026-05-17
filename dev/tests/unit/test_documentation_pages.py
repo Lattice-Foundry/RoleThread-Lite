@@ -180,7 +180,7 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     assert "streamlit run app.py -- webapp edge-debug" in document.content
     assert "Launch Flags Detected" in document.content
     assert "Edge Launch Debug Diagnostics" in document.content
-    assert "official internal webapp launch mode" in document.content
+    assert "shared webapp launch flag" in document.content
     assert "Diagnostics are gated behind `dev`" in document.content
 
 
@@ -317,6 +317,8 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
 
     assert packaging.article.category == "For Developers"
     assert "PyInstaller one-folder bundle" in packaging.content
+    assert "bundled Python runtime" in packaging.content
+    assert "bundled Streamlit runtime" in packaging.content
     assert "Inno Setup" in packaging.content
     assert "Inno Setup installer prototype" in packaging.content
     assert "managed Edge webapp launch mode" in packaging.content
@@ -331,15 +333,21 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "rebuilds the PyInstaller bundle by default" in packaging.content
     assert "refuses to build the setup executable" in packaging.content
     assert "they differ" in packaging.content
+    assert "running old app code" in packaging.content
     assert "Cloud backup copies outside those local RoleThread folders are preserved" in (
         packaging.content
     )
     assert "GitHub Releases" in packaging.content
     assert "requirements-dev.txt" in packaging.content
     assert "Generated artifacts do not belong in Git" in packaging.content
+    assert "build_installer.ps1" in packaging.content
+    assert "build_bundle.ps1" in packaging.content
+    assert "do not edit installer or launcher" in packaging.content
+    assert "lifecycle-sensitive code" in packaging.content
 
     assert launcher.article.category == "For Developers"
     assert "startup orchestrator" in launcher.content
+    assert "launcher owns backend process lifecycle" in launcher.content
     assert "installer prototype installs bundled app files" in launcher.content
     assert "Use Windows Edge webapp mode by default (recommended)" in launcher.content
     assert "`enable_webapp_launch_mode`" in launcher.content
@@ -351,8 +359,7 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "not expected to show the uninstall data-removal prompts" in launcher.content
     assert "rebuild the PyInstaller bundle by default" in launcher.content
     assert "prevents a setup executable from accidentally shipping stale" in launcher.content
-    assert "Developer clean uninstall" in launcher.content
-    assert "does not remove repositories" in launcher.content
+    assert "Developer clean uninstall" not in launcher.content
     assert "Cloud backup copies outside the local RoleThread folders are preserved" in (
         launcher.content
     )
@@ -365,6 +372,10 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "`kill()` only as a last resort" in launcher.content
     assert "Managed webapp mode is Windows/Microsoft Edge only" in launcher.content
     assert "launcher-managed environment marker" in launcher.content
+    assert "Edge process IDs are not a reliable abstraction" in launcher.content
+    assert "There is no PID/process-kill fallback" in launcher.content
+    assert "Streamlit health checks can succeed before" in launcher.content
+    assert "Successful relaunch is also a practical validation signal" in launcher.content
     assert "Settings > Experimental Features" not in launcher.content
 
     assert contribution.article.category == "For Developers"
@@ -376,6 +387,11 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "Changes that affect behavior should usually include tests" in (
         contribution.content
     )
+    assert "Most contributors should not need to edit installer or launcher internals" in (
+        contribution.content
+    )
+    assert "build_installer.ps1" in contribution.content
+    assert "casual edits can break installed-app lifecycle" in contribution.content
 
     assert boundaries.article.category == "For Developers"
     assert "Lite is the stable dataset tooling surface" in boundaries.content

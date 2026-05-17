@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.98] - 2026-05-17
+
+### Changed
+
+- Expanded developer installer and launcher architecture documentation around bundled runtime boundaries, HWND monitoring, launcher ownership, stale bundle protection, and port-release semantics.
+- Removed the obsolete developer clean uninstall path and cleanup script; clean installer testing now uses the normal uninstall data-removal option.
+
 ## [1.3.97] - 2026-05-17
 
 ### Added
@@ -102,7 +109,7 @@ Future version bumps should update this file with concise user-facing or maintai
 ### Changed
 
 - Added a Start Menu uninstall shortcut and clarified that local data removal prompts are available through the real uninstall path, not setup maintenance reruns.
-- Updated installer documentation for normal uninstall, local data removal, developer clean uninstall, and cloud backup preservation.
+- Updated installer documentation for normal uninstall, local data removal, and cloud backup preservation.
 
 ## [1.3.85] - 2026-05-17
 
@@ -122,7 +129,7 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Added
 
-- Added uninstall-time prompts for optional local RoleThread data removal and developer clean uninstall testing.
+- Added uninstall-time prompts for optional local RoleThread data removal.
 
 ### Changed
 
@@ -152,11 +159,11 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Added
 
-- Added a dry-run-first developer cleanup script for resetting RoleThread app data and workspace folders during Windows installer testing.
+- Added early installer-test cleanup tooling for resetting RoleThread app data and workspace folders.
 
 ### Changed
 
-- Documented developer cleanup usage and safety guards in the Windows installer notes.
+- Documented installer cleanup usage and safety guards in the Windows installer notes.
 
 ## [1.3.79] - 2026-05-17
 

@@ -2,7 +2,9 @@
 
 The Windows launcher is a startup orchestrator around the bundled Streamlit app.
 
-It resolves runtime context, starts the app subprocess, and leaves app-specific behavior inside the application.
+It resolves runtime context, starts the backend subprocess, opens the installed
+Edge app window when webapp mode is enabled, monitors that exact window, and
+shuts down only the backend process it created.
 
 ## Launcher Responsibilities
 
@@ -14,6 +16,7 @@ It is responsible for:
 - deciding normal launch mode versus webapp launch mode
 - starting the Streamlit app
 - waiting for the Streamlit health endpoint
+- opening the initial Edge app-mode window in bundled webapp mode
 - monitoring the exact Edge webapp window handle where practical
 - requesting local token-protected shutdown
 - using terminate/kill fallback only after graceful shutdown fails
@@ -21,7 +24,19 @@ It is responsible for:
 - writing launcher logs
 - reporting startup failures clearly
 
-The launcher should stay focused on startup orchestration. It should not duplicate app business logic.
+The launcher should stay focused on startup orchestration. It should not
+duplicate app business logic, dataset behavior, or duplicate-browser cleanup.
+
+Ownership is intentionally narrow:
+
+- the launcher owns backend process lifecycle, installed Edge app startup, HWND
+  monitoring, shutdown requests, and port-release logging
+- the app-owned `webapp` path owns manual `-- webapp` support, app-side
+  diagnostics, and duplicate browser cleanup
+- fallback termination targets only the launcher-owned backend subprocess
+
+The launcher never broadly kills Edge, Python, Streamlit, unknown port owners,
+or arbitrary browser processes.
 
 ## Shutdown Lifecycle
 
@@ -48,9 +63,21 @@ The launcher reads the stored preference for webapp launch mode.
 
 If webapp launch mode is disabled or preferences are missing, the launcher starts RoleThread in normal browser mode.
 
-If webapp launch mode is enabled, the launcher passes the app's `webapp` flag into startup. Manual source/dev `-- webapp` runs still use the app-owned Edge launch and duplicate-browser cleanup path. Bundled installed runs open the initial Edge app window from the launcher after health succeeds, then mark the session as launcher-managed so the app does not relaunch Edge during reruns.
+If webapp launch mode is enabled, the launcher passes the app's `webapp` flag
+into startup. Manual source/dev `-- webapp` runs still use the app-owned Edge
+launch and duplicate-browser cleanup path. Bundled installed runs open the
+initial Edge app window from the launcher after health succeeds, then mark the
+session as launcher-managed so the app does not relaunch Edge during reruns.
 
-Bundled webapp mode starts Streamlit with `--server.headless true`, waits for health, then opens the initial Microsoft Edge app window from the launcher. The child app still receives the `webapp` flag for diagnostics and compatibility, but a launcher-managed environment marker prevents the app from relaunching Edge during Streamlit reruns. Normal browser mode does not force headless mode.
+Bundled webapp mode starts Streamlit with `--server.headless true`, waits for
+health, then opens the initial Microsoft Edge app window from the launcher. The
+child app still receives the `webapp` flag for diagnostics and compatibility,
+but a launcher-managed environment marker prevents the app from relaunching
+Edge during Streamlit reruns. Normal browser mode does not force headless mode.
+
+Streamlit health checks can succeed before a durable browser/frontend session
+exists. The launcher therefore treats health as "backend is ready," then opens
+and monitors the Edge app window as a separate lifecycle step.
 
 ## PyInstaller Windowed Bundle
 
@@ -75,13 +102,33 @@ Launcher logs should capture:
 - startup errors
 - app-side webapp launch breadcrumbs when the `webapp` flag is active
 
+## HWND Monitoring Rationale
+
+Edge process IDs are not a reliable abstraction for webapp lifecycle or
+duplicate-browser cleanup. Chromium/Edge may share browser, renderer, utility,
+and app-mode work across related processes, and an app window and a normal Edge
+tab can share the same Edge PID.
+
+The stable user-visible object is the top-level Windows window handle. The
+working strategy is:
+
+1. identify visible top-level Edge windows
+2. classify titles/classes conservatively
+3. track the exact app HWND for launcher shutdown lifecycle
+4. close only an exact duplicate browser HWND when the app-owned cleanup path is
+   confident
+
+There is no PID/process-kill fallback for duplicate browser cleanup. If
+classification is uncertain, RoleThread leaves the window alone.
+
 ## Webapp Mode Boundary
 
 Managed webapp mode is Windows/Microsoft Edge only.
 
 That boundary exists because cleanup depends on Windows process metadata and HWND/window classification. Unsupported platforms fall back to normal browser mode rather than attempting Windows-only inspection.
 
-The launcher should not invent its own browser cleanup. It should call the app's supported startup path and let the app decide what is safe.
+The launcher should not invent its own browser cleanup. It should call the
+app's supported startup path and let the app decide what is safe.
 
 ## Installer Responsibilities
 
@@ -105,8 +152,6 @@ Windows Installed apps, Control Panel, or the Start Menu **RoleThread
 Uninstaller** shortcut. Rerunning the setup executable is an install/maintenance
 flow and is not expected to show the uninstall data-removal prompts.
 
-The Developer clean uninstall prompt is currently visible during installer testing. It maps to the same RoleThread-owned local data roots as full local data removal, with stricter testing intent. It does not remove repositories, `.venv`, `.dev`, Git data, generated source-tree build artifacts, arbitrary custom paths, or external/cloud backup destinations.
-
 Cloud backup copies outside the local RoleThread folders are preserved and must be removed manually from the cloud provider or sync folder if desired.
 
 If `RoleThreadLauncher.exe` is still running, the uninstaller asks the user to close RoleThread Lite before continuing. It does not broadly terminate Python, Streamlit, Edge, or unrelated browser processes.
@@ -120,4 +165,32 @@ If graceful shutdown does not complete, fallback termination targets only the la
 If a launcher-started webapp session never produces a stable app HWND, the launcher treats that as a failed webapp startup and terminates only the backend subprocess it owns. That prevents a failed app-window launch from leaving port `8501` occupied indefinitely.
 
 When validating shutdown, the key failure condition is a remaining `LISTENING` row on port `8501`. Residual TCP rows such as `TIME_WAIT`, `FIN_WAIT_2`, or `CLOSE_WAIT` can appear briefly after Edge and Streamlit close old connections; those states do not indicate that the backend is still accepting new connections.
+
+Successful relaunch is also a practical validation signal. If no `LISTENING`
+row remains, the launcher process exits, and the app starts cleanly again, the
+lifecycle is functioning even if residual TCP rows are still visible.
+
+## Manual vs Installed Webapp Mode
+
+Manual webapp mode:
+
+```bat
+streamlit run app.py -- webapp
+```
+
+In this path, Streamlit may open a normal browser window first. The app-owned
+webapp logic launches Edge app mode and may close the duplicate normal browser
+window through exact HWND targeting.
+
+Installed webapp mode:
+
+1. `RoleThreadLauncher.exe` starts the bundled backend headless
+2. the launcher waits for `/_stcore/health`
+3. the launcher opens the initial Edge app-mode window
+4. the app receives `webapp` plus a launcher-managed marker
+5. the launcher monitors the exact app HWND for close
+
+The two paths intentionally differ because installed users need the launcher to
+own backend lifecycle and port release. Manual users keep the transparent
+Streamlit workflow.
 
