@@ -898,16 +898,16 @@ if ($process.ProcessName -ne 'msedge') {{
     exit 4
 }}
 $command = [string](Get-CimInstance Win32_Process -Filter "ProcessId={target.pid}" -ErrorAction Stop).CommandLine
-if ($command -notlike '*localhost:8501*' -or $command -like '*--app=*') {{
-    Write-Output 'unsafe_command'
-    exit 3
-}}
 $titleBuilder = New-Object System.Text.StringBuilder 512
 [void][RoleThreadWindowCloser]::GetWindowText($handle, $titleBuilder, $titleBuilder.Capacity)
 $title = [string]$titleBuilder.ToString()
 if ($title -notlike '*RoleThread*' -and $title -notlike '*localhost:8501*') {{
     Write-Output 'unsafe_title'
     exit 2
+}}
+if ($title -like '*RoleThread*' -and ($title -notlike '*Microsoft*Edge*')) {{
+    Write-Output 'app_like_title'
+    exit 6
 }}
 $sent = [RoleThreadWindowCloser]::PostMessage($handle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
 if ($sent) {{
@@ -964,8 +964,14 @@ def _is_streamlit_browser_window_candidate(window: EdgeWindowInfo) -> bool:
     return (
         process_name == "msedge.exe"
         and class_name.startswith("Chrome_WidgetWin")
-        and _window_command_references_streamlit_browser(command)
-        and _window_title_can_be_rolethread_browser(title)
+        and not _is_rolethread_app_window_candidate(window)
+        and (
+            _window_title_identifies_normal_edge_browser(title)
+            or (
+                _window_command_references_streamlit_browser(command)
+                and _window_title_can_be_rolethread_browser(title)
+            )
+        )
     )
 
 
@@ -980,9 +986,13 @@ def _window_title_can_be_rolethread_browser(title: str) -> bool:
     return "rolethread" in title or "localhost:8501" in title
 
 
+def _window_title_identifies_normal_edge_browser(title: str) -> bool:
+    return "rolethread" in title and "microsoft" in title and "edge" in title
+
+
 def _process_title_identifies_normal_edge_browser(process: EdgeProcessInfo) -> bool:
     title = process.window_title.lower()
-    return "rolethread" in title and "microsoft" in title and "edge" in title
+    return _window_title_identifies_normal_edge_browser(title)
 
 
 def _is_rolethread_app_window_candidate(window: EdgeWindowInfo) -> bool:
@@ -1017,7 +1027,7 @@ def _describe_window_cleanup_candidates(window_diff: EdgeWindowDiff) -> tuple[st
             reason = "title looks app-mode without normal Edge browser branding"
         elif _is_streamlit_browser_window_candidate(window):
             classification = "browser_window_candidate"
-            reason = "top-level Edge window references local Streamlit URL without app mode"
+            reason = "top-level Edge window title identifies the normal browser window"
         else:
             classification = "rejected"
             reason = _describe_rejected_window_candidate(window)
@@ -1039,7 +1049,7 @@ def _describe_rejected_window_candidate(window: EdgeWindowInfo) -> str:
         reasons.append("process is not msedge.exe")
     if not window.class_name.startswith("Chrome_WidgetWin"):
         reasons.append("not a Chrome_WidgetWin top-level window")
-    if DEFAULT_STREAMLIT_LOCAL_URL.lower() not in command:
+    if DEFAULT_STREAMLIT_LOCAL_URL.lower() not in command and not _window_title_identifies_normal_edge_browser(title):
         reasons.append("command does not reference local Streamlit URL")
     if _window_command_references_app_mode(command) and not _is_rolethread_app_window_candidate(window):
         reasons.append("command contains app-mode flag but title was not app-like")

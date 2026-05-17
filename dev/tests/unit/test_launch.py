@@ -961,6 +961,70 @@ def test_edge_cleanup_treats_embedded_edgeview_window_as_app_candidate():
     assert "0xCAFE" not in script
 
 
+def test_edge_cleanup_closes_browser_hwnd_when_edge_reuses_app_process_command():
+    diff = _edge_diff_with_new_processes(_uncertain_process(pid=9340))
+    before = EdgeWindowSnapshot(
+        windows=(
+            EdgeWindowInfo(
+                handle="0xBEEF",
+                pid=25740,
+                process_name="msedge.exe",
+                title="RoleThread Lite - Personal - Microsoft Edge",
+                class_name="Chrome_WidgetWin_1",
+                command_line=(
+                    '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" '
+                    "--embedded-browser-edgeview=1 --edge-webview-host-pid=2872"
+                ),
+            ),
+        )
+    )
+    after = EdgeWindowSnapshot(
+        windows=(
+            before.windows[0],
+            EdgeWindowInfo(
+                handle="0xCAFE",
+                pid=25740,
+                process_name="msedge.exe",
+                title="RoleThread Lite",
+                class_name="Chrome_WidgetWin_1",
+                command_line=(
+                    '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" '
+                    "--embedded-browser-edgeview=1 --edge-webview-host-pid=2872"
+                ),
+            ),
+        )
+    )
+    window_diff = diff_edge_window_snapshots(before, after)
+    commands = []
+
+    def run_fn(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="wm_close_sent",
+            stderr="",
+        )
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        window_diff=window_diff,
+        system_name="Windows",
+        run_fn=run_fn,
+    )
+
+    assert status.attempted is True
+    assert status.target_pid == 25740
+    assert status.target_title == "RoleThread Lite - Personal - Microsoft Edge"
+    assert any("0xBEEF: browser_window_candidate" in detail for detail in status.decision_details)
+    assert any("0xCAFE: app_window_candidate" in detail for detail in status.decision_details)
+    script = commands[0][-1]
+    assert "0xBEEF" in script
+    assert "0xCAFE" not in script
+    assert "Stop-Process" not in script
+
+
 def test_edge_cleanup_reports_window_candidate_skip_reason():
     diff = _edge_diff_with_new_processes(_uncertain_process(pid=9340))
     window_diff = _window_diff_with_new_browser_and_new_app(browser_title="Unrelated")
