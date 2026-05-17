@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to LoreForge Lite will be documented here.
+All notable changes to RoleThread Lite will be documented here.
 
-LoreForge Lite is currently pre-V1. Entries before the first public V1 release may be summarized rather than exhaustive.
+RoleThread Lite is currently pre-V1. Entries before the first public V1 release may be summarized rather than exhaustive.
 
 Future version bumps should update this file with concise user-facing or maintainer-facing notes.
 
@@ -16,12 +16,23 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.68] - 2026-05-16
+
+### Changed
+
+- Updated product branding to RoleThread across runtime code, launcher sources, platform defaults, and test expectations.
+- Renamed branded metadata helpers, launcher source/spec files, generated bundle names, app-data defaults, environment variables, and runtime-visible product strings.
+
+### Internal
+
+- Updated bundled-launcher tests and runtime metadata constants for RoleThread naming.
+
 ## [1.3.67] - 2026-05-16
 
 ### Added
 
 - Added a PyInstaller one-folder spec for the Windows launcher bundle prototype.
-- Added a real bundle build script for producing `installer/windows/dist/LoreForgeLauncher/`.
+- Added a real bundle build script for producing `installer/windows/dist/RoleThreadLauncher/`.
 - Documented bundled normal/webapp smoke-test workflows.
 
 ### Internal
@@ -68,7 +79,7 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Added
 
-- Added a lighter FAQ note about LoreForge Lite's intentionally cautious design philosophy.
+- Added a lighter FAQ note about RoleThread Lite's intentionally cautious design philosophy.
 
 ## [1.3.62] - 2026-05-16
 
@@ -86,3 +97,4 @@ Future version bumps should update this file with concise user-facing or maintai
 - Verified remaining startup migrations are idempotent compatibility checks.
 - Kept transitional navigation aliases for stored session/page compatibility.
 - Kept built-in tag fallback helpers as pure startup/test fallback utilities.
+

@@ -79,7 +79,7 @@ Metadata Integrity looks at organization and portability.
 
 It considers signals such as:
 
-- LoreForge-native stamp coverage
+- RoleThread-native stamp coverage
 - tagged entry percentage
 - character mapping coverage
 - sidecar presence
@@ -169,3 +169,4 @@ Manage Dataset is the right place to act on most focused views. Use it to tag, s
 ## Practical Tip
 
 Use Insights after a cleanup pass, not after every tiny edit. It is best for seeing patterns across the whole dataset.
+

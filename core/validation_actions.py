@@ -55,7 +55,7 @@ _SEVERITY_ORDER = {
 _GROUP_COPY = {
     BASE_MISSING_TAGS: (
         "Missing Tags",
-        "Adds an empty tags list so LoreForge metadata is present.",
+        "Adds an empty tags list so RoleThread metadata is present.",
     ),
     BASE_TAGS_NOT_LIST: (
         "Invalid Tags Metadata",
@@ -198,3 +198,4 @@ def _description_for_code(code: str) -> str:
 
 def _fallback_title(code: str) -> str:
     return code.replace(".", " ").replace("_", " ").title()
+

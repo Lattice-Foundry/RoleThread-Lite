@@ -6,7 +6,7 @@ import traceback
 from uuid import uuid4
 
 from core.dataset import TAGS, get_entry_tags
-from core.loreforge_meta import get_dataset_uuid_for_entries, get_entry_uuid
+from core.rolethread_meta import get_dataset_uuid_for_entries, get_entry_uuid
 from core.models import (
     Character,
     EntryCharacterTurn,
@@ -477,7 +477,7 @@ def _merge_categories(
 
         if category.is_builtin and category.slug not in default_slugs:
             result.warnings.append(
-                f"Built-in category '{category.name}' is not a current LoreForge "
+                f"Built-in category '{category.name}' is not a current RoleThread "
                 "default and was skipped."
             )
             continue
@@ -839,3 +839,4 @@ def _import_success_message(result: RegistrySidecarImportResult) -> str:
         f"{count_phrase(len(result.character_mappings_imported), 'entry mapping')}, "
         f"{count_phrase(len(result.system_prompts_created), 'system prompt template')}."
     )
+

@@ -1,12 +1,12 @@
-# LoreForge Lite
+# RoleThread Lite
 
 ### Local-First Dataset Crafting for Narrative AI
 
-LoreForge Lite is a local-first tool for creating, validating, repairing,
+RoleThread Lite is a local-first tool for creating, validating, repairing,
 organizing, merging, and exporting narrative AI training datasets.
 
 Built for writers, conversational dataset builders, and fine-tuning creators,
-LoreForge Lite keeps your JSONL files, registry database, backups, and sidecar
+RoleThread Lite keeps your JSONL files, registry database, backups, and sidecar
 metadata on your machine while giving you practical tools for structured
 dataset engineering.
 
@@ -31,7 +31,7 @@ dataset engineering.
 
 ## Design Philosophy
 
-LoreForge Lite is designed around:
+RoleThread Lite is designed around:
 
 * local-first, privacy-first workflows
 * maintainable JSONL training data
@@ -47,7 +47,7 @@ release surface.
 
 ## Data Safety and Recovery
 
-LoreForge Lite keeps working data local and creates recovery points before
+RoleThread Lite keeps working data local and creates recovery points before
 important dataset and registry changes.
 
 * JSONL dataset writes use local backups and atomic file replacement where
@@ -71,12 +71,12 @@ created before the operation:
 * Dataset backups live under `backups/datasets/<dataset_name>/`
 * SQLite database backups live under `backups/database/`
 
-To recover, close LoreForge Lite and restore the most recent consistent dataset
+To recover, close RoleThread Lite and restore the most recent consistent dataset
 and database backup pair. Dataset backups restore the JSONL data. Database
 backups restore the tag registry, lifecycle metadata, character registry,
 system prompt templates, local settings, and other app metadata.
 
-LoreForge Lite does not claim one global transaction across JSONL files,
+RoleThread Lite does not claim one global transaction across JSONL files,
 sidecars, SQLite, and cloud-sync folders. The recovery design is instead:
 backup first, write carefully, refresh sidecars, and keep enough local material
 available for a clear restore if the machine or process fails mid-operation.
@@ -85,12 +85,12 @@ available for a clear restore if the machine or process fails mid-operation.
 
 ## Version 1 Stable Status
 
-LoreForge Lite 1.0 is the stable local-first release surface for dataset
+RoleThread Lite 1.0 is the stable local-first release surface for dataset
 craftsmanship.
 
 ## Supported Runtime
 
-LoreForge Lite V1 officially supports Python `3.14.4`.
+RoleThread Lite V1 officially supports Python `3.14.4`.
 
 Other Python versions may run, but they are not guaranteed for V1 unless they
 are tested later. Python versions below `3.14.4` are unsupported. Windows
@@ -117,18 +117,18 @@ streamlit run app.py
 
 Windows app-style browser workflow:
 
-Run LoreForge normally, then use your browser's built-in app shortcut feature
-if you want a standalone window. In Microsoft Edge, open the local LoreForge
+Run RoleThread normally, then use your browser's built-in app shortcut feature
+if you want a standalone window. In Microsoft Edge, open the local RoleThread
 URL and use **Apps > Install this site as an app** or the equivalent shortcut
 option. This remains the reliable V1 fallback.
 
 `streamlit run app.py -- webapp` is the internal Windows web-app launch method
 that future launcher and installer workflows will call. It opens the local app
 in Microsoft Edge app mode when Edge is available. If Streamlit opens a normal
-browser window first, LoreForge attempts to close only that duplicate browser
+browser window first, RoleThread attempts to close only that duplicate browser
 window by targeting the exact Windows window handle after the Edge app window is
 observed. On Linux, macOS, or unknown platforms, the flag is a safe no-op:
-LoreForge continues in normal browser mode.
+RoleThread continues in normal browser mode.
 
 Developer diagnostics are hidden by default. Add `dev` to expose launch and
 platform internals in Settings. Add `edge-debug` or `webapp-debug` only when
@@ -145,7 +145,7 @@ close app-window candidates.
 
 ## Windows Installer Plan
 
-LoreForge Lite V1 will ship a fully bundled Windows installer for normal users.
+RoleThread Lite V1 will ship a fully bundled Windows installer for normal users.
 The installer will package a tested release snapshot; it will not clone or pull
 from Git on the user's machine.
 
@@ -161,18 +161,18 @@ output and final setup executables are ignored and should not be committed.
 The intended installed app/runtime location is:
 
 ```text
-C:\Program Files\LoreForge Lite\
+C:\Program Files\RoleThread Lite\
 ```
 
 User data remains separate:
 
 ```text
-%LOCALAPPDATA%\LoreForge\
-%USERPROFILE%\LoreForge\
+%LOCALAPPDATA%\RoleThread\
+%USERPROFILE%\RoleThread\
 ```
 
 Default uninstall should remove installed app/runtime files while preserving
-user data. A future full uninstall option may remove all LoreForge data only
+user data. A future full uninstall option may remove all RoleThread data only
 after a clear warning.
 
 See `installer/windows/README.md` for the current packaging architecture and
@@ -180,19 +180,19 @@ manual release plan.
 
 ## OS Compatibility and Storage
 
-LoreForge Lite V1 supports Windows and Linux as primary platforms. macOS is
+RoleThread Lite V1 supports Windows and Linux as primary platforms. macOS is
 beta-supported because direct maintainer testing is limited for V1. Unknown
 platforms are unsupported and should expect graceful degradation rather than
 platform-specific integrations.
 
 Fresh installs use platform-native storage defaults:
 
-* Windows app state: `%LOCALAPPDATA%\LoreForge`
-* Windows workspace: `%USERPROFILE%\LoreForge`
-* Linux app state: `~/.local/share/loreforge`
-* Linux workspace: `~/LoreForge`
-* macOS app state: `~/Library/Application Support/LoreForge`
-* macOS workspace: `~/LoreForge`
+* Windows app state: `%LOCALAPPDATA%\RoleThread`
+* Windows workspace: `%USERPROFILE%\RoleThread`
+* Linux app state: `~/.local/share/rolethread`
+* Linux workspace: `~/RoleThread`
+* macOS app state: `~/Library/Application Support/RoleThread`
+* macOS workspace: `~/RoleThread`
 
 Workspace folders include `training_data`, `exports`, `imports`, and `backups`.
 Existing user-configured paths remain preserved.
@@ -200,7 +200,7 @@ Existing user-configured paths remain preserved.
 Cloud sync folders are optional backup/sync targets, not the preferred active
 working directory. Using OneDrive or another sync folder as live working
 storage can cause constant sync activity, file locking, conflicts, or odd
-timestamps. If OneDrive keeps syncing LoreForge files, review OneDrive backup
+timestamps. If OneDrive keeps syncing RoleThread files, review OneDrive backup
 and sync settings for folders such as Documents or Desktop.
 
 Launch policy is defined for future launcher/installer work. Windows will
@@ -222,7 +222,8 @@ The V1 stability gate is:
 ## Vision
 
 High-quality narrative AI experiences begin with high-quality narrative data.
-LoreForge Lite focuses on the local, inspectable, repairable dataset workflow
+RoleThread Lite focuses on the local, inspectable, repairable dataset workflow
 needed to build that data with confidence.
 
 Local-first. Creator-focused. Built for narrative AI datasets.
+

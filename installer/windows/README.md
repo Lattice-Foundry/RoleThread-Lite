@@ -1,12 +1,12 @@
-# LoreForge Lite Windows Installer Plan
+# RoleThread Lite Windows Installer Plan
 
 This folder is the source-controlled home for the Windows packaging and installer work.
 
-LoreForge Lite V1 will use a fully bundled Windows installer for normal users. Users who install this way should not need to know about Python, virtual environments, pip, Streamlit, or dependency installation. Manual source-based workflows remain available for developers and power users.
+RoleThread Lite V1 will use a fully bundled Windows installer for normal users. Users who install this way should not need to know about Python, virtual environments, pip, Streamlit, or dependency installation. Manual source-based workflows remain available for developers and power users.
 
 ## Target Stack
 
-- **PyInstaller one-folder bundle** for the runnable LoreForge app and bundled Python runtime.
+- **PyInstaller one-folder bundle** for the runnable RoleThread app and bundled Python runtime.
 - **Inno Setup** for the final Windows setup executable.
 - **GitHub Releases** for publishing final generated setup executables.
 
@@ -35,19 +35,19 @@ The installed application/runtime files should live separately from user data.
 Recommended install directory:
 
 ```text
-C:\Program Files\LoreForge Lite\
+C:\Program Files\RoleThread Lite\
 ```
 
 Platform-managed app state:
 
 ```text
-%LOCALAPPDATA%\LoreForge\
+%LOCALAPPDATA%\RoleThread\
 ```
 
 User workspace:
 
 ```text
-%USERPROFILE%\LoreForge\
+%USERPROFILE%\RoleThread\
 ```
 
 Workspace subfolders are expected to include:
@@ -64,7 +64,7 @@ Keeping the install directory separate from user data lets upgrades replace app/
 A first source prototype lives at:
 
 ```text
-installer/windows/launcher/loreforge_launcher.py
+installer/windows/launcher/rolethread_launcher.py
 ```
 
 This launcher source is intended to be wrapped by PyInstaller in a later pass.
@@ -73,13 +73,13 @@ not to raw terminal commands.
 
 The prototype currently:
 
-- resolves the LoreForge app root for development use
+- resolves the RoleThread app root for development use
 - prefers `trainer\Scripts\python.exe` when running from the repository
-- reads `%LOCALAPPDATA%\LoreForge\preferences.json`
+- reads `%LOCALAPPDATA%\RoleThread\preferences.json`
 - uses `enable_webapp_launch_mode` to choose normal or `webapp` launch mode
 - starts Streamlit with `python -m streamlit run app.py`
 - adds `-- webapp` when webapp launch mode is enabled
-- writes launcher logs under `%LOCALAPPDATA%\LoreForge\logs\launcher.log`
+- writes launcher logs under `%LOCALAPPDATA%\RoleThread\logs\launcher.log`
 - reports clearly when `app.py` is missing, the runtime cannot be found, or port `8501` is already in use
 
 The launcher does not own Microsoft Edge launch or duplicate-browser cleanup.
@@ -94,7 +94,7 @@ The bundle target is the launcher, not `app.py` directly.
 Source-controlled packaging files:
 
 ```text
-installer/windows/loreforge_launcher.spec
+installer/windows/rolethread_launcher.spec
 installer/windows/scripts/build_bundle.ps1
 ```
 
@@ -107,13 +107,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\bu
 Expected output folder:
 
 ```text
-installer\windows\dist\LoreForgeLauncher\
+installer\windows\dist\RoleThreadLauncher\
 ```
 
 Run the bundled prototype:
 
 ```powershell
-installer\windows\dist\LoreForgeLauncher\LoreForgeLauncher.exe
+installer\windows\dist\RoleThreadLauncher\RoleThreadLauncher.exe
 ```
 
 Bundled mode uses the PyInstaller executable as the runtime entry point. The
@@ -139,18 +139,18 @@ committed.
 ### Bundle Smoke Test
 
 1. Build the bundle with `build_bundle.ps1`.
-2. Copy `installer\windows\dist\LoreForgeLauncher\` to a temporary folder
+2. Copy `installer\windows\dist\RoleThreadLauncher\` to a temporary folder
    outside the repository.
-3. Run `LoreForgeLauncher.exe` from the copied folder.
-4. Confirm LoreForge starts on port `8501`.
+3. Run `RoleThreadLauncher.exe` from the copied folder.
+4. Confirm RoleThread starts on port `8501`.
 5. Confirm launcher logs are still written under:
 
 ```text
-%LOCALAPPDATA%\LoreForge\logs\launcher.log
+%LOCALAPPDATA%\RoleThread\logs\launcher.log
 ```
 
 To smoke-test bundled webapp mode, enable **Settings > Experimental Features >
-Enable webapp launch mode**, close LoreForge, then run the bundled launcher
+Enable webapp launch mode**, close RoleThread, then run the bundled launcher
 again. The launcher should pass the app's `webapp` flag through the same
 internal startup path used by source/dev mode.
 
@@ -159,7 +159,7 @@ internal startup path used by source/dev mode.
 Run the launcher prototype from the repository root:
 
 ```powershell
-trainer\Scripts\python.exe installer\windows\launcher\loreforge_launcher.py
+trainer\Scripts\python.exe installer\windows\launcher\rolethread_launcher.py
 ```
 
 Or use the helper script:
@@ -171,28 +171,28 @@ powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\ru
 Expected behavior:
 
 - the launcher uses `trainer\Scripts\python.exe`
-- the launcher reads `%LOCALAPPDATA%\LoreForge\preferences.json`
+- the launcher reads `%LOCALAPPDATA%\RoleThread\preferences.json`
 - `enable_webapp_launch_mode: false` or missing preferences starts normal browser mode
 - `enable_webapp_launch_mode: true` adds the app's `webapp` launch flag
-- logs are appended to `%LOCALAPPDATA%\LoreForge\logs\launcher.log`
+- logs are appended to `%LOCALAPPDATA%\RoleThread\logs\launcher.log`
 
-Before smoke testing, make sure no other LoreForge/Streamlit process is already
+Before smoke testing, make sure no other RoleThread/Streamlit process is already
 using port `8501`. If the port is busy, the launcher exits with a clear message
 instead of starting a second server.
 
 To test webapp mode, enable **Settings > Experimental Features > Enable webapp
-launch mode**, close LoreForge, then run the launcher again. The launcher only
+launch mode**, close RoleThread, then run the launcher again. The launcher only
 chooses the startup flag; Edge app mode and duplicate-browser cleanup still
 belong to the app's `webapp` startup path.
 
 The launcher should eventually:
 
 - use the bundled runtime and bundled app files
-- start LoreForge/Streamlit locally
+- start RoleThread/Streamlit locally
 - read `enable_webapp_launch_mode` from preferences
 - launch either normal browser mode or Windows Edge webapp mode
 - use the existing internal `webapp` flag for managed Edge webapp startup
-- write launcher/app logs under `%LOCALAPPDATA%\LoreForge\logs`
+- write launcher/app logs under `%LOCALAPPDATA%\RoleThread\logs`
 - keep local server startup, readiness detection, browser/webapp launch, and shutdown lifecycle under launcher control
 
 The current in-app `webapp` flag remains the internal launch path future launcher/installer procedures should call when webapp mode is enabled.
@@ -208,10 +208,10 @@ Default uninstall should remove installed app/runtime files only.
 
 Default uninstall should preserve:
 
-- `%LOCALAPPDATA%\LoreForge\`
-- `%USERPROFILE%\LoreForge\`
+- `%LOCALAPPDATA%\RoleThread\`
+- `%USERPROFILE%\RoleThread\`
 
-The installer may later offer an explicit full uninstall option. That option must warn clearly that it deletes LoreForge user data, including:
+The installer may later offer an explicit full uninstall option. That option must warn clearly that it deletes RoleThread user data, including:
 
 - datasets
 - exports
@@ -225,8 +225,8 @@ The installer may later offer an explicit full uninstall option. That option mus
 Full uninstall targets:
 
 ```text
-%LOCALAPPDATA%\LoreForge\
-%USERPROFILE%\LoreForge\
+%LOCALAPPDATA%\RoleThread\
+%USERPROFILE%\RoleThread\
 ```
 
 ## Expected Manual Release Flow
@@ -245,3 +245,4 @@ Pushing to `main` does not automatically create installer artifacts unless CI/CD
 ## Current Status
 
 This is still pre-packaging work. It does not build the final launcher executable, PyInstaller bundle, Inno installer, bundled Python runtime, shortcuts, or release executable.
+

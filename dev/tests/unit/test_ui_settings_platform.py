@@ -55,28 +55,28 @@ def test_cloud_destination_options_hide_onedrive_when_capability_unsupported():
 
 def test_platform_path_format_hides_source_outside_dev_mode():
     resolved = _ResolvedPath(
-        path="C:/Users/digit/LoreForge/training_data",
+        path="C:/Users/digit/RoleThread/training_data",
         source="user_override",
-        platform_default="C:/Users/digit/LoreForge/training_data",
+        platform_default="C:/Users/digit/RoleThread/training_data",
     )
 
     assert ui_settings._format_platform_path_value(
         resolved,
         include_source=False,
-    ) == "`C:/Users/digit/LoreForge/training_data`"
+    ) == "`C:/Users/digit/RoleThread/training_data`"
 
 
 def test_platform_path_format_shows_source_in_dev_mode():
     resolved = _ResolvedPath(
         path="X:/custom/training_data",
         source="user_override",
-        platform_default="C:/Users/digit/LoreForge/training_data",
+        platform_default="C:/Users/digit/RoleThread/training_data",
     )
 
     value = ui_settings._format_platform_path_value(resolved, include_source=True)
 
     assert "User Override" in value
-    assert "default `C:/Users/digit/LoreForge/training_data`" in value
+    assert "default `C:/Users/digit/RoleThread/training_data`" in value
 
 
 def test_webapp_experimental_preference_uses_platform_capability():
@@ -107,3 +107,4 @@ def test_launch_flags_detected_summary_is_compact():
     assert ui_settings._format_launch_flags_detected(
         LaunchFlags(dev=True, webapp=True, edge_debug=True)
     ) == "`dev`, `webapp`, `edge-debug/webapp-debug`"
+

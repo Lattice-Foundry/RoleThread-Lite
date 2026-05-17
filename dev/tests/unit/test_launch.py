@@ -90,7 +90,7 @@ def test_parse_launch_flags_without_webapp_flag():
 
 def test_get_streamlit_local_url_uses_default_and_env_override():
     assert get_streamlit_local_url({}) == DEFAULT_STREAMLIT_LOCAL_URL
-    assert get_streamlit_local_url({"LOREFORGE_STREAMLIT_URL": "http://localhost:8502"}) == (
+    assert get_streamlit_local_url({"ROLETHREAD_STREAMLIT_URL": "http://localhost:8502"}) == (
         "http://localhost:8502"
     )
 
@@ -429,10 +429,10 @@ def test_capture_edge_process_snapshot_parses_powershell_json_without_kill_comma
             0,
             stdout=(
                 '[{"pid":101,"parent_pid":50,"command_line":"msedge --app=http://localhost:8501",'
-                '"executable_path":"C:\\\\Edge\\\\msedge.exe","window_title":"LoreForge Lite",'
+                '"executable_path":"C:\\\\Edge\\\\msedge.exe","window_title":"RoleThread Lite",'
                 '"creation_time":"20260516010101.000000-300"},'
                 '{"pid":102,"parent_pid":50,"command_line":"msedge http://localhost:8501",'
-                '"executable_path":"C:\\\\Edge\\\\msedge.exe","window_title":"LoreForge Lite - Streamlit",'
+                '"executable_path":"C:\\\\Edge\\\\msedge.exe","window_title":"RoleThread Lite - Streamlit",'
                 '"creation_time":"20260516010102.000000-300"}]'
             ),
             stderr="",
@@ -443,7 +443,7 @@ def test_capture_edge_process_snapshot_parses_powershell_json_without_kill_comma
     assert len(snapshot.processes) == 2
     assert snapshot.processes[0].pid == 101
     assert snapshot.processes[0].parent_pid == 50
-    assert snapshot.processes[0].window_title == "LoreForge Lite"
+    assert snapshot.processes[0].window_title == "RoleThread Lite"
     assert snapshot.processes[0].creation_time == "20260516010101.000000-300"
     assert "Stop-Process" not in captured_script
     assert "taskkill" not in captured_script.lower()
@@ -469,10 +469,10 @@ def test_capture_edge_window_snapshot_parses_visible_top_level_windows():
             command,
             0,
             stdout=(
-                '[{"handle":"0x1001","pid":101,"title":"LoreForge Lite",'
+                '[{"handle":"0x1001","pid":101,"title":"RoleThread Lite",'
                 '"process_name":"msedge.exe","class_name":"Chrome_WidgetWin_1",'
                 '"command_line":"msedge --app=http://localhost:8501"},'
-                '{"handle":"0x1002","pid":102,"title":"LoreForge Lite",'
+                '{"handle":"0x1002","pid":102,"title":"RoleThread Lite",'
                 '"process_name":"ApplicationFrameHost.exe","class_name":"Chrome_WidgetWin_1",'
                 '"command_line":"msedge http://localhost:8501"}]'
             ),
@@ -524,7 +524,7 @@ def test_diff_edge_window_snapshots_reports_new_handles():
                 handle="0x1002",
                 pid=102,
                 process_name="msedge.exe",
-                title="LoreForge Lite",
+                title="RoleThread Lite",
                 class_name="Chrome_WidgetWin_1",
                 command_line="msedge http://localhost:8501",
             ),
@@ -560,7 +560,7 @@ def test_capture_edge_process_snapshot_poll_merges_late_metadata():
                     parent_pid=10,
                     command_line="msedge http://localhost:8501",
                     executable_path="",
-                    window_title="LoreForge Lite - Streamlit",
+                    window_title="RoleThread Lite - Streamlit",
                     creation_time="20260516010101.000000-300",
                 ),
             )
@@ -586,7 +586,7 @@ def test_capture_edge_process_snapshot_poll_merges_late_metadata():
     merged = result.snapshot.processes[0]
     assert merged.command_line == "msedge http://localhost:8501"
     assert merged.executable_path == "C:\\Edge\\msedge.exe"
-    assert merged.window_title == "LoreForge Lite - Streamlit"
+    assert merged.window_title == "RoleThread Lite - Streamlit"
 
 
 def test_capture_edge_process_snapshot_uses_detected_platform_diagnostics(monkeypatch):
@@ -633,7 +633,7 @@ def test_diff_edge_process_snapshots_reports_new_candidates():
                 parent_pid=10,
                 command_line="msedge --app=http://localhost:8501",
                 executable_path="C:\\Edge\\msedge.exe",
-                window_title="LoreForge Lite",
+                window_title="RoleThread Lite",
                 creation_time="20260516010101.000000-300",
             ),
             EdgeProcessInfo(
@@ -641,7 +641,7 @@ def test_diff_edge_process_snapshots_reports_new_candidates():
                 parent_pid=10,
                 command_line="msedge http://localhost:8501",
                 executable_path="C:\\Edge\\msedge.exe",
-                window_title="LoreForge Lite - Streamlit",
+                window_title="RoleThread Lite - Streamlit",
                 creation_time="20260516010102.000000-300",
             ),
         )
@@ -685,7 +685,7 @@ def _app_process(pid: int = 101) -> EdgeProcessInfo:
         parent_pid=10,
         command_line="msedge --app=http://localhost:8501",
         executable_path="C:\\Edge\\msedge.exe",
-        window_title="LoreForge Lite",
+        window_title="RoleThread Lite",
         creation_time="20260516010101.000000-300",
     )
 
@@ -696,7 +696,7 @@ def _browser_process(pid: int = 102, *, command_line: str | None = None) -> Edge
         parent_pid=10,
         command_line=command_line or "msedge http://localhost:8501",
         executable_path="C:\\Edge\\msedge.exe",
-        window_title="LoreForge Lite - Streamlit",
+        window_title="RoleThread Lite - Streamlit",
         creation_time="20260516010102.000000-300",
     )
 
@@ -718,7 +718,7 @@ def _window_diff_with_preexisting_browser_and_new_app() -> object:
                 handle="0xBEEF",
                 pid=23456,
                 process_name="msedge.exe",
-                title="LoreForge Lite - Personal - Microsoft Edge",
+                title="RoleThread Lite - Personal - Microsoft Edge",
                 class_name="Chrome_WidgetWin_1",
                 command_line=(
                     '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" '
@@ -734,7 +734,7 @@ def _window_diff_with_preexisting_browser_and_new_app() -> object:
                 handle="0xCAFE",
                 pid=23456,
                 process_name="msedge.exe",
-                title="LoreForge Lite",
+                title="RoleThread Lite",
                 class_name="Chrome_WidgetWin_1",
                 command_line=(
                     '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" '
@@ -802,7 +802,7 @@ def test_edge_cleanup_uses_window_handle_when_browser_preexists_but_app_window_i
     assert status.attempted is True
     assert status.skipped is False
     assert status.target_pid == 23456
-    assert status.target_title == "LoreForge Lite - Personal - Microsoft Edge"
+    assert status.target_title == "RoleThread Lite - Personal - Microsoft Edge"
     assert status.method == EDGE_CLEANUP_METHOD_CLOSE_WINDOW_HANDLE
     assert status.result == "wm_close_sent"
     assert commands
@@ -995,7 +995,7 @@ def test_classify_edge_process_detects_app_mode_arguments():
             parent_pid=0,
             command_line="msedge --app=http://localhost:8501",
             executable_path="C:\\Edge\\msedge.exe",
-            window_title="LoreForge Lite",
+            window_title="RoleThread Lite",
         )
     )
 
@@ -1011,7 +1011,7 @@ def test_classify_edge_process_detects_normal_browser_by_local_url():
             parent_pid=0,
             command_line="msedge http://localhost:8501",
             executable_path="C:\\Edge\\msedge.exe",
-            window_title="LoreForge Lite - Streamlit",
+            window_title="RoleThread Lite - Streamlit",
         )
     )
 
@@ -1027,7 +1027,7 @@ def test_classify_edge_process_uses_window_title_as_partial_browser_signal():
             parent_pid=0,
             command_line="msedge --type=renderer",
             executable_path="C:\\Edge\\msedge.exe",
-            window_title="LoreForge Lite - Streamlit",
+            window_title="RoleThread Lite - Streamlit",
         )
     )
 
@@ -1048,3 +1048,4 @@ def test_classify_edge_process_marks_opaque_metadata_uncertain():
 
     assert classification.classification == EDGE_CLASSIFICATION_UNCERTAIN
     assert classification.confidence == EDGE_CONFIDENCE_UNRELIABLE
+

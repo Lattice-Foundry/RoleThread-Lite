@@ -27,7 +27,7 @@ from core.platform import (
 )
 from core.preferences import export_settings, get_all_settings, import_settings
 from core.runtime import get_python_runtime_status
-from core.version import LOREFORGE_VERSION
+from core.version import ROLETHREAD_VERSION
 from ui.file_dialogs import (
     browse_directory,
     browse_settings_export_file,
@@ -164,7 +164,7 @@ def render_settings_page() -> None:
         key="_auto_correct_validation_errors_checkbox",
         on_change=_persist_auto_correct_validation_errors,
         help=(
-            "When enabled, LoreForge also applies broader deterministic validation "
+            "When enabled, RoleThread also applies broader deterministic validation "
             "repairs during load. Baseline normalization for safe metadata, role "
             "formatting, and simple text cleanup always runs."
         ),
@@ -339,8 +339,8 @@ def _render_experimental_features_settings() -> None:
     )
     if can_use_webapp:
         st.caption(
-            "When enabled, future launchers/installers should start LoreForge with "
-            "`webapp` launch mode. Restart or relaunch LoreForge for launcher "
+            "When enabled, future launchers/installers should start RoleThread with "
+            "`webapp` launch mode. Restart or relaunch RoleThread for launcher "
             "behavior changes to take effect. This does not create shortcuts or "
             "installers yet."
         )
@@ -350,7 +350,7 @@ def _render_experimental_features_settings() -> None:
             "available on this platform."
         )
     if st.session_state.get("_webapp_launch_mode_changed"):
-        st.info("Webapp launch preference saved. Restart or relaunch LoreForge to use it.")
+        st.info("Webapp launch preference saved. Restart or relaunch RoleThread to use it.")
 
 
 def _supports_webapp_launch_preference(capabilities) -> bool:
@@ -374,8 +374,8 @@ def _render_platform_about() -> None:
     st.subheader("About This Installation")
     version_col, platform_col, support_col, python_col = st.columns(4)
     with version_col:
-        st.markdown("**LoreForge**")
-        st.caption(f"v{LOREFORGE_VERSION}")
+        st.markdown("**RoleThread**")
+        st.caption(f"v{ROLETHREAD_VERSION}")
     with platform_col:
         st.markdown("**Detected Platform**")
         st.caption(platform_info.display_name)
@@ -1014,3 +1014,4 @@ def _render_cloud_path_confirmation(
         if st.button("Cancel Cloud Folder Change", key="btn_cancel_cloud_folder"):
             st.session_state["_cloud_backup_custom_path_input_pending"] = current_path
             st.rerun()
+

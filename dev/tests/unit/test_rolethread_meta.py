@@ -1,11 +1,11 @@
 import core.version as version
-from core.loreforge_meta import (
-    LOREFORGE_META_KEY,
+from core.rolethread_meta import (
+    ROLETHREAD_META_KEY,
     ensure_entry_uuid,
     get_dataset_uuid,
     get_dataset_uuid_for_entries,
     get_entry_uuid,
-    get_loreforge_meta,
+    get_rolethread_meta,
     is_native_dataset,
     is_native_entry,
     stamp_entry,
@@ -14,26 +14,26 @@ from core.loreforge_meta import (
 
 
 def test_version_constant_exists():
-    major, minor, patch = version.LOREFORGE_VERSION.split(".")
+    major, minor, patch = version.ROLETHREAD_VERSION.split(".")
 
     assert len((major, minor, patch)) == 3
     assert all(part.isdigit() for part in (major, minor, patch))
 
 
-def test_native_entry_detection_requires_loreforge_signature():
-    native = {LOREFORGE_META_KEY: {"version": "0.1.0", "native": True}}
+def test_native_entry_detection_requires_rolethread_signature():
+    native = {ROLETHREAD_META_KEY: {"version": "0.1.0", "native": True}}
     foreign = {"messages": [], "tags": []}
-    malformed = {LOREFORGE_META_KEY: "not metadata"}
+    malformed = {ROLETHREAD_META_KEY: "not metadata"}
 
-    assert get_loreforge_meta(native) == {"version": "0.1.0", "native": True}
-    assert get_loreforge_meta(malformed) is None
+    assert get_rolethread_meta(native) == {"version": "0.1.0", "native": True}
+    assert get_rolethread_meta(malformed) is None
     assert is_native_entry(native) is True
     assert is_native_entry(foreign) is False
     assert is_native_entry(malformed) is False
 
 
 def test_native_dataset_requires_all_entries_to_be_native():
-    native = {LOREFORGE_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-1"}}
+    native = {ROLETHREAD_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-1"}}
     foreign = {"messages": [], "tags": []}
 
     assert is_native_dataset([native, native]) is True
@@ -43,24 +43,24 @@ def test_native_dataset_requires_all_entries_to_be_native():
 
 
 def test_native_dataset_requires_shared_dataset_uuid():
-    old_native = {LOREFORGE_META_KEY: {"native": True}}
-    first = {LOREFORGE_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-1"}}
-    second = {LOREFORGE_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-2"}}
+    old_native = {ROLETHREAD_META_KEY: {"native": True}}
+    first = {ROLETHREAD_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-1"}}
+    second = {ROLETHREAD_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-2"}}
 
     assert is_native_entry(old_native) is True
     assert is_native_dataset([old_native]) is False
     assert is_native_dataset([first, second]) is False
 
 
-def test_stamp_entry_marks_copy_as_native_loreforge_data():
+def test_stamp_entry_marks_copy_as_native_rolethread_data():
     entry = {"messages": [], "tags": []}
 
     stamped = stamp_entry(entry)
 
     assert entry == {"messages": [], "tags": []}
-    assert stamped[LOREFORGE_META_KEY]["version"] == version.LOREFORGE_VERSION
-    assert stamped[LOREFORGE_META_KEY]["native"] is True
-    assert stamped[LOREFORGE_META_KEY]["validated_at"].endswith("Z")
+    assert stamped[ROLETHREAD_META_KEY]["version"] == version.ROLETHREAD_VERSION
+    assert stamped[ROLETHREAD_META_KEY]["native"] is True
+    assert stamped[ROLETHREAD_META_KEY]["validated_at"].endswith("Z")
     assert get_entry_uuid(stamped) is not None
     assert get_dataset_uuid(stamped) is not None
     assert is_native_entry(stamped) is True
@@ -70,7 +70,7 @@ def test_stamp_entry_preserves_existing_entry_and_dataset_uuid():
     entry = {
         "messages": [],
         "tags": [],
-        LOREFORGE_META_KEY: {
+        ROLETHREAD_META_KEY: {
             "version": "0.3.7",
             "native": True,
             "validated_at": "2026-05-11T12:00:00Z",
@@ -84,7 +84,7 @@ def test_stamp_entry_preserves_existing_entry_and_dataset_uuid():
     assert get_entry_uuid(stamped) == "existing-entry-uuid"
     assert get_dataset_uuid(stamped) == "existing-dataset-uuid"
     assert get_entry_uuid(entry) == "existing-entry-uuid"
-    assert stamped[LOREFORGE_META_KEY]["version"] == version.LOREFORGE_VERSION
+    assert stamped[ROLETHREAD_META_KEY]["version"] == version.ROLETHREAD_VERSION
 
 
 def test_stamp_entry_accepts_dataset_uuid_override():
@@ -102,7 +102,7 @@ def test_ensure_entry_uuid_adds_uuid_without_mutating_original():
 
     assert get_entry_uuid(entry) is None
     assert get_entry_uuid(entry_with_uuid) is not None
-    assert entry_with_uuid[LOREFORGE_META_KEY] == {
+    assert entry_with_uuid[ROLETHREAD_META_KEY] == {
         "entry_uuid": get_entry_uuid(entry_with_uuid),
     }
     assert is_native_entry(entry_with_uuid) is False
@@ -110,16 +110,16 @@ def test_ensure_entry_uuid_adds_uuid_without_mutating_original():
 
 
 def test_ensure_entry_uuid_preserves_existing_uuid():
-    entry = {LOREFORGE_META_KEY: {"entry_uuid": "existing-entry-uuid"}}
+    entry = {ROLETHREAD_META_KEY: {"entry_uuid": "existing-entry-uuid"}}
 
     entry_with_uuid = ensure_entry_uuid(entry)
 
     assert get_entry_uuid(entry_with_uuid) == "existing-entry-uuid"
 
 
-def test_ensure_entry_uuid_preserves_partial_loreforge_metadata():
+def test_ensure_entry_uuid_preserves_partial_rolethread_metadata():
     entry = {
-        LOREFORGE_META_KEY: {
+        ROLETHREAD_META_KEY: {
             "version": "0.5.9",
             "custom_note": "keep me",
         }
@@ -128,14 +128,14 @@ def test_ensure_entry_uuid_preserves_partial_loreforge_metadata():
     entry_with_uuid = ensure_entry_uuid(entry)
 
     assert get_entry_uuid(entry_with_uuid) is not None
-    assert entry_with_uuid[LOREFORGE_META_KEY]["version"] == "0.5.9"
-    assert entry_with_uuid[LOREFORGE_META_KEY]["custom_note"] == "keep me"
-    assert "native" not in entry_with_uuid[LOREFORGE_META_KEY]
-    assert "validated_at" not in entry_with_uuid[LOREFORGE_META_KEY]
+    assert entry_with_uuid[ROLETHREAD_META_KEY]["version"] == "0.5.9"
+    assert entry_with_uuid[ROLETHREAD_META_KEY]["custom_note"] == "keep me"
+    assert "native" not in entry_with_uuid[ROLETHREAD_META_KEY]
+    assert "validated_at" not in entry_with_uuid[ROLETHREAD_META_KEY]
 
 
 def test_native_entry_detection_does_not_require_entry_uuid():
-    old_native = {LOREFORGE_META_KEY: {"version": "0.3.7", "native": True}}
+    old_native = {ROLETHREAD_META_KEY: {"version": "0.3.7", "native": True}}
 
     assert get_entry_uuid(old_native) is None
     assert is_native_entry(old_native) is True
@@ -160,7 +160,7 @@ def test_stamp_entries_preserves_existing_shared_dataset_uuid():
         {
             "messages": [],
             "tags": [],
-            LOREFORGE_META_KEY: {"dataset_uuid": "existing-dataset-uuid"},
+            ROLETHREAD_META_KEY: {"dataset_uuid": "existing-dataset-uuid"},
         },
         {"messages": [], "tags": []},
     ]
@@ -168,3 +168,4 @@ def test_stamp_entries_preserves_existing_shared_dataset_uuid():
     stamped_entries = stamp_entries(entries)
 
     assert get_dataset_uuid_for_entries(stamped_entries) == "existing-dataset-uuid"
+

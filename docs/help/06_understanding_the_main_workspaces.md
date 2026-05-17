@@ -1,6 +1,6 @@
 # Understanding the Main Workspaces
 
-LoreForge Lite is designed as a workflow ecosystem.
+RoleThread Lite is designed as a workflow ecosystem.
 
 The pages are not isolated tools you are expected to use equally. Each page has a job. Some pages are daily work surfaces. Others are deeper workspaces, review tools, or final handoff steps.
 
@@ -10,14 +10,14 @@ The three included example datasets are a good way to learn this flow. They let 
 
 ## The Basic Mental Model
 
-Most LoreForge work follows this pattern:
+Most RoleThread work follows this pattern:
 
 1. Use **Manage Dataset** as the operational hub.
 2. Use **Create Entry** to add focused new examples.
 3. Use **Deep Edit** when an entry needs deeper work.
 4. Use **Validation** and **Insights** for review passes.
 5. Use Metadata pages to keep organization stable.
-6. Use **Export** when the dataset is ready to leave LoreForge.
+6. Use **Export** when the dataset is ready to leave RoleThread.
 
 Manage Dataset is where much of the day-to-day work happens.
 
@@ -121,7 +121,7 @@ It is especially useful for:
 - final export review
 - consistency inspection
 
-Normal entries created through LoreForge are guarded against most structural problems before save. That means Validation is not something you need to run constantly during normal writing.
+Normal entries created through RoleThread are guarded against most structural problems before save. That means Validation is not something you need to run constantly during normal writing.
 
 Use it when you want a broader audit of the dataset.
 
@@ -202,7 +202,7 @@ Export supports:
 - clean export
 - sidecar metadata for project continuity
 
-For training tools, clean export is often the right choice. For future LoreForge work, keep the sidecar with the dataset.
+For training tools, clean export is often the right choice. For future RoleThread work, keep the sidecar with the dataset.
 
 ## Settings
 
@@ -235,7 +235,7 @@ A practical cleanup pass might look like this:
 8. Return to Manage Dataset for the next focused pass.
 9. Export when ready.
 
-That loop is the heart of LoreForge Lite.
+That loop is the heart of RoleThread Lite.
 
 ## Start Simple
 
@@ -259,4 +259,5 @@ Then add:
 - prompt templates
 - sidecar-aware archive habits
 
-LoreForge is built around guided complexity. The structure is there when you need it, but you can grow into it.
+RoleThread is built around guided complexity. The structure is there when you need it, but you can grow into it.
+

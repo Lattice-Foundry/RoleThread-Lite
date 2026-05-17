@@ -28,7 +28,7 @@ from core.character_registry import (
     update_character,
     upsert_character_mappings,
 )
-from core.loreforge_meta import LOREFORGE_META_KEY
+from core.rolethread_meta import ROLETHREAD_META_KEY
 from core.models import Base, Character, EntryCharacterTurn
 
 
@@ -72,7 +72,7 @@ def test_normalize_character_name_reuses_tag_normalization():
 
 def _candidate_entry(entry_uuid, roles):
     return {
-        LOREFORGE_META_KEY: {"native": True, "entry_uuid": entry_uuid},
+        ROLETHREAD_META_KEY: {"native": True, "entry_uuid": entry_uuid},
         "messages": [
             {"role": role, "content": f"{role} says hi"}
             for role in roles
@@ -139,7 +139,7 @@ def test_collect_character_candidates_handles_mixed_standard_and_custom_roles():
 
 def _system_prompt_entry(entry_uuid: str, system_prompt: str) -> dict:
     return {
-        LOREFORGE_META_KEY: {"native": True, "entry_uuid": entry_uuid},
+        ROLETHREAD_META_KEY: {"native": True, "entry_uuid": entry_uuid},
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": "Hi"},
@@ -626,3 +626,4 @@ def test_character_hard_delete_cascades_turn_mappings(character_db):
         session.close()
 
     assert get_entry_character_turns("entry-1") == []
+

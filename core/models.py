@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for LoreForge metadata."""
+"""SQLAlchemy ORM models for RoleThread metadata."""
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
@@ -17,9 +17,9 @@ def _utc_datetime() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# ── Base ───────────────────────────────────────────────────────────────────────
+# â”€â”€ Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class Base(DeclarativeBase):
-    """Base class for LoreForge ORM models."""
+    """Base class for RoleThread ORM models."""
 
     pass
 
@@ -41,7 +41,7 @@ class AppSetting(Base):
         return f"<AppSetting key={self.key!r}>"
 
 
-# ── TagCategory ────────────────────────────────────────────────────────────────
+# â”€â”€ TagCategory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class TagCategory(Base):
     """A named category that groups related tags."""
     __tablename__ = "tag_categories"
@@ -64,7 +64,7 @@ class TagCategory(Base):
         return f"<TagCategory id={self.id} slug={self.slug!r}>"
 
 
-# ── Tag ────────────────────────────────────────────────────────────────────────
+# â”€â”€ Tag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class Tag(Base):
     """A single tag that can be applied to a dataset entry."""
     __tablename__ = "tags"
@@ -224,3 +224,4 @@ class CategoryHistory(Base):
 
     def __repr__(self) -> str:
         return f"<CategoryHistory id={self.id} action={self.action!r}>"
+

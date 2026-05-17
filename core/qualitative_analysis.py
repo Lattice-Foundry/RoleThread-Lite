@@ -20,7 +20,7 @@ from core.entry_analysis import (
     CHATML_FORMATTING_LEAKAGE,
     CHATML_SPLIT_CANDIDATE,
 )
-from core.loreforge_meta import (
+from core.rolethread_meta import (
     get_dataset_uuid_for_entries,
     get_entry_uuid,
     is_native_entry,
@@ -902,3 +902,4 @@ def _grade_for_score(score: float) -> str:
     if score >= 30:
         return "Needs Attention"
     return "Significant Issues"
+

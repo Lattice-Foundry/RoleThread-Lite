@@ -16,7 +16,7 @@ from core.dataset import (
     save_dataset,
     set_entry_tags,
 )
-from core.loreforge_meta import stamp_entries
+from core.rolethread_meta import stamp_entries
 from core.tag_registry import (
     SessionLocal,
     create_db_backup,
@@ -1255,3 +1255,4 @@ def delete_active_tag(
                 exc,
                 fields={"old_slug": normalized_slug},
             )
+

@@ -4,8 +4,8 @@ from types import SimpleNamespace
 import core.load_pipeline as core_load_pipeline
 from core.dataset import DatasetDiagnosticSummary, TagNormalizationSummary, load_dataset_with_summary
 from core.format_conversion import FORMAT_SHAREGPT
-from core.loreforge_meta import (
-    LOREFORGE_META_KEY,
+from core.rolethread_meta import (
+    ROLETHREAD_META_KEY,
     get_entry_uuid,
     is_native_entry,
     stamp_entries,
@@ -147,7 +147,7 @@ def test_pipeline_creates_foreign_working_copy(tmp_path, monkeypatch):
     assert result.dataset_is_native is False
     assert get_entry_uuid(result.entries[0]) is not None
     assert is_native_entry(result.entries[0]) is False
-    assert set(result.entries[0][LOREFORGE_META_KEY]) == {"entry_uuid"}
+    assert set(result.entries[0][ROLETHREAD_META_KEY]) == {"entry_uuid"}
 
 
 def test_pipeline_loads_empty_dataset_without_sidecar_as_initialization(
@@ -387,7 +387,7 @@ def test_pipeline_allows_foreign_sidecar_without_entry_dataset_uuid(tmp_path, mo
 def test_pipeline_preserves_existing_uuid_without_trust_stamp(monkeypatch):
     _patch_pipeline_defaults(monkeypatch)
     entry = _entry()
-    entry[LOREFORGE_META_KEY] = {
+    entry[ROLETHREAD_META_KEY] = {
         "version": "0.5.9",
         "entry_uuid": "existing-entry-uuid",
     }
@@ -395,9 +395,9 @@ def test_pipeline_preserves_existing_uuid_without_trust_stamp(monkeypatch):
     result = load_pipeline.finalize_loaded_entries([entry])
 
     assert get_entry_uuid(result.entries[0]) == "existing-entry-uuid"
-    assert result.entries[0][LOREFORGE_META_KEY]["version"] == "0.5.9"
-    assert "native" not in result.entries[0][LOREFORGE_META_KEY]
-    assert "validated_at" not in result.entries[0][LOREFORGE_META_KEY]
+    assert result.entries[0][ROLETHREAD_META_KEY]["version"] == "0.5.9"
+    assert "native" not in result.entries[0][ROLETHREAD_META_KEY]
+    assert "validated_at" not in result.entries[0][ROLETHREAD_META_KEY]
 
 
 def test_pipeline_does_not_rerun_analysis_when_entries_are_unchanged(monkeypatch):
@@ -637,3 +637,4 @@ def test_pipeline_builds_pending_trust_for_imported_archived_tags(monkeypatch):
     assert pending["entry_indices"] == [0]
     assert pending["archive_origin"] == ARCHIVE_ORIGIN_IMPORTED
     assert result.tag_normalization_summary["pending_trust_count"] == 1
+

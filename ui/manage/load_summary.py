@@ -49,7 +49,7 @@ def render_load_format_summary(
         if issue_entries:
             render_recommended_action(
                 f"{count_phrase(issue_entries, 'entry', 'entries')} have validation issues.",
-                button_label="Go to Validation →",
+                button_label="Go to Validation â†’",
                 target_page="Validation",
                 key="guidance_load_validation",
             )
@@ -68,7 +68,7 @@ def render_load_format_summary(
             else ""
         )
         st.info(
-            "LoreForge automatically normalized "
+            "RoleThread automatically normalized "
             f"{count_phrase(normalized_entries, 'entry', 'entries')} on load "
             "(role formatting, missing metadata). Your original file is preserved. "
             f"{validation_note}"
@@ -270,3 +270,4 @@ def _count_untagged_entries(entries: list[dict]) -> int:
             and any(isinstance(tag, str) and tag.strip() for tag in entry["tags"])
         )
     )
+

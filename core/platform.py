@@ -99,7 +99,7 @@ class PlatformPathSources:
 
 @dataclass(frozen=True)
 class PlatformInfo:
-    """Normalized LoreForge platform support information."""
+    """Normalized RoleThread platform support information."""
 
     os_name: str
     platform_slug: str
@@ -248,7 +248,7 @@ def collect_platform_diagnostics(system_name: str | None = None) -> PlatformDiag
 
 
 def detect_platform(system_name: str | None = None) -> PlatformInfo:
-    """Return normalized LoreForge support information for the current OS."""
+    """Return normalized RoleThread support information for the current OS."""
 
     detected_name = system_name if system_name is not None else _platform.system()
     profile = _PLATFORM_BY_SYSTEM_NAME.get(detected_name, UNKNOWN_PLATFORM_PROFILE)
@@ -597,16 +597,16 @@ def get_platform_path_resolutions(
             env_values.get("LOCALAPPDATA")
             or user_profile / "AppData" / "Local"
         ).expanduser()
-        app_data_root = local_app_data / "LoreForge"
-        workspace_root = user_profile / "LoreForge"
+        app_data_root = local_app_data / "RoleThread"
+        workspace_root = user_profile / "RoleThread"
     elif platform_info.os_name == OS_LINUX:
-        app_data_root = home_path / ".local" / "share" / "loreforge"
-        workspace_root = home_path / "LoreForge"
+        app_data_root = home_path / ".local" / "share" / "rolethread"
+        workspace_root = home_path / "RoleThread"
     elif platform_info.os_name == OS_MACOS:
-        app_data_root = home_path / "Library" / "Application Support" / "LoreForge"
-        workspace_root = home_path / "LoreForge"
+        app_data_root = home_path / "Library" / "Application Support" / "RoleThread"
+        workspace_root = home_path / "RoleThread"
     else:
-        workspace_root = home_path / "LoreForge"
+        workspace_root = home_path / "RoleThread"
         app_data_root = workspace_root
 
     configured_training_dir = str(
@@ -658,9 +658,9 @@ def get_platform_path_resolutions(
             app_data_root / "cache",
         ),
         database_path=PlatformPathResolution(
-            app_data_root / "loreforge.db",
+            app_data_root / "rolethread.db",
             PATH_SOURCE_PLATFORM_DEFAULT,
-            app_data_root / "loreforge.db",
+            app_data_root / "rolethread.db",
         ),
         preferences_path=PlatformPathResolution(
             app_data_root / "preferences.json",
@@ -738,9 +738,10 @@ def detect_onedrive_path() -> Path | None:
 
 
 def default_onedrive_backup_path() -> Path | None:
-    """Return LoreForge Lite's default OneDrive backup folder."""
+    """Return RoleThread Lite's default OneDrive backup folder."""
 
     root = detect_onedrive_path()
     if root is None:
         return None
-    return root / "LoreForge Lite" / "backups"
+    return root / "RoleThread Lite" / "backups"
+

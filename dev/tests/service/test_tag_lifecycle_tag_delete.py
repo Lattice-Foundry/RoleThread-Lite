@@ -13,7 +13,7 @@ from dev.tests.service.tag_lifecycle_service_test_helpers import (
     _entry,
     _fake_dataset_backup,
     _metadata_for,
-    _without_loreforge_meta,
+    _without_rolethread_meta,
     _write_dataset,
     delete_active_tag,
     load_dataset,
@@ -58,7 +58,7 @@ def test_delete_custom_active_tag_archives_tag_and_removes_from_entries(
     assert result.affected_count == 2
     assert result.dataset_backup_path == str(dataset_backups[0])
     assert result.db_backup_path is not None
-    assert _without_loreforge_meta(result.entries) == [
+    assert _without_rolethread_meta(result.entries) == [
         _entry(["tone"]),
         _entry([]),
         _entry(["tone"]),
@@ -297,3 +297,4 @@ def test_delete_dataset_save_failure_rolls_back_db(
     finally:
         session.close()
     assert load_dataset(path)[0] == entries
+

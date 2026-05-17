@@ -6,12 +6,12 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
 $pythonExe = Join-Path $repoRoot "trainer\Scripts\python.exe"
-$specPath = Join-Path $repoRoot "installer\windows\loreforge_launcher.spec"
+$specPath = Join-Path $repoRoot "installer\windows\rolethread_launcher.spec"
 $distPath = Join-Path $repoRoot "installer\windows\dist"
 $buildPath = Join-Path $repoRoot "installer\windows\build"
-$bundlePath = Join-Path $distPath "LoreForgeLauncher"
+$bundlePath = Join-Path $distPath "RoleThreadLauncher"
 
-Write-Host "LoreForge Lite PyInstaller bundle prototype"
+Write-Host "RoleThread Lite PyInstaller bundle prototype"
 Write-Host "Repository root: $repoRoot"
 Write-Host "Spec file: $specPath"
 
@@ -49,8 +49,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller failed with exit code $LASTEXITCODE"
 }
 
-if (-not (Test-Path (Join-Path $bundlePath "LoreForgeLauncher.exe"))) {
-    throw "Bundle did not produce LoreForgeLauncher.exe under: $bundlePath"
+if (-not (Test-Path (Join-Path $bundlePath "RoleThreadLauncher.exe"))) {
+    throw "Bundle did not produce RoleThreadLauncher.exe under: $bundlePath"
 }
 
 Write-Host ""
@@ -58,4 +58,5 @@ Write-Host "Bundle created:"
 Write-Host $bundlePath
 Write-Host ""
 Write-Host "Run bundled prototype:"
-Write-Host (Join-Path $bundlePath "LoreForgeLauncher.exe")
+Write-Host (Join-Path $bundlePath "RoleThreadLauncher.exe")
+

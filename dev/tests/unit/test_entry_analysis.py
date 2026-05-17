@@ -46,7 +46,7 @@ from core.entry_analysis import (
     RepairResult,
     ShareGPTAnalyzer,
 )
-from core.loreforge_meta import LOREFORGE_META_KEY
+from core.rolethread_meta import ROLETHREAD_META_KEY
 
 
 def _diagnostic_by_code(result: EntryAnalysisResult, code: str) -> EntryDiagnostic:
@@ -88,7 +88,7 @@ def test_base_analyzer_accepts_known_top_level_keys_without_diagnostics():
         "metadata": {},
         "source": "fixture",
         "id": "entry-1",
-        LOREFORGE_META_KEY: {"native": True},
+        ROLETHREAD_META_KEY: {"native": True},
     }
 
     result = analyzer.analyze(entry, entry_index=7)
@@ -1135,3 +1135,4 @@ def test_sharegpt_repair_round_trip_removes_fixed_role_variant_diagnostics():
     assert SHAREGPT_ROLE_VARIANT not in {
         diagnostic.code for diagnostic in repaired_result.diagnostics
     }
+

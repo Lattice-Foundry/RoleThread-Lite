@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload
 
 from core.db import SessionLocal
 from core.format_conversion import detect_custom_role_pattern
-from core.loreforge_meta import ensure_entry_uuid, get_entry_uuid
+from core.rolethread_meta import ensure_entry_uuid, get_entry_uuid
 from core.models import Character, EntryCharacterTurn
 from core.role_normalization import normalize_role
 from core.tag_normalization import normalize_tag
@@ -774,3 +774,4 @@ def upsert_character_mappings(mappings: list[dict] | tuple[dict, ...]) -> dict[s
         raise
     finally:
         session.close()
+

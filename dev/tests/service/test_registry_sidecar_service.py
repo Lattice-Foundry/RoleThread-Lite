@@ -35,7 +35,7 @@ from core.tag_constants import (
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
 )
-from core.version import LOREFORGE_VERSION
+from core.version import ROLETHREAD_VERSION
 import services.registry_sidecar_service as registry_sidecar_service
 from services.registry_sidecar_service import export_registry_sidecar, import_registry_sidecar
 
@@ -183,11 +183,11 @@ def test_export_registry_sidecar_writes_registry_file(tmp_path, monkeypatch):
         dataset_path=str(dataset_path),
         entries=[
             {
-                "_loreforge": {"native": True, "dataset_uuid": "dataset-uuid-1"},
+                "_rolethread": {"native": True, "dataset_uuid": "dataset-uuid-1"},
                 "tags": ["slow_burn", "deleted_tag"],
             },
             {
-                "_loreforge": {"native": True, "dataset_uuid": "dataset-uuid-1"},
+                "_rolethread": {"native": True, "dataset_uuid": "dataset-uuid-1"},
                 "tags": ["slow_burn"],
             },
         ],
@@ -205,7 +205,7 @@ def test_export_registry_sidecar_writes_registry_file(tmp_path, monkeypatch):
         "slow_burn": 2,
         "deleted_tag": 1,
     }
-    assert sidecar.metadata.app_version == LOREFORGE_VERSION
+    assert sidecar.metadata.app_version == ROLETHREAD_VERSION
     assert [category.slug for category in sidecar.categories] == ["behavior"]
     behavior_category = sidecar.categories[0]
     assert behavior_category.is_builtin is True
@@ -261,7 +261,7 @@ def test_export_registry_sidecar_follows_aliases_for_dataset_relevance(tmp_path,
         dataset_path=str(dataset_path),
         entries=[
             {
-                "_loreforge": {"native": True, "dataset_uuid": "dataset-uuid-1"},
+                "_rolethread": {"native": True, "dataset_uuid": "dataset-uuid-1"},
                 "tags": ["old_tag", "active_tag"],
             }
         ],
@@ -319,7 +319,7 @@ def test_export_registry_sidecar_includes_dataset_relevant_characters_only(
         dataset_path=str(dataset_path),
         entries=[
             {
-                "_loreforge": {
+                "_rolethread": {
                     "native": True,
                     "dataset_uuid": "dataset-uuid-1",
                     "entry_uuid": "entry-1",
@@ -582,7 +582,7 @@ def test_import_registry_sidecar_rejects_dataset_uuid_mismatch(tmp_path, monkeyp
         registry=_registry(categories=[_category()]),
         entries=[
             {
-                "_loreforge": {
+                "_rolethread": {
                     "native": True,
                     "dataset_uuid": "different-dataset-uuid",
                     "entry_uuid": "entry-1",
@@ -635,7 +635,7 @@ def test_import_registry_sidecar_creates_characters_and_mappings(tmp_path, monke
         registry=registry,
         entries=[
             {
-                "_loreforge": {
+                "_rolethread": {
                     "native": True,
                     "dataset_uuid": "dataset-uuid-1",
                     "entry_uuid": "entry-1",
@@ -701,7 +701,7 @@ def test_group_entry_sidecar_round_trip_reconstructs_characters_and_mappings(
     dataset_path = tmp_path / "training_set.jsonl"
     entries = [
         {
-            "_loreforge": {
+            "_rolethread": {
                 "native": True,
                 "dataset_uuid": "dataset-uuid-1",
                 "entry_uuid": "entry-1",
@@ -902,7 +902,7 @@ def test_import_registry_sidecar_character_mappings_are_idempotent(
     )
     entries = [
         {
-            "_loreforge": {
+            "_rolethread": {
                 "native": True,
                 "dataset_uuid": "dataset-uuid-1",
                 "entry_uuid": "entry-1",
@@ -969,7 +969,7 @@ def test_import_registry_sidecar_reuses_existing_character_and_replaces_mapping(
         ),
         entries=[
             {
-                "_loreforge": {
+                "_rolethread": {
                     "native": True,
                     "dataset_uuid": "dataset-uuid-1",
                     "entry_uuid": "entry-1",
@@ -1013,7 +1013,7 @@ def test_import_registry_sidecar_skips_mapping_for_unloaded_entry(tmp_path, monk
         ),
         entries=[
             {
-                "_loreforge": {
+                "_rolethread": {
                     "native": True,
                     "dataset_uuid": "dataset-uuid-1",
                     "entry_uuid": "entry-1",
@@ -1059,7 +1059,7 @@ def test_import_registry_sidecar_skips_mapping_for_missing_character(
         ),
         entries=[
             {
-                "_loreforge": {
+                "_rolethread": {
                     "native": True,
                     "dataset_uuid": "dataset-uuid-1",
                     "entry_uuid": "entry-1",
@@ -1327,7 +1327,7 @@ def test_import_registry_sidecar_skips_stale_builtin_category(tmp_path, monkeypa
     assert result.ok is True
     assert result.categories_created == []
     assert result.warnings == [
-        "Built-in category 'Legacy Builtin' is not a current LoreForge default and was skipped."
+        "Built-in category 'Legacy Builtin' is not a current RoleThread default and was skipped."
     ]
     session = session_factory()
     try:
@@ -1343,7 +1343,7 @@ def test_import_registry_sidecar_reads_from_file(tmp_path, monkeypatch):
         json.dumps({
             "metadata": {
                 "schema_version": 1,
-                "kind": "loreforge.tag_registry",
+                "kind": "rolethread.tag_registry",
                 "exported_at": "2026-05-11T00:00:00+00:00",
             },
             "dataset": {"filename": "training_set.jsonl"},
@@ -1366,3 +1366,4 @@ def test_import_registry_sidecar_reads_from_file(tmp_path, monkeypatch):
 
     assert result.ok is False
     assert "dataset_uuid" in result.errors[0]
+

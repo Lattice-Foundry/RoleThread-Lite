@@ -20,7 +20,7 @@ from core.format_conversion import (
     convert_records_to_chatml,
     detect_records_format,
 )
-from core.loreforge_meta import get_entry_uuid, is_native_dataset
+from core.rolethread_meta import get_entry_uuid, is_native_dataset
 from core.role_normalization import normalize_entry_roles_with_count
 from core.entry_analysis import (
     AnalysisSeverity,
@@ -236,7 +236,7 @@ def load_dataset_with_summary(
             source_format=FORMAT_UNKNOWN,
         ), [
             f"Unsupported file type: {extension or '<none>'}. "
-            "LoreForge supports .jsonl, .json, and .txt files."
+            "RoleThread supports .jsonl, .json, and .txt files."
         ]
 
     try:
@@ -453,11 +453,11 @@ def save_dataset(path: str, entries: list[dict]) -> None:
         raise
 
 
-# ── Per-entry helpers ──────────────────────────────────────────────────────────
+# â”€â”€ Per-entry helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def count_exchanges(entry: dict) -> int:
     """Count complete user/assistant pairs after the system message.
-    Safe against malformed entries — never raises."""
+    Safe against malformed entries â€” never raises."""
     try:
         msgs = entry.get("messages") or []
         non_system = [m for m in msgs if isinstance(m, dict) and m.get("role") != "system"]
@@ -499,7 +499,7 @@ def entry_text_length(entry: dict) -> int:
         return 0
 
 
-# ── Entry mutation helpers ────────────────────────────────────────────────────
+# â”€â”€ Entry mutation helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def set_entry_system_prompt(entry: dict, system_prompt: str) -> dict:
     """Replace or insert the system prompt message in an entry.
@@ -519,7 +519,7 @@ def set_entry_system_prompt(entry: dict, system_prompt: str) -> dict:
     return entry
 
 
-# ── Tag helpers ───────────────────────────────────────────────────────────────
+# â”€â”€ Tag helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def get_all_tags() -> list[str]:
     """Return built-in fallback tags in category order.
@@ -952,7 +952,7 @@ def entry_matches_tags(
     """Return True if entry passes the tag filter.
 
     Reproduces the existing filtering logic exactly:
-    - No selected_tags → always True.
+    - No selected_tags â†’ always True.
     - Untagged entries handled separately from tagged ones.
     - match_mode: "Any selected tags" | "All selected tags" | "Exact match"
     """
@@ -973,7 +973,7 @@ def entry_matches_tags(
             return True
         return False
 
-    # Tagged entry — normal_tags must be non-empty to match
+    # Tagged entry â€” normal_tags must be non-empty to match
     if not normal_tags:
         return False
     entry_set = set(entry_tags)
@@ -1012,7 +1012,7 @@ def filter_entry_pairs_by_tags(
     ]
 
 
-# ── Entry UUID lookup helpers ──────────────────────────────────────────────────
+# â”€â”€ Entry UUID lookup helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def build_uuid_index(entries: list[dict]) -> dict[str, int]:
     """Build an entry UUID to source-index lookup for loaded entries."""
@@ -1049,12 +1049,12 @@ def build_dataset_stats(
 ) -> dict:
     """Compute aggregate statistics for a list of dataset entries.
 
-    Returns a plain dict — no Streamlit or pandas dependency here.
+    Returns a plain dict â€” no Streamlit or pandas dependency here.
     All values are safe to render directly; nothing mutates the input entries.
     """
     total = len(entries)
 
-    # ── Exchange counts ────────────────────────────────────────────────────────
+    # â”€â”€ Exchange counts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     exchange_counts = [count_exchanges(e) for e in entries]
     total_exchanges = sum(exchange_counts)
     avg_exchanges = total_exchanges / total if total else 0.0
@@ -1065,7 +1065,7 @@ def build_dataset_stats(
     for c in exchange_counts:
         exchange_dist[c] = exchange_dist.get(c, 0) + 1
 
-    # ── Validation ────────────────────────────────────────────────────────────
+    # â”€â”€ Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     invalid_rows: list[dict] = []
     for i, entry in enumerate(entries):
         errs = validate_entry(entry)
@@ -1078,7 +1078,7 @@ def build_dataset_stats(
     invalid_count = len(invalid_rows)
     valid_count = total - invalid_count
 
-    # ── Tags ──────────────────────────────────────────────────────────────────
+    # â”€â”€ Tags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Accept a pre-built DB-backed map from the caller; fall back to TAGS.
     tag_to_category = tag_category_map if tag_category_map is not None else get_tag_category_map()
 
@@ -1102,7 +1102,7 @@ def build_dataset_stats(
 
     unique_tags = len(tag_counts)
 
-    # ── Message lengths ───────────────────────────────────────────────────────
+    # â”€â”€ Message lengths â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     user_lengths: list[int] = []
     asst_lengths: list[int] = []
     entry_lengths: list[int] = []
@@ -1198,3 +1198,4 @@ def _append_unique_raw_tags(target: list, tags: list) -> None:
     for tag in tags:
         if tag not in target:
             target.append(tag)
+

@@ -9,8 +9,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from core.dataset import load_dataset, merge_datasets, save_dataset
-from core.loreforge_meta import (
-    LOREFORGE_META_KEY,
+from core.rolethread_meta import (
+    ROLETHREAD_META_KEY,
     get_dataset_uuid_for_entries,
     get_entry_uuid,
     stamp_entries,
@@ -31,7 +31,7 @@ from core.registry_sidecar import (
 from core.models import Base, Character, EntryCharacterTurn, Tag, TagCategory
 import core.tag_registry as tag_registry
 import core.character_registry as character_registry
-from core.version import LOREFORGE_VERSION
+from core.version import ROLETHREAD_VERSION
 import core.tag_resolution as tag_resolution
 import services.registry_sidecar_service as registry_sidecar_service
 from services import dataset_service
@@ -104,14 +104,14 @@ def _read_entries(path):
     return entries
 
 
-def _without_loreforge_meta(value):
+def _without_rolethread_meta(value):
     if isinstance(value, list):
-        return [_without_loreforge_meta(item) for item in value]
+        return [_without_rolethread_meta(item) for item in value]
     if isinstance(value, dict):
         return {
-            key: _without_loreforge_meta(item)
+            key: _without_rolethread_meta(item)
             for key, item in value.items()
-            if key != LOREFORGE_META_KEY
+            if key != ROLETHREAD_META_KEY
         }
     return value
 
@@ -119,9 +119,9 @@ def _without_loreforge_meta(value):
 def _assert_stamped(entries):
     assert entries
     for entry in entries:
-        assert entry[LOREFORGE_META_KEY]["version"] == LOREFORGE_VERSION
-        assert entry[LOREFORGE_META_KEY]["native"] is True
-        assert entry[LOREFORGE_META_KEY]["validated_at"].endswith("Z")
+        assert entry[ROLETHREAD_META_KEY]["version"] == ROLETHREAD_VERSION
+        assert entry[ROLETHREAD_META_KEY]["native"] is True
+        assert entry[ROLETHREAD_META_KEY]["validated_at"].endswith("Z")
         assert get_entry_uuid(entry) is not None
     assert get_dataset_uuid_for_entries(entries) is not None
 
@@ -177,3 +177,4 @@ def _registry_session_factory(tmp_path, monkeypatch):
         lambda *, engine: tmp_path / "db_backup.sqlite",
     )
     return session_factory
+

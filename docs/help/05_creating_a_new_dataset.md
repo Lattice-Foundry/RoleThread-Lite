@@ -34,7 +34,7 @@ Clear names make backups, sidecars, exports, and future merges much easier to un
 
 ## Dataset Folders
 
-LoreForge Lite uses a folder-per-dataset layout.
+RoleThread Lite uses a folder-per-dataset layout.
 
 For a dataset named `tavern_scenes`, the local folder may look like:
 
@@ -53,13 +53,13 @@ The `.registry.json` sidecar stores portable metadata such as tags, categories, 
 
 A new dataset may begin as an empty JSONL file. That is normal.
 
-Once you save entries, LoreForge writes them as JSONL records and stamps them with stable identity metadata. The sidecar is refreshed as metadata becomes available.
+Once you save entries, RoleThread writes them as JSONL records and stamps them with stable identity metadata. The sidecar is refreshed as metadata becomes available.
 
 An empty dataset is still a valid starting point.
 
 ## What Happens After First Save
 
-After the first entry is saved, LoreForge can track:
+After the first entry is saved, RoleThread can track:
 
 - entry UUIDs for stable entry identity
 - a dataset UUID for the saved dataset identity
@@ -77,7 +77,7 @@ Backups are part of the normal safety model. They are there so edits, repairs, d
 
 ## Sidecar Creation
 
-LoreForge refreshes the sidecar beside the dataset when it saves registry-aware changes.
+RoleThread refreshes the sidecar beside the dataset when it saves registry-aware changes.
 
 Keep the sidecar with the dataset if you move or archive the dataset. Without the sidecar, the JSONL entries may still load, but some portable metadata may not travel with them.
 
@@ -99,5 +99,6 @@ Create a new dataset when:
 - you are experimenting with a new style or character set
 - you want to merge selected material later instead of mixing everything now
 
-If you already have useful source data, load it instead. LoreForge can create a working copy and convert supported formats safely.
+If you already have useful source data, load it instead. RoleThread can create a working copy and convert supported formats safely.
+
 

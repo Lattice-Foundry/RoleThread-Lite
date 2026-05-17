@@ -13,7 +13,7 @@ from core.dataset import (
 )
 from core.character_registry import find_inactive_character_prompt_references
 from core.entry_analysis import CHARACTER_INACTIVE_REFERENCE_IN_PROMPT
-from core.loreforge_meta import get_entry_uuid
+from core.rolethread_meta import get_entry_uuid
 from core.text_helpers import count_phrase
 from core.validation_actions import (
     AutoFixGroup,
@@ -85,7 +85,7 @@ def _render_post_fix_guidance() -> None:
         render_recommended_action(
             "All auto-fixable issues resolved. "
             f"{count_phrase(int(manual_count), 'manual issue')} remain in Deep Edit.",
-            button_label="Go to Deep Edit →",
+            button_label="Go to Deep Edit â†’",
             target_page=PAGE_EDIT_ENTRIES,
             key="guidance_validation_manual_issues",
         )
@@ -310,7 +310,7 @@ def _render_character_mapping_section(entries: list[dict]) -> None:
         st.info(pattern_summary)
 
     st.caption(
-        "Review the suggested training roles, then apply the mapping. LoreForge "
+        "Review the suggested training roles, then apply the mapping. RoleThread "
         "keeps character names as metadata while saving standard user/assistant roles."
     )
 
@@ -526,3 +526,4 @@ def _format_inline_value(value: Any) -> str:
         return "Empty list"
     text = str(value)
     return text if len(text) <= 120 else text[:117] + "..."
+

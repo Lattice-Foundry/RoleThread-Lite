@@ -1,6 +1,7 @@
-"""LoreForge version metadata."""
+"""RoleThread version metadata."""
 
-LOREFORGE_VERSION = "1.3.67"
+ROLETHREAD_VERSION = "1.3.68"
 OFFICIAL_PYTHON_VERSION = "3.14.4"
 MIN_SUPPORTED_PYTHON = (3, 14, 4)
 MAX_TESTED_PYTHON = (3, 14, 4)
+

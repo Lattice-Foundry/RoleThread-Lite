@@ -1,6 +1,6 @@
 """Cloud backup sync helpers.
 
-Cloud sync is intentionally batch-oriented: LoreForge keeps working data local
+Cloud sync is intentionally batch-oriented: RoleThread keeps working data local
 during a session, then mirrors backups and portable metadata on demand or at
 process shutdown.
 """
@@ -57,7 +57,7 @@ BACKUP_CONFIG_KEYS = {
     "backup_destination_custom_path",
     "cloud_backup_last_sync_at",
 }
-LOREFORGE_CLOUD_BACKUP_SUBDIR = Path("LoreForge Lite") / "backups"
+ROLETHREAD_CLOUD_BACKUP_SUBDIR = Path("RoleThread Lite") / "backups"
 _USER_METADATA_COUNT_QUERIES = {
     "tag_categories": "SELECT COUNT(*) FROM tag_categories",
     "tags": "SELECT COUNT(*) FROM tags",
@@ -178,17 +178,17 @@ def resolve_cloud_backup_destination_from_config(config: dict | None = None) -> 
 
 
 def cloud_backup_destination_path(sync_root: str | Path) -> Path:
-    """Return LoreForge Lite's backup subfolder inside a provider sync root."""
+    """Return RoleThread Lite's backup subfolder inside a provider sync root."""
 
     root = Path(sync_root).expanduser()
     root_tail = tuple(part.casefold() for part in root.parts[-2:])
     expected_tail = tuple(
         part.casefold()
-        for part in LOREFORGE_CLOUD_BACKUP_SUBDIR.parts
+        for part in ROLETHREAD_CLOUD_BACKUP_SUBDIR.parts
     )
     if root_tail == expected_tail:
         return root
-    return root / LOREFORGE_CLOUD_BACKUP_SUBDIR
+    return root / ROLETHREAD_CLOUD_BACKUP_SUBDIR
 
 
 def detect_cloud_sync_provider_for_path(path: str | Path) -> str | None:
@@ -302,7 +302,7 @@ def sync_backups_to_cloud(destination_path: str | Path) -> CloudSyncResult:
 
 
 def cloud_backup_has_restore_data(destination_path: str | Path) -> bool:
-    """Return whether a cloud destination contains restorable LoreForge data."""
+    """Return whether a cloud destination contains restorable RoleThread data."""
 
     destination = Path(destination_path).expanduser()
     if (destination / "settings.json").exists():
@@ -589,3 +589,4 @@ def _copy_training_sidecars(target_root: Path) -> int:
         _copy_file_atomically(sidecar, target)
         copied += 1
     return copied
+

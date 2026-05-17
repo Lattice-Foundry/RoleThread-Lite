@@ -1,6 +1,6 @@
-# LoreForge Lite V1 Stable Release Gate
+# RoleThread Lite V1 Stable Release Gate
 
-This checklist defines the stable-release gate for LoreForge Lite 1.0.
+This checklist defines the stable-release gate for RoleThread Lite 1.0.
 
 ## Required Verification
 
@@ -20,7 +20,7 @@ This checklist defines the stable-release gate for LoreForge Lite 1.0.
 
 ## Release Surface
 
-LoreForge Lite V1 is stable for local-first dataset craftsmanship:
+RoleThread Lite V1 is stable for local-first dataset craftsmanship:
 
 - creating ChatML datasets
 - importing and exporting ShareGPT and ChatML data
@@ -55,3 +55,4 @@ Final launcher work must own the full application lifecycle:
 
 These boundaries keep the stable release local, inspectable, deterministic, and
 recoverable.
+

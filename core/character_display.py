@@ -5,7 +5,7 @@ from core.character_registry import (
     get_character_display_for_entries,
     get_character_display_for_entry,
 )
-from core.loreforge_meta import get_entry_uuid
+from core.rolethread_meta import get_entry_uuid
 
 _ROLE_LABELS = {
     "system": "System",
@@ -83,3 +83,4 @@ def _display_name_for_turn(
     if role_key == "assistant":
         return assistant_default or _ROLE_LABELS["assistant"]
     return _ROLE_LABELS.get(role_key, role or "?")
+

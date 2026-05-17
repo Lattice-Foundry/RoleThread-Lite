@@ -1,4 +1,4 @@
-"""LoreForge Lite Streamlit entry point.
+"""RoleThread Lite Streamlit entry point.
 
 Owns app startup and session initialization. Navigation wiring and page-state
 compatibility live in ui.navigation.
@@ -14,7 +14,7 @@ from core.launch import (
 )
 from core.runtime import get_python_runtime_status
 
-st.set_page_config(page_title="LoreForge Lite", layout="wide")
+st.set_page_config(page_title="RoleThread Lite", layout="wide")
 
 _runtime_status = get_python_runtime_status()
 if _runtime_status.is_below_minimum:
@@ -104,7 +104,7 @@ def _handle_webapp_launch(flags) -> None:
     cleanup_status = st.session_state["_dev_edge_cleanup_status"]
     if flags.dev:
         print(
-            "LoreForge Edge cleanup: "
+            "RoleThread Edge cleanup: "
             f"status={cleanup_status.status_code}; "
             f"attempted={cleanup_status.attempted}; "
             f"method={cleanup_status.method}; "
@@ -183,7 +183,7 @@ from ui.theme import (
     COLOR_SUBTITLE,
 )
 
-# ── Page config ────────────────────────────────────────────────────────────────
+# â”€â”€ Page config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 ensure_app_directories()
 
 st.markdown(f"""
@@ -194,7 +194,7 @@ section[data-testid="stSidebar"] > div {{
     background-color: {COLOR_SIDEBAR_BACKGROUND} !important;
 }}
 /* Sidebar shell branding. */
-.loreforge-sidebar-brand {{
+.rolethread-sidebar-brand {{
     align-items: center;
     display: flex;
     gap: 0.72rem;
@@ -202,23 +202,23 @@ section[data-testid="stSidebar"] > div {{
     margin: 0.35rem 0 1.35rem 0;
     padding-bottom: 0.3rem;
 }}
-.loreforge-sidebar-logo {{
+.rolethread-sidebar-logo {{
     flex: 0 0 auto;
     height: 4.55rem;
     width: 4.55rem;
 }}
-.loreforge-sidebar-copy {{
+.rolethread-sidebar-copy {{
     min-width: 0;
     text-align: left;
 }}
-.loreforge-sidebar-title {{
+.rolethread-sidebar-title {{
     color: {COLOR_PRIMARY};
     font-size: 1.5rem;
     font-weight: 800;
     line-height: 1.05;
     margin: 0;
 }}
-.loreforge-sidebar-subtitle {{
+.rolethread-sidebar-subtitle {{
     color: {COLOR_SUBTITLE};
     font-size: 0.82rem;
     font-weight: 540;
@@ -226,7 +226,7 @@ section[data-testid="stSidebar"] > div {{
     line-height: 1.25;
     margin-top: 0.24rem;
 }}
-/* Native top navigation: align hover/current indicators with LoreForge mint. */
+/* Native top navigation: align hover/current indicators with RoleThread mint. */
 div[data-testid="stTopNavLinkContainer"]:hover,
 div[data-testid="stTopNavLinkContainer"]:has(a[aria-current="page"]),
 a[data-testid="stTopNavLink"]:hover,
@@ -240,7 +240,7 @@ a[data-testid="stTopNavLink"][aria-current="page"],
 a[data-testid="stTopNavDropdownLink"][aria-current="page"] {{
     box-shadow: inset 0 -2px 0 {COLOR_PRIMARY} !important;
 }}
-/* Primary button — enabled state only (:not(:disabled) keeps disabled grey) */
+/* Primary button â€” enabled state only (:not(:disabled) keeps disabled grey) */
 button[data-testid="baseButton-primary"]:not(:disabled),
 button[kind="primary"]:not(:disabled),
 .stButton > button[type="submit"]:not(:disabled),
@@ -308,7 +308,7 @@ div.st-key-recent_dataset_list button[kind="tertiary"] p {{
     white-space: normal !important;
     overflow-wrap: anywhere !important;
 }}
-/* Warning alerts only — replace Streamlit's muddy yellow-green default. */
+/* Warning alerts only â€” replace Streamlit's muddy yellow-green default. */
 div[data-testid="stAlert"]:has(div[data-testid="stAlertContentWarning"]) {{
     background-color: {COLOR_WARNING_BACKGROUND} !important;
     border-color: transparent !important;
@@ -417,7 +417,7 @@ def _render_dev_webapp_launch_status_once() -> None:
 
 _render_dev_webapp_launch_status_once()
 
-# ── Cloud backup startup hooks ────────────────────────────────────────────────
+# â”€â”€ Cloud backup startup hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _sync_cloud_backups_on_exit() -> None:
     """Best-effort cloud backup sync for Streamlit process shutdown."""
 
@@ -445,7 +445,7 @@ def _render_cloud_restore_prompt() -> None:
     if not candidate or st.session_state.get("_cloud_restore_dismissed"):
         return
 
-    st.info(f"Found LoreForge backup data at `{candidate}`. Restore settings and registry?")
+    st.info(f"Found RoleThread backup data at `{candidate}`. Restore settings and registry?")
     restore_col, skip_col = st.columns([1, 1])
     with restore_col:
         if st.button("Restore Cloud Backup", key="_restore_cloud_backup"):
@@ -468,7 +468,7 @@ _register_cloud_sync_on_exit()
 _render_cloud_restore_prompt()
 
 
-# ── One-time session initialisation ───────────────────────────────────────────
+# â”€â”€ One-time session initialisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if "prefs" not in st.session_state:
     prefs = load_preferences()
     st.session_state.prefs = prefs
@@ -548,7 +548,7 @@ if "prefs" not in st.session_state:
             st.session_state.stale_last_path = last
 
 
-# ── Navigation ─────────────────────────────────────────────────────────────────
+# â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _PAGE_RENDERERS = {
     PAGE_CREATE_ENTRY: render_create_page,
     PAGE_MANAGE_DATASET: render_manage_page,
@@ -565,3 +565,4 @@ _PAGE_RENDERERS = {
     PAGE_FAQ: render_faq_page,
 }
 render_navigation(_PAGE_RENDERERS)
+

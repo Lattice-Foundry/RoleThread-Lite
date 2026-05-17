@@ -5,19 +5,19 @@ import json
 from pathlib import Path
 from typing import Any
 
-from core.version import LOREFORGE_VERSION
+from core.version import ROLETHREAD_VERSION
 
 
 SIDECAR_SCHEMA_VERSION = 1
-SIDECAR_KIND = "loreforge.tag_registry"
-SIDECAR_APP_NAME = "LoreForge Lite"
-SIDECAR_APP_VERSION = LOREFORGE_VERSION
+SIDECAR_KIND = "rolethread.tag_registry"
+SIDECAR_APP_NAME = "RoleThread Lite"
+SIDECAR_APP_VERSION = ROLETHREAD_VERSION
 _MISSING = object()
 
 
 @dataclass(frozen=True)
 class SidecarMetadata:
-    """Metadata identifying a LoreForge registry sidecar."""
+    """Metadata identifying a RoleThread registry sidecar."""
 
     schema_version: int = SIDECAR_SCHEMA_VERSION
     kind: str = SIDECAR_KIND
@@ -532,3 +532,4 @@ def _get_value(record, key: str, default: Any = _MISSING) -> Any:
     if default is not _MISSING:
         return default
     raise SidecarValidationError(f"Missing required field: {key}")
+

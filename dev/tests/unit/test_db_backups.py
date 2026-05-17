@@ -17,7 +17,7 @@ def _create_sqlite_db(path):
 
 
 def test_create_db_backup_creates_valid_sqlite_backup(tmp_path):
-    db_path = tmp_path / "loreforge.db"
+    db_path = tmp_path / "rolethread.db"
     backup_root = tmp_path / "backups"
     _create_sqlite_db(db_path)
 
@@ -28,7 +28,7 @@ def test_create_db_backup_creates_valid_sqlite_backup(tmp_path):
 
     assert backup_path.exists()
     assert backup_path.parent == backup_root / "database"
-    assert backup_path.name.startswith("loreforge_db_")
+    assert backup_path.name.startswith("rolethread_db_")
     assert backup_path.suffix == ".sqlite"
 
     conn = sqlite3.connect(backup_path)
@@ -40,7 +40,7 @@ def test_create_db_backup_creates_valid_sqlite_backup(tmp_path):
 
 
 def test_create_db_backup_retains_latest_three_and_ignores_unrelated_files(tmp_path):
-    db_path = tmp_path / "loreforge.db"
+    db_path = tmp_path / "rolethread.db"
     backup_root = tmp_path / "backups"
     backup_dir = backup_root / "database"
     _create_sqlite_db(db_path)
@@ -57,7 +57,7 @@ def test_create_db_backup_retains_latest_three_and_ignores_unrelated_files(tmp_p
         timestamp = 1_700_000_000 + index
         os.utime(backup_path, (timestamp, timestamp))
 
-    backups = sorted(backup_dir.glob("loreforge_db_*.sqlite"))
+    backups = sorted(backup_dir.glob("rolethread_db_*.sqlite"))
 
     assert len(backups) == 3
     assert unrelated.exists()
@@ -66,8 +66,8 @@ def test_create_db_backup_retains_latest_three_and_ignores_unrelated_files(tmp_p
 def test_prune_db_backups_deletes_only_db_backup_files(tmp_path):
     backup_dir = tmp_path / "db"
     backup_dir.mkdir()
-    old = backup_dir / "loreforge_db_20260101_120000.sqlite"
-    new = backup_dir / "loreforge_db_20260101_120001.sqlite"
+    old = backup_dir / "rolethread_db_20260101_120000.sqlite"
+    new = backup_dir / "rolethread_db_20260101_120001.sqlite"
     unrelated = backup_dir / "other.sqlite"
     old.write_text("old", encoding="utf-8")
     new.write_text("new", encoding="utf-8")
@@ -88,3 +88,4 @@ def test_create_db_backup_fails_for_missing_database(tmp_path):
             db_path=tmp_path / "missing.db",
             backup_root=tmp_path / "backups",
         )
+

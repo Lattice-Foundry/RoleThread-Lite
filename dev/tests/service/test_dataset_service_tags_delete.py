@@ -5,7 +5,7 @@ from dev.tests.service.dataset_service_test_helpers import (
     _force_backup_failure,
     _malformed_entry,
     _read_entries,
-    _without_loreforge_meta,
+    _without_rolethread_meta,
     _write_dataset,
     clear_tags_bulk_service,
     copy,
@@ -30,7 +30,7 @@ def test_replace_single_entry_tags_service_updates_only_target_and_preserves_unk
     )
 
     assert result.ok is True
-    assert _without_loreforge_meta(result.entries[0]) == entries[0]
+    assert _without_rolethread_meta(result.entries[0]) == entries[0]
     assert result.entries[1]["tags"] == ["unknown", "reviewed"]
     assert entries == original_entries
     assert _read_entries(path) == result.entries
@@ -67,7 +67,7 @@ def test_replace_tags_bulk_service_updates_only_selected_entries(tmp_path):
     assert result.ok is True
     assert result.affected_count == 2
     assert result.entries[0]["tags"] == ["bulk", "unknown"]
-    assert _without_loreforge_meta(result.entries[1]) == entries[1]
+    assert _without_rolethread_meta(result.entries[1]) == entries[1]
     assert result.entries[2]["tags"] == ["bulk", "unknown"]
     assert entries == original_entries
     assert _read_entries(path) == result.entries
@@ -165,7 +165,7 @@ def test_delete_entries_service_removes_selected_entries_and_preserves_order(tmp
 
     assert result.ok is True
     assert result.affected_count == 2
-    assert _without_loreforge_meta(result.entries) == [entries[0], entries[3]]
+    assert _without_rolethread_meta(result.entries) == [entries[0], entries[3]]
     assert entries == original_entries
     assert _read_entries(path) == result.entries
 
@@ -196,7 +196,7 @@ def test_delete_entries_service_can_delete_malformed_selected_entries(tmp_path):
     )
 
     assert result.ok is True
-    assert _without_loreforge_meta(result.entries) == [entries[0], _entry(tags=["also_good"])]
+    assert _without_rolethread_meta(result.entries) == [entries[0], _entry(tags=["also_good"])]
     assert _read_entries(path) == result.entries
 
 def test_delete_entries_service_backup_enabled_disabled_and_failure_paths(tmp_path, monkeypatch):
@@ -237,3 +237,4 @@ def test_delete_entries_service_backup_enabled_disabled_and_failure_paths(tmp_pa
 
     assert result.ok is False
     assert _read_entries(path) == entries
+

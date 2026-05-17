@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
 
-Write-Host "LoreForge Lite Windows installer scaffold"
+Write-Host "RoleThread Lite Windows installer scaffold"
 Write-Host "Repository root: $repoRoot"
 Write-Host ""
 Write-Host "Planned installer strategy:"
@@ -20,6 +20,7 @@ Write-Host "This scaffold pass does not run Inno Setup yet."
 if ($WhatIfPlan) {
     Write-Host ""
     Write-Host "Next pass candidate command shape:"
-    Write-Host "ISCC.exe installer\windows\inno\<future-loreforge-lite.iss>"
+    Write-Host "ISCC.exe installer\windows\inno\<future-rolethread-lite.iss>"
 }
+
 

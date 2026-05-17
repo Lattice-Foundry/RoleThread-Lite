@@ -9,7 +9,7 @@ import ui.entry_search_state as entry_search_state
 import ui.session_state as session_state
 from core.dataset import load_dataset_with_summary
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT
-from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid
+from core.rolethread_meta import ROLETHREAD_META_KEY, get_entry_uuid
 from core.tag_constants import ARCHIVE_ORIGIN_IMPORTED, TAG_STATUS_ARCHIVED
 from services.dataset_service import DatasetOperationResult
 
@@ -180,7 +180,7 @@ def test_set_loaded_entries_tracks_dataset_source_format(monkeypatch):
 def test_set_loaded_entries_stores_character_candidates(monkeypatch):
     state = _patch_state(monkeypatch)
     entry = _entry_without_tags()
-    entry["_loreforge"] = {"native": True, "entry_uuid": "entry-1"}
+    entry["_rolethread"] = {"native": True, "entry_uuid": "entry-1"}
     entry["messages"] = [
         {"role": "Scott", "content": "Hi"},
         {"role": "Emma", "content": "Hello"},
@@ -206,7 +206,7 @@ def test_set_loaded_entries_stores_character_candidates(monkeypatch):
 def test_set_loaded_entries_applies_known_character_role_mappings(monkeypatch):
     state = _patch_state(monkeypatch)
     entry = _entry_without_tags()
-    entry["_loreforge"] = {"native": True, "entry_uuid": "entry-1"}
+    entry["_rolethread"] = {"native": True, "entry_uuid": "entry-1"}
     entry["messages"][1]["role"] = "Scott"
     mapped_entries = [json.loads(json.dumps(entry))]
     mapped_entries[0]["messages"][1]["role"] = "user"
@@ -388,7 +388,7 @@ def test_set_loaded_entries_does_not_copy_native_dataset(tmp_path, monkeypatch):
     path = tmp_path / "native.jsonl"
     entry = {
         **_entry_without_tags(),
-        LOREFORGE_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-1"},
+        ROLETHREAD_META_KEY: {"native": True, "dataset_uuid": "dataset-uuid-1"},
     }
     path.write_text(json.dumps(entry) + "\n", encoding="utf-8")
     normalization, errors = load_dataset_with_summary(str(path))
@@ -758,3 +758,4 @@ def test_should_persist_loaded_normalization_respects_errors_and_pending_state()
         parse_errors=[],
         normalization_pending=False,
     ) is False
+

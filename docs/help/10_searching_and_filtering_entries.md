@@ -6,7 +6,7 @@ Most search and filtering work starts in **Manage Dataset** because that page is
 
 **Deep Edit** uses the same shared search state, but it is best when the filtered result set needs deeper content work.
 
-LoreForge Lite gives you three main ways to narrow the browser:
+RoleThread Lite gives you three main ways to narrow the browser:
 
 - tag filters
 - entry text search
@@ -23,7 +23,7 @@ The normal browser order is:
 
 This means search scans the filtered entry set, not only the current page. Pagination happens last.
 
-If you search for a phrase while a tag filter is active, LoreForge searches only entries that passed the tag filter.
+If you search for a phrase while a tag filter is active, RoleThread searches only entries that passed the tag filter.
 
 ## Tag Filters
 
@@ -153,3 +153,4 @@ When this happens, Manage Dataset shows a banner explaining the focused view. Us
 **Mistake:** Thinking search only checks the current page.
 
 **Better mental model:** Search checks all entries that passed tag filtering. The page view is only the final display slice.
+

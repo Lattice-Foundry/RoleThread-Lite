@@ -63,7 +63,7 @@ def test_page_registry_exposes_legacy_pages():
 
 
 def test_sidebar_branding_metadata_is_compact_shell_identity():
-    assert navigation.APP_BRAND_TITLE == "LoreForge Lite"
+    assert navigation.APP_BRAND_TITLE == "RoleThread Lite"
     assert navigation.APP_BRAND_SUBTITLE == "Narrative Intelligence"
 
 
@@ -208,7 +208,7 @@ def test_current_page_defaults_and_set_current_page(monkeypatch):
 def test_set_current_page_rejects_unknown_page(monkeypatch):
     _patch_navigation_state(monkeypatch)
 
-    with pytest.raises(ValueError, match="Unknown LoreForge page"):
+    with pytest.raises(ValueError, match="Unknown RoleThread page"):
         navigation.set_current_page("Unknown")
 
 
@@ -325,3 +325,4 @@ def test_stats_navigation_preserves_focused_filter_and_routes(monkeypatch):
     assert fake.session_state["manage_select_all_mode"] is False
     assert fake.session_state.page == navigation.PAGE_MANAGE_DATASET
     assert fake.rerun_count == 1
+

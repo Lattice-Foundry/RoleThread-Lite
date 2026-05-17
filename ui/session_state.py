@@ -15,7 +15,7 @@ from core.dataset import (
     get_entry_index_by_uuid,
     TagNormalizationSummary,
 )
-from core.loreforge_meta import get_dataset_uuid_for_entries, get_entry_uuid
+from core.rolethread_meta import get_dataset_uuid_for_entries, get_entry_uuid
 from core.preferences import save_preferences
 from services.dataset_service import (
     DatasetOperationResult,
@@ -29,7 +29,7 @@ from ui.flash_messages import enqueue_flash
 from ui.entry_search_state import sync_entry_search_state_for_dataset
 
 
-# ── Preferences session helper ─────────────────────────────────────────────────
+# â”€â”€ Preferences session helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def update_prefs(updates: dict) -> None:
     """Update st.session_state.prefs in place and persist to disk."""
@@ -48,7 +48,7 @@ def update_prefs(updates: dict) -> None:
 def ensure_entry_indexes() -> None:
     """Ensure UUID indexes are consistent with loaded_entries.
 
-    Rebuilds silently if missing or invalid — safe to call anywhere.
+    Rebuilds silently if missing or invalid â€” safe to call anywhere.
     """
     entries = st.session_state.get("loaded_entries", [])
     if st.session_state.get("uuid_to_index") != build_uuid_index(entries):
@@ -258,7 +258,7 @@ def get_all_entry_pairs() -> list[tuple[str, dict]]:
     return pairs
 
 
-# ── Selection helpers ──────────────────────────────────────────────────────────
+# â”€â”€ Selection helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def ensure_selection_state() -> None:
     """Ensure selected_entry_uuids exists as a set in session state."""
@@ -371,7 +371,7 @@ def _enqueue_sidecar_warning_if_needed(result: DatasetOperationResult) -> None:
     enqueue_flash("warning", warning)
 
 
-# ── Quick-edit helpers ─────────────────────────────────────────────────────────
+# â”€â”€ Quick-edit helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def start_quick_edit(entry_uuid: str, entry: dict) -> None:
     """Enter quick edit mode for entry_uuid.
@@ -445,3 +445,4 @@ def save_quick_edit(entry_uuid: str, entry: dict) -> DatasetOperationResult:
         st.session_state.loaded_entries = result.entries
         st.session_state.uuid_to_index = build_uuid_index(result.entries)
     return result
+

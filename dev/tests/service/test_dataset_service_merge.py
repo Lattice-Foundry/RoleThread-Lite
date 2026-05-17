@@ -9,7 +9,7 @@ from dev.tests.service.dataset_service_test_helpers import (
     _fail_if_backup_called,
     _force_backup_failure,
     _read_entries,
-    _without_loreforge_meta,
+    _without_rolethread_meta,
     copy,
     get_dataset_uuid_for_entries,
     read_sidecar,
@@ -35,7 +35,7 @@ def test_save_merged_entries_service_saves_new_output_and_preserves_metadata(tmp
 
     assert result.ok is True
     assert result.backup_path is None
-    assert _without_loreforge_meta(result.entries) == entries
+    assert _without_rolethread_meta(result.entries) == entries
     _assert_stamped(result.entries)
     assert entries == original_entries
     assert _read_entries(path) == result.entries
@@ -180,3 +180,4 @@ def test_save_merged_entries_service_backup_failure_aborts_overwrite(tmp_path, m
 
     assert result.ok is False
     assert _read_entries(path) == existing
+

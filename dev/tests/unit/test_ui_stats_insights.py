@@ -15,7 +15,7 @@ def _entry(entry_uuid: str, tags: list[str] | None = None, exchanges: int = 1) -
     return {
         "messages": messages,
         "tags": tags or [],
-        "_loreforge": {"entry_uuid": entry_uuid},
+        "_rolethread": {"entry_uuid": entry_uuid},
     }
 
 
@@ -63,3 +63,4 @@ def test_long_exchange_entry_uuids_flags_split_candidates() -> None:
     ]
 
     assert _long_exchange_entry_uuids(entries) == ["long", "longer"]
+

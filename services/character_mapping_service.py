@@ -11,7 +11,7 @@ from core.character_registry import (
     get_character_by_slug,
     normalize_character_name,
 )
-from core.loreforge_meta import ensure_entry_uuid, get_entry_uuid
+from core.rolethread_meta import ensure_entry_uuid, get_entry_uuid
 from services.dataset_service import DatasetOperationResult, save_repaired_entries_service
 
 _TRAINING_ROLES = {"user", "assistant"}
@@ -222,3 +222,4 @@ def _from_dataset_result(result: DatasetOperationResult) -> CharacterMappingResu
         backup_path=result.backup_path,
         dataset_path=result.dataset_path,
     )
+

@@ -11,7 +11,7 @@ Use merge when you want to combine:
 - related dataset files
 - cleaned subsets
 - work from different sessions
-- imported data and native LoreForge data
+- imported data and native RoleThread data
 - separate scene or tag groups
 
 If you only need to export a filtered slice, use Export instead. Merge is for creating a new combined dataset.
@@ -60,7 +60,7 @@ If you want a later version to win, place that dataset earlier in the merge orde
 
 Duplicate entries may carry different tags.
 
-LoreForge preserves useful organization by merging and deduplicating tags from duplicate entries into the surviving entry where safe.
+RoleThread preserves useful organization by merging and deduplicating tags from duplicate entries into the surviving entry where safe.
 
 This avoids losing metadata just because the content was deduplicated.
 
@@ -77,7 +77,7 @@ Safe metadata may be imported, including:
 - character mappings
 - system prompt templates
 
-Conflicts are handled conservatively. LoreForge avoids overwriting existing registry meaning without a clear reason.
+Conflicts are handled conservatively. RoleThread avoids overwriting existing registry meaning without a clear reason.
 
 ## Character Mapping Preservation
 
@@ -110,3 +110,4 @@ After a merge, run:
 ## Practical Tip
 
 For predictable duplicate handling, put your preferred source file first.
+

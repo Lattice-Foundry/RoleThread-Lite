@@ -22,7 +22,7 @@ from core.load_pipeline import (
     prepare_foreign_working_copy,
     sidecar_error_summary,
 )
-from core.loreforge_meta import ensure_entry_uuid, get_dataset_uuid_for_entries
+from core.rolethread_meta import ensure_entry_uuid, get_dataset_uuid_for_entries
 from core.registry_sidecar import read_sidecar, sidecar_path_for_dataset
 from core.tag_registry import ensure_tags_exist_for_dataset
 from core.tag_resolution import resolve_tag_lifecycle
@@ -252,3 +252,4 @@ def _sidecar_dataset_uuid_mismatch(
             error=error,
         )
     return None
+

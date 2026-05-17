@@ -1,6 +1,6 @@
-# What LoreForge Lite Does
+# What RoleThread Lite Does
 
-LoreForge Lite is a local-first toolkit for crafting narrative AI training datasets. It focuses on the practical work around dataset creation: writing entries, editing conversations, validating structure, organizing metadata, merging files, searching entries, reviewing quality, and exporting clean training data.
+RoleThread Lite is a local-first toolkit for crafting narrative AI training datasets. It focuses on the practical work around dataset creation: writing entries, editing conversations, validating structure, organizing metadata, merging files, searching entries, reviewing quality, and exporting clean training data.
 
 It is built for creators working with narrative, conversational, instructional, roleplay, character-driven, and other interaction-heavy training data.
 
@@ -17,13 +17,13 @@ A training dataset is more than a pile of messages. Over time, it also needs:
 - backups and recovery paths
 - safe import/export behavior
 
-LoreForge Lite provides those tools while keeping the actual dataset files local and inspectable.
+RoleThread Lite provides those tools while keeping the actual dataset files local and inspectable.
 
 ## Local-First Dataset Crafting
 
 Local-first means the app is designed around your machine and your files.
 
-LoreForge Lite stores and works with:
+RoleThread Lite stores and works with:
 
 - JSONL dataset files
 - local registry metadata
@@ -58,7 +58,7 @@ Tag filters and search work together, with pagination applied after filtering.
 
 ### Organize Metadata
 
-LoreForge Lite includes local management for:
+RoleThread Lite includes local management for:
 
 - tag categories
 - custom tags
@@ -80,7 +80,7 @@ This helps prevent small format problems from quietly spreading through a datase
 
 You can merge datasets while preserving useful metadata and creating a fresh merge output identity. You can export full datasets or selected/filtered subsets.
 
-Clean export removes LoreForge metadata from records intended for training.
+Clean export removes RoleThread metadata from records intended for training.
 
 ### Review Insights
 
@@ -99,7 +99,7 @@ These are guidance tools. They help you notice patterns, but they do not replace
 
 ## What Lite Is Not
 
-LoreForge Lite is intentionally not:
+RoleThread Lite is intentionally not:
 
 - a chatbot frontend
 - a hosted dataset platform
@@ -117,6 +117,7 @@ Future Studio work may explore larger workflows, more orchestration, and heavier
 
 ## A Good Mental Model
 
-Think of LoreForge Lite as a careful workshop for your dataset.
+Think of RoleThread Lite as a careful workshop for your dataset.
 
 It does not hide the files from you. It does not assume every imported file is safe to edit directly. It keeps metadata separate when that protects clean training data. It creates backups before risky operations. It tries to make problems visible before they become expensive.
+

@@ -1,6 +1,6 @@
 """Application-managed storage paths.
 
-This module centralizes LoreForge's local directories and creates them on
+This module centralizes RoleThread's local directories and creates them on
 startup. It must stay independent of Streamlit.
 """
 from pathlib import Path
@@ -18,7 +18,7 @@ def _legacy_app_data_has_state(path: Path = LEGACY_APP_DATA_DIR) -> bool:
 
     return any(
         (path / name).exists()
-        for name in ("loreforge.db", "preferences.json", "backup_config.json")
+        for name in ("rolethread.db", "preferences.json", "backup_config.json")
     )
 
 
@@ -33,7 +33,7 @@ TRAINING_DATA_DIR = _PLATFORM_PATHS.training_data_dir
 
 
 def ensure_app_directories() -> None:
-    """Create LoreForge-managed directories if they are missing."""
+    """Create RoleThread-managed directories if they are missing."""
     for path in (APP_DATA_DIR, BACKUPS_DIR, TEMP_DIR, TRAINING_DATA_DIR):
         path.mkdir(parents=True, exist_ok=True)
 
@@ -54,3 +54,4 @@ def get_temp_dir() -> Path:
     """Return the app-managed temporary directory."""
 
     return TEMP_DIR
+

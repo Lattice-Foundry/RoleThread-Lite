@@ -37,7 +37,7 @@ Splitting is especially useful for imported datasets where long conversations we
 
 Split happens in **Full Edit**.
 
-When an entry has enough exchanges to split, LoreForge shows centered split buttons between exchange groups, such as:
+When an entry has enough exchanges to split, RoleThread shows centered split buttons between exchange groups, such as:
 
 ```text
 Split @ Exchange 3
@@ -54,7 +54,7 @@ The split keeps:
 
 The new entry receives a fresh entry UUID.
 
-LoreForge creates a backup before applying the split.
+RoleThread creates a backup before applying the split.
 
 ## Split Examples
 
@@ -83,7 +83,7 @@ Join happens in **Manage Dataset**.
 
 Select two or more entries, then use **Join Selected**.
 
-LoreForge joins entries in the current display order. The joined entry uses:
+RoleThread joins entries in the current display order. The joined entry uses:
 
 - the system prompt from the first selected entry
 - all non-system turns from the selected entries
@@ -91,9 +91,9 @@ LoreForge joins entries in the current display order. The joined entry uses:
 - character mappings reindexed into the new message order
 - a fresh entry UUID
 
-If system prompts differ, LoreForge warns you but can still proceed using the first prompt.
+If system prompts differ, RoleThread warns you but can still proceed using the first prompt.
 
-LoreForge creates a backup before applying the join.
+RoleThread creates a backup before applying the join.
 
 ## Join Examples
 
@@ -130,4 +130,5 @@ Run Validation after restructuring. Split and join are safe operations with back
 **Mistake:** Splitting only because an entry looks long.
 
 **Better approach:** Split where the conversation naturally changes focus. Length is a signal, but coherence is the real goal.
+
 

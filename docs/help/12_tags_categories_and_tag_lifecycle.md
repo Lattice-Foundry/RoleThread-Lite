@@ -1,6 +1,6 @@
 # Tags, Categories, and Tag Lifecycle
 
-Tags are how LoreForge Lite helps you organize a dataset without changing the conversation text.
+Tags are how RoleThread Lite helps you organize a dataset without changing the conversation text.
 
 A tag is metadata. It helps you find, filter, export, and understand entries. It does not become part of the `system`, `user`, or `assistant` messages unless you write it into the messages yourself.
 
@@ -42,7 +42,7 @@ Categories keep a growing registry readable. They also make it easier to decide 
 
 ## Built-In Tags
 
-LoreForge Lite includes a small built-in taxonomy for common conversational dataset workflows.
+RoleThread Lite includes a small built-in taxonomy for common conversational dataset workflows.
 
 The V1 built-in categories are:
 
@@ -88,7 +88,7 @@ If you are actively using a tag, it should usually live in a category and remain
 
 ## Renaming Tags
 
-Renaming a tag changes how it appears going forward, but LoreForge also preserves alias information so older tag references can still be understood.
+Renaming a tag changes how it appears going forward, but RoleThread also preserves alias information so older tag references can still be understood.
 
 This matters when:
 
@@ -97,7 +97,7 @@ This matters when:
 - an imported dataset used a different name
 - several older tags should point to one cleaner tag
 
-LoreForge tracks this kind of history intentionally. It avoids silently losing meaning when names change.
+RoleThread tracks this kind of history intentionally. It avoids silently losing meaning when names change.
 
 ## Deleting Tags
 
@@ -110,13 +110,13 @@ Before deleting, think about whether the tag is:
 - better renamed or merged into another tag
 - useful as a review marker
 
-Deleting built-in tags is not allowed because those tags are part of the shared LoreForge vocabulary.
+Deleting built-in tags is not allowed because those tags are part of the shared RoleThread vocabulary.
 
 ## Aliases and Tag Lifecycle
 
 An **alias** is a remembered relationship between an older tag name and its current meaning.
 
-You do not need to manage aliases directly for normal work. They are part of how LoreForge keeps tag history stable.
+You do not need to manage aliases directly for normal work. They are part of how RoleThread keeps tag history stable.
 
 At a high level, tag lifecycle means:
 
@@ -126,7 +126,7 @@ At a high level, tag lifecycle means:
 - old names can resolve to current names
 - unknown tags are preserved instead of thrown away
 
-That is why LoreForge can be conservative with metadata while still letting you clean it up over time.
+That is why RoleThread can be conservative with metadata while still letting you clean it up over time.
 
 ## Why Stable Tag Organization Matters
 
@@ -139,7 +139,7 @@ They improve:
 - metadata completeness
 - Insights quality scoring
 - cleanup passes
-- collaboration with future versions of LoreForge
+- collaboration with future versions of RoleThread
 
 You do not need a perfect taxonomy. You only need tags that mean something to you and stay reasonably consistent.
 
@@ -158,9 +158,10 @@ A simple tag workflow:
 
 **Mistake:** Treating tags as conversation content.
 
-**Better mental model:** Tags are organizational metadata. They help LoreForge manage the dataset, but clean training exports can remove LoreForge metadata from the records.
+**Better mental model:** Tags are organizational metadata. They help RoleThread manage the dataset, but clean training exports can remove RoleThread metadata from the records.
 
 ## Practical Tip
 
 Start with fewer tags than you think you need. Add more when a real workflow asks for them.
+
 

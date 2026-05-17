@@ -9,7 +9,7 @@ import core.tag_registry as tag_registry
 import core.tag_metadata as tag_metadata
 import core.tag_resolution as tag_resolution
 from core.dataset import load_dataset, save_dataset
-from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid
+from core.rolethread_meta import ROLETHREAD_META_KEY, get_entry_uuid
 from core.tag_constants import (
     TAG_LIFECYCLE_METADATA_ARCHIVE,
     TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
@@ -20,7 +20,7 @@ from core.tag_constants import (
     TAG_STATUS_ARCHIVED,
     TAG_STATUS_HIDDEN,
 )
-from core.version import LOREFORGE_VERSION
+from core.version import ROLETHREAD_VERSION
 from core.models import (
     Base,
     CategoryHistory,
@@ -135,14 +135,14 @@ def _entry(tags):
     }
 
 
-def _without_loreforge_meta(value):
+def _without_rolethread_meta(value):
     if isinstance(value, list):
-        return [_without_loreforge_meta(item) for item in value]
+        return [_without_rolethread_meta(item) for item in value]
     if isinstance(value, dict):
         return {
-            key: _without_loreforge_meta(item)
+            key: _without_rolethread_meta(item)
             for key, item in value.items()
-            if key != LOREFORGE_META_KEY
+            if key != ROLETHREAD_META_KEY
         }
     return value
 
@@ -150,9 +150,9 @@ def _without_loreforge_meta(value):
 def _assert_stamped(entries):
     assert entries
     for entry in entries:
-        assert entry[LOREFORGE_META_KEY]["version"] == LOREFORGE_VERSION
-        assert entry[LOREFORGE_META_KEY]["native"] is True
-        assert entry[LOREFORGE_META_KEY]["validated_at"].endswith("Z")
+        assert entry[ROLETHREAD_META_KEY]["version"] == ROLETHREAD_VERSION
+        assert entry[ROLETHREAD_META_KEY]["native"] is True
+        assert entry[ROLETHREAD_META_KEY]["validated_at"].endswith("Z")
         assert get_entry_uuid(entry) is not None
 
 
@@ -177,3 +177,4 @@ def _fake_dataset_backup(tmp_path, monkeypatch):
         fake_create_dataset_backup,
     )
     return backups
+

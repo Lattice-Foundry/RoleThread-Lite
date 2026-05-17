@@ -1,11 +1,11 @@
 [
   {
-    "question": "Getting started: What is LoreForge Lite?",
-    "answer": "LoreForge Lite is a local-first tool for creating, organizing, validating, analyzing, merging, and exporting narrative training datasets. It is built for practical dataset craftsmanship, not hosted orchestration.\n\nYour working files, sidecars, settings, backups, and local database stay on your machine unless you configure cloud backup."
+    "question": "Getting started: What is RoleThread Lite?",
+    "answer": "RoleThread Lite is a local-first tool for creating, organizing, validating, analyzing, merging, and exporting narrative training datasets. It is built for practical dataset craftsmanship, not hosted orchestration.\n\nYour working files, sidecars, settings, backups, and local database stay on your machine unless you configure cloud backup."
   },
   {
     "question": "Getting started: Why is an example dataset already loaded?",
-    "answer": "LoreForge Lite ships with curated example datasets so you can explore real workflows safely. One example dataset may load automatically on first launch.\n\nThe examples are learning material. You can inspect tags, prompts, sidecars, character mappings, Validation results, and Insights behavior before working on your own dataset."
+    "answer": "RoleThread Lite ships with curated example datasets so you can explore real workflows safely. One example dataset may load automatically on first launch.\n\nThe examples are learning material. You can inspect tags, prompts, sidecars, character mappings, Validation results, and Insights behavior before working on your own dataset."
   },
   {
     "question": "Getting started: Where should I spend most of my time?",
@@ -16,16 +16,16 @@
     "answer": "No. Start with Manage Dataset, Create Entry, Quick Edit, and Validation before export.\n\nThe deeper systems are there when you need them. Tags, Group Chat mode, Insights, split/join, sidecars, and prompt templates can become part of your workflow gradually."
   },
   {
-    "question": "Getting started: Is LoreForge changing my original files?",
-    "answer": "Not usually. If LoreForge loads an untrusted outside dataset, it may create a protected working copy and edit that copy instead of the original.\n\nUse the current loaded dataset path in Manage Dataset to confirm which file you are editing."
+    "question": "Getting started: Is RoleThread changing my original files?",
+    "answer": "Not usually. If RoleThread loads an untrusted outside dataset, it may create a protected working copy and edit that copy instead of the original.\n\nUse the current loaded dataset path in Manage Dataset to confirm which file you are editing."
   },
   {
-    "question": "Working copies and sidecars: Why did LoreForge create a working copy?",
-    "answer": "A working copy protects source files that did not clearly come from LoreForge Lite. This is common with ShareGPT files, manually edited JSONL, older files, or datasets from another tool.\n\nThe working copy is intentional. It lets you safely edit without accidentally mutating the original source."
+    "question": "Working copies and sidecars: Why did RoleThread create a working copy?",
+    "answer": "A working copy protects source files that did not clearly come from RoleThread Lite. This is common with ShareGPT files, manually edited JSONL, older files, or datasets from another tool.\n\nThe working copy is intentional. It lets you safely edit without accidentally mutating the original source."
   },
   {
     "question": "Working copies and sidecars: What is a trusted dataset?",
-    "answer": "A trusted dataset carries stable LoreForge identity metadata, such as dataset UUID and entry UUID information.\n\nAn untrusted dataset may still be valid data. It simply means LoreForge should be careful before writing back to it."
+    "answer": "A trusted dataset carries stable RoleThread identity metadata, such as dataset UUID and entry UUID information.\n\nAn untrusted dataset may still be valid data. It simply means RoleThread should be careful before writing back to it."
   },
   {
     "question": "Working copies and sidecars: Why is there a .registry.json file?",
@@ -33,19 +33,19 @@
   },
   {
     "question": "Working copies and sidecars: Can I delete the sidecar?",
-    "answer": "You can, but you may lose LoreForge-specific context such as tag organization, character mappings, prompt templates, and archived/imported tag information.\n\nIf you want the dataset to remain fully useful in LoreForge later, keep the JSONL and sidecar together."
+    "answer": "You can, but you may lose RoleThread-specific context such as tag organization, character mappings, prompt templates, and archived/imported tag information.\n\nIf you want the dataset to remain fully useful in RoleThread later, keep the JSONL and sidecar together."
   },
   {
     "question": "Working copies and sidecars: What does a sidecar UUID warning mean?",
-    "answer": "It usually means the sidecar does not clearly belong to the loaded dataset. LoreForge may still load the entries, but skip the questionable sidecar metadata.\n\nThis protects you from accidentally pairing one dataset with another dataset's registry context."
+    "answer": "It usually means the sidecar does not clearly belong to the loaded dataset. RoleThread may still load the entries, but skip the questionable sidecar metadata.\n\nThis protects you from accidentally pairing one dataset with another dataset's registry context."
   },
   {
     "question": "Tags and metadata: Why are there archived/imported tags?",
-    "answer": "Archived/imported tags are unknown or inactive tags preserved from imported data, older metadata, or sidecars.\n\nThey are not errors. LoreForge keeps them visible so you can decide whether to adopt, rename, ignore, or remove them later."
+    "answer": "Archived/imported tags are unknown or inactive tags preserved from imported data, older metadata, or sidecars.\n\nThey are not errors. RoleThread keeps them visible so you can decide whether to adopt, rename, ignore, or remove them later."
   },
   {
     "question": "Tags and metadata: Are tags part of the training conversation?",
-    "answer": "No. Tags are metadata for organization, filtering, export selection, and Insights.\n\nClean export removes LoreForge metadata from the training records. The conversation text is still the `system`, `user`, and `assistant` messages."
+    "answer": "No. Tags are metadata for organization, filtering, export selection, and Insights.\n\nClean export removes RoleThread metadata from the training records. The conversation text is still the `system`, `user`, and `assistant` messages."
   },
   {
     "question": "Tags and metadata: Why are built-in tags locked?",
@@ -53,7 +53,7 @@
   },
   {
     "question": "Tags and metadata: What happens when I rename a tag?",
-    "answer": "LoreForge preserves alias/lifecycle information so older references can still resolve to the current tag meaning where safe.\n\nThis helps tag cleanup without silently losing history."
+    "answer": "RoleThread preserves alias/lifecycle information so older references can still resolve to the current tag meaning where safe.\n\nThis helps tag cleanup without silently losing history."
   },
   {
     "question": "Tags and metadata: Should I adopt every imported tag?",
@@ -61,11 +61,11 @@
   },
   {
     "question": "Group Chat and characters: Why are my character names not exported as roles?",
-    "answer": "Training roles stay standard: `system`, `user`, and `assistant`. Character names are stored as metadata through character mappings.\n\nThis keeps exported datasets compatible with normal training tools while still preserving who spoke in LoreForge."
+    "answer": "Training roles stay standard: `system`, `user`, and `assistant`. Character names are stored as metadata through character mappings.\n\nThis keeps exported datasets compatible with normal training tools while still preserving who spoke in RoleThread."
   },
   {
     "question": "Group Chat and characters: What is a character mapping?",
-    "answer": "A character mapping connects a character to a specific message turn.\n\nIt means LoreForge knows which character a turn represents, without changing the JSONL role itself."
+    "answer": "A character mapping connects a character to a specific message turn.\n\nIt means RoleThread knows which character a turn represents, without changing the JSONL role itself."
   },
   {
     "question": "Group Chat and characters: When should I use Group Chat mode?",
@@ -73,19 +73,19 @@
   },
   {
     "question": "Group Chat and characters: What happens if I deactivate a character?",
-    "answer": "The character stops appearing as a normal active choice, but existing metadata can still be handled safely.\n\nLoreForge may warn if loaded entries still reference that character in system prompts, so you can review them rather than losing context silently."
+    "answer": "The character stops appearing as a normal active choice, but existing metadata can still be handled safely.\n\nRoleThread may warn if loaded entries still reference that character in system prompts, so you can review them rather than losing context silently."
   },
   {
     "question": "Group Chat and characters: Do character mappings survive split, join, and merge?",
-    "answer": "LoreForge tries to preserve mappings when it can do so safely. Split and join reindex mappings to match the new turn order.\n\nDuring merge, mappings are preserved only for entries that survive, so discarded duplicates do not create orphan metadata."
+    "answer": "RoleThread tries to preserve mappings when it can do so safely. Split and join reindex mappings to match the new turn order.\n\nDuring merge, mappings are preserved only for entries that survive, so discarded duplicates do not create orphan metadata."
   },
   {
-    "question": "Validation and Insights: Why does Validation show warnings if LoreForge validates before save?",
-    "answer": "Normal LoreForge forms guard against most structural problems before save. Validation has a broader job: imported cleanup, consistency review, merge review, quality diagnostics, and final export checks.\n\nWarnings are review prompts, not proof that normal app usage is unsafe."
+    "question": "Validation and Insights: Why does Validation show warnings if RoleThread validates before save?",
+    "answer": "Normal RoleThread forms guard against most structural problems before save. Validation has a broader job: imported cleanup, consistency review, merge review, quality diagnostics, and final export checks.\n\nWarnings are review prompts, not proof that normal app usage is unsafe."
   },
   {
     "question": "Validation and Insights: Do I need to run Validation constantly?",
-    "answer": "No. Use Validation when it helps: after loading imported data, after large cleanup passes, after merge/split/join work, or before export.\n\nFor normal LoreForge-native creation, it is more of an audit tool than an emergency repair loop."
+    "answer": "No. Use Validation when it helps: after loading imported data, after large cleanup passes, after merge/split/join work, or before export.\n\nFor normal RoleThread-native creation, it is more of an audit tool than an emergency repair loop."
   },
   {
     "question": "Validation and Insights: Are Insights scores definitive?",
@@ -101,7 +101,7 @@
   },
   {
     "question": "Export and training: What is clean export?",
-    "answer": "Clean export removes LoreForge metadata from training records, such as tags and identity fields.\n\nUse it when another training tool should receive only the conversation data."
+    "answer": "Clean export removes RoleThread metadata from training records, such as tags and identity fields.\n\nUse it when another training tool should receive only the conversation data."
   },
   {
     "question": "Export and training: Should I export ChatML or ShareGPT?",
@@ -113,15 +113,15 @@
   },
   {
     "question": "Export and training: Should I keep the sidecar with exported files?",
-    "answer": "Keep the sidecar if you want LoreForge project context to travel with the dataset.\n\nFor a training tool that only needs plain records, provide the clean exported JSONL. For future LoreForge work, keep the sidecar nearby."
+    "answer": "Keep the sidecar if you want RoleThread project context to travel with the dataset.\n\nFor a training tool that only needs plain records, provide the clean exported JSONL. For future RoleThread work, keep the sidecar nearby."
   },
   {
     "question": "Export and training: Why did merge create a new dataset UUID?",
     "answer": "A merge output is a new dataset, even if it was built from existing sources.\n\nGiving it a fresh dataset UUID prevents the output from pretending to be one of the source datasets."
   },
   {
-    "question": "Backups and recovery: Does LoreForge create backups automatically?",
-    "answer": "Yes, when automatic backups are enabled, LoreForge creates local backups before protected operations such as edits, deletes, repairs, splits, joins, merges, and tag lifecycle changes.\n\nKeeping automatic backups enabled is the safest default."
+    "question": "Backups and recovery: Does RoleThread create backups automatically?",
+    "answer": "Yes, when automatic backups are enabled, RoleThread creates local backups before protected operations such as edits, deletes, repairs, splits, joins, merges, and tag lifecycle changes.\n\nKeeping automatic backups enabled is the safest default."
   },
   {
     "question": "Backups and recovery: What is the difference between dataset backups and DB backups?",
@@ -133,7 +133,7 @@
   },
   {
     "question": "Backups and recovery: Can I restore backups manually?",
-    "answer": "Yes. If something goes wrong, stop editing, close LoreForge, and restore the most consistent dataset backup and DB backup pair.\n\nIf only the JSONL was affected, a dataset backup may be enough. If tags, characters, mappings, settings, or prompt templates were involved, restore the matching DB backup too."
+    "answer": "Yes. If something goes wrong, stop editing, close RoleThread, and restore the most consistent dataset backup and DB backup pair.\n\nIf only the JSONL was affected, a dataset backup may be enough. If tags, characters, mappings, settings, or prompt templates were involved, restore the matching DB backup too."
   },
   {
     "question": "Backups and recovery: Why should my local backup folder not be cloud-synced?",
@@ -144,20 +144,20 @@
     "answer": "V1 search is deterministic and local: text queries, scopes, match modes, and tag filters.\n\nSemantic or vector search would be a larger system with different expectations. The V1 boundary keeps search predictable and easy to understand."
   },
   {
-    "question": "V1 boundaries: Does LoreForge train or host models?",
-    "answer": "No. LoreForge Lite prepares datasets. It does not host inference, train models, or run a hosted evaluation service.\n\nUse Export when the dataset is ready for another training workflow."
+    "question": "V1 boundaries: Does RoleThread train or host models?",
+    "answer": "No. RoleThread Lite prepares datasets. It does not host inference, train models, or run a hosted evaluation service.\n\nUse Export when the dataset is ready for another training workflow."
   },
   {
-    "question": "V1 boundaries: Is LoreForge Lite a multi-user collaboration tool?",
+    "question": "V1 boundaries: Is RoleThread Lite a multi-user collaboration tool?",
     "answer": "No. Lite is a single-user local app.\n\nCloud backup is for recovery, not live shared editing. Avoid editing the same dataset from multiple machines through a cloud folder at the same time."
   },
   {
-    "question": "V1 boundaries: Will LoreForge automatically build a finished dataset for me?",
-    "answer": "No. LoreForge gives you tools to create, organize, validate, analyze, and export your dataset.\n\nThe creator remains in control of the content, intent, style, and final quality."
+    "question": "V1 boundaries: Will RoleThread automatically build a finished dataset for me?",
+    "answer": "No. RoleThread gives you tools to create, organize, validate, analyze, and export your dataset.\n\nThe creator remains in control of the content, intent, style, and final quality."
   },
   {
     "question": "V1 boundaries: Is Lite incomplete because larger Studio ideas are not included?",
-    "answer": "No. LoreForge Lite is intentionally scoped around local-first dataset craftsmanship.\n\nLarger hosted orchestration or team-scale systems belong outside the V1 Lite surface. Lite is meant to be focused, understandable, and useful on its own."
+    "answer": "No. RoleThread Lite is intentionally scoped around local-first dataset craftsmanship.\n\nLarger hosted orchestration or team-scale systems belong outside the V1 Lite surface. Lite is meant to be focused, understandable, and useful on its own."
   },
   {
     "question": "Workflow philosophy: Why is Manage Dataset the main workflow hub?",
@@ -197,59 +197,59 @@
   },
   {
     "question": "Dataset craftsmanship: Is there one correct writing style for training data?",
-    "answer": "No. Your dataset should match the behavior you want.\n\nLoreForge can show patterns such as length, dialogue balance, formatting, and repetition, but those are signals for review rather than strict writing rules."
+    "answer": "No. Your dataset should match the behavior you want.\n\nRoleThread can show patterns such as length, dialogue balance, formatting, and repetition, but those are signals for review rather than strict writing rules."
   },
   {
     "question": "Metadata philosophy: Why keep metadata separate from training text?",
-    "answer": "Training tools usually need clean `system`, `user`, and `assistant` messages. LoreForge metadata supports organization, search, characters, tags, and portability.\n\nKeeping those separate lets you work with rich project context while still exporting clean training records."
+    "answer": "Training tools usually need clean `system`, `user`, and `assistant` messages. RoleThread metadata supports organization, search, characters, tags, and portability.\n\nKeeping those separate lets you work with rich project context while still exporting clean training records."
   },
   {
     "question": "Metadata philosophy: Why are sidecars portable instead of embedding everything?",
-    "answer": "Sidecars let metadata travel with a dataset without changing the training records themselves.\n\nThat keeps clean export clean while still preserving tags, characters, prompt templates, mappings, and registry context for future LoreForge work."
+    "answer": "Sidecars let metadata travel with a dataset without changing the training records themselves.\n\nThat keeps clean export clean while still preserving tags, characters, prompt templates, mappings, and registry context for future RoleThread work."
   },
   {
     "question": "Metadata philosophy: Why preserve unknown metadata instead of deleting it?",
-    "answer": "Unknown metadata may still be meaningful. Imported tags, character hints, or sidecar information can tell you how a dataset was organized before it reached LoreForge.\n\nPreserving it gives you the choice to adopt, ignore, rename, or remove it later."
+    "answer": "Unknown metadata may still be meaningful. Imported tags, character hints, or sidecar information can tell you how a dataset was organized before it reached RoleThread.\n\nPreserving it gives you the choice to adopt, ignore, rename, or remove it later."
   },
   {
-    "question": "Metadata philosophy: Why doesn't LoreForge silently overwrite imported metadata?",
-    "answer": "Imported metadata can conflict with your local registry. Silently overwriting local tags, aliases, or characters could damage a workflow that already has meaning.\n\nLoreForge prefers to skip conflicts, preserve context, and let you decide."
+    "question": "Metadata philosophy: Why doesn't RoleThread silently overwrite imported metadata?",
+    "answer": "Imported metadata can conflict with your local registry. Silently overwriting local tags, aliases, or characters could damage a workflow that already has meaning.\n\nRoleThread prefers to skip conflicts, preserve context, and let you decide."
   },
   {
     "question": "Safety and identity: Why are UUIDs important?",
-    "answer": "Dataset UUIDs and entry UUIDs give LoreForge stable identity across edits, saves, sidecars, merges, character mappings, and focused review links.\n\nWithout stable identity, metadata could drift or attach to the wrong entry."
+    "answer": "Dataset UUIDs and entry UUIDs give RoleThread stable identity across edits, saves, sidecars, merges, character mappings, and focused review links.\n\nWithout stable identity, metadata could drift or attach to the wrong entry."
   },
   {
-    "question": "Safety and identity: Why doesn't LoreForge overwrite imported files directly?",
-    "answer": "Outside files may be originals, exports from another tool, or manually edited sources. LoreForge creates working copies when needed so edits happen in a safer managed location.\n\nThis protects your source material while still letting you clean and organize it."
+    "question": "Safety and identity: Why doesn't RoleThread overwrite imported files directly?",
+    "answer": "Outside files may be originals, exports from another tool, or manually edited sources. RoleThread creates working copies when needed so edits happen in a safer managed location.\n\nThis protects your source material while still letting you clean and organize it."
   },
   {
     "question": "Safety and identity: Why are backups created before edits?",
     "answer": "Backups give you a recovery point before protected mutations change the dataset or registry metadata.\n\nThis is especially important for bulk edits, repair, split/join, merge-related saves, and tag lifecycle changes."
   },
   {
-    "question": "Safety and identity: Why does LoreForge avoid one-click destructive cleanup?",
-    "answer": "Dataset cleanup often involves judgment. Removing tags, rewriting prompts, deleting entries, or resolving metadata conflicts can change meaning.\n\nLoreForge automates safe predictable fixes, then leaves creative or semantic choices to you."
+    "question": "Safety and identity: Why does RoleThread avoid one-click destructive cleanup?",
+    "answer": "Dataset cleanup often involves judgment. Removing tags, rewriting prompts, deleting entries, or resolving metadata conflicts can change meaning.\n\nRoleThread automates safe predictable fixes, then leaves creative or semantic choices to you."
   },
   {
-    "question": "Safety and identity: Is LoreForge Lite ridiculously and unnecessarily over-engineered?",
+    "question": "Safety and identity: Is RoleThread Lite ridiculously and unnecessarily over-engineered?",
     "answer": "Probably. But losing training data is worse."
   },
   {
-    "question": "Operational expectations: Why does LoreForge prefer deterministic workflows?",
+    "question": "Operational expectations: Why does RoleThread prefer deterministic workflows?",
     "answer": "Deterministic tools are easier to inspect, repeat, and trust. Search, validation, export, merge policy, and cleanup behavior should be predictable.\n\nThat matters when you are preparing training data and need to understand what changed."
   },
   {
     "question": "Operational expectations: Why doesn't Validation automatically rewrite everything?",
-    "answer": "Some fixes are safe and mechanical. Others require creative judgment.\n\nLoreForge can repair predictable structure issues, but it will not automatically rewrite tone, intent, character behavior, or scene content for you."
+    "answer": "Some fixes are safe and mechanical. Others require creative judgment.\n\nRoleThread can repair predictable structure issues, but it will not automatically rewrite tone, intent, character behavior, or scene content for you."
   },
   {
-    "question": "Operational expectations: Why doesn't LoreForge automatically fix all metadata conflicts?",
-    "answer": "Conflicts can represent real meaning differences. Two tags or characters with similar names might not be the same thing.\n\nLoreForge preserves and reports conflicts so you can resolve them intentionally."
+    "question": "Operational expectations: Why doesn't RoleThread automatically fix all metadata conflicts?",
+    "answer": "Conflicts can represent real meaning differences. Two tags or characters with similar names might not be the same thing.\n\nRoleThread preserves and reports conflicts so you can resolve them intentionally."
   },
   {
     "question": "Operational expectations: Why no AI-does-everything workflow?",
-    "answer": "LoreForge Lite is built around creator control and reviewable operations. The app helps you find, organize, repair, and understand data, but it does not replace your judgment.\n\nThat keeps the workflow transparent and local-first."
+    "answer": "RoleThread Lite is built around creator control and reviewable operations. The app helps you find, organize, repair, and understand data, but it does not replace your judgment.\n\nThat keeps the workflow transparent and local-first."
   },
   {
     "question": "Included examples: Are the included datasets safe to edit?",
@@ -280,3 +280,4 @@
     "answer": "Lite is the local-first dataset crafting surface. Future Studio ideas may involve larger orchestration or hosted workflows.\n\nKeeping those boundaries separate helps Lite remain useful and complete without becoming a heavier platform."
   }
 ]
+

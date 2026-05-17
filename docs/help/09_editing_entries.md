@@ -1,8 +1,8 @@
 # Deep Edit
 
-Editing is where LoreForge Lite becomes a practical workshop instead of only a file viewer. You can make small corrections, reshape conversations, duplicate useful entries, and repair issues found by Validation or Insights.
+Editing is where RoleThread Lite becomes a practical workshop instead of only a file viewer. You can make small corrections, reshape conversations, duplicate useful entries, and repair issues found by Validation or Insights.
 
-The important idea: entries keep stable identity through edits. LoreForge uses entry UUIDs so filtering, searching, sidecars, character mappings, and metadata can stay tied to the right entry.
+The important idea: entries keep stable identity through edits. RoleThread uses entry UUIDs so filtering, searching, sidecars, character mappings, and metadata can stay tied to the right entry.
 
 ## Where Editing Happens
 
@@ -70,19 +70,19 @@ This is helpful when you are working through:
 - entries matching a text search
 - entries under a specific tag
 
-Because entries use stable UUIDs, LoreForge can keep track of the entry even if its position in the list changes after edits.
+Because entries use stable UUIDs, RoleThread can keep track of the entry even if its position in the list changes after edits.
 
 ## Save Behavior
 
-When you save an edit, LoreForge updates the dataset and refreshes related metadata.
+When you save an edit, RoleThread updates the dataset and refreshes related metadata.
 
 Protected operations create backups before writing. This makes editing recoverable if you later decide a change was wrong or something goes sideways.
 
-Normal LoreForge edit forms guard against most structural invalid states before save. After imported-data cleanup, merge review, large edit batches, split/join work, or manual repair, it is still a good habit to run Validation again.
+Normal RoleThread edit forms guard against most structural invalid states before save. After imported-data cleanup, merge review, large edit batches, split/join work, or manual repair, it is still a good habit to run Validation again.
 
 ## Validation After Editing
 
-Editing can fix validation issues. In normal LoreForge workflows, the app tries to prevent incomplete structure before save, but Validation is still useful for broader review and imported-data cleanup.
+Editing can fix validation issues. In normal RoleThread workflows, the app tries to prevent incomplete structure before save, but Validation is still useful for broader review and imported-data cleanup.
 
 Run Validation after:
 
@@ -126,3 +126,4 @@ If you are cleaning a dataset, work in passes:
 4. Use Manage Dataset to retag, duplicate, join, or prepare a subset if needed.
 5. Run Validation for a broader review pass.
 6. Export only after the dataset feels stable.
+

@@ -3,7 +3,7 @@ from core.format_conversion import (
     FORMAT_SHAREGPT,
     SHAREGPT_INTERNAL_SYSTEM_PROMPT,
 )
-from core.loreforge_meta import LOREFORGE_META_KEY
+from core.rolethread_meta import ROLETHREAD_META_KEY
 from ui.export_scope import scoped_export_pairs
 from ui.ui_export import _prepare_export_entries
 
@@ -43,10 +43,10 @@ def test_prepare_export_entries_cleans_chatml_metadata():
     assert exported == [{"messages": _entry()["messages"]}]
 
 
-def test_prepare_export_entries_clean_export_strips_loreforge_metadata():
+def test_prepare_export_entries_clean_export_strips_rolethread_metadata():
     entry = {
         **_entry(),
-        LOREFORGE_META_KEY: {
+        ROLETHREAD_META_KEY: {
             "version": "0.10.0",
             "native": True,
             "validated_at": "2026-05-11T12:00:00Z",
@@ -68,8 +68,8 @@ def test_prepare_export_entries_clean_export_strips_loreforge_metadata():
         clean_export=True,
     )
 
-    assert LOREFORGE_META_KEY not in chatml[0]
-    assert LOREFORGE_META_KEY not in sharegpt[0]
+    assert ROLETHREAD_META_KEY not in chatml[0]
+    assert ROLETHREAD_META_KEY not in sharegpt[0]
     assert chatml == [{"messages": entry["messages"]}]
     assert sharegpt == [
         {
@@ -150,3 +150,4 @@ def test_scoped_export_pairs_uses_filtered_entries_when_no_selection():
 
     assert scoped == [("second", {"id": 2})]
     assert label == "filtered entries"
+

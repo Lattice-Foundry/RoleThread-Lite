@@ -316,7 +316,7 @@ def test_create_new_dataset_writes_current_sidecar_schema(monkeypatch, tmp_path)
     assert canonical_path.exists()
     sidecar_data = json.loads(sidecar_path_for_dataset(canonical_path).read_text(encoding="utf-8"))
     assert sidecar_data != {}
-    assert sidecar_data["metadata"]["kind"] == "loreforge.tag_registry"
+    assert sidecar_data["metadata"]["kind"] == "rolethread.tag_registry"
     assert sidecar_data["dataset"]["dataset_uuid"] == "dataset-uuid"
 
 
@@ -362,3 +362,4 @@ def test_rename_loaded_dataset_updates_session_paths(monkeypatch, tmp_path):
         }
     ]
     assert flashes == [("success", "Dataset renamed to `new_name`.")]
+

@@ -9,7 +9,7 @@ from dev.tests.service.dataset_service_test_helpers import (
     _multi_turn_entry,
     _read_entries,
     _registry_session_factory,
-    _without_loreforge_meta,
+    _without_rolethread_meta,
     _write_dataset,
     copy,
     create_character,
@@ -149,7 +149,7 @@ def test_save_quick_edit_service_does_not_validate_unrelated_malformed_entries(t
     )
 
     assert result.ok is True
-    assert _without_loreforge_meta(result.entries[1]) == entries[1]
+    assert _without_rolethread_meta(result.entries[1]) == entries[1]
 
 def test_save_quick_edit_service_normalizes_role_variants_before_validation(tmp_path):
     entries = [
@@ -199,7 +199,7 @@ def test_save_full_edit_service_saves_valid_full_edit_and_multiturn(tmp_path):
     )
 
     assert result.ok is True
-    assert _without_loreforge_meta(result.entries) == [updated_entry]
+    assert _without_rolethread_meta(result.entries) == [updated_entry]
     _assert_stamped(result.entries)
     assert result.entries[0]["tags"] == ["new", "unknown"]
     assert entries == original_entries
@@ -401,3 +401,4 @@ def test_save_full_edit_service_backup_enabled_disabled_and_failure_paths(tmp_pa
 
     assert result.ok is False
     assert _read_entries(path) == disk_before_failure
+

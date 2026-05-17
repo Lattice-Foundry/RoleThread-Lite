@@ -1,4 +1,4 @@
-"""Python runtime compatibility checks for LoreForge Lite."""
+"""Python runtime compatibility checks for RoleThread Lite."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -39,7 +39,7 @@ class PythonRuntimeStatus:
 def get_python_runtime_status(
     version_info: tuple[int, int, int] | None = None,
 ) -> PythonRuntimeStatus:
-    """Return LoreForge's support status for a Python runtime version."""
+    """Return RoleThread's support status for a Python runtime version."""
 
     current = version_info or tuple(sys.version_info[:3])
     current_version = ".".join(str(part) for part in current)
@@ -50,7 +50,7 @@ def get_python_runtime_status(
     if is_below_minimum:
         status_label = RUNTIME_STATUS_UNSUPPORTED_OLDER
         message = (
-            "LoreForge Lite officially supports Python "
+            "RoleThread Lite officially supports Python "
             f"{OFFICIAL_PYTHON_VERSION}. Current runtime is Python "
             f"{current_version}. Please install Python {OFFICIAL_PYTHON_VERSION} "
             "and recreate your virtual environment."
@@ -58,7 +58,7 @@ def get_python_runtime_status(
     elif is_newer_than_tested:
         status_label = RUNTIME_STATUS_UNTESTED_NEWER
         message = (
-            "LoreForge Lite officially supports Python "
+            "RoleThread Lite officially supports Python "
             f"{OFFICIAL_PYTHON_VERSION}. Current runtime is Python "
             f"{current_version}, which is newer than the tested V1 runtime. "
             "The app may run, but this runtime is not officially supported yet."
@@ -66,7 +66,7 @@ def get_python_runtime_status(
     else:
         status_label = RUNTIME_STATUS_SUPPORTED
         message = (
-            "LoreForge Lite is running on the official supported Python "
+            "RoleThread Lite is running on the official supported Python "
             f"runtime: {OFFICIAL_PYTHON_VERSION}."
         )
 
@@ -93,3 +93,4 @@ def validate_python_runtime(
     if status.is_below_minimum:
         raise RuntimeError(status.message)
     return status
+

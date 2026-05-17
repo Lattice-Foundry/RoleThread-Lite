@@ -44,7 +44,7 @@ from core.dataset import (
     summarize_entry_analysis,
     validate_entry,
 )
-from core.loreforge_meta import LOREFORGE_META_KEY, get_entry_uuid, stamp_entries
+from core.rolethread_meta import ROLETHREAD_META_KEY, get_entry_uuid, stamp_entries
 from core.entry_analysis import AnalysisSeverity, EntryAnalysisResult, EntryDiagnostic
 from core.format_conversion import (
     FORMAT_CHATML,
@@ -731,8 +731,8 @@ def test_filter_entry_pairs_by_tags_preserves_entry_uuids_and_order():
 
 def test_build_uuid_index_maps_entry_uuids_to_source_indices():
     entries = [
-        {**_entry(), LOREFORGE_META_KEY: {"entry_uuid": "entry-1"}},
-        {**_entry(), LOREFORGE_META_KEY: {"entry_uuid": "entry-2"}},
+        {**_entry(), ROLETHREAD_META_KEY: {"entry_uuid": "entry-1"}},
+        {**_entry(), ROLETHREAD_META_KEY: {"entry_uuid": "entry-2"}},
         _entry(),
     ]
 
@@ -745,9 +745,9 @@ def test_build_uuid_index_maps_entry_uuids_to_source_indices():
 def test_build_uuid_index_ignores_missing_and_malformed_uuid_metadata():
     entries = [
         _entry(),
-        {**_entry(), LOREFORGE_META_KEY: "bad"},
-        {**_entry(), LOREFORGE_META_KEY: {"entry_uuid": ""}},
-        {**_entry(), LOREFORGE_META_KEY: {"entry_uuid": "entry-4"}},
+        {**_entry(), ROLETHREAD_META_KEY: "bad"},
+        {**_entry(), ROLETHREAD_META_KEY: {"entry_uuid": ""}},
+        {**_entry(), ROLETHREAD_META_KEY: {"entry_uuid": "entry-4"}},
         "not an entry",
     ]
 
@@ -756,8 +756,8 @@ def test_build_uuid_index_ignores_missing_and_malformed_uuid_metadata():
 
 def test_uuid_lookup_helpers_return_entry_index_and_entry():
     entries = [
-        {**_entry(tags=["first"]), LOREFORGE_META_KEY: {"entry_uuid": "entry-1"}},
-        {**_entry(tags=["second"]), LOREFORGE_META_KEY: {"entry_uuid": "entry-2"}},
+        {**_entry(tags=["first"]), ROLETHREAD_META_KEY: {"entry_uuid": "entry-1"}},
+        {**_entry(tags=["second"]), ROLETHREAD_META_KEY: {"entry_uuid": "entry-2"}},
     ]
 
     assert get_entry_index_by_uuid(entries, "entry-2") == 1
@@ -825,7 +825,7 @@ def test_load_dataset_rejects_unsupported_file_extension(tmp_path):
 
     assert loaded == []
     assert errors == [
-        "Unsupported file type: .png. LoreForge supports .jsonl, .json, and .txt files."
+        "Unsupported file type: .png. RoleThread supports .jsonl, .json, and .txt files."
     ]
 
 
@@ -1096,7 +1096,7 @@ def test_load_dataset_with_summary_reports_native_dataset_signature(tmp_path):
     path = tmp_path / "native.jsonl"
     entry = {
         **_entry(tags=["greeting"]),
-        LOREFORGE_META_KEY: {
+        ROLETHREAD_META_KEY: {
             "version": "0.1.0",
             "native": True,
             "validated_at": "2026-05-11T12:00:00Z",
@@ -1109,7 +1109,7 @@ def test_load_dataset_with_summary_reports_native_dataset_signature(tmp_path):
 
     assert errors == []
     assert summary.dataset_is_native is True
-    assert summary.entries[0][LOREFORGE_META_KEY]["native"] is True
+    assert summary.entries[0][ROLETHREAD_META_KEY]["native"] is True
 
 
 def test_load_dataset_with_summary_treats_legacy_native_without_dataset_uuid_as_foreign(
@@ -1118,7 +1118,7 @@ def test_load_dataset_with_summary_treats_legacy_native_without_dataset_uuid_as_
     path = tmp_path / "legacy_native.jsonl"
     entry = {
         **_entry(tags=["greeting"]),
-        LOREFORGE_META_KEY: {
+        ROLETHREAD_META_KEY: {
             "version": "0.6.0",
             "native": True,
             "validated_at": "2026-05-11T12:00:00Z",
@@ -1148,7 +1148,7 @@ def test_load_dataset_with_summary_reports_foreign_dataset_when_partially_stampe
     path = tmp_path / "partial.jsonl"
     native_entry = {
         **_entry(tags=["greeting"]),
-        LOREFORGE_META_KEY: {"native": True},
+        ROLETHREAD_META_KEY: {"native": True},
     }
     path.write_text(
         json.dumps(native_entry) + "\n" + json.dumps(_entry(tags=["slow burn"])) + "\n",
@@ -1456,3 +1456,4 @@ def test_build_dataset_stats_reports_summary_validation_tags_and_lengths():
     assert stats["avg_user_len"] > 0
     assert stats["avg_asst_len"] > 0
     assert stats["avg_entry_len"] > 0
+

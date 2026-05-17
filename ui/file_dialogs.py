@@ -11,12 +11,12 @@ import streamlit as st
 
 from core.preferences import get_initial_dir, save_preferences
 
-# ── Constants ──────────────────────────────────────────────────────────────────
+# â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 JSONL_TYPES = [("JSONL files", "*.jsonl"), ("All files", "*.*")]
 JSON_TYPES = [("JSON files", "*.json"), ("All files", "*.*")]
 
 
-# ── Internal helpers ───────────────────────────────────────────────────────────
+# â”€â”€ Internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _tk_root() -> tk.Tk:
     """Return a hidden, topmost Tkinter root window."""
@@ -67,7 +67,7 @@ def _save_prefs(updates: dict) -> None:
     save_preferences(st.session_state.prefs)
 
 
-# ── File dialog helpers ────────────────────────────────────────────────────────
+# â”€â”€ File dialog helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def browse_open_file(
     pending_key: str,
@@ -131,7 +131,7 @@ def browse_directory(
 def browse_export_file(pending_key: str) -> None:
     """Open a save-as dialog for the Export page.
 
-    Does NOT update preferences — export is a one-off operation.
+    Does NOT update preferences â€” export is a one-off operation.
     """
     _default = (
         Path(st.session_state.loaded_path).name
@@ -162,7 +162,7 @@ def browse_settings_export_file(pending_key: str) -> None:
     path = safe_saveas_filename(
         title="Export settings",
         defaultextension=".json",
-        initialfile="loreforge_settings.json",
+        initialfile="rolethread_settings.json",
         initialdir=get_initial_dir(
             st.session_state.prefs,
             dir_key="default_dataset_directory",
@@ -209,7 +209,7 @@ def browse_open_multiple(widget_key: str, pending_key: str) -> None:
         st.rerun()
 
 
-# ── Reusable widget ────────────────────────────────────────────────────────────
+# â”€â”€ Reusable widget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def path_input(
     label: str,
@@ -253,3 +253,4 @@ def path_input(
         if st.button("Browse", key=f"browse_{state_key}"):
             browse_fn(pending_key, **browse_kwargs)
     return value
+

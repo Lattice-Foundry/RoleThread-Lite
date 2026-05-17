@@ -140,9 +140,9 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "Linux is a primary V1 support platform" in document.content
     assert "macOS is beta-supported for V1" in document.content
     assert "Python 3.14.4" in document.content
-    assert "%LOCALAPPDATA%\\LoreForge" in document.content
-    assert "~/.local/share/loreforge" in document.content
-    assert "~/Library/Application Support/LoreForge" in document.content
+    assert "%LOCALAPPDATA%\\RoleThread" in document.content
+    assert "~/.local/share/rolethread" in document.content
+    assert "~/Library/Application Support/RoleThread" in document.content
     assert "Edge web app" in document.content
     assert "Cloud sync folders are optional backup or sync targets" in document.content
 
@@ -174,7 +174,7 @@ def test_help_article_category_order_and_grouping():
     assert tuple(grouped) == get_help_category_order()
     assert [article.article_id for article in grouped["Getting Started"]] == [
         "getting-started",
-        "what-loreforge-lite-does",
+        "what-rolethread-lite-does",
         "dataset-formats",
         "loading-datasets-and-working-copies",
         "creating-a-new-dataset",
@@ -286,7 +286,7 @@ def test_scroll_to_top_runs_only_when_article_changes(monkeypatch):
     assert len(fake_st.iframe_calls) == 1
     assert "scrollTo" in fake_st.iframe_calls[0]["body"]
     assert "requestAnimationFrame(scrollTopNow)" in fake_st.iframe_calls[0]["body"]
-    assert "__loreforgeHelpScrollToken" in fake_st.iframe_calls[0]["body"]
+    assert "__rolethreadHelpScrollToken" in fake_st.iframe_calls[0]["body"]
     assert "exporting-datasets:1" in fake_st.iframe_calls[0]["body"]
     assert "stAppViewContainer" in fake_st.iframe_calls[0]["body"]
     assert "stMain" in fake_st.iframe_calls[0]["body"]
@@ -401,7 +401,7 @@ def test_build_help_search_results_returns_compact_snippets(tmp_path):
     content_results = build_help_search_results("hidden marker", help_dir)
 
     assert summary_results[0].article.article_id == "getting-started"
-    assert summary_results[0].snippet == "First-session workflow and the basic LoreForge rhythm."
+    assert summary_results[0].snippet == "First-session workflow and the basic RoleThread rhythm."
     assert content_results[0].article.article_id == "creating-entries"
     assert "hidden marker" in content_results[0].snippet.lower()
 
@@ -710,7 +710,7 @@ def test_faq_related_help_ids_are_known_and_lightweight():
     assert all(set(entry.related_help_ids) <= help_article_ids for entry in entries)
     assert all(len(entry.related_help_ids) <= 3 for entry in entries)
     assert derive_related_help_ids(
-        "Working copies and sidecars: Why did LoreForge create a working copy?"
+        "Working copies and sidecars: Why did RoleThread create a working copy?"
     ) == (
         "loading-datasets-and-working-copies",
         "sidecars-and-portable-metadata",
@@ -822,3 +822,4 @@ def test_faq_sidebar_category_and_search_controls_render_browser_state():
 
     assert app.session_state[ui_faq.FAQ_SEARCH_QUERY_KEY] == ""
     assert app.session_state[ui_faq.FAQ_SEARCH_RESULTS_VISIBLE_KEY] is False
+

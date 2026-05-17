@@ -1,12 +1,12 @@
 # Settings and Preferences
 
-Settings lets you adjust the parts of LoreForge Lite that should match your local workflow.
+Settings lets you adjust the parts of RoleThread Lite that should match your local workflow.
 
-The defaults are intentionally conservative. LoreForge tries to expose useful control without making you configure everything before you can work.
+The defaults are intentionally conservative. RoleThread tries to expose useful control without making you configure everything before you can work.
 
 ## Configuration Philosophy
 
-LoreForge Lite is local-first.
+RoleThread Lite is local-first.
 
 Settings are about:
 
@@ -21,7 +21,7 @@ Most users can keep the defaults until they have a reason to change them.
 
 ## Default Dataset Folder
 
-The default dataset folder is where LoreForge creates and manages local dataset folders by default.
+The default dataset folder is where RoleThread creates and manages local dataset folders by default.
 
 Use this setting to choose the place where your normal working datasets should live.
 
@@ -57,7 +57,7 @@ Local backups are meant to stay local. Do not use a cloud-synced folder as the l
 
 Cloud Backup is optional.
 
-When configured, LoreForge can mirror the latest backup material to a cloud sync folder. Supported provider choices include local-only mode, OneDrive on Windows, and common custom sync folders such as Google Drive, Dropbox, iCloud Drive, and Box.
+When configured, RoleThread can mirror the latest backup material to a cloud sync folder. Supported provider choices include local-only mode, OneDrive on Windows, and common custom sync folders such as Google Drive, Dropbox, iCloud Drive, and Box.
 
 Cloud sync is batch backup, not live collaboration.
 
@@ -66,13 +66,13 @@ It can run:
 - manually from Settings
 - when the app closes, if configured
 
-For cloud providers, LoreForge stores backups under a LoreForge-specific subfolder so your sync folder stays organized.
+For cloud providers, RoleThread stores backups under a RoleThread-specific subfolder so your sync folder stays organized.
 
 ## Data Normalization
 
 The Data Normalization setting controls broader deterministic repair during load.
 
-When enabled, LoreForge can apply safe validation-related cleanup for predictable issues during loading.
+When enabled, RoleThread can apply safe validation-related cleanup for predictable issues during loading.
 
 Baseline normalization still happens where needed for safe metadata, roles, and simple text cleanup. This setting is about broader automatic correction, not creative rewriting.
 
@@ -122,7 +122,7 @@ Settings includes installation details that are useful when troubleshooting:
 - resolved platform path defaults
 - whether important paths are platform defaults or user overrides
 
-LoreForge Lite V1 officially supports Python 3.14.4. Newer Python versions may
+RoleThread Lite V1 officially supports Python 3.14.4. Newer Python versions may
 work, but they are untested for V1 unless documented later. Older Python
 versions are unsupported and should be replaced with Python 3.14.4 before
 recreating the virtual environment.
@@ -131,14 +131,14 @@ For full platform policy, see **OS Compatibility and Storage Policy** in Help.
 
 Fresh installs use platform-native defaults:
 
-- Windows app state: `%LOCALAPPDATA%\LoreForge`
-- Windows workspace: `%USERPROFILE%\LoreForge`
-- Linux app state: `~/.local/share/loreforge`
-- Linux workspace: `~/LoreForge`
-- macOS app state: `~/Library/Application Support/LoreForge`
-- macOS workspace: `~/LoreForge`
+- Windows app state: `%LOCALAPPDATA%\RoleThread`
+- Windows workspace: `%USERPROFILE%\RoleThread`
+- Linux app state: `~/.local/share/rolethread`
+- Linux workspace: `~/RoleThread`
+- macOS app state: `~/Library/Application Support/RoleThread`
+- macOS workspace: `~/RoleThread`
 
-Configured dataset and backup folders remain user overrides. LoreForge does not move existing datasets just because platform defaults change.
+Configured dataset and backup folders remain user overrides. RoleThread does not move existing datasets just because platform defaults change.
 
 ## What Changes Immediately
 
@@ -171,4 +171,5 @@ If a change does not seem to affect something already loaded, it may apply the n
 **Mistake:** Pointing the local backup folder directly at a cloud-synced folder.
 
 **Better mental model:** Local backup is the stable local recovery point. Cloud Backup mirrors backup material separately.
+
 

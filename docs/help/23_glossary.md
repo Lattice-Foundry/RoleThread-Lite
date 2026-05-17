@@ -1,8 +1,8 @@
 # Glossary
 
-This glossary defines the main terms used across LoreForge Lite.
+This glossary defines the main terms used across RoleThread Lite.
 
-## LoreForge Lite
+## RoleThread Lite
 
 The local-first app for creating, organizing, validating, editing, merging, analyzing, and exporting narrative training datasets.
 
@@ -20,11 +20,11 @@ A message-based dataset shape built around roles such as `system`, `user`, and `
 
 ## ShareGPT
 
-A conversation dataset format used by some tools. LoreForge can import and export ShareGPT-style data.
+A conversation dataset format used by some tools. RoleThread can import and export ShareGPT-style data.
 
 ## Entry
 
-One training example in a dataset. In LoreForge, an entry usually contains a system prompt and one or more user/assistant exchanges.
+One training example in a dataset. In RoleThread, an entry usually contains a system prompt and one or more user/assistant exchanges.
 
 ## Exchange
 
@@ -48,7 +48,7 @@ A group for related tags.
 
 ## Built-In Tag
 
-A LoreForge-provided tag that is locked to preserve consistent meaning across datasets.
+A RoleThread-provided tag that is locked to preserve consistent meaning across datasets.
 
 ## Custom Tag
 
@@ -68,19 +68,19 @@ A `.registry.json` companion file that stores portable metadata beside a dataset
 
 ## Working Copy
 
-A protected local copy of an untrusted dataset that LoreForge can safely edit without changing the original source file.
+A protected local copy of an untrusted dataset that RoleThread can safely edit without changing the original source file.
 
 ## Trusted Dataset
 
-A dataset LoreForge recognizes as carrying stable LoreForge identity metadata, such as dataset UUID and entry UUID information.
+A dataset RoleThread recognizes as carrying stable RoleThread identity metadata, such as dataset UUID and entry UUID information.
 
 ## Untrusted Dataset
 
-A dataset that does not clearly carry LoreForge identity metadata. It may still be valid data, but LoreForge treats it carefully before writing to it.
+A dataset that does not clearly carry RoleThread identity metadata. It may still be valid data, but RoleThread treats it carefully before writing to it.
 
 ## Clean Export
 
-An export mode that removes LoreForge metadata from training records.
+An export mode that removes RoleThread metadata from training records.
 
 ## Group Chat Mode
 
@@ -96,7 +96,7 @@ Metadata that connects a character to a specific message turn in an entry.
 
 ## Dataset UUID
 
-A stable identifier for a LoreForge-native dataset.
+A stable identifier for a RoleThread-native dataset.
 
 ## Entry UUID
 
@@ -129,4 +129,5 @@ A backup of the local database that stores tags, characters, prompt templates, s
 ## Portable Metadata
 
 Metadata that can travel with a dataset, usually through a sidecar, without being inserted into clean training records.
+
 

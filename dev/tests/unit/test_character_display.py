@@ -1,11 +1,11 @@
 from core.character_display import build_character_display_cache, get_turn_display_names
-from core.loreforge_meta import LOREFORGE_META_KEY
+from core.rolethread_meta import ROLETHREAD_META_KEY
 import core.character_display as character_display
 
 
 def _entry(entry_uuid="entry-1"):
     return {
-        LOREFORGE_META_KEY: {"native": True, "entry_uuid": entry_uuid},
+        ROLETHREAD_META_KEY: {"native": True, "entry_uuid": entry_uuid},
         "messages": [
             {"role": "system", "content": "System"},
             {"role": "user", "content": "Hi"},
@@ -52,7 +52,7 @@ def test_get_turn_display_names_uses_cache_without_query(monkeypatch):
 
 def test_get_turn_display_names_handles_entries_without_uuid():
     entry = _entry()
-    entry.pop(LOREFORGE_META_KEY)
+    entry.pop(ROLETHREAD_META_KEY)
 
     assert get_turn_display_names(entry, "Player", "Muse") == {
         0: "System",
@@ -75,3 +75,4 @@ def test_build_character_display_cache_queries_entry_uuids(monkeypatch):
         "entry-1": {1: "Scott"}
     }
     assert captured["entry_uuids"] == {"entry-1", "entry-2"}
+

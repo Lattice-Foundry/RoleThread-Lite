@@ -1,16 +1,16 @@
 # Loading Datasets and Working Copies
 
-Loading is one of the places where LoreForge Lite is deliberately careful. The app tries to protect original source files, preserve useful metadata, and make imported data safe to edit.
+Loading is one of the places where RoleThread Lite is deliberately careful. The app tries to protect original source files, preserve useful metadata, and make imported data safe to edit.
 
 The most important idea is simple:
 
-**If a dataset did not clearly come from LoreForge Lite, LoreForge may create a protected working copy before modifying it.**
+**If a dataset did not clearly come from RoleThread Lite, RoleThread may create a protected working copy before modifying it.**
 
 That is intentional.
 
 ## Included Example Datasets
 
-LoreForge Lite includes three curated example datasets intended for safe exploration.
+RoleThread Lite includes three curated example datasets intended for safe exploration.
 
 One example dataset may load automatically on first launch. The examples are practical reference material, not hidden defaults or disposable samples.
 
@@ -24,25 +24,25 @@ You can inspect, edit, duplicate, validate, merge, export, and search these data
 
 ## Trusted and Untrusted Datasets
 
-LoreForge Lite treats datasets differently depending on whether they carry a complete LoreForge-native identity.
+RoleThread Lite treats datasets differently depending on whether they carry a complete RoleThread-native identity.
 
-A **trusted dataset** is a dataset previously saved by LoreForge Lite with stable metadata such as entry UUIDs and a shared dataset UUID.
+A **trusted dataset** is a dataset previously saved by RoleThread Lite with stable metadata such as entry UUIDs and a shared dataset UUID.
 
-An **untrusted dataset** is any dataset that does not clearly carry that identity. It may still be perfectly valid data. "Untrusted" does not mean bad. It only means LoreForge should be careful before writing back to it.
+An **untrusted dataset** is any dataset that does not clearly carry that identity. It may still be perfectly valid data. "Untrusted" does not mean bad. It only means RoleThread should be careful before writing back to it.
 
 Examples of untrusted data include:
 
 - files exported from another tool
 - ShareGPT datasets
 - manually edited JSONL
-- older LoreForge files from before current metadata existed
+- older RoleThread files from before current metadata existed
 - mixed or partial metadata files
 
 ## Why Working Copies Exist
 
 Working copies protect your original files.
 
-When you load an untrusted dataset from outside the default training data area, LoreForge copies it into its local training data folder and works on that copy. The original file is left alone.
+When you load an untrusted dataset from outside the default training data area, RoleThread copies it into its local training data folder and works on that copy. The original file is left alone.
 
 This prevents a common problem: opening an outside dataset, clicking save, and accidentally changing the only original copy.
 
@@ -50,7 +50,7 @@ Working copies are not a hidden trick or a temporary hack. They are a safety fea
 
 ## What Happens During Load
 
-When you load a dataset, LoreForge may:
+When you load a dataset, RoleThread may:
 
 1. Read the file.
 2. Detect whether it is ChatML, ShareGPT, or another supported JSON shape.
@@ -69,7 +69,7 @@ You do not need to run these steps manually. The load summary tells you what hap
 
 Working copies are stored under the configured dataset folder, usually inside `training_data`.
 
-LoreForge uses a folder-per-dataset layout, for example:
+RoleThread uses a folder-per-dataset layout, for example:
 
 ```text
 training_data/
@@ -78,7 +78,7 @@ training_data/
     my_dataset.registry.json
 ```
 
-If a folder name already exists, LoreForge chooses a non-colliding copy name rather than overwriting the existing folder.
+If a folder name already exists, RoleThread chooses a non-colliding copy name rather than overwriting the existing folder.
 
 ## Sidecars During Load
 
@@ -102,20 +102,20 @@ Sidecars let metadata travel with a dataset without forcing that metadata into c
 
 ## Sidecar Warnings
 
-If LoreForge shows a sidecar warning, it is usually being cautious.
+If RoleThread shows a sidecar warning, it is usually being cautious.
 
 Examples:
 
 - The sidecar file could not be read.
-- The sidecar schema is newer than this version of LoreForge understands.
+- The sidecar schema is newer than this version of RoleThread understands.
 - The sidecar dataset UUID does not match the loaded dataset.
 - Some registry metadata already exists locally and was skipped instead of overwritten.
 
-A sidecar warning does not always mean the dataset itself failed to load. It often means LoreForge loaded the entries but refused to trust questionable metadata.
+A sidecar warning does not always mean the dataset itself failed to load. It often means RoleThread loaded the entries but refused to trust questionable metadata.
 
 ## Trusted Does Not Mean Perfect
 
-A trusted dataset can still contain content issues. It only means LoreForge recognizes the dataset identity and can safely preserve entry identity across edits.
+A trusted dataset can still contain content issues. It only means RoleThread recognizes the dataset identity and can safely preserve entry identity across edits.
 
 You should still use:
 
@@ -126,7 +126,7 @@ You should still use:
 
 ## Practical Guidance
 
-- Let LoreForge create working copies when it wants to. That is the safe path.
+- Let RoleThread create working copies when it wants to. That is the safe path.
 - Keep source datasets somewhere separate if they are originals you do not want changed.
 - Use the loaded path shown in Manage Dataset to see which file you are actually editing.
 - Keep `.registry.json` sidecars near their matching `.jsonl` files when moving datasets.
@@ -134,6 +134,7 @@ You should still use:
 
 ## Common Mistake
 
-**Mistake:** Loading an outside dataset, then expecting LoreForge to edit that original file directly.
+**Mistake:** Loading an outside dataset, then expecting RoleThread to edit that original file directly.
 
-**Better mental model:** LoreForge protects outside/untrusted files by creating a working copy. You edit the working copy. If you want a final file somewhere else, use Export.
+**Better mental model:** RoleThread protects outside/untrusted files by creating a working copy. You edit the working copy. If you want a final file somewhere else, use Export.
+

@@ -5,7 +5,7 @@ from dev.tests.service.dataset_service_test_helpers import (
     _fail_if_backup_called,
     _force_backup_failure,
     _read_entries,
-    _without_loreforge_meta,
+    _without_rolethread_meta,
     _write_dataset,
     copy,
     dataset_service,
@@ -128,7 +128,7 @@ def test_replace_system_prompt_bulk_service_replaces_or_inserts_system_prompt(tm
     assert result.entries[1]["messages"][1:] == no_system["messages"]
     assert result.entries[0]["tags"] == ["selected"]
     assert result.entries[1]["tags"] == ["no_system"]
-    assert _without_loreforge_meta(result.entries[2]) == entries[2]
+    assert _without_rolethread_meta(result.entries[2]) == entries[2]
     assert entries == original_entries
     assert _read_entries(path) == result.entries
 
@@ -202,7 +202,7 @@ def test_save_repaired_entries_service_auto_corrects_role_typos_with_backup(
     assert result.message == "Repaired entries saved."
     assert result.backup_path == str(backups[0])
     assert result.affected_count == 1
-    assert _without_loreforge_meta(result.entries) == [
+    assert _without_rolethread_meta(result.entries) == [
         {
             "messages": [
                 {"role": "system", "content": " System "},
@@ -243,3 +243,4 @@ def test_save_repaired_entries_service_rejects_invalid_inputs(tmp_path):
     assert result.ok is False
     assert result.entries is None
     assert "Dataset file was not found." in result.errors
+

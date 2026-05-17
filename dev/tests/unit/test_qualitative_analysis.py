@@ -1,7 +1,7 @@
 from copy import deepcopy
 
 import core.qualitative_analysis as quality
-from core.loreforge_meta import get_entry_uuid, stamp_entries
+from core.rolethread_meta import get_entry_uuid, stamp_entries
 from core.qualitative_analysis import analyze_dataset_quality
 from core.registry_sidecar import build_sidecar_registry, write_sidecar
 from core.tag_registry import TagRegistrySnapshot
@@ -284,3 +284,4 @@ def test_analysis_does_not_mutate_entries():
     analyze_dataset_quality(entries, tag_snapshot=_snapshot())
 
     assert entries == before
+

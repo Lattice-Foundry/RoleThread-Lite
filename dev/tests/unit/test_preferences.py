@@ -65,11 +65,11 @@ def test_get_setting_returns_default_when_missing(settings_db):
 
 
 def test_set_and_get_setting_roundtrip_json_values(settings_db):
-    preferences.set_setting("preview_user_name", "Zoë")
+    preferences.set_setting("preview_user_name", "ZoÃ«")
     preferences.set_setting("backups_per_dataset", 7)
     preferences.set_setting("auto_backups_enabled", False)
 
-    assert preferences.get_setting("preview_user_name") == "Zoë"
+    assert preferences.get_setting("preview_user_name") == "ZoÃ«"
     assert preferences.get_setting("backups_per_dataset") == 7
     assert preferences.get_setting("auto_backups_enabled") is False
 
@@ -105,9 +105,9 @@ def test_get_default_preferences_uses_windows_platform_paths():
     )
 
     assert defaults["default_dataset_directory"] == (
-        "C:\\Users\\Scott\\LoreForge\\training_data"
+        "C:\\Users\\Scott\\RoleThread\\training_data"
     )
-    assert defaults["backup_directory"] == "C:\\Users\\Scott\\LoreForge\\backups"
+    assert defaults["backup_directory"] == "C:\\Users\\Scott\\RoleThread\\backups"
     assert defaults["enable_webapp_launch_mode"] is False
 
 
@@ -119,9 +119,9 @@ def test_get_default_preferences_uses_linux_platform_paths():
     )
 
     assert Path(defaults["default_dataset_directory"]) == Path(
-        "/home/scott/LoreForge/training_data"
+        "/home/scott/RoleThread/training_data"
     )
-    assert Path(defaults["backup_directory"]) == Path("/home/scott/LoreForge/backups")
+    assert Path(defaults["backup_directory"]) == Path("/home/scott/RoleThread/backups")
 
 
 def test_get_default_preferences_uses_macos_platform_paths():
@@ -132,9 +132,9 @@ def test_get_default_preferences_uses_macos_platform_paths():
     )
 
     assert Path(defaults["default_dataset_directory"]) == Path(
-        "/Users/scott/LoreForge/training_data"
+        "/Users/scott/RoleThread/training_data"
     )
-    assert Path(defaults["backup_directory"]) == Path("/Users/scott/LoreForge/backups")
+    assert Path(defaults["backup_directory"]) == Path("/Users/scott/RoleThread/backups")
 
 
 def test_get_default_preferences_uses_unknown_safe_fallback():
@@ -145,9 +145,9 @@ def test_get_default_preferences_uses_unknown_safe_fallback():
     )
 
     assert Path(defaults["default_dataset_directory"]) == Path(
-        "/home/scott/LoreForge/training_data"
+        "/home/scott/RoleThread/training_data"
     )
-    assert Path(defaults["backup_directory"]) == Path("/home/scott/LoreForge/backups")
+    assert Path(defaults["backup_directory"]) == Path("/home/scott/RoleThread/backups")
 
 
 def test_load_preferences_uses_current_platform_defaults_when_empty(
@@ -163,7 +163,7 @@ def test_load_preferences_uses_current_platform_defaults_when_empty(
         backups_dir=Path("/workspace/backups"),
         logs_dir=Path("/app-data/logs"),
         cache_dir=Path("/app-data/cache"),
-        database_path=Path("/app-data/loreforge.db"),
+        database_path=Path("/app-data/rolethread.db"),
         preferences_path=Path("/app-data/preferences.json"),
     )
     monkeypatch.setattr(
@@ -188,7 +188,7 @@ def test_resolve_preferences_preserves_existing_configured_paths(monkeypatch):
         backups_dir=Path("/workspace/backups"),
         logs_dir=Path("/app-data/logs"),
         cache_dir=Path("/app-data/cache"),
-        database_path=Path("/app-data/loreforge.db"),
+        database_path=Path("/app-data/rolethread.db"),
         preferences_path=Path("/app-data/preferences.json"),
     )
     monkeypatch.setattr(
@@ -283,12 +283,12 @@ def test_load_preferences_ignores_non_dict_json_migration_file(
 
 
 def test_save_preferences_writes_db_not_preferences_json(settings_db):
-    prefs = {"preview_user_name": "Zoë", "custom_future_key": "kept"}
+    prefs = {"preview_user_name": "ZoÃ«", "custom_future_key": "kept"}
 
     preferences.save_preferences(prefs)
 
     assert not preferences.PREFS_FILE.exists()
-    assert preferences.get_setting("preview_user_name") == "Zoë"
+    assert preferences.get_setting("preview_user_name") == "ZoÃ«"
     assert preferences.get_setting("custom_future_key") == "kept"
 
 
@@ -296,7 +296,7 @@ def test_export_settings_writes_utf8_json_with_trailing_newline(
     settings_db,
     tmp_path,
 ):
-    preferences.set_all_settings({"preview_user_name": "Zoë", "custom_future_key": "kept"})
+    preferences.set_all_settings({"preview_user_name": "ZoÃ«", "custom_future_key": "kept"})
     export_path = tmp_path / "exports" / "settings.json"
 
     preferences.export_settings(export_path)
@@ -305,7 +305,7 @@ def test_export_settings_writes_utf8_json_with_trailing_newline(
     assert raw.endswith(b"\n")
     data = json.loads(raw.decode("utf-8"))
     assert data["custom_future_key"] == "kept"
-    assert data["preview_user_name"] == "Zoë"
+    assert data["preview_user_name"] == "ZoÃ«"
     assert EXPECTED_DEFAULT_KEYS.issubset(data)
 
 
@@ -399,3 +399,4 @@ def test_get_initial_dir_returns_none_when_no_valid_directory_exists(tmp_path):
     )
 
     assert result is None
+

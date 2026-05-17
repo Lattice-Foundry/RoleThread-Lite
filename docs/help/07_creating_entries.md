@@ -2,7 +2,7 @@
 
 Create Entry is where you write new training examples for the loaded dataset. It is designed for a steady writing flow: set the system prompt, write one or more user/assistant exchanges, add tags, preview the result, then save.
 
-You do not need to make every entry perfect on the first pass. LoreForge Lite gives you editing, validation, search, duplicate, split, and join tools so you can refine entries over time.
+You do not need to make every entry perfect on the first pass. RoleThread Lite gives you editing, validation, search, duplicate, split, and join tools so you can refine entries over time.
 
 ## Before You Start
 
@@ -12,7 +12,7 @@ If no dataset is loaded, go to **Manage Dataset** first and either:
 
 - create a new dataset
 - load an existing JSONL file
-- load a working copy created by LoreForge
+- load a working copy created by RoleThread
 
 New entries are saved into the currently loaded dataset.
 
@@ -38,7 +38,7 @@ Example shape:
 }
 ```
 
-LoreForge handles the JSON structure for you. You write the content.
+RoleThread handles the JSON structure for you. You write the content.
 
 ## System Prompt
 
@@ -85,9 +85,9 @@ Start simple. A few useful tags are better than a complicated registry you do no
 
 ## Validation While Writing
 
-Create Entry shows a preview of the entry before saving. If the entry is valid, LoreForge tells you it looks valid.
+Create Entry shows a preview of the entry before saving. If the entry is valid, RoleThread tells you it looks valid.
 
-Entries created through the normal Create Entry flow are usually structurally safe by default because LoreForge validates the shape before save. Validation is still useful later for review, cleanup, and consistency checks across the whole dataset.
+Entries created through the normal Create Entry flow are usually structurally safe by default because RoleThread validates the shape before save. Validation is still useful later for review, cleanup, and consistency checks across the whole dataset.
 
 The save button may be disabled when:
 
@@ -204,6 +204,7 @@ A simple creation workflow:
 
 ## What Happens After Save
 
-When an entry is saved, LoreForge assigns stable identity metadata such as an entry UUID, updates the dataset, refreshes sidecar metadata, and keeps the entry available for search, editing, validation, and export.
+When an entry is saved, RoleThread assigns stable identity metadata such as an entry UUID, updates the dataset, refreshes sidecar metadata, and keeps the entry available for search, editing, validation, and export.
 
 You can always return to the entry later through Manage Dataset or Deep Edit.
+

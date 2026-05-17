@@ -1,6 +1,6 @@
 # Sidecars and Portable Metadata
 
-Sidecars are how LoreForge Lite lets metadata travel with a dataset without stuffing that metadata into the training records themselves.
+Sidecars are how RoleThread Lite lets metadata travel with a dataset without stuffing that metadata into the training records themselves.
 
 They are intentional, readable companion files.
 
@@ -19,15 +19,15 @@ my_dataset.registry.json
 
 The JSONL file contains the training entries.
 
-The sidecar contains LoreForge metadata that helps preserve organization, identity, and editing context.
+The sidecar contains RoleThread metadata that helps preserve organization, identity, and editing context.
 
 ## Why Sidecars Exist
 
 Training records should stay clean.
 
-Most training tools expect entries built around `system`, `user`, and `assistant` messages. They do not need LoreForge's full registry metadata inside every record.
+Most training tools expect entries built around `system`, `user`, and `assistant` messages. They do not need RoleThread's full registry metadata inside every record.
 
-Sidecars let LoreForge keep useful metadata nearby without making clean export messy.
+Sidecars let RoleThread keep useful metadata nearby without making clean export messy.
 
 They support both goals:
 
@@ -59,11 +59,11 @@ The sidecar is the project context.
 
 For example, a Group Chat entry may preview with character names, but the training messages still use standard roles. The sidecar is where the extra character metadata can travel.
 
-This separation helps LoreForge preserve creative structure while keeping exported records compatible.
+This separation helps RoleThread preserve creative structure while keeping exported records compatible.
 
 ## Portable Metadata
 
-If you move or share a dataset and want LoreForge metadata to move with it, keep the sidecar beside the JSONL file.
+If you move or share a dataset and want RoleThread metadata to move with it, keep the sidecar beside the JSONL file.
 
 Together, the pair can preserve:
 
@@ -73,23 +73,23 @@ Together, the pair can preserve:
 - which turns belonged to which characters
 - which prompt templates were available
 
-Without the sidecar, the JSONL entries can still be useful, but some LoreForge-specific context may be missing.
+Without the sidecar, the JSONL entries can still be useful, but some RoleThread-specific context may be missing.
 
 ## Sidecars During Load
 
-When you load a dataset, LoreForge looks for a matching sibling sidecar.
+When you load a dataset, RoleThread looks for a matching sibling sidecar.
 
 If it can safely read and trust the sidecar, it may import useful registry metadata.
 
-If something looks wrong, LoreForge is conservative. It may load the dataset entries while skipping the sidecar metadata and showing a warning.
+If something looks wrong, RoleThread is conservative. It may load the dataset entries while skipping the sidecar metadata and showing a warning.
 
 ## Dataset UUID Safety
 
-Modern LoreForge datasets have a dataset UUID. The sidecar can also carry that identity.
+Modern RoleThread datasets have a dataset UUID. The sidecar can also carry that identity.
 
-When both are present, LoreForge checks that they agree.
+When both are present, RoleThread checks that they agree.
 
-If the dataset UUID and sidecar UUID do not match, LoreForge does not trust that sidecar for the loaded dataset. This protects against accidentally pairing one dataset with another dataset's metadata.
+If the dataset UUID and sidecar UUID do not match, RoleThread does not trust that sidecar for the loaded dataset. This protects against accidentally pairing one dataset with another dataset's metadata.
 
 The entries can still load. The questionable sidecar metadata is skipped.
 
@@ -105,15 +105,15 @@ Common reasons include:
 - the dataset UUID does not match
 - a tag or character already exists locally and was skipped instead of overwritten
 
-LoreForge avoids silently trusting metadata when it cannot verify that metadata belongs.
+RoleThread avoids silently trusting metadata when it cannot verify that metadata belongs.
 
 ## Clean Export
 
-Clean export removes LoreForge metadata from the training records.
+Clean export removes RoleThread metadata from the training records.
 
 This is useful when you want a plain training file for another tool.
 
-Clean export does not mean LoreForge's metadata was bad. It only means the exported training records should not include project management fields.
+Clean export does not mean RoleThread's metadata was bad. It only means the exported training records should not include project management fields.
 
 Normal exports can still write sidecar metadata alongside the JSONL so project context remains portable.
 
@@ -121,7 +121,7 @@ Normal exports can still write sidecar metadata alongside the JSONL so project c
 
 Usually, no.
 
-Sidecars are meant to be managed by LoreForge. Manual edits can break relationships between dataset identity, tags, characters, and mappings.
+Sidecars are meant to be managed by RoleThread. Manual edits can break relationships between dataset identity, tags, characters, and mappings.
 
 If you need to change tags, characters, prompts, or mappings, use the app pages designed for those systems.
 
@@ -137,5 +137,6 @@ If you need to change tags, characters, prompts, or mappings, use the app pages 
 
 **Mistake:** Deleting the sidecar because it looks like extra clutter.
 
-**Better mental model:** The JSONL is the training data. The sidecar is the portable LoreForge context. If you want to keep tags, characters, prompt templates, and mappings, keep both files together.
+**Better mental model:** The JSONL is the training data. The sidecar is the portable RoleThread context. If you want to keep tags, characters, prompt templates, and mappings, keep both files together.
+
 

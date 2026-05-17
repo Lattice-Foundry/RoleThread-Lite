@@ -1,6 +1,6 @@
 # Default Mode vs Group Chat
 
-LoreForge Lite supports two ways to write entries:
+RoleThread Lite supports two ways to write entries:
 
 - **Default** mode for standard two-role conversation examples.
 - **Group Chat** mode for scenes where you want to track which character speaks on each turn.
@@ -50,7 +50,7 @@ In plain English, it means:
 
 > "This turn belongs to this character."
 
-LoreForge stores that relationship as metadata tied to the entry UUID and turn position. The entry content stays clean and compatible with normal training formats.
+RoleThread stores that relationship as metadata tied to the entry UUID and turn position. The entry content stays clean and compatible with normal training formats.
 
 ## Roles Stay Standard
 
@@ -72,15 +72,15 @@ user
 assistant
 ```
 
-Character names are preserved as metadata through LoreForge and its sidecar system.
+Character names are preserved as metadata through RoleThread and its sidecar system.
 
-This design keeps the dataset compatible with normal ChatML-style training while still letting you organize group scenes clearly inside LoreForge.
+This design keeps the dataset compatible with normal ChatML-style training while still letting you organize group scenes clearly inside RoleThread.
 
-## Why LoreForge Keeps Standard Roles
+## Why RoleThread Keeps Standard Roles
 
 Training tools generally expect standard message roles. If a dataset uses custom role names directly in the JSONL, many tools either reject the file or interpret it incorrectly.
 
-LoreForge separates two concerns:
+RoleThread separates two concerns:
 
 - **Training roles**: the standard roles required by the dataset format.
 - **Character identity**: metadata that helps you write, preview, organize, and round-trip group scenes.
@@ -106,11 +106,11 @@ When you switch back to Default:
 - character dropdowns are hidden
 - character assignment state for that editor is cleared
 
-If you save in Default mode after opening an entry that had mappings, LoreForge clears those mappings for that entry. That keeps the saved metadata consistent with the mode you chose.
+If you save in Default mode after opening an entry that had mappings, RoleThread clears those mappings for that entry. That keeps the saved metadata consistent with the mode you chose.
 
 ## Full Edit Behavior
 
-If you open an existing entry in Full Edit and it already has character mappings, LoreForge opens it in Group Chat mode so the assignments are visible.
+If you open an existing entry in Full Edit and it already has character mappings, RoleThread opens it in Group Chat mode so the assignments are visible.
 
 If an entry has no mappings, it opens in Default mode.
 
@@ -118,7 +118,7 @@ If an entry has no mappings, it opens in Default mode.
 
 Validation still checks the actual JSONL structure. Group Chat metadata does not make custom role names valid in the exported messages.
 
-If imported data contains custom speaker names as roles, LoreForge may help detect and map them into character metadata while returning the saved entry structure to standard roles.
+If imported data contains custom speaker names as roles, RoleThread may help detect and map them into character metadata while returning the saved entry structure to standard roles.
 
 ## Common Mistake
 
@@ -129,4 +129,5 @@ If imported data contains custom speaker names as roles, LoreForge may help dete
 ## Practical Tip
 
 Use Group Chat mode when character identity matters to how you review or maintain the dataset. Use Default mode when the example is already clear as a normal user/assistant exchange.
+
 

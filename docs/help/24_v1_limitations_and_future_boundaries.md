@@ -1,6 +1,6 @@
 # V1 Limitations and Future Boundaries
 
-LoreForge Lite is intentionally focused.
+RoleThread Lite is intentionally focused.
 
 It is built for local dataset craftsmanship: creating, organizing, validating, editing, analyzing, merging, backing up, and exporting datasets with clear user control.
 
@@ -8,7 +8,7 @@ This page explains what Lite is optimized for and what it does not try to be in 
 
 ## What Lite Is Optimized For
 
-LoreForge Lite is optimized for:
+RoleThread Lite is optimized for:
 
 - local-first dataset work
 - JSONL, ChatML, and ShareGPT workflows
@@ -24,7 +24,7 @@ The app is designed around creator ownership and predictable tools.
 
 ## Local-First by Design
 
-LoreForge Lite keeps working data local unless you configure cloud backup.
+RoleThread Lite keeps working data local unless you configure cloud backup.
 
 Normal app use does not depend on a cloud service.
 
@@ -47,7 +47,7 @@ That boundary keeps search predictable and local.
 
 ## No Real-Time Collaborative Editing
 
-LoreForge Lite is a single-user local app.
+RoleThread Lite is a single-user local app.
 
 Cloud sync is for backup mirroring, not multi-user editing.
 
@@ -55,7 +55,7 @@ Do not open and edit the same dataset from multiple machines at the same time th
 
 ## No Hosted Inference
 
-LoreForge Lite does not host models or run inference as part of the V1 workflow.
+RoleThread Lite does not host models or run inference as part of the V1 workflow.
 
 It helps you prepare datasets. It does not train, serve, or evaluate a hosted model for you.
 
@@ -69,13 +69,13 @@ Those are larger orchestration concerns. Lite stays focused on local dataset wor
 
 Cloud sync is batch backup.
 
-It can mirror latest backup material to a configured sync folder, but it is not live file synchronization controlled by LoreForge.
+It can mirror latest backup material to a configured sync folder, but it is not live file synchronization controlled by RoleThread.
 
-Your cloud provider may sync the folder afterward, but LoreForge treats that as backup transport, not active collaboration.
+Your cloud provider may sync the folder afterward, but RoleThread treats that as backup transport, not active collaboration.
 
 ## No Automatic Dataset Building
 
-LoreForge Lite does not generate a finished dataset for you automatically.
+RoleThread Lite does not generate a finished dataset for you automatically.
 
 It gives you tools to write, inspect, organize, repair, analyze, and export your own dataset.
 
@@ -91,7 +91,7 @@ This keeps the workflow understandable.
 
 ## Lite and Future Studio Boundaries
 
-LoreForge Lite is complete as a local-first dataset crafting tool.
+RoleThread Lite is complete as a local-first dataset crafting tool.
 
 Future Studio work may explore larger orchestration, hosted workflows, AI-assisted tooling, or team-scale systems. Those boundaries are separate from the Lite V1 surface.
 
@@ -101,7 +101,7 @@ Lite should not feel like an incomplete product because it does not do those thi
 
 Boundaries keep the app reliable.
 
-They help LoreForge Lite stay:
+They help RoleThread Lite stay:
 
 - understandable
 - local-first
@@ -114,10 +114,11 @@ More automation is not always better if it makes the workflow harder to trust.
 
 ## Practical Recommendation
 
-Use LoreForge Lite when you want hands-on control over a local dataset.
+Use RoleThread Lite when you want hands-on control over a local dataset.
 
 Use clean export when another tool needs training records.
 
 Use sidecars when you want portable metadata.
 
 Use backups and cloud sync for recovery, not collaboration.
+

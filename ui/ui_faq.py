@@ -1,4 +1,4 @@
-"""FAQ browser page for LoreForge Lite."""
+"""FAQ browser page for RoleThread Lite."""
 
 from __future__ import annotations
 
@@ -90,7 +90,7 @@ _FAQ_QUESTION_HELP_RELATED = {
         "understanding-the-main-workspaces",
         "editing-entries",
     ),
-    "Why did LoreForge create a working copy?": (
+    "Why did RoleThread create a working copy?": (
         "loading-datasets-and-working-copies",
     ),
     "Why is there a .registry.json file?": ("sidecars-and-portable-metadata",),
@@ -98,7 +98,7 @@ _FAQ_QUESTION_HELP_RELATED = {
         "default-mode-vs-group-chat",
         "character-registry-and-character-mappings",
     ),
-    "Why does Validation show warnings if LoreForge validates before save?": (
+    "Why does Validation show warnings if RoleThread validates before save?": (
         "validation-and-repair",
     ),
     "What is clean export?": ("exporting-datasets",),
@@ -414,3 +414,4 @@ def render_faq_page() -> None:
     if description:
         st.caption(f"{description} {len(category_entries)} questions.")
     _render_faq_entries(category_entries, key_prefix="category")
+

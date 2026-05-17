@@ -11,7 +11,7 @@ FORMAT_UNKNOWN = "unknown"
 
 SHAREGPT_INTERNAL_SYSTEM_PROMPT = (
     "This entry was imported from ShareGPT format. This system prompt is used "
-    "internally by LoreForge and will not be included in ShareGPT exports."
+    "internally by RoleThread and will not be included in ShareGPT exports."
 )
 
 _ROLE_FIELD_KEYS = ("from", "role", "speaker")
@@ -423,3 +423,4 @@ def _top_level_metadata(record: dict, *, exclude: set[str]) -> dict:
         for key, value in record.items()
         if key not in exclude
     }
+

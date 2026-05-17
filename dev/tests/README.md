@@ -1,4 +1,4 @@
-# LoreForge Tests
+# RoleThread Tests
 
 This suite protects the shared Python behavior that Lite and future Studio
 should both be able to trust.
@@ -35,7 +35,7 @@ on stable contracts that protect local-first data safety.
 
 ## Setup
 
-LoreForge Lite V1 is developed and tested on Python `3.14.4`. Other runtimes
+RoleThread Lite V1 is developed and tested on Python `3.14.4`. Other runtimes
 may work, but `3.14.4` is the official supported V1 runtime.
 
 Windows/dev environment:
@@ -90,3 +90,4 @@ Prefer behavior-focused tests over implementation-detail tests. Pure `core/`
 helpers and service workflows are the best first targets. Avoid brittle UI
 tests, exact wording checks, and heavy mocking unless a boundary truly needs
 to be isolated.
+

@@ -69,7 +69,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Getting Started",
         "Getting Started",
         10,
-        "First-session workflow and the basic LoreForge rhythm.",
+        "First-session workflow and the basic RoleThread rhythm.",
         (
             "understanding-the-main-workspaces",
             "loading-datasets-and-working-copies",
@@ -77,9 +77,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         ),
     ),
     HelpArticle(
-        "what-loreforge-lite-does",
-        "02_what_loreforge_lite_does.md",
-        "What LoreForge Lite Does",
+        "what-rolethread-lite-does",
+        "02_what_rolethread_lite_does.md",
+        "What RoleThread Lite Does",
         "Getting Started",
         20,
         "The app's purpose, local-first scope, and practical boundaries.",
@@ -134,7 +134,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Understanding the Main Workspaces",
         "Core Workflows",
         60,
-        "How the main LoreForge pages fit together during normal work.",
+        "How the main RoleThread pages fit together during normal work.",
         (
             "creating-entries",
             "editing-entries",
@@ -265,7 +265,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Sidecars and Portable Metadata",
         "Metadata and Organization",
         160,
-        "Keeping LoreForge metadata portable beside clean training files.",
+        "Keeping RoleThread metadata portable beside clean training files.",
         (
             "loading-datasets-and-working-copies",
             "exporting-datasets",
@@ -356,10 +356,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Glossary",
         "Reference",
         230,
-        "Key LoreForge terms and workflow vocabulary.",
+        "Key RoleThread terms and workflow vocabulary.",
         (
             "getting-started",
-            "what-loreforge-lite-does",
+            "what-rolethread-lite-does",
             "understanding-the-main-workspaces",
         ),
     ),
@@ -384,7 +384,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         240,
         "What Lite intentionally does and does not try to be.",
         (
-            "what-loreforge-lite-does",
+            "what-rolethread-lite-does",
             "settings-and-preferences",
             "glossary",
         ),
@@ -682,3 +682,4 @@ def format_section_outline(
         else:
             lines.append(f"{indent}- {section.title}")
     return tuple(lines)
+

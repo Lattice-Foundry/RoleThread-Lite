@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller one-folder prototype for the LoreForge Lite Windows launcher."""
+"""PyInstaller one-folder prototype for the RoleThread Lite Windows launcher."""
 
 from pathlib import Path
 
@@ -58,7 +58,7 @@ for package_name in ("core", "services", "ui"):
 
 
 a = Analysis(
-    [str(repo_root / "installer" / "windows" / "launcher" / "loreforge_launcher.py")],
+    [str(repo_root / "installer" / "windows" / "launcher" / "rolethread_launcher.py")],
     pathex=[str(repo_root)],
     binaries=[],
     datas=datas,
@@ -77,7 +77,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="LoreForgeLauncher",
+    name="RoleThreadLauncher",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -96,5 +96,6 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="LoreForgeLauncher",
+    name="RoleThreadLauncher",
 )
+

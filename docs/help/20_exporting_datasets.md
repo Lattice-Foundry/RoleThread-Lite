@@ -1,6 +1,6 @@
 # Exporting Datasets
 
-Export creates files you can use outside LoreForge Lite.
+Export creates files you can use outside RoleThread Lite.
 
 Use it when you are ready to send data to a training workflow, archive a cleaned dataset, or share a selected subset.
 
@@ -15,9 +15,9 @@ Depending on your choices, export can include:
 - filtered entries
 - ChatML format
 - ShareGPT format
-- clean records without LoreForge metadata
+- clean records without RoleThread metadata
 
-LoreForge can also write sidecar metadata alongside the exported JSONL so project context can travel with it.
+RoleThread can also write sidecar metadata alongside the exported JSONL so project context can travel with it.
 
 ## Full Export
 
@@ -60,15 +60,15 @@ ShareGPT export converts entries into a ShareGPT-style conversation format.
 
 Use it when your downstream tool expects ShareGPT-shaped data.
 
-If your source dataset was ShareGPT and LoreForge converted it during load, export lets you choose the shape you need now.
+If your source dataset was ShareGPT and RoleThread converted it during load, export lets you choose the shape you need now.
 
 ## Clean Export
 
-Clean export removes LoreForge metadata from the training records.
+Clean export removes RoleThread metadata from the training records.
 
 That includes project management fields such as:
 
-- LoreForge identity metadata
+- RoleThread identity metadata
 - entry UUID metadata
 - dataset UUID metadata
 - tags
@@ -100,11 +100,11 @@ For training, you usually want:
 1. Validation reviewed.
 2. Insights checked for obvious weak spots.
 3. Format chosen for the training tool.
-4. Clean export if the tool should not receive LoreForge metadata.
+4. Clean export if the tool should not receive RoleThread metadata.
 
 ## Export for Archive or Continued Work
 
-For archive or continued LoreForge work, keep:
+For archive or continued RoleThread work, keep:
 
 - the JSONL file
 - the `.registry.json` sidecar
@@ -122,4 +122,5 @@ This keeps more context available if you reopen the dataset later.
 ## Practical Tip
 
 If you are unsure, export a normal archive copy first, then create a clean export for training.
+
 

@@ -1,4 +1,4 @@
-"""Shared UI color constants for LoreForge Lite."""
+"""Shared UI color constants for RoleThread Lite."""
 from math import ceil, floor
 
 COLOR_PRIMARY = "#3EB489"
@@ -47,3 +47,4 @@ def score_color(score: float, max_score: float = 100.0) -> str:
     if bounded_score >= floor(max_score * 0.3):
         return SCORE_COLOR_ATTENTION
     return SCORE_COLOR_CRITICAL
+

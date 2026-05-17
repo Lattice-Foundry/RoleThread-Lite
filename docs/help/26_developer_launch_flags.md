@@ -1,6 +1,6 @@
 # Developer Launch Flags
 
-LoreForge can be started with optional launch flags after Streamlit's `--` separator. These flags are intended for developers, testers, and future launcher/installer integration. Normal users do not need them during everyday work.
+RoleThread can be started with optional launch flags after Streamlit's `--` separator. These flags are intended for developers, testers, and future launcher/installer integration. Normal users do not need them during everyday work.
 
 ## Normal Launch
 
@@ -36,7 +36,7 @@ The normal About view keeps only the support-oriented summary, runtime compatibi
 
 ## Webapp Mode
 
-Use `webapp` to start LoreForge through the internal Edge webapp launch pathway:
+Use `webapp` to start RoleThread through the internal Edge webapp launch pathway:
 
 ```bat
 streamlit run app.py -- webapp
@@ -44,9 +44,9 @@ streamlit run app.py -- webapp
 
 This path is Windows/Microsoft Edge only. It is the method future launchers or installers should call when webapp launch mode is enabled. It may require a fresh relaunch to take effect because the launch mode is evaluated during startup.
 
-When Edge is available, LoreForge attempts to open the app in Microsoft Edge app mode. If Streamlit opens a normal browser window first, LoreForge may close only that duplicate browser window after the Edge app window is identified.
+When Edge is available, RoleThread attempts to open the app in Microsoft Edge app mode. If Streamlit opens a normal browser window first, RoleThread may close only that duplicate browser window after the Edge app window is identified.
 
-On Linux, macOS, or unknown platforms, `webapp` does not attempt Edge launch, Windows window inspection, or duplicate-browser cleanup. LoreForge shows a controlled note and continues in normal browser mode. Use your browser's manual install-as-app or create-shortcut feature if you want an app-like shell on those platforms.
+On Linux, macOS, or unknown platforms, `webapp` does not attempt Edge launch, Windows window inspection, or duplicate-browser cleanup. RoleThread shows a controlled note and continues in normal browser mode. Use your browser's manual install-as-app or create-shortcut feature if you want an app-like shell on those platforms.
 
 ## Webapp Mode With Diagnostics
 
@@ -80,4 +80,5 @@ It should generally be used with `dev` for the same reason as `edge-debug`.
 
 ## Experimental Feature Preference
 
-Settings includes **Experimental Features > Enable webapp launch mode**. That preference does not relaunch the current app session. It stores the user's choice so a future launcher or installer can decide whether to start LoreForge normally or with `webapp`.
+Settings includes **Experimental Features > Enable webapp launch mode**. That preference does not relaunch the current app session. It stores the user's choice so a future launcher or installer can decide whether to start RoleThread normally or with `webapp`.
+

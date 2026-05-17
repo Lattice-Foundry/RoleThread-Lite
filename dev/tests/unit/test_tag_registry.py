@@ -80,6 +80,22 @@ def _add_category(session, *, name="Behavior", slug="behavior", active=True):
     return category
 
 
+def test_resolve_tag_lifecycle_handles_uninitialized_registry(monkeypatch, tmp_path):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'empty_registry.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    monkeypatch.setattr(tag_resolution, "SessionLocal", session_factory)
+
+    result = tag_resolution.resolve_tag_lifecycle("Imported Tag")
+
+    assert result.result_type == TAG_RESOLUTION_UNKNOWN
+    assert result.resolved_slug == "imported_tag"
+    assert result.reason == "registry_unavailable"
+    assert result.should_create_archived is False
+
+
 def _add_tag(
     session,
     *,

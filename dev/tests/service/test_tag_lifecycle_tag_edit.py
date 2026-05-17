@@ -14,7 +14,7 @@ from dev.tests.service.tag_lifecycle_service_test_helpers import (
     _entry,
     _fake_dataset_backup,
     _metadata_for,
-    _without_loreforge_meta,
+    _without_rolethread_meta,
     _write_dataset,
     edit_active_tag,
     json,
@@ -67,7 +67,7 @@ def test_rename_custom_active_tag_rewrites_dataset_and_aliases_old_slug(
     assert result.affected_count == 2
     assert result.dataset_backup_path == str(dataset_backups[0])
     assert result.db_backup_path is not None
-    assert _without_loreforge_meta(result.entries) == [
+    assert _without_rolethread_meta(result.entries) == [
         _entry(["follow_up_question", "tone"]),
         _entry(["tone", "follow_up_question"]),
         _entry(["other_tag"]),
@@ -151,7 +151,7 @@ def test_rename_chain_preserves_alias_history_and_resolves_original_slug(
 
     assert first.ok is True
     assert second.ok is True
-    assert _without_loreforge_meta(second.entries) == [_entry(["final_tag"])]
+    assert _without_rolethread_meta(second.entries) == [_entry(["final_tag"])]
 
     session = tag_lifecycle_db()
     try:
@@ -207,7 +207,7 @@ def test_rename_custom_active_tag_deduplicates_rewritten_entry_tags(
     )
 
     assert result.ok is True
-    assert _without_loreforge_meta(result.entries) == [_entry(["new_tag"])]
+    assert _without_rolethread_meta(result.entries) == [_entry(["new_tag"])]
     _assert_stamped(result.entries)
 
 def test_tag_lifecycle_rewrite_refreshes_registry_sidecar(
@@ -341,7 +341,7 @@ def test_edit_active_tag_changes_name_and_category_together(
     assert result.message == (
         'Edited tag "Followup Question" to "Follow Up Question" and moved it to Scene.'
     )
-    assert _without_loreforge_meta(result.entries) == [_entry(["follow_up_question"])]
+    assert _without_rolethread_meta(result.entries) == [_entry(["follow_up_question"])]
     _assert_stamped(result.entries)
     assert result.dataset_backup_path is not None
     assert result.db_backup_path is not None
@@ -629,3 +629,4 @@ def test_rename_dataset_save_failure_rolls_back_db(
     finally:
         session.close()
     assert load_dataset(path)[0] == entries
+

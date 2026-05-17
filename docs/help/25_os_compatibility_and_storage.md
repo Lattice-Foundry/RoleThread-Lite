@@ -1,6 +1,6 @@
 # OS Compatibility and Storage Policy
 
-LoreForge Lite V1 is local-first and platform-aware.
+RoleThread Lite V1 is local-first and platform-aware.
 
 The goal is simple: app-managed state should live in normal operating-system app data locations, while your visible datasets, exports, imports, and backups live in a clear user workspace.
 
@@ -16,15 +16,15 @@ Linux is expected to use a manual or git-clone workflow for V1. Launching throug
 
 **macOS is beta-supported for V1.**
 
-macOS support is intended, but is community-tested because the maintainer cannot fully validate it directly yet. There is no V1 macOS installer planned. Default-browser use is the expected workflow. Safari-style web-app usage may work as a user-managed beta workflow, but LoreForge does not automate it in V1.
+macOS support is intended, but is community-tested because the maintainer cannot fully validate it directly yet. There is no V1 macOS installer planned. Default-browser use is the expected workflow. Safari-style web-app usage may work as a user-managed beta workflow, but RoleThread does not automate it in V1.
 
 **Unknown platforms are unsupported.**
 
-LoreForge should degrade gracefully where possible, but unsupported platforms should not be assumed to have platform-specific integrations.
+RoleThread should degrade gracefully where possible, but unsupported platforms should not be assumed to have platform-specific integrations.
 
 ## Official Python Runtime
 
-LoreForge Lite V1 officially supports Python 3.14.4.
+RoleThread Lite V1 officially supports Python 3.14.4.
 
 Older Python versions are blocked so the app fails clearly instead of producing confusing import or dependency errors later.
 
@@ -34,61 +34,61 @@ Manual Linux/macOS users should create their environment with `python3.14`. Wind
 
 ## Fresh-Install Storage Defaults
 
-On a fresh install with no saved preferences, LoreForge uses platform-native defaults.
+On a fresh install with no saved preferences, RoleThread uses platform-native defaults.
 
 Windows:
 
 ```text
 Internal app state:
-%LOCALAPPDATA%\LoreForge
+%LOCALAPPDATA%\RoleThread
 
 User workspace:
-%USERPROFILE%\LoreForge
+%USERPROFILE%\RoleThread
 
 Workspace folders:
-%USERPROFILE%\LoreForge\training_data
-%USERPROFILE%\LoreForge\exports
-%USERPROFILE%\LoreForge\imports
-%USERPROFILE%\LoreForge\backups
+%USERPROFILE%\RoleThread\training_data
+%USERPROFILE%\RoleThread\exports
+%USERPROFILE%\RoleThread\imports
+%USERPROFILE%\RoleThread\backups
 ```
 
 Linux:
 
 ```text
 Internal app state:
-~/.local/share/loreforge
+~/.local/share/rolethread
 
 User workspace:
-~/LoreForge
+~/RoleThread
 
 Workspace folders:
-~/LoreForge/training_data
-~/LoreForge/exports
-~/LoreForge/imports
-~/LoreForge/backups
+~/RoleThread/training_data
+~/RoleThread/exports
+~/RoleThread/imports
+~/RoleThread/backups
 ```
 
 macOS:
 
 ```text
 Internal app state:
-~/Library/Application Support/LoreForge
+~/Library/Application Support/RoleThread
 
 User workspace:
-~/LoreForge
+~/RoleThread
 
 Workspace folders:
-~/LoreForge/training_data
-~/LoreForge/exports
-~/LoreForge/imports
-~/LoreForge/backups
+~/RoleThread/training_data
+~/RoleThread/exports
+~/RoleThread/imports
+~/RoleThread/backups
 ```
 
-Unknown platforms use a safe `~/LoreForge` fallback where possible.
+Unknown platforms use a safe `~/RoleThread` fallback where possible.
 
 ## Existing Preferences Win
 
-If you already configured a dataset folder or backup folder, LoreForge preserves that choice.
+If you already configured a dataset folder or backup folder, RoleThread preserves that choice.
 
 Platform defaults apply when preferences are missing or empty. They are not a migration system and do not move your existing datasets.
 
@@ -100,34 +100,34 @@ Cloud sync folders are optional backup or sync targets, not the preferred active
 
 Using OneDrive, Dropbox, Google Drive, iCloud Drive, or another sync folder as live working storage can cause constant sync activity, file locking, conflicts, delayed writes, or unusual timestamps.
 
-If OneDrive appears to be constantly syncing LoreForge files, review OneDrive backup and sync settings. In particular, check whether OneDrive is automatically syncing Documents, Desktop, or another folder that contains your LoreForge workspace.
+If OneDrive appears to be constantly syncing RoleThread files, review OneDrive backup and sync settings. In particular, check whether OneDrive is automatically syncing Documents, Desktop, or another folder that contains your RoleThread workspace.
 
 The safest pattern is:
 
-1. Work locally in the LoreForge workspace.
-2. Let LoreForge create local backups.
+1. Work locally in the RoleThread workspace.
+2. Let RoleThread create local backups.
 3. Use Cloud Backup only to mirror backup material to a sync provider.
 
 ## Launch Behavior Policy
 
-LoreForge V1 defines platform-aware launch policy and diagnostics. Production
+RoleThread V1 defines platform-aware launch policy and diagnostics. Production
 installer, shortcut, and packaged browser behavior are still planned later.
 
-For V1, run LoreForge normally and use the browser workflow that is most
+For V1, run RoleThread normally and use the browser workflow that is most
 reliable on your machine. If you want an app-style window, use your browser's
 built-in install or shortcut option manually. In Microsoft Edge, open the local
-LoreForge URL and use **Apps > Install this site as an app** or the equivalent
+RoleThread URL and use **Apps > Install this site as an app** or the equivalent
 shortcut option.
 
-The `webapp` flag is LoreForge's internal Windows web-app launch method for
+The `webapp` flag is RoleThread's internal Windows web-app launch method for
 future launcher and installer workflows. It opens Microsoft Edge app mode when
-Edge is available. If Streamlit opens a normal browser window first, LoreForge
+Edge is available. If Streamlit opens a normal browser window first, RoleThread
 attempts to close only that duplicate browser window after the Edge app window
 is observed. On Linux, macOS, or unknown platforms, the flag does not attempt
-Windows-specific launch or cleanup work; LoreForge continues in normal browser
+Windows-specific launch or cleanup work; RoleThread continues in normal browser
 mode.
 
-Developer diagnostics are hidden unless LoreForge is started with the `dev`
+Developer diagnostics are hidden unless RoleThread is started with the `dev`
 flag. `edge-debug` and `webapp-debug` are developer-only investigation flags and
 should be combined with `dev` when detailed process/window metadata is needed.
 Cleanup uses a polite window-close request against an exact Windows window
@@ -172,3 +172,4 @@ That section shows:
 - launch behavior
 - raw diagnostics
 - platform path defaults and path sources
+

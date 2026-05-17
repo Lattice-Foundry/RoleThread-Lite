@@ -1,4 +1,4 @@
-"""Help documentation browser for LoreForge Lite."""
+"""Help documentation browser for RoleThread Lite."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -179,7 +179,7 @@ def _scroll_to_top_on_article_change(article_id: str) -> None:
         (() => {{
           const token = "{scroll_token}";
           const targetWindow = window.parent || window;
-          targetWindow.__loreforgeHelpScrollToken = token;
+          targetWindow.__rolethreadHelpScrollToken = token;
 
           function getTargets() {{
             const doc = targetWindow.document || document;
@@ -197,7 +197,7 @@ def _scroll_to_top_on_article_change(article_id: str) -> None:
           }}
 
           function scrollTopNow() {{
-            if (targetWindow.__loreforgeHelpScrollToken !== token) return;
+            if (targetWindow.__rolethreadHelpScrollToken !== token) return;
             for (const target of getTargets()) {{
               try {{
                 if (typeof target.scrollTo === "function") {{
@@ -374,3 +374,4 @@ def render_help_page() -> None:
     _render_search_controls()
     active_article_id = get_active_help_article_id()
     _render_active_article(active_article_id)
+

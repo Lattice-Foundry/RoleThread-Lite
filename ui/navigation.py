@@ -30,7 +30,7 @@ PAGE_FAQ = "FAQ"
 
 @dataclass(frozen=True)
 class PageDefinition:
-    """Navigation metadata for one legacy LoreForge page."""
+    """Navigation metadata for one legacy RoleThread page."""
 
     page_id: str
     title: str
@@ -171,7 +171,7 @@ _PAGES_WITH_OWN_SIDEBAR = frozenset({PAGE_HELP, PAGE_FAQ})
 _PENDING_NATIVE_PAGE_KEY = "_pending_native_page"
 _NATIVE_PAGES: dict[str, object] = {}
 PageRenderer = Callable[[], None]
-APP_BRAND_TITLE = "LoreForge Lite"
+APP_BRAND_TITLE = "RoleThread Lite"
 APP_BRAND_SUBTITLE = "Narrative Intelligence"
 APP_BRAND_LOGO_PATH = (
     Path(__file__).resolve().parents[1] / "notes" / "logo" / "logo_crop.png"
@@ -209,23 +209,23 @@ def page_owns_sidebar(page_id: str | None) -> bool:
 
 
 def render_sidebar_branding() -> None:
-    """Render the shared LoreForge shell identity at the top of the sidebar."""
+    """Render the shared RoleThread shell identity at the top of the sidebar."""
 
     logo_data_uri = get_sidebar_brand_logo_data_uri()
     logo_markup = ""
     if logo_data_uri:
         logo_markup = (
-            f'<img class="loreforge-sidebar-logo" src="{logo_data_uri}" '
+            f'<img class="rolethread-sidebar-logo" src="{logo_data_uri}" '
             f'alt="{APP_BRAND_TITLE} logo" />'
         )
 
     st.sidebar.markdown(
         f"""
-        <div class="loreforge-sidebar-brand">
+        <div class="rolethread-sidebar-brand">
             {logo_markup}
-            <div class="loreforge-sidebar-copy">
-                <div class="loreforge-sidebar-title">{APP_BRAND_TITLE}</div>
-                <div class="loreforge-sidebar-subtitle">{APP_BRAND_SUBTITLE}</div>
+            <div class="rolethread-sidebar-copy">
+                <div class="rolethread-sidebar-title">{APP_BRAND_TITLE}</div>
+                <div class="rolethread-sidebar-subtitle">{APP_BRAND_SUBTITLE}</div>
             </div>
         </div>
         """,
@@ -263,7 +263,7 @@ def get_page_title(page_id: str) -> str:
     page = resolve_page(page_id)
     registry = get_page_registry()
     if page not in registry:
-        raise ValueError(f"Unknown LoreForge page: {page_id}")
+        raise ValueError(f"Unknown RoleThread page: {page_id}")
     return registry[page].title
 
 
@@ -287,7 +287,7 @@ def set_current_page(page_id: str) -> str:
 
     page = resolve_page(page_id)
     if page not in get_page_registry():
-        raise ValueError(f"Unknown LoreForge page: {page_id}")
+        raise ValueError(f"Unknown RoleThread page: {page_id}")
     st.session_state.page = page
     return page
 
@@ -322,7 +322,7 @@ def _make_page_runner(
 def build_native_pages(
     page_renderers: Mapping[str, PageRenderer],
 ) -> dict[str, object]:
-    """Build Streamlit Page objects for the registered LoreForge pages."""
+    """Build Streamlit Page objects for the registered RoleThread pages."""
 
     validate_page_renderers(page_renderers)
     page_registry = get_page_registry()
@@ -399,7 +399,7 @@ def activate_page(page_id: str, *, clear_edit_state: bool = True) -> str:
 
     target_page = resolve_page(page_id)
     if target_page not in get_page_registry():
-        raise ValueError(f"Unknown LoreForge page: {page_id}")
+        raise ValueError(f"Unknown RoleThread page: {page_id}")
 
     current_page = get_current_page()
     if (
@@ -439,7 +439,7 @@ def navigate_to_page(
 
     target_page = resolve_page(page_id)
     if target_page not in get_page_registry():
-        raise ValueError(f"Unknown LoreForge page: {page_id}")
+        raise ValueError(f"Unknown RoleThread page: {page_id}")
 
     activate_page(target_page, clear_edit_state=clear_edit_state)
     if rerun:
@@ -457,3 +457,4 @@ def sync_legacy_page_state(page_id: str) -> str:
     """Mirror a known page into st.session_state.page without rerunning."""
 
     return set_current_page(page_id)
+

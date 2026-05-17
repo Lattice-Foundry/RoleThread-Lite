@@ -4,7 +4,7 @@ Validation helps you find dataset problems before they become training problems.
 
 It is not there to judge your writing. It is there to make structure, metadata, and common cleanup issues visible so you can decide what to fix.
 
-Entries created and edited through normal LoreForge workflows are guarded against most structural invalid states before save. Validation is most valuable as an audit, cleanup, and final-review tool, especially for imported datasets, external edits, merge outputs, and large review passes.
+Entries created and edited through normal RoleThread workflows are guarded against most structural invalid states before save. Validation is most valuable as an audit, cleanup, and final-review tool, especially for imported datasets, external edits, merge outputs, and large review passes.
 
 ## What Validation Checks
 
@@ -53,7 +53,7 @@ Manual review is better for:
 - splitting or joining entries
 - changing system prompts
 
-LoreForge will not rewrite creative content without you choosing that action.
+RoleThread will not rewrite creative content without you choosing that action.
 
 ## Malformed Structure
 
@@ -85,7 +85,7 @@ Training data should use standard roles:
 - `user`
 - `assistant`
 
-Imported datasets may contain custom speaker names as roles. LoreForge can help preserve the speaker meaning as character metadata while keeping the saved training roles standard.
+Imported datasets may contain custom speaker names as roles. RoleThread can help preserve the speaker meaning as character metadata while keeping the saved training roles standard.
 
 ## Formatting and Meta-Language
 
@@ -126,11 +126,11 @@ This is normal. Validation gives you a map for cleanup.
 
 One included example dataset is intended to demonstrate imported cleanup and validation review. It can be a useful place to see warnings, diagnostics, and repair workflows without risking your own work.
 
-## Normal LoreForge Workflows
+## Normal RoleThread Workflows
 
-If you create entries inside LoreForge, you usually do not need to treat Validation as an emergency repair loop.
+If you create entries inside RoleThread, you usually do not need to treat Validation as an emergency repair loop.
 
-LoreForge forms check required structure before saving. That means normal entry creation and editing should usually produce structurally safe records.
+RoleThread forms check required structure before saving. That means normal entry creation and editing should usually produce structurally safe records.
 
 Validation still matters because it sees the whole dataset at once. It can find patterns that are easy to miss while writing:
 
@@ -147,7 +147,7 @@ Use it as a review pass, not as proof that every normal save is risky.
 
 A practical repair workflow:
 
-1. Load the dataset, especially if it came from outside LoreForge.
+1. Load the dataset, especially if it came from outside RoleThread.
 2. Open Validation.
 3. Review issue groups.
 4. Apply safe automatic fixes first.
@@ -178,3 +178,4 @@ Run Validation after:
 ## Practical Tip
 
 Fix structural issues before content-quality issues. A clean structure makes every later review pass easier.
+

@@ -29,8 +29,8 @@ from core.dataset import (
     set_entry_system_prompt,
     validate_entry,
 )
-from core.loreforge_meta import (
-    LOREFORGE_META_KEY,
+from core.rolethread_meta import (
+    ROLETHREAD_META_KEY,
     ensure_entry_uuid,
     get_dataset_uuid_for_entries,
     get_entry_uuid,
@@ -360,13 +360,13 @@ def _entry_with_fresh_uuid(entry: dict) -> dict:
     """Return a copy of entry with a new entry UUID and no dataset identity drift."""
 
     proposed = copy.deepcopy(entry)
-    metadata = proposed.get(LOREFORGE_META_KEY)
+    metadata = proposed.get(ROLETHREAD_META_KEY)
     if not isinstance(metadata, dict):
         metadata = {}
     metadata = dict(metadata)
     metadata.pop("dataset_uuid", None)
     metadata["entry_uuid"] = str(uuid4())
-    proposed[LOREFORGE_META_KEY] = metadata
+    proposed[ROLETHREAD_META_KEY] = metadata
     return ensure_entry_uuid(proposed)
 
 
@@ -622,10 +622,10 @@ def save_full_edit_service(
         )
 
     edited_entry = copy.deepcopy(updated_entry)
-    if LOREFORGE_META_KEY not in edited_entry:
-        existing_meta = entries[entry_index].get(LOREFORGE_META_KEY)
+    if ROLETHREAD_META_KEY not in edited_entry:
+        existing_meta = entries[entry_index].get(ROLETHREAD_META_KEY)
         if isinstance(existing_meta, dict):
-            edited_entry[LOREFORGE_META_KEY] = copy.deepcopy(existing_meta)
+            edited_entry[ROLETHREAD_META_KEY] = copy.deepcopy(existing_meta)
     edited_entry, _ = normalize_entry_roles(edited_entry)
     errors = validate_entry(edited_entry)
     if errors:
@@ -1527,3 +1527,4 @@ def _character_turn_payloads(entry_uuid: str | None) -> list[dict] | None:
             "source_role_label": mapping.source_role_label,
         })
     return payloads
+

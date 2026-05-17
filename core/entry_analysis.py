@@ -5,7 +5,7 @@ from enum import StrEnum
 import re
 from typing import Any, ClassVar
 
-from core.loreforge_meta import LOREFORGE_META_KEY
+from core.rolethread_meta import ROLETHREAD_META_KEY
 from core.role_normalization import is_known_role_variant, normalize_role
 
 
@@ -129,7 +129,7 @@ class BaseEntryAnalyzer:
         "metadata",
         "source",
         "id",
-        LOREFORGE_META_KEY,
+        ROLETHREAD_META_KEY,
     })
 
     def __init__(self, *, format_name: str | None = None):
@@ -208,7 +208,7 @@ class BaseEntryAnalyzer:
                 EntryDiagnostic(
                     code=BASE_MISSING_TAGS,
                     severity=AnalysisSeverity.WARNING,
-                    message="Missing 'tags' metadata; LoreForge can add tags: [].",
+                    message="Missing 'tags' metadata; RoleThread can add tags: [].",
                     path=("tags",),
                     fixable=True,
                     repair_kind=RepairKind.AUTOMATIC,
@@ -223,7 +223,7 @@ class BaseEntryAnalyzer:
                 EntryDiagnostic(
                     code=BASE_TAGS_NOT_LIST,
                     severity=AnalysisSeverity.WARNING,
-                    message="'tags' metadata must be a list; LoreForge can replace it with [].",
+                    message="'tags' metadata must be a list; RoleThread can replace it with [].",
                     path=("tags",),
                     fixable=True,
                     repair_kind=RepairKind.AUTOMATIC,
@@ -240,7 +240,7 @@ class BaseEntryAnalyzer:
                     EntryDiagnostic(
                         code=BASE_INVALID_TAG_VALUE,
                         severity=AnalysisSeverity.WARNING,
-                        message="Tag values must be strings; LoreForge can drop this value.",
+                        message="Tag values must be strings; RoleThread can drop this value.",
                         path=("tags", index),
                         fixable=True,
                         repair_kind=RepairKind.AUTOMATIC,
@@ -743,7 +743,7 @@ class ChatMLAnalyzer(BaseEntryAnalyzer):
     ) -> str:
         if isinstance(role, str) and not is_known_role_variant(role):
             return (
-                f"Custom role name '{role}' detected. LoreForge needs canonical "
+                f"Custom role name '{role}' detected. RoleThread needs canonical "
                 "user/assistant/system roles; the character system will preserve "
                 "identity metadata."
             )
@@ -1080,11 +1080,11 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
                 EntryDiagnostic(
                     code=SHAREGPT_NO_SYSTEM_TURN,
                     severity=AnalysisSeverity.INFO,
-                    message="ShareGPT entry has no system turn; LoreForge can inject one during conversion.",
+                    message="ShareGPT entry has no system turn; RoleThread can inject one during conversion.",
                     path=("conversations",),
                     fixable=True,
                     repair_kind=RepairKind.SUGGESTED,
-                    suggested_repair="Inject LoreForge's internal ShareGPT import system prompt.",
+                    suggested_repair="Inject RoleThread's internal ShareGPT import system prompt.",
                 )
             )
 
@@ -1136,3 +1136,4 @@ class ShareGPTAnalyzer(BaseEntryAnalyzer):
         if changed or role in {"user", "assistant", "system"}:
             return role
         return None
+

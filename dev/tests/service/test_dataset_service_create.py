@@ -9,7 +9,7 @@ from dev.tests.service.dataset_service_test_helpers import (
     _malformed_entry,
     _read_entries,
     _registry_session_factory,
-    _without_loreforge_meta,
+    _without_rolethread_meta,
     _write_dataset,
     copy,
     create_character,
@@ -49,7 +49,7 @@ def test_create_entry_service_appends_valid_entry_and_preserves_metadata(tmp_pat
 
     assert result.ok is True
     assert result.affected_count == 1
-    assert _without_loreforge_meta(result.entries) == existing + [new_entry]
+    assert _without_rolethread_meta(result.entries) == existing + [new_entry]
     _assert_stamped(result.entries)
     assert existing == original_entries
     assert _read_entries(path) == result.entries
@@ -298,6 +298,7 @@ def test_duplicate_entry_service_appends_fresh_uuid_with_backup(tmp_path, monkey
     assert len(result.entries) == 2
     assert get_entry_uuid(result.entries[0]) == original_uuid
     assert get_entry_uuid(result.entries[1]) != original_uuid
-    assert _without_loreforge_meta(result.entries[1]) == _without_loreforge_meta(
+    assert _without_rolethread_meta(result.entries[1]) == _without_rolethread_meta(
         original_entries[0]
     )
+

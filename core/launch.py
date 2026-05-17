@@ -20,12 +20,12 @@ WEBAPP_FLAG = "webapp"
 DEV_FLAG = "dev"
 EDGE_DEBUG_FLAG = "edge-debug"
 WEBAPP_DEBUG_FLAG = "webapp-debug"
-EXTERNAL_WEBAPP_LAUNCH_ENV = "LOREFORGE_EXTERNAL_WEBAPP_LAUNCH"
+EXTERNAL_WEBAPP_LAUNCH_ENV = "ROLETHREAD_EXTERNAL_WEBAPP_LAUNCH"
 DEFAULT_STREAMLIT_LOCAL_URL = "http://localhost:8501"
 RECOMMENDED_V1_LAUNCH_COMMAND = "streamlit run app.py"
 WEBAPP_EXPERIMENTAL_MESSAGE = (
     "The webapp flag opens Microsoft Edge app mode when available. Streamlit "
-    "may still open its normal browser window before app.py runs; LoreForge "
+    "may still open its normal browser window before app.py runs; RoleThread "
     "then closes the duplicate browser window when Windows metadata identifies "
     "a safe exact window target."
 )
@@ -56,7 +56,7 @@ WEBAPP_LAUNCH_STATUS_FALLBACK = "fallback"
 WEBAPP_LAUNCH_STATUS_LAUNCHED = "launched"
 WEBAPP_LAUNCH_STATUS_NOT_REQUESTED = "not_requested"
 WEBAPP_UNSUPPORTED_PLATFORM_MESSAGE = (
-    "LoreForge webapp mode is only supported on Windows with Microsoft Edge. "
+    "RoleThread webapp mode is only supported on Windows with Microsoft Edge. "
     "Continuing in normal browser mode."
 )
 
@@ -206,7 +206,7 @@ class EdgeSnapshotPollResult:
 
 
 def parse_launch_flags(argv: Sequence[str] | None = None) -> LaunchFlags:
-    """Parse LoreForge runtime launch flags from command-line arguments."""
+    """Parse RoleThread runtime launch flags from command-line arguments."""
 
     args = tuple(sys.argv[1:] if argv is None else argv)
     return LaunchFlags(
@@ -226,7 +226,7 @@ def get_streamlit_local_url(env: dict[str, str] | None = None) -> str:
     """Return the local URL used for dev web-app launch tests."""
 
     env_values = os.environ if env is None else env
-    return env_values.get("LOREFORGE_STREAMLIT_URL", DEFAULT_STREAMLIT_LOCAL_URL).strip() or (
+    return env_values.get("ROLETHREAD_STREAMLIT_URL", DEFAULT_STREAMLIT_LOCAL_URL).strip() or (
         DEFAULT_STREAMLIT_LOCAL_URL
     )
 
@@ -263,7 +263,7 @@ def should_attempt_webapp_launch(
 def supports_managed_webapp_launch(
     browser_detection: BrowserDetectionResult,
 ) -> bool:
-    """Return whether LoreForge should run managed Edge webapp launch work."""
+    """Return whether RoleThread should run managed Edge webapp launch work."""
 
     return (
         browser_detection.platform.os_name == OS_WINDOWS
@@ -350,7 +350,7 @@ def get_webapp_launch_guidance(
         can_suppress_from_app=False,
         recommended_command=RECOMMENDED_V1_LAUNCH_COMMAND,
         message=(
-            f"LoreForge could not confirm Streamlit headless mode. {WEBAPP_EXPERIMENTAL_MESSAGE} "
+            f"RoleThread could not confirm Streamlit headless mode. {WEBAPP_EXPERIMENTAL_MESSAGE} "
             f"{WEBAPP_AUTOMATION_DEFERRED_MESSAGE}"
         ),
     )
@@ -537,10 +537,10 @@ $callback = [Win32WindowProbe+EnumWindowsProc]{
     $processName = [string]$processNames[[int]$windowPid]
     $commandLine = [string]$processCommands[[int]$windowPid]
     $looksLikeEdge = $processName -ieq 'msedge.exe'
-    $looksLikeLoreForge = $title -like '*LoreForge*'
+    $looksLikeRoleThread = $title -like '*RoleThread*'
     $looksLikeChromiumWindow = $className -like 'Chrome_WidgetWin*'
 
-    if (-not ($looksLikeEdge -or $looksLikeLoreForge -or $looksLikeChromiumWindow)) {
+    if (-not ($looksLikeEdge -or $looksLikeRoleThread -or $looksLikeChromiumWindow)) {
         return $true
     }
 
@@ -878,7 +878,7 @@ exit 0
             method=EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID,
             result=output or "stop_process_sent",
             message=(
-                "Graceful duplicate browser close was unavailable, so LoreForge "
+                "Graceful duplicate browser close was unavailable, so RoleThread "
                 f"sent an exact-PID process close to browser candidate PID {target.pid}. "
                 f"Graceful result: {close_result}"
             ),
@@ -918,7 +918,7 @@ def _close_duplicate_edge_browser_window_by_handle(
         if _is_streamlit_browser_window_candidate(window)
     ]
     app_candidates = [
-        window for window in window_diff.new_windows if _is_loreforge_app_window_candidate(window)
+        window for window in window_diff.new_windows if _is_rolethread_app_window_candidate(window)
     ]
 
     if len(browser_candidates) != 1 or len(app_candidates) != 1:
@@ -931,7 +931,7 @@ Add-Type @"
 using System;
 using System.Text;
 using System.Runtime.InteropServices;
-public class LoreForgeWindowCloser {{
+public class RoleThreadWindowCloser {{
     [DllImport("user32.dll", SetLastError=true)]
     public static extern bool PostMessage(IntPtr hWnd, UInt32 Msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")]
@@ -942,7 +942,7 @@ public class LoreForgeWindowCloser {{
 "@
 $handle = [IntPtr]([Convert]::ToInt64("{target.handle}", 16))
 [uint32]$windowPid = 0
-[void][LoreForgeWindowCloser]::GetWindowThreadProcessId($handle, [ref]$windowPid)
+[void][RoleThreadWindowCloser]::GetWindowThreadProcessId($handle, [ref]$windowPid)
 if ([int]$windowPid -ne {target.pid}) {{
     Write-Output "pid_mismatch"
     exit 5
@@ -958,13 +958,13 @@ if ($command -notlike '*localhost:8501*' -or $command -like '*--app=*') {{
     exit 3
 }}
 $titleBuilder = New-Object System.Text.StringBuilder 512
-[void][LoreForgeWindowCloser]::GetWindowText($handle, $titleBuilder, $titleBuilder.Capacity)
+[void][RoleThreadWindowCloser]::GetWindowText($handle, $titleBuilder, $titleBuilder.Capacity)
 $title = [string]$titleBuilder.ToString()
-if ($title -notlike '*LoreForge*' -or $title -notlike '*Microsoft*Edge*') {{
+if ($title -notlike '*RoleThread*' -or $title -notlike '*Microsoft*Edge*') {{
     Write-Output 'unsafe_title'
     exit 2
 }}
-$sent = [LoreForgeWindowCloser]::PostMessage($handle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+$sent = [RoleThreadWindowCloser]::PostMessage($handle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
 if ($sent) {{
     Write-Output 'wm_close_sent'
     exit 0
@@ -1004,7 +1004,7 @@ exit 1
         message=(
             "Experimental duplicate Edge browser cleanup used the pre-launch "
             f"normal browser window handle {target.handle} after observing a new "
-            "LoreForge app window."
+            "RoleThread app window."
         ),
         status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
     )
@@ -1017,17 +1017,17 @@ def _is_streamlit_browser_window_candidate(window: EdgeWindowInfo) -> bool:
         window.process_name.lower() == "msedge.exe"
         and DEFAULT_STREAMLIT_LOCAL_URL.lower() in command
         and "--app" not in command
-        and "loreforge" in title
+        and "rolethread" in title
         and "microsoft" in title
         and "edge" in title
     )
 
 
-def _is_loreforge_app_window_candidate(window: EdgeWindowInfo) -> bool:
+def _is_rolethread_app_window_candidate(window: EdgeWindowInfo) -> bool:
     title = window.title.strip().lower()
     return (
         window.class_name.startswith("Chrome_WidgetWin")
-        and "loreforge" in title
+        and "rolethread" in title
         and "microsoft" not in title
         and "edge" not in title
     )
@@ -1196,7 +1196,7 @@ def build_external_webapp_launch_status(
         edge_path=None,
         command=(),
         message=(
-            "External dev launcher mode is experimental and deferred. LoreForge skipped "
+            "External dev launcher mode is experimental and deferred. RoleThread skipped "
             "in-app Edge launch; use the normal browser workflow for V1."
         ),
         status_code=WEBAPP_LAUNCH_STATUS_EXTERNAL,
@@ -1308,7 +1308,7 @@ def attempt_webapp_launch(
             command=(),
             message=(
                 "Dev web-app mode was requested, but Microsoft Edge was not detected. "
-                "LoreForge will continue in the normal Streamlit browser flow."
+                "RoleThread will continue in the normal Streamlit browser flow."
             ),
             status_code=WEBAPP_LAUNCH_STATUS_FALLBACK,
         )
@@ -1329,7 +1329,7 @@ def attempt_webapp_launch(
             command=command,
             message=(
                 "Dev web-app mode was requested, but Edge launch failed. "
-                f"LoreForge will continue normally. Error: {exc}"
+                f"RoleThread will continue normally. Error: {exc}"
             ),
             status_code=WEBAPP_LAUNCH_STATUS_FAILED,
         )
@@ -1348,3 +1348,4 @@ def attempt_webapp_launch(
         status_code=WEBAPP_LAUNCH_STATUS_LAUNCHED,
     )
     return _webapp_launch_status
+

@@ -13,7 +13,7 @@ import streamlit as st
 from core.character_registry import get_character_display_for_entries
 from core.dataset import build_dataset_stats, count_exchanges
 from core.format_conversion import FORMAT_CHATML, FORMAT_SHAREGPT, FORMAT_UNKNOWN
-from core.loreforge_meta import get_entry_uuid
+from core.rolethread_meta import get_entry_uuid
 from core.qualitative_analysis import DatasetQualityReport, analyze_dataset_quality
 from core.tag_registry import get_tag_registry_snapshot
 from ui.guidance import render_manage_dataset_cta, render_page_cta
@@ -157,8 +157,8 @@ def _quality_recommendations(report: DatasetQualityReport) -> list[str]:
             (
                 "Metadata Integrity is low - "
                 f"{metadata.tagged_entry_percent:.1f}% of entries are tagged and "
-                f"{metadata.native_stamp_percent:.1f}% have trusted LoreForge stamps. "
-                "Tag untagged entries and save through LoreForge to refresh metadata."
+                f"{metadata.native_stamp_percent:.1f}% have trusted RoleThread stamps. "
+                "Tag untagged entries and save through RoleThread to refresh metadata."
             ),
         ),
     ]
@@ -738,3 +738,4 @@ def _subscore_status(score: float) -> str:
 
 def _yes_no(value: bool) -> str:
     return "Yes" if value else "No"
+

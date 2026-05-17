@@ -13,7 +13,7 @@ from core.backups import get_backup_root
 from core.db import engine as default_engine
 
 DB_BACKUP_KEEP_COUNT = 3
-DB_BACKUP_PREFIX = "loreforge_db_"
+DB_BACKUP_PREFIX = "rolethread_db_"
 DB_BACKUP_SUFFIX = ".sqlite"
 
 
@@ -93,3 +93,4 @@ def create_db_backup(
 
     prune_db_backups(backup_dir, DB_BACKUP_KEEP_COUNT)
     return backup_path
+

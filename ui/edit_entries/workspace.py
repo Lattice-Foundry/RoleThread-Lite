@@ -5,7 +5,7 @@ import streamlit as st
 from core.backups import auto_backups_enabled
 from core.dataset import make_entry, validate_entry
 from core.format_conversion import FORMAT_SHAREGPT, chatml_to_sharegpt_entry
-from core.loreforge_meta import get_entry_uuid
+from core.rolethread_meta import get_entry_uuid
 from core.text_helpers import count_phrase
 from services.dataset_service import save_full_edit_service, split_entry_service
 from ui.edit_entries.state import (
@@ -348,4 +348,5 @@ def render_full_edit_workspace(active_registry: dict[str, list[str]]) -> None:
             width="stretch",
         ):
             cancel_full_edit()
+
 

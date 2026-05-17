@@ -106,7 +106,7 @@ def test_resolve_cloud_backup_destination_uses_custom_path(tmp_path):
     assert cloud_sync.resolve_cloud_backup_destination({
         "backup_destination_type": "dropbox",
         "backup_destination_custom_path": str(destination),
-    }) == destination / "LoreForge Lite" / "backups"
+    }) == destination / "RoleThread Lite" / "backups"
 
 
 def test_resolve_cloud_backup_destination_uses_onedrive_setting_before_detection(
@@ -127,7 +127,7 @@ def test_resolve_cloud_backup_destination_uses_onedrive_setting_before_detection
     assert cloud_sync.resolve_cloud_backup_destination({
         "backup_destination_type": "onedrive",
         "backup_destination_custom_path": str(destination),
-    }) == destination / "LoreForge Lite" / "backups"
+    }) == destination / "RoleThread Lite" / "backups"
 
 
 def test_resolve_cloud_backup_destination_ignores_stale_onedrive_off_windows(
@@ -155,14 +155,14 @@ def test_resolve_cloud_backup_destination_ignores_stale_onedrive_off_windows(
 
 
 def test_cloud_backup_destination_path_does_not_double_append(tmp_path):
-    destination = tmp_path / "Dropbox" / "LoreForge Lite" / "backups"
+    destination = tmp_path / "Dropbox" / "RoleThread Lite" / "backups"
 
     assert cloud_sync.cloud_backup_destination_path(destination) == destination
 
 
 def test_detect_cloud_sync_provider_for_path_uses_onedrive_env(tmp_path, monkeypatch):
     onedrive = tmp_path / "OneDrive"
-    local_backup = onedrive / "LoreForge" / "backups"
+    local_backup = onedrive / "RoleThread" / "backups"
     local_backup.mkdir(parents=True)
     monkeypatch.setenv("ONEDRIVE", str(onedrive))
 
@@ -171,16 +171,16 @@ def test_detect_cloud_sync_provider_for_path_uses_onedrive_env(tmp_path, monkeyp
 
 def test_detect_cloud_sync_provider_for_path_uses_common_folder_names(tmp_path):
     assert cloud_sync.detect_cloud_sync_provider_for_path(
-        tmp_path / "Google Drive" / "LoreForge"
+        tmp_path / "Google Drive" / "RoleThread"
     ) == "Google Drive"
     assert cloud_sync.detect_cloud_sync_provider_for_path(
-        tmp_path / "Dropbox" / "LoreForge"
+        tmp_path / "Dropbox" / "RoleThread"
     ) == "Dropbox"
     assert cloud_sync.detect_cloud_sync_provider_for_path(
-        tmp_path / "iCloud Drive" / "LoreForge"
+        tmp_path / "iCloud Drive" / "RoleThread"
     ) == "iCloud Drive"
     assert cloud_sync.detect_cloud_sync_provider_for_path(
-        tmp_path / "Box Sync" / "LoreForge"
+        tmp_path / "Box Sync" / "RoleThread"
     ) == "Box"
 
 
@@ -330,7 +330,7 @@ def test_table_row_count_rejects_unapproved_table_name():
 def test_cloud_backup_restore_imports_settings_and_latest_db(tmp_path, monkeypatch):
     _settings_db(tmp_path, monkeypatch)
     _patch_backup_config_paths(tmp_path, monkeypatch)
-    local_db = tmp_path / "local" / "loreforge.db"
+    local_db = tmp_path / "local" / "rolethread.db"
     monkeypatch.setattr(cloud_sync, "get_db_path", lambda: local_db)
 
     destination = tmp_path / "cloud"
@@ -353,3 +353,4 @@ def test_cloud_backup_restore_imports_settings_and_latest_db(tmp_path, monkeypat
     assert result.db_restored is True
     assert preferences.get_setting("preview_user_name") == "Restored"
     assert local_db.read_text(encoding="utf-8") == "latest"
+

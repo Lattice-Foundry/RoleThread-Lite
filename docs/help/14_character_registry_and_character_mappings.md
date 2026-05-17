@@ -1,6 +1,6 @@
 # Character Registry and Character Mappings
 
-The Character registry helps LoreForge Lite preserve who is speaking in creator workflows without changing the training roles in the JSONL.
+The Character registry helps RoleThread Lite preserve who is speaking in creator workflows without changing the training roles in the JSONL.
 
 Characters are metadata. They help you write, preview, organize, edit, and round-trip group scenes.
 
@@ -8,7 +8,7 @@ They do not replace the standard `system`, `user`, and `assistant` roles.
 
 ## Character Registry
 
-The Character registry is the list of characters LoreForge knows about.
+The Character registry is the list of characters RoleThread knows about.
 
 A character can have:
 
@@ -53,7 +53,7 @@ user
 assistant
 ```
 
-This keeps your dataset compatible while letting LoreForge show character-aware previews.
+This keeps your dataset compatible while letting RoleThread show character-aware previews.
 
 ## Character Mappings
 
@@ -65,7 +65,7 @@ For example:
 - exchange 1 assistant turn belongs to Assistant
 - exchange 2 assistant turn belongs to Kai
 
-LoreForge stores those assignments as metadata tied to the entry UUID and turn position.
+RoleThread stores those assignments as metadata tied to the entry UUID and turn position.
 
 ## How Mappings Survive Edits
 
@@ -78,11 +78,11 @@ When you open an entry in Full Edit:
 - content edits preserve assignments unless you change them
 - saving refreshes the mappings
 
-If you switch an entry from Group Chat mode back to Default and save, LoreForge clears the mappings for that entry. That keeps the metadata honest.
+If you switch an entry from Group Chat mode back to Default and save, RoleThread clears the mappings for that entry. That keeps the metadata honest.
 
 ## Split, Join, and Merge
 
-LoreForge tries to preserve character mappings through structural changes.
+RoleThread tries to preserve character mappings through structural changes.
 
 When you split an entry:
 
@@ -96,7 +96,7 @@ When you join entries:
 - turn positions are reindexed in the joined conversation
 - the joined entry receives a fresh entry UUID
 
-When datasets are merged, mappings are preserved only for entries that survive the merge. LoreForge avoids creating orphan mappings for discarded duplicate entries.
+When datasets are merged, mappings are preserved only for entries that survive the merge. RoleThread avoids creating orphan mappings for discarded duplicate entries.
 
 ## Sidecars and Characters
 
@@ -117,9 +117,9 @@ Keep the sidecar near the dataset when moving or sharing files if you want chara
 
 Imported datasets can contain character-like information in different forms.
 
-LoreForge may help identify custom speaker names or imported character metadata and preserve them as character definitions or mappings where possible.
+RoleThread may help identify custom speaker names or imported character metadata and preserve them as character definitions or mappings where possible.
 
-If a mapping references a character that is missing or inactive, LoreForge should handle it safely. You may see an unassigned state or a warning rather than a crash.
+If a mapping references a character that is missing or inactive, RoleThread should handle it safely. You may see an unassigned state or a warning rather than a crash.
 
 ## Workflow Examples
 
@@ -144,9 +144,10 @@ If a mapping references a character that is missing or inactive, LoreForge shoul
 
 **Mistake:** Thinking character mappings are the same as role names.
 
-**Better mental model:** Roles are the training format. Character mappings are LoreForge metadata that tells you who the role represents in a specific turn.
+**Better mental model:** Roles are the training format. Character mappings are RoleThread metadata that tells you who the role represents in a specific turn.
 
 ## Practical Tip
 
 Use character mappings when they help you maintain the dataset. If an entry is already clear as a simple user/assistant example, Default mode is still perfectly valid.
+
 

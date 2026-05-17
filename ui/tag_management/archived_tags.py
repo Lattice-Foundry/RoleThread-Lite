@@ -18,7 +18,7 @@ def render_archived_tags(tag_snapshot, registry: list[dict]) -> None:
     st.divider()
     st.subheader("Archived Tags")
     st.caption(
-        "These tags are known to LoreForge but are not active or trusted. "
+        "These tags are known to RoleThread but are not active or trusted. "
         "Imported tags need a category before they appear in normal tag pickers. "
         "Deleted tags can be restored later."
     )
@@ -161,4 +161,5 @@ def _render_pending_assignment(*, archived_tags: list[dict], registry: list[dict
         if st.button("Cancel", key="btn_tm_cancel_archived_assignment"):
             st.session_state.pop("tm_pending_archived_assignment", None)
             st.rerun()
+
 

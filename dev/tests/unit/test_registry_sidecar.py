@@ -23,7 +23,7 @@ from core.registry_sidecar import (
     sidecar_to_dict,
     write_sidecar,
 )
-from core.version import LOREFORGE_VERSION
+from core.version import ROLETHREAD_VERSION
 
 
 def _sample_registry() -> SidecarRegistry:
@@ -127,8 +127,8 @@ def test_build_sidecar_registry_and_to_dict_shape():
     assert data["metadata"]["schema_version"] == SIDECAR_SCHEMA_VERSION
     assert data["metadata"]["kind"] == SIDECAR_KIND
     assert data["metadata"]["exported_at"]
-    assert data["metadata"]["app_name"] == "LoreForge Lite"
-    assert data["metadata"]["app_version"] == LOREFORGE_VERSION
+    assert data["metadata"]["app_name"] == "RoleThread Lite"
+    assert data["metadata"]["app_version"] == ROLETHREAD_VERSION
     assert data["dataset"] == {
         "dataset_uuid": "dataset-uuid-1",
         "filename": "training_set.jsonl",
@@ -441,3 +441,4 @@ def test_sidecar_dataclasses_are_frozen():
 
     with pytest.raises(dataclasses.FrozenInstanceError):
         category.name = "Changed"
+

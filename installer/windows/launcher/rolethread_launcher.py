@@ -1,4 +1,4 @@
-"""Windows launcher prototype for LoreForge Lite.
+"""Windows launcher prototype for RoleThread Lite.
 
 This source module is intended to be wrapped by PyInstaller in a later pass.
 It does not implement final installer integration, shortcut creation, or
@@ -18,8 +18,8 @@ import sys
 from typing import Callable, Sequence
 
 
-APP_NAME = "LoreForge Lite"
-APP_DATA_DIR_NAME = "LoreForge"
+APP_NAME = "RoleThread Lite"
+APP_DATA_DIR_NAME = "RoleThread"
 PREFERENCES_FILE_NAME = "preferences.json"
 LAUNCHER_LOG_FILE_NAME = "launcher.log"
 STREAMLIT_PORT = "8501"
@@ -31,7 +31,7 @@ STREAMLIT_ARGS = (
     "--server.port",
     STREAMLIT_PORT,
 )
-INTERNAL_STREAMLIT_FLAG = "--loreforge-run-streamlit"
+INTERNAL_STREAMLIT_FLAG = "--rolethread-run-streamlit"
 LAUNCH_MODE_NORMAL = "normal"
 LAUNCH_MODE_WEBAPP = "webapp"
 WEBAPP_PREFERENCE_KEY = "enable_webapp_launch_mode"
@@ -55,7 +55,7 @@ def validate_app_root(app_root: Path) -> Path:
     resolved = Path(app_root).resolve()
     if not (resolved / "app.py").is_file():
         raise LauncherConfigurationError(
-            f"Could not find LoreForge app.py under app root: {resolved}"
+            f"Could not find RoleThread app.py under app root: {resolved}"
         )
     return resolved
 
@@ -65,7 +65,7 @@ def resolve_app_root(
     start_path: Path | None = None,
     frozen: bool | None = None,
 ) -> Path:
-    """Resolve the LoreForge app root for dev mode, with bundled mode left explicit."""
+    """Resolve the RoleThread app root for dev mode, with bundled mode left explicit."""
 
     is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
     if is_frozen:
@@ -124,7 +124,7 @@ def resolve_python_runtime(
         if executable.is_file():
             return executable
         raise LauncherConfigurationError(
-            "Could not find the bundled LoreForge launcher executable."
+            "Could not find the bundled RoleThread launcher executable."
         )
 
     dev_runtime = app_root / "trainer" / "Scripts" / "python.exe"
@@ -225,7 +225,7 @@ def ensure_streamlit_port_available(
 ) -> None:
     if not port_available_fn():
         raise LauncherConfigurationError(
-            f"Port {STREAMLIT_PORT} is already in use. Close the existing LoreForge "
+            f"Port {STREAMLIT_PORT} is already in use. Close the existing RoleThread "
             "session or choose a future launcher port before starting another copy."
         )
 
@@ -244,7 +244,7 @@ def format_command(command: Sequence[str]) -> str:
     return " ".join(f'"{part}"' if " " in part else part for part in command)
 
 
-def launch_loreforge(
+def launch_rolethread(
     config: LauncherConfig,
     *,
     popen: Callable[..., subprocess.Popen] = subprocess.Popen,
@@ -310,7 +310,7 @@ def main() -> int:
         config = build_launcher_config()
         print(f"Starting {APP_NAME} in {config.launch_mode} mode...")
         print(format_command(config.command))
-        launch_loreforge(config)
+        launch_rolethread(config)
         return 0
     except Exception as exc:
         try:
@@ -325,3 +325,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

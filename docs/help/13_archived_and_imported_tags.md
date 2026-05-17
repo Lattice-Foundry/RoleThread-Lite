@@ -1,14 +1,14 @@
 # Archived and Imported Tags
 
-Archived/imported tags are one of LoreForge Lite's safety systems.
+Archived/imported tags are one of RoleThread Lite's safety systems.
 
-They exist because external datasets often contain tags that do not match your current active tag registry. Instead of dropping those tags, LoreForge preserves them so you can decide what to do.
+They exist because external datasets often contain tags that do not match your current active tag registry. Instead of dropping those tags, RoleThread preserves them so you can decide what to do.
 
 Archived/imported tags are not errors.
 
 ## What Archived/Imported Tags Are
 
-An **archived/imported tag** is a tag LoreForge found on an entry but could not treat as a normal active tag.
+An **archived/imported tag** is a tag RoleThread found on an entry but could not treat as a normal active tag.
 
 This can happen when:
 
@@ -18,13 +18,13 @@ This can happen when:
 - a dataset was manually edited
 - a tag was renamed or replaced over time
 
-LoreForge keeps that tag visible instead of discarding it.
+RoleThread keeps that tag visible instead of discarding it.
 
-## Why LoreForge Creates Them
+## Why RoleThread Creates Them
 
 Unknown tags may still be meaningful.
 
-If an imported entry has a tag like `slow-burn-confession`, LoreForge should not throw it away just because your current registry does not know it yet.
+If an imported entry has a tag like `slow-burn-confession`, RoleThread should not throw it away just because your current registry does not know it yet.
 
 Preserving the tag lets you choose:
 
@@ -37,7 +37,7 @@ That choice stays with you.
 
 ## Unknown Tag Preservation
 
-When LoreForge encounters unknown tags, it handles them conservatively.
+When RoleThread encounters unknown tags, it handles them conservatively.
 
 It avoids:
 
@@ -76,7 +76,7 @@ They may contain:
 
 Archived/imported tags let you inspect that material safely.
 
-LoreForge does not require you to clean everything immediately. You can load the dataset, preserve its meaning, then organize it when you are ready.
+RoleThread does not require you to clean everything immediately. You can load the dataset, preserve its meaning, then organize it when you are ready.
 
 ## How Archived Tags Affect Workflows
 
@@ -97,15 +97,16 @@ The goal is not to make tags complicated.
 
 The goal is to avoid data loss.
 
-When a dataset arrives with metadata you did not create, LoreForge treats it carefully. It keeps the information visible and lets you decide how much of it belongs in your active registry.
+When a dataset arrives with metadata you did not create, RoleThread treats it carefully. It keeps the information visible and lets you decide how much of it belongs in your active registry.
 
 ## Common Mistake
 
 **Mistake:** Seeing archived/imported tags and thinking the dataset failed to load.
 
-**Better mental model:** LoreForge loaded the tags and protected them from being lost. Archived/imported means "review this when convenient," not "something broke."
+**Better mental model:** RoleThread loaded the tags and protected them from being lost. Archived/imported means "review this when convenient," not "something broke."
 
 ## Practical Tip
 
 Do not adopt every imported tag automatically. Keep the ones that support your workflow and leave the rest archived until they prove useful.
+
 

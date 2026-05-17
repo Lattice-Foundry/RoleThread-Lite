@@ -1,4 +1,6 @@
 """Tag lifecycle resolver and alias mapping logic."""
+from sqlalchemy.exc import SQLAlchemyError
+
 from core.db import SessionLocal
 from core.models import Tag, TagCategory, TagLifecycleMetadata
 from core.tag_constants import (
@@ -174,6 +176,15 @@ def resolve_tag_lifecycle(raw_tag: str) -> TagResolutionResult:
             result_type=TAG_RESOLUTION_UNKNOWN,
             should_create_archived=True,
             reason="unknown_tag",
+        )
+    except SQLAlchemyError:
+        return TagResolutionResult(
+            raw=normalized.raw,
+            normalized_slug=normalized.slug,
+            normalized_display_name=normalized.display_name,
+            resolved_slug=normalized.slug,
+            result_type=TAG_RESOLUTION_UNKNOWN,
+            reason="registry_unavailable",
         )
     finally:
         session.close()

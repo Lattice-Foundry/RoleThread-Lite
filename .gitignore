@@ -16,7 +16,7 @@ notes/
 venv/
 app_data/preferences.json
 app_data/backup_config.json
-app_data/loreforge.db
+app_data/rolethread.db
 backup_config.json
 *.pyc
 *.jsonl
@@ -31,5 +31,4 @@ backup_config.json
 /installer/windows/inno/Output/
 /installer/windows/**/*.exe
 /installer/windows/**/*.msi
-
 

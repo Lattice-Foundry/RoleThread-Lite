@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 import core.character_registry as character_registry
 from core.dataset import save_dataset
-from core.loreforge_meta import get_entry_uuid
+from core.rolethread_meta import get_entry_uuid
 from core.models import Base
 from services import character_mapping_service, dataset_service
 from services.character_mapping_service import apply_character_mapping_service
@@ -140,7 +140,7 @@ def test_apply_character_mapping_twice_replaces_existing_turn_mappings(
         role_mappings={"Scott": "user", "Emma": "assistant"},
     )
     second_input = [_entry()]
-    second_input[0]["_loreforge"] = dict(first.entries[0]["_loreforge"])
+    second_input[0]["_rolethread"] = dict(first.entries[0]["_rolethread"])
     second = apply_character_mapping_service(
         dataset_path=str(path),
         entries=second_input,
@@ -208,3 +208,4 @@ def test_apply_character_mapping_rejects_invalid_training_role(tmp_path, monkeyp
     assert result.ok is False
     assert "Invalid training role" in result.errors[0]
     assert _read_entries(path) == entries
+
