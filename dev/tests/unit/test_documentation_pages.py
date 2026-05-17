@@ -303,6 +303,10 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "startup orchestrator" in launcher.content
     assert "selected launch mode" in launcher.content
     assert "windowed/no-console" in launcher.content
+    assert "local-only shutdown endpoint" in launcher.content
+    assert "`/_stcore/health`" in launcher.content
+    assert "`terminate()`" in launcher.content
+    assert "`kill()` only as a last resort" in launcher.content
     assert "Managed webapp mode is Windows/Microsoft Edge only" in launcher.content
     assert "one source of truth for webapp behavior" in launcher.content
 

@@ -79,12 +79,21 @@ The prototype currently:
 - uses `enable_webapp_launch_mode` to choose normal or `webapp` launch mode
 - starts Streamlit with `python -m streamlit run app.py`
 - adds `-- webapp` when webapp launch mode is enabled
+- passes a local-only shutdown token/port to app sessions it starts
+- waits for the Streamlit health endpoint before entering lifecycle monitoring
+- watches for the Edge webapp window to close where Windows metadata allows it
+- requests graceful app shutdown before using terminate/kill fallback
 - writes launcher logs under `%LOCALAPPDATA%\RoleThread\logs\launcher.log`
 - reports clearly when `app.py` is missing, the runtime cannot be found, or port `8501` is already in use
 
 The launcher does not own Microsoft Edge launch or duplicate-browser cleanup.
 It delegates that behavior to the app's existing internal `webapp` startup
 path.
+
+The launcher does own backend subprocess lifecycle for launcher-started
+sessions. A local shutdown endpoint is enabled only when the launcher provides a
+generated token and localhost control port. Manual `streamlit run app.py`
+sessions do not enable that control channel.
 
 ## PyInstaller Bundle Prototype
 
@@ -149,7 +158,9 @@ committed.
 3. Run `RoleThreadLauncher.exe` from the copied folder.
 4. Confirm no terminal window appears.
 5. Confirm RoleThread starts on port `8501`.
-6. Confirm launcher logs are still written under:
+6. In webapp mode, close the Edge app window and confirm the backend shutdown
+   lifecycle is logged.
+7. Confirm launcher logs are still written under:
 
 ```text
 %LOCALAPPDATA%\RoleThread\logs\launcher.log
@@ -157,9 +168,10 @@ committed.
 
 The launcher log is the primary diagnostic channel for the windowed bundle. It
 records app-root detection, bundled-mode status, runtime path, selected launch
-mode, full command, subprocess PID, and startup errors. If startup fails before
-the app opens, the launcher writes the error to the log and may show a minimal
-Windows error dialog pointing to that log.
+mode, full command, subprocess PID, health checks, app-window monitoring,
+shutdown requests, fallback termination, and startup errors. If startup fails
+before the app opens, the launcher writes the error to the log and may show a
+minimal Windows error dialog pointing to that log.
 
 To smoke-test bundled webapp mode, enable **Settings > Experimental Features >
 Enable webapp launch mode**, close RoleThread, then run the bundled launcher
@@ -187,6 +199,9 @@ Expected behavior:
 - `enable_webapp_launch_mode: false` or missing preferences starts normal browser mode
 - `enable_webapp_launch_mode: true` adds the app's `webapp` launch flag
 - logs are appended to `%LOCALAPPDATA%\RoleThread\logs\launcher.log`
+- webapp mode can monitor the Edge app window and request graceful shutdown
+- normal browser mode currently has limited browser-close detection and may
+  require manual backend/process cleanup during development
 
 Before smoke testing, make sure no other RoleThread/Streamlit process is already
 using port `8501`. If the port is busy, the launcher exits with a clear message
@@ -205,14 +220,15 @@ The launcher should eventually:
 - launch either normal browser mode or Windows Edge webapp mode
 - use the existing internal `webapp` flag for managed Edge webapp startup
 - write launcher/app logs under `%LOCALAPPDATA%\RoleThread\logs`
-- keep local server startup, readiness detection, browser/webapp launch, and shutdown lifecycle under launcher control
+- continue improving normal-browser shutdown detection
 
 The current in-app `webapp` flag remains the internal launch path future launcher/installer procedures should call when webapp mode is enabled.
 
-Future graceful shutdown work should make the launcher own the Streamlit
-subprocess, detect app-window/browser shutdown where practical, request a
-normal app shutdown so `atexit` and cloud sync cleanup can run, and use forceful
-termination only as a fallback.
+The launcher now owns the first shutdown lifecycle for supported webapp runs:
+it starts the Streamlit subprocess, waits for health, detects Edge app-window
+closure where practical, requests local token-protected shutdown so `atexit`
+and cloud sync cleanup can run, then escalates to terminate/kill only as a
+fallback.
 
 ## Uninstall Requirements
 

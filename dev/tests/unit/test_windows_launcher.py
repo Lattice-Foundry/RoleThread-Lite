@@ -1,8 +1,17 @@
 import json
 from pathlib import Path
+import subprocess
 
 import pytest
 
+from core.shutdown_control import (
+    SHUTDOWN_HEADER,
+    SHUTDOWN_PORT_ENV,
+    SHUTDOWN_TOKEN_ENV,
+    LauncherShutdownControl,
+    resolve_launcher_shutdown_control,
+    start_launcher_shutdown_server,
+)
 from installer.windows.launcher import rolethread_launcher as launcher
 
 
@@ -181,6 +190,8 @@ def test_build_launcher_config_uses_bundled_command_in_frozen_mode(tmp_path):
         env={"LOCALAPPDATA": str(tmp_path / "local")},
         current_executable=str(launcher_exe),
         frozen=True,
+        shutdown_port=54321,
+        shutdown_token="token",
     )
 
     assert config.python_path == launcher_exe
@@ -191,6 +202,8 @@ def test_build_launcher_config_uses_bundled_command_in_frozen_mode(tmp_path):
         str(app_root / "app.py"),
     )
     assert "-m" not in config.command
+    assert config.shutdown_port == 54321
+    assert config.shutdown_token == "token"
 
 
 def test_launcher_log_path_resolution_uses_localappdata():
@@ -215,6 +228,8 @@ def test_build_launcher_config_reads_preference_and_builds_webapp_command(tmp_pa
         app_root=app_root,
         env={"LOCALAPPDATA": str(local_app_data)},
         current_executable=str(tmp_path / "unused.exe"),
+        shutdown_port=54321,
+        shutdown_token="token",
     )
 
     assert config.launch_mode == launcher.LAUNCH_MODE_WEBAPP
@@ -238,7 +253,7 @@ def test_launch_rolethread_logs_and_invokes_subprocess(tmp_path):
     calls = []
 
     class FakeProcess:
-        pass
+        pid = 1234
 
     def fake_popen(*args, **kwargs):
         calls.append((args, kwargs))
@@ -251,13 +266,16 @@ def test_launch_rolethread_logs_and_invokes_subprocess(tmp_path):
     )
 
     assert isinstance(result, FakeProcess)
-    assert calls == [((command,), {"cwd": app_root})]
+    assert len(calls) == 1
+    assert calls[0][0] == (command,)
+    assert calls[0][1]["cwd"] == app_root
+    assert SHUTDOWN_PORT_ENV not in calls[0][1]["env"]
     log_text = log_path.read_text(encoding="utf-8")
     assert "launch_mode=normal" in log_text
     assert f"app_version={launcher.get_app_version()}" in log_text
     assert "bundled_mode=False" in log_text
     assert "command=python.exe -m streamlit run app.py" in log_text
-    assert "started_pid=unknown" in log_text
+    assert "started_pid=1234" in log_text
 
 
 def test_launch_rolethread_reports_port_in_use_without_starting_subprocess(tmp_path):
@@ -339,3 +357,346 @@ def test_pyinstaller_spec_uses_windowed_no_console_mode():
 
     assert "console=False" in spec_text
     assert "console=True" not in spec_text
+
+
+def test_shutdown_control_resolves_only_when_launcher_env_is_complete():
+    assert resolve_launcher_shutdown_control({}) is None
+    assert resolve_launcher_shutdown_control(
+        {SHUTDOWN_PORT_ENV: "not-a-port", SHUTDOWN_TOKEN_ENV: "token"}
+    ) is None
+
+    control = resolve_launcher_shutdown_control(
+        {SHUTDOWN_PORT_ENV: "54321", SHUTDOWN_TOKEN_ENV: "token"}
+    )
+
+    assert control == LauncherShutdownControl(port=54321, token="token")
+
+
+def test_start_launcher_shutdown_server_ignores_missing_control():
+    assert start_launcher_shutdown_server(None, shutdown_fn=lambda: None) is False
+
+
+def test_build_subprocess_env_includes_shutdown_control(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+
+    env = launcher.build_subprocess_env(config, {"BASE": "1"})
+
+    assert env["BASE"] == "1"
+    assert env[SHUTDOWN_PORT_ENV] == "54321"
+    assert env[SHUTDOWN_TOKEN_ENV] == "secret"
+
+
+def test_request_graceful_shutdown_builds_tokenized_local_request(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+    calls = []
+
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(request_obj, timeout):
+        calls.append((request_obj, timeout))
+        return FakeResponse()
+
+    result = launcher.request_graceful_shutdown(config, urlopen=fake_urlopen)
+
+    assert result.ok is True
+    assert result.status_code == 200
+    assert calls[0][0].full_url == "http://127.0.0.1:54321/shutdown"
+    headers = dict(calls[0][0].header_items())
+    assert headers["X-rolethread-launcher-token"] == "secret"
+
+
+def test_wait_for_app_window_close_detects_webapp_close_sequence():
+    counts = iter([0, 1, 1, 0])
+
+    result = launcher.wait_for_app_window_close(
+        launcher.LAUNCH_MODE_WEBAPP,
+        count_windows_fn=lambda: next(counts),
+        sleep_fn=lambda _: None,
+        appear_timeout_seconds=5,
+        poll_seconds=0,
+    )
+
+    assert result.supported is True
+    assert result.observed is True
+    assert result.closed is True
+
+
+def test_wait_for_app_window_close_reports_normal_mode_limitation():
+    result = launcher.wait_for_app_window_close(launcher.LAUNCH_MODE_NORMAL)
+
+    assert result.supported is False
+    assert result.closed is False
+    assert "normal browser" in result.message
+
+
+def test_terminate_process_fallback_uses_terminate_before_kill():
+    class FakeProcess:
+        def __init__(self):
+            self.calls = []
+            self.exited = False
+
+        def poll(self):
+            return 0 if self.exited else None
+
+        def terminate(self):
+            self.calls.append("terminate")
+            self.exited = True
+
+        def kill(self):
+            self.calls.append("kill")
+
+        def wait(self, timeout):
+            if self.exited:
+                return 0
+            raise subprocess.TimeoutExpired("fake", timeout)
+
+    process = FakeProcess()
+
+    result = launcher.terminate_process_fallback(process)
+
+    assert result.method == "terminate"
+    assert result.completed is True
+    assert process.calls == ["terminate"]
+
+
+def test_terminate_process_fallback_kills_as_last_resort(monkeypatch):
+    class FakeProcess:
+        def __init__(self):
+            self.calls = []
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            self.calls.append("terminate")
+
+        def kill(self):
+            self.calls.append("kill")
+
+    process = FakeProcess()
+    waits = iter([False, True])
+    monkeypatch.setattr(launcher, "wait_for_process_exit", lambda *args, **kwargs: next(waits))
+
+    result = launcher.terminate_process_fallback(process)
+
+    assert result.method == "kill"
+    assert result.completed is True
+    assert process.calls == ["terminate", "kill"]
+
+
+def test_run_launcher_lifecycle_graceful_shutdown_path(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    log_path = tmp_path / "logs" / "launcher.log"
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=log_path,
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+
+    class FakeProcess:
+        pid = 777
+
+        def __init__(self):
+            self.exited = False
+
+        def poll(self):
+            return 0 if self.exited else None
+
+        def wait(self, timeout):
+            self.exited = True
+            return 0
+
+    result = launcher.run_launcher_lifecycle(
+        config,
+        popen=lambda *args, **kwargs: FakeProcess(),
+        port_available_fn=lambda: True,
+        health_check_fn=lambda: launcher.HealthCheckResult(
+            ok=True,
+            url="http://127.0.0.1:8501/_stcore/health",
+            attempts=1,
+            message="ok",
+        ),
+        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
+            supported=True,
+            closed=True,
+            observed=True,
+            message="closed",
+        ),
+        shutdown_request_fn=lambda cfg: launcher.ShutdownRequestResult(
+            attempted=True,
+            ok=True,
+            status_code=200,
+            message="ok",
+        ),
+        termination_fn=lambda process: (_ for _ in ()).throw(
+            AssertionError("termination should not run")
+        ),
+    )
+
+    assert result.final_state == "graceful_shutdown"
+    assert result.shutdown_request.ok is True
+    log_text = log_path.read_text(encoding="utf-8")
+    assert "lifecycle=health_check" in log_text
+    assert "lifecycle=window_monitor" in log_text
+    assert "lifecycle=shutdown_request" in log_text
+
+
+def test_run_launcher_lifecycle_terminates_after_shutdown_timeout(tmp_path, monkeypatch):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "logs" / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+
+    class FakeProcess:
+        pid = 888
+
+        def poll(self):
+            return None
+
+    monkeypatch.setattr(launcher, "wait_for_process_exit", lambda *args, **kwargs: False)
+
+    result = launcher.run_launcher_lifecycle(
+        config,
+        popen=lambda *args, **kwargs: FakeProcess(),
+        port_available_fn=lambda: True,
+        health_check_fn=lambda: launcher.HealthCheckResult(True, "url", 1, "ok"),
+        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
+            True,
+            True,
+            True,
+            "closed",
+        ),
+        shutdown_request_fn=lambda cfg: launcher.ShutdownRequestResult(
+            True,
+            False,
+            None,
+            "failed",
+        ),
+        termination_fn=lambda process: launcher.TerminationResult(
+            True,
+            "terminate",
+            True,
+            "terminated",
+        ),
+    )
+
+    assert result.final_state == "terminated"
+    assert result.termination.method == "terminate"
+
+
+def test_run_launcher_lifecycle_terminates_when_health_check_fails(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "logs" / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+
+    class FakeProcess:
+        pid = 889
+
+    result = launcher.run_launcher_lifecycle(
+        config,
+        popen=lambda *args, **kwargs: FakeProcess(),
+        port_available_fn=lambda: True,
+        health_check_fn=lambda: launcher.HealthCheckResult(False, "url", 3, "timeout"),
+        wait_for_close_fn=lambda mode, process: (_ for _ in ()).throw(
+            AssertionError("window monitoring should not run")
+        ),
+        shutdown_request_fn=lambda cfg: (_ for _ in ()).throw(
+            AssertionError("shutdown should not run")
+        ),
+        termination_fn=lambda process: launcher.TerminationResult(
+            True,
+            "terminate",
+            True,
+            "terminated",
+        ),
+    )
+
+    assert result.final_state == "health_failed"
+    assert result.termination.method == "terminate"
+    assert result.shutdown_request.attempted is False
+
+
+def test_run_launcher_lifecycle_does_not_shutdown_when_monitoring_unsupported(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "logs" / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_NORMAL,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+
+    class FakeProcess:
+        pid = 999
+
+    result = launcher.run_launcher_lifecycle(
+        config,
+        popen=lambda *args, **kwargs: FakeProcess(),
+        port_available_fn=lambda: True,
+        health_check_fn=lambda: launcher.HealthCheckResult(True, "url", 1, "ok"),
+        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
+            False,
+            False,
+            False,
+            "unsupported",
+        ),
+        shutdown_request_fn=lambda cfg: (_ for _ in ()).throw(
+            AssertionError("shutdown should not run")
+        ),
+        termination_fn=lambda process: (_ for _ in ()).throw(
+            AssertionError("termination should not run")
+        ),
+    )
+
+    assert result.final_state == "monitoring_unavailable"
+    assert result.shutdown_request.attempted is False

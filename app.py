@@ -13,8 +13,10 @@ from core.launch import (
     parse_launch_flags,
 )
 from core.runtime import get_python_runtime_status
+from core.shutdown_control import start_launcher_shutdown_server
 
 st.set_page_config(page_title="RoleThread Lite", layout="wide")
+start_launcher_shutdown_server()
 
 _runtime_status = get_python_runtime_status()
 if _runtime_status.is_below_minimum:

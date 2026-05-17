@@ -16,6 +16,16 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.79] - 2026-05-17
+
+### Added
+
+- Added the first Windows launcher-owned shutdown lifecycle with health checks, local token-protected shutdown requests, and terminate/kill fallback handling.
+
+### Changed
+
+- Documented launcher lifecycle behavior, webapp shutdown monitoring, and normal-browser detection limitations.
+
 ## [1.3.78] - 2026-05-17
 
 ### Changed
