@@ -1,0 +1,93 @@
+# Naming and Terminology Guide
+
+RoleThread Lite uses consistent terminology because naming shapes how contributors understand the workflow.
+
+The project prefers clear, workflow-oriented names over abstract internal jargon. Names should describe what the user is doing, what the data represents, or what safety rule is being protected.
+
+## Product Names
+
+Use `RoleThread Lite` for this application.
+
+Use `RoleThread` when referring to the broader ecosystem or shared product philosophy.
+
+Use `RoleThread Studio` for the future advanced environment. Studio references should stay future-facing and restrained. Lite documentation should not imply that Studio features already exist.
+
+## Interaction, Not Scene
+
+Use `Interaction` for the default tag category that describes the shape of an exchange.
+
+Older prototype language used `Scene` in some places, but the V1 taxonomy is broader than roleplay scenes. Interaction covers greetings, question-answer exchanges, task completion, explanations, feedback, corrections, and roleplay without making narrative roleplay the only mental model.
+
+## Entry
+
+An `entry` is one dataset item.
+
+Depending on the format, an entry may contain a single prompt/response pair, a multi-message exchange, or a group-chat-style interaction. The word is intentionally generic because RoleThread supports more than one dataset shape.
+
+## Exchange
+
+An `exchange` is the conversational unit inside or represented by an entry.
+
+Use this term when the discussion is about back-and-forth conversational structure rather than the stored JSON object itself.
+
+## Working Copy
+
+A `working copy` is the editable local copy RoleThread uses while protecting the original imported file.
+
+This term matters because RoleThread is local-first and cautious about user data. The working copy is where active changes happen; the original file should remain recoverable.
+
+## Sidecar
+
+A `sidecar` is portable metadata stored next to a dataset.
+
+Sidecars can preserve registry IDs, character mapping data, workflow metadata, and other context that may not belong directly inside every dataset row. Sidecars help datasets travel between machines without losing RoleThread-specific context.
+
+## Validation and Repair
+
+`Validation` means finding structural or workflow issues.
+
+`Repair` means applying explicit changes to fix those issues.
+
+Do not use repair language for passive detection. RoleThread should not imply that it changed a dataset unless it actually did.
+
+## Imported and Archived Tags
+
+An `imported tag` is a tag found in loaded data that is not currently part of the active tag registry.
+
+An `archived tag` is preserved but not active for normal assignment.
+
+This distinction keeps unknown metadata safe without forcing every imported or old tag into the active taxonomy.
+
+## Dataset Mutation
+
+A `dataset mutation` is any workflow that changes dataset content or related metadata.
+
+Examples include quick edits, full edits, deletes, duplicates, joins, splits, tag replacement, system prompt replacement, and merges. Mutation language is useful in developer docs because these workflows need validation, backups, saves, sidecar alignment, and structured results.
+
+## Group Chat Mode
+
+`Group Chat Mode` refers to entries with multiple named participants or assistant roles.
+
+Use this term for the workflow shape, not as a generic replacement for every multi-message dataset. It should stay connected to character mapping, participant review, and multi-speaker refinement.
+
+## Slugs and Labels
+
+Python identifiers should follow standard `snake_case` conventions.
+
+Tag slugs should be lowercase `snake_case`, stable, and machine-friendly. Human-readable labels can be separate from slugs and should be used when the UI needs friendlier text.
+
+Good examples:
+
+- `needs_review`
+- `no_user_control`
+- `question_answer`
+- `ai_generated`
+
+Avoid making slugs depend on capitalization, punctuation, or display styling.
+
+## Why Naming Discipline Matters
+
+Consistent terminology lowers the cost of contributing.
+
+When UI labels, Help docs, tests, service names, and metadata concepts use the same words, contributors spend less time translating between mental models. That makes the project easier to maintain, and it makes future Studio work easier to reason about without turning Lite into something it is not.
+

@@ -16,6 +16,16 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.75] - 2026-05-17
+
+### Added
+
+- Added developer Help articles for data safety, testing, naming, and UI/theme philosophy.
+
+### Changed
+
+- Expanded the `For Developers` Help section with engineering and design conventions for future contributors.
+
 ## [1.3.74] - 2026-05-17
 
 ### Added

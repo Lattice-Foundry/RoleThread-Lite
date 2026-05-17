@@ -430,6 +430,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         (
             "codebase-architecture",
             "platform-support-philosophy",
+            "testing-philosophy",
             "os-compatibility-and-storage-policy",
         ),
     ),
@@ -442,6 +443,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "The major codebase layers and why RoleThread keeps Streamlit as a UI shell.",
         (
             "layer-boundaries-and-responsibilities",
+            "data-safety-philosophy",
             "developer-launch-flags",
             "rolethread-studio-vision",
         ),
@@ -456,6 +458,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         (
             "codebase-architecture",
             "platform-support-philosophy",
+            "data-safety-philosophy",
             "rolethread-studio-vision",
         ),
     ),
@@ -470,6 +473,58 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
             "developer-launch-flags",
             "os-compatibility-and-storage-policy",
             "codebase-architecture",
+        ),
+    ),
+    HelpArticle(
+        "data-safety-philosophy",
+        "32_data_safety_philosophy.md",
+        "Data Safety Philosophy",
+        "For Developers",
+        290,
+        "How RoleThread protects local datasets, metadata, backups, and repair workflows.",
+        (
+            "testing-philosophy",
+            "layer-boundaries-and-responsibilities",
+            "backups-cloud-sync-and-recovery",
+        ),
+    ),
+    HelpArticle(
+        "testing-philosophy",
+        "33_testing_philosophy.md",
+        "Testing Philosophy",
+        "For Developers",
+        300,
+        "Why RoleThread emphasizes deterministic core and service tests.",
+        (
+            "data-safety-philosophy",
+            "codebase-architecture",
+            "developer-launch-flags",
+        ),
+    ),
+    HelpArticle(
+        "naming-and-terminology-guide",
+        "34_naming_and_terminology_guide.md",
+        "Naming and Terminology Guide",
+        "For Developers",
+        310,
+        "Shared vocabulary for datasets, tags, sidecars, and product names.",
+        (
+            "understanding-default-tags",
+            "glossary",
+            "rolethread-studio-vision",
+        ),
+    ),
+    HelpArticle(
+        "ui-and-theme-style-guide",
+        "35_ui_and_theme_style_guide.md",
+        "UI and Theme Style Guide",
+        "For Developers",
+        320,
+        "Design guidance for RoleThread's calm dark-theme interface.",
+        (
+            "settings-and-preferences",
+            "codebase-architecture",
+            "naming-and-terminology-guide",
         ),
     ),
 )

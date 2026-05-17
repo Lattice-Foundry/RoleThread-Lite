@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 31
+    assert len(registry) == 35
     assert get_default_help_article_id() == "getting-started"
     assert registry["getting-started"].file_name == "01_getting_started.md"
     assert registry["glossary"].category == "Reference"
@@ -119,6 +119,18 @@ def test_help_article_registry_has_expected_articles():
         "31_platform_support_philosophy.md"
     )
     assert registry["platform-support-philosophy"].category == "For Developers"
+    assert registry["data-safety-philosophy"].file_name == "32_data_safety_philosophy.md"
+    assert registry["data-safety-philosophy"].category == "For Developers"
+    assert registry["testing-philosophy"].file_name == "33_testing_philosophy.md"
+    assert registry["testing-philosophy"].category == "For Developers"
+    assert registry["naming-and-terminology-guide"].file_name == (
+        "34_naming_and_terminology_guide.md"
+    )
+    assert registry["naming-and-terminology-guide"].category == "For Developers"
+    assert registry["ui-and-theme-style-guide"].file_name == (
+        "35_ui_and_theme_style_guide.md"
+    )
+    assert registry["ui-and-theme-style-guide"].category == "For Developers"
     assert len(registry) == len(set(registry))
 
 
@@ -210,6 +222,43 @@ def test_developer_architecture_help_articles_document_layer_boundaries():
     assert "Managed webapp mode is Windows/Microsoft Edge only" in platform.content
 
 
+def test_developer_philosophy_help_articles_document_engineering_conventions():
+    safety = load_help_document("data-safety-philosophy")
+    testing = load_help_document("testing-philosophy")
+    naming = load_help_document("naming-and-terminology-guide")
+    style = load_help_document("ui-and-theme-style-guide")
+
+    assert safety.article.category == "For Developers"
+    assert "RoleThread Lite treats user datasets as important authored work product" in (
+        safety.content
+    )
+    assert "Backup Before Write" in safety.content
+    assert "Atomic and Staged Writes" in safety.content
+    assert "Rust-Inspired, Not Rust" in safety.content
+    assert "Unknown or orphan tags are preserved" in safety.content
+
+    assert testing.article.category == "For Developers"
+    assert "pytest" in testing.content
+    assert "`core/` and `services/`" in testing.content
+    assert "dataset mutation services" in testing.content
+    assert "Launcher and platform behavior" in testing.content
+
+    assert naming.article.category == "For Developers"
+    assert "Interaction, Not Scene" in naming.content
+    assert "Working Copy" in naming.content
+    assert "Sidecar" in naming.content
+    assert "lowercase `snake_case`" in naming.content
+    assert "RoleThread Studio" in naming.content
+
+    assert style.article.category == "For Developers"
+    assert "#3EB489" in style.content
+    assert "#101214" in style.content
+    assert "#383A3C" in style.content
+    assert "#E8E8E8" in style.content
+    assert "#3D9F64" in style.content
+    assert "AI startup dashboard chaos" in style.content
+
+
 def test_help_article_registry_has_unique_file_names_and_orders():
     articles = tuple(get_help_article_registry().values())
     file_names = [article.file_name for article in articles]
@@ -227,10 +276,13 @@ def test_help_article_order_is_global_reader_order():
     ordered_ids = [article.article_id for article in get_help_article_order()]
 
     assert ordered_ids[0] == "getting-started"
-    assert ordered_ids[-1] == "platform-support-philosophy"
+    assert ordered_ids[-1] == "ui-and-theme-style-guide"
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
     assert ordered_ids.index("developer-launch-flags") < ordered_ids.index(
         "codebase-architecture"
+    )
+    assert ordered_ids.index("platform-support-philosophy") < ordered_ids.index(
+        "data-safety-philosophy"
     )
 
 
@@ -264,6 +316,10 @@ def test_help_article_category_order_and_grouping():
         "codebase-architecture",
         "layer-boundaries-and-responsibilities",
         "platform-support-philosophy",
+        "data-safety-philosophy",
+        "testing-philosophy",
+        "naming-and-terminology-guide",
+        "ui-and-theme-style-guide",
     ]
 
 
@@ -424,7 +480,15 @@ def test_adjacent_help_articles_follow_global_order():
     previous_article, next_article = get_adjacent_help_articles("developer-launch-flags")
     assert previous_article.article_id == "rolethread-studio-vision"
     assert next_article.article_id == "codebase-architecture"
-    assert get_adjacent_help_articles("platform-support-philosophy")[1] is None
+    previous_article, next_article = get_adjacent_help_articles(
+        "platform-support-philosophy"
+    )
+    assert previous_article.article_id == "layer-boundaries-and-responsibilities"
+    assert next_article.article_id == "data-safety-philosophy"
+    previous_article, next_article = get_adjacent_help_articles("data-safety-philosophy")
+    assert previous_article.article_id == "platform-support-philosophy"
+    assert next_article.article_id == "testing-philosophy"
+    assert get_adjacent_help_articles("ui-and-theme-style-guide")[1] is None
 
 
 def test_related_help_articles_follow_registry_metadata():
