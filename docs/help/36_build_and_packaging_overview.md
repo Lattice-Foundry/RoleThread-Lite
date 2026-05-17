@@ -78,6 +78,10 @@ The expected early release flow is manual:
 5. test install, launch, uninstall, and data preservation behavior
 6. upload the setup executable to GitHub Releases
 
+The Windows installer defaults to the managed Edge webapp launch mode because
+that path has the strongest launcher-owned lifecycle behavior. Normal browser
+mode remains available through the installer option and through Settings.
+
 CI/CD may automate pieces later; the source tree should stay free of generated artifacts either way.
 
 ## Current Status

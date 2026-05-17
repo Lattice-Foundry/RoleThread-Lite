@@ -16,6 +16,16 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.82] - 2026-05-17
+
+### Added
+
+- Added a default-enabled Windows installer option to launch RoleThread Lite as an Edge webapp.
+
+### Changed
+
+- Updated the launcher to merge installer launch-mode seeds into DB-backed preferences before selecting normal or webapp launch mode.
+
 ## [1.3.81] - 2026-05-17
 
 ### Added

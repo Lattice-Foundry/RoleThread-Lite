@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "1.3.81"
+#define AppVersion "1.3.82"
 #endif
 
 #define AppName "RoleThread Lite"
@@ -33,6 +33,7 @@ SetupLogging=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
+Name: "webappmode"; Description: "Launch RoleThread Lite as a Windows Edge webapp (recommended; can be changed later in Settings > Experimental Features)"; GroupDescription: "Launch mode:"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
@@ -44,3 +45,23 @@ Name: "{autodesktop}\RoleThread Lite"; Filename: "{app}\{#AppExeName}"; Tasks: d
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Launch RoleThread Lite"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  SeedPath: string;
+  SeedValue: string;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    ForceDirectories(ExpandConstant('{localappdata}\RoleThread'));
+    SeedPath := ExpandConstant('{localappdata}\RoleThread\installer_seed.json');
+
+    if WizardIsTaskSelected('webappmode') then
+      SeedValue := '{"enable_webapp_launch_mode": true}'
+    else
+      SeedValue := '{"enable_webapp_launch_mode": false}';
+
+    SaveStringToFile(SeedPath, SeedValue + #13#10, False);
+  end;
+end;

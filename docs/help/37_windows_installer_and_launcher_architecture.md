@@ -83,6 +83,13 @@ The launcher should not invent its own browser cleanup. It should call the app's
 
 The Inno Setup installer prototype installs bundled app files and creates shortcuts to the wrapped launcher.
 
+The installer offers **Launch RoleThread Lite as a Windows Edge webapp** as a
+checked-by-default option. That option writes an installer seed file containing
+only `enable_webapp_launch_mode`. The launcher consumes the seed on first run,
+updates the DB-backed setting, removes the seed file, and leaves unrelated
+preferences untouched. Users can later change the same preference in **Settings
+> Experimental Features**.
+
 The installer should keep app/runtime files separate from user data. Default uninstall should remove installed app files while preserving datasets, preferences, exports, backups, logs, and cache unless the user explicitly chooses full data removal.
 
 ## Graceful Shutdown Direction

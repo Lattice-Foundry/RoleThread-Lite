@@ -231,10 +231,23 @@ The prototype installer:
 - installs bundled app/runtime files under `{autopf}\RoleThread Lite`
 - creates a Start Menu shortcut named **RoleThread Lite**
 - offers an optional Desktop shortcut
+- enables **Launch RoleThread Lite as a Windows Edge webapp** by default
 - registers a normal Windows uninstaller
 - offers **Launch RoleThread Lite** after setup completes
 - removes installed app/runtime files and shortcuts during normal uninstall
 - preserves `%LOCALAPPDATA%\RoleThread` and `%USERPROFILE%\RoleThread`
+
+The Windows Edge webapp option is recommended for installed Windows builds
+because it gives RoleThread the best managed app-window lifecycle. Normal
+browser mode remains available by clearing the installer option or later
+turning off **Settings > Experimental Features > Enable webapp launch mode**.
+
+The installer writes a small first-run seed file under
+`%LOCALAPPDATA%\RoleThread\installer_seed.json`. On launch, the RoleThread
+launcher merges only `enable_webapp_launch_mode` into the DB-backed settings
+table, removes the seed file, and leaves unrelated preferences untouched. This
+keeps Settings authoritative after install while avoiding broad JSON editing in
+Inno Setup.
 
 The prototype installer does not yet implement firewall rules, code signing,
 auto-update, GitHub Release automation, final branding polish, or optional
