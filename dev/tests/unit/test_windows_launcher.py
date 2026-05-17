@@ -184,6 +184,7 @@ def test_build_launcher_config_uses_bundled_command_in_frozen_mode(tmp_path):
     )
 
     assert config.python_path == launcher_exe
+    assert config.bundled_mode is True
     assert config.command[:3] == (
         str(launcher_exe),
         launcher.INTERNAL_STREAMLIT_FLAG,
@@ -249,6 +250,8 @@ def test_launch_rolethread_logs_and_invokes_subprocess(tmp_path):
     assert calls == [((command,), {"cwd": app_root})]
     log_text = log_path.read_text(encoding="utf-8")
     assert "launch_mode=normal" in log_text
+    assert f"app_version={launcher.get_app_version()}" in log_text
+    assert "bundled_mode=False" in log_text
     assert "command=python.exe -m streamlit run app.py" in log_text
     assert "started_pid=unknown" in log_text
 
@@ -324,3 +327,11 @@ def test_port_available_true_when_connection_fails(monkeypatch):
     monkeypatch.setattr(launcher.socket, "create_connection", fail)
 
     assert launcher.is_port_available() is True
+
+
+def test_pyinstaller_spec_uses_windowed_no_console_mode():
+    spec_path = Path(__file__).parents[3] / "installer" / "windows" / "rolethread_launcher.spec"
+    spec_text = spec_path.read_text(encoding="utf-8")
+
+    assert "console=False" in spec_text
+    assert "console=True" not in spec_text

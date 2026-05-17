@@ -116,6 +116,11 @@ Run the bundled prototype:
 installer\windows\dist\RoleThreadLauncher\RoleThreadLauncher.exe
 ```
 
+The packaged launcher is windowed/no-console. Double-clicking
+`RoleThreadLauncher.exe` should not open a terminal window. Development helper
+scripts may still show terminal output, but normal bundled startup should use
+the browser or Edge webapp window as the visible app surface.
+
 Bundled mode uses the PyInstaller executable as the runtime entry point. The
 launcher starts a second internal copy of itself with a private Streamlit
 bootstrap flag, then the child process runs the bundled `app.py` through
@@ -142,12 +147,19 @@ committed.
 2. Copy `installer\windows\dist\RoleThreadLauncher\` to a temporary folder
    outside the repository.
 3. Run `RoleThreadLauncher.exe` from the copied folder.
-4. Confirm RoleThread starts on port `8501`.
-5. Confirm launcher logs are still written under:
+4. Confirm no terminal window appears.
+5. Confirm RoleThread starts on port `8501`.
+6. Confirm launcher logs are still written under:
 
 ```text
 %LOCALAPPDATA%\RoleThread\logs\launcher.log
 ```
+
+The launcher log is the primary diagnostic channel for the windowed bundle. It
+records app-root detection, bundled-mode status, runtime path, selected launch
+mode, full command, subprocess PID, and startup errors. If startup fails before
+the app opens, the launcher writes the error to the log and may show a minimal
+Windows error dialog pointing to that log.
 
 To smoke-test bundled webapp mode, enable **Settings > Experimental Features >
 Enable webapp launch mode**, close RoleThread, then run the bundled launcher
@@ -244,4 +256,7 @@ Pushing to `main` does not automatically create installer artifacts unless CI/CD
 
 ## Current Status
 
-This is still pre-packaging work. It does not build the final launcher executable, PyInstaller bundle, Inno installer, bundled Python runtime, shortcuts, or release executable.
+This is still pre-installer work. The source-controlled scripts can build a
+PyInstaller one-folder launcher bundle prototype, but they do not build the
+final Inno installer, create shortcuts, implement uninstall behavior, or
+produce a release setup executable.

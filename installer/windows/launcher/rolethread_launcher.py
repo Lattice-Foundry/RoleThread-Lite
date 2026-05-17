@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import ctypes
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -45,6 +46,7 @@ class LauncherConfig:
     log_path: Path
     launch_mode: str
     command: tuple[str, ...]
+    bundled_mode: bool = False
 
 
 class LauncherConfigurationError(RuntimeError):
@@ -206,6 +208,7 @@ def build_launcher_config(
         log_path=log_path,
         launch_mode=launch_mode,
         command=command,
+        bundled_mode=is_frozen,
     )
 
 
@@ -240,6 +243,23 @@ def write_launcher_log(log_path: Path, lines: Sequence[str]) -> None:
         handle.write("\n")
 
 
+def get_app_version() -> str:
+    try:
+        from core.version import ROLETHREAD_VERSION
+    except Exception:
+        return "unknown"
+    return ROLETHREAD_VERSION
+
+
+def show_failure_message(message: str, *, title: str = APP_NAME) -> None:
+    if os.name != "nt":
+        return
+    try:
+        ctypes.windll.user32.MessageBoxW(None, message, title, 0x00000010)
+    except Exception:
+        return
+
+
 def format_command(command: Sequence[str]) -> str:
     return " ".join(f'"{part}"' if " " in part else part for part in command)
 
@@ -255,6 +275,8 @@ def launch_rolethread(
         (
             f"app_root={config.app_root}",
             f"python_path={config.python_path}",
+            f"app_version={get_app_version()}",
+            f"bundled_mode={config.bundled_mode}",
             f"preferences_path={config.preferences_path}",
             f"launch_mode={config.launch_mode}",
             f"command={format_command(config.command)}",
@@ -316,9 +338,13 @@ def main() -> int:
         try:
             log_path = resolve_launcher_log_path()
             write_launcher_log(log_path, (f"error={exc}",))
+            show_failure_message(
+                f"RoleThread could not start.\n\n{exc}\n\nDetails were written to:\n{log_path}"
+            )
             print(f"Launcher error: {exc}")
             print(f"Details written to {log_path}")
         except Exception:
+            show_failure_message(f"RoleThread could not start.\n\n{exc}")
             print(f"Launcher error: {exc}")
         return 1
 

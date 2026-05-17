@@ -16,6 +16,17 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.72] - 2026-05-17
+
+### Changed
+
+- Switched the Windows PyInstaller launcher bundle to windowed/no-console mode.
+- Documented windowed bundle smoke testing and launcher-log diagnostics.
+
+### Internal
+
+- Expanded launcher logging with app version and bundled-mode context for no-console troubleshooting.
+
 ## [1.3.71] - 2026-05-16
 
 ### Added
