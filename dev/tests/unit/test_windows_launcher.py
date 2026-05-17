@@ -440,6 +440,8 @@ def test_inno_installer_script_packages_launcher_bundle():
     assert "#define BundleDir \"..\\dist\\RoleThreadLauncher\"" in inno_text
     assert "Source: \"{#BundleDir}\\*\"" in inno_text
     assert "Name: \"{group}\\RoleThread Lite\"" in inno_text
+    assert "Name: \"{group}\\Uninstall RoleThread Lite\"" in inno_text
+    assert 'Filename: "{uninstallexe}"' in inno_text
     assert "Name: \"{autodesktop}\\RoleThread Lite\"" in inno_text
     assert "Tasks: desktopicon" in inno_text
     assert "postinstall" in inno_text
@@ -451,7 +453,9 @@ def test_inno_installer_script_packages_launcher_bundle():
     assert '"enable_webapp_launch_mode": false' in inno_text
     assert "WizardIsTaskSelected('webappmode')" in inno_text
     assert "Remove local RoleThread user data" in inno_text
+    assert "database/app state, preferences, logs, cache" in inno_text
     assert "Developer clean uninstall / remove installer test state" in inno_text
+    assert "source repositories, .venv, .dev, Git data" in inno_text
     assert "RoleThreadLauncher.exe" in inno_text
     assert "tasklist" in inno_text
     assert "RoleThreadAppDataRoot()" in inno_text
@@ -478,6 +482,12 @@ def test_build_installer_script_validates_bundle_and_inno_compiler():
     assert "/DAppVersion=$version" in script_text
     assert "RoleThreadLiteSetup-v$version.exe" in script_text
     assert "BuildBundle" in script_text
+    assert "UseExistingBundle" in script_text
+    assert "Building fresh PyInstaller bundle before installer packaging" in script_text
+    assert "Bundle version: $bundleVersion" in script_text
+    assert "Bundle rebuilt this run: $bundleWasRebuilt" in script_text
+    assert "Refusing to build installer from a stale PyInstaller bundle" in script_text
+    assert "$bundleVersion -ne $version" in script_text
     assert "LOCALAPPDATA" in script_text
     assert "Programs\\Inno Setup 6\\ISCC.exe" in script_text
 

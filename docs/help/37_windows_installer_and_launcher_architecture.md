@@ -83,6 +83,11 @@ The launcher should not invent its own browser cleanup. It should call the app's
 
 The Inno Setup installer prototype installs bundled app files and creates shortcuts to the wrapped launcher.
 
+Installer builds rebuild the PyInstaller bundle by default before Inno Setup
+packages it. The build script also compares the source-tree app version with
+the bundled `_internal/core/version.py` value and stops if they differ. This
+prevents a setup executable from accidentally shipping stale app/runtime code.
+
 The installer offers **Launch RoleThread Lite as a Windows Edge webapp** as a
 checked-by-default option. That option writes an installer seed file containing
 only `enable_webapp_launch_mode`. The launcher consumes the seed on first run,
@@ -91,6 +96,11 @@ preferences untouched. Users can later change the same preference in **Settings
 > Experimental Features**.
 
 The installer keeps app/runtime files separate from user data. Default uninstall removes installed app files and shortcuts while preserving datasets, preferences, exports, backups, logs, and cache. Interactive uninstall can optionally remove local RoleThread data under `%LOCALAPPDATA%\RoleThread` and `%USERPROFILE%\RoleThread` after a clear warning.
+
+The data-removal prompts appear through the real Windows uninstall path:
+Windows Installed apps, Control Panel, or the Start Menu **Uninstall RoleThread
+Lite** shortcut. Rerunning the setup executable is an install/maintenance flow
+and is not expected to show the uninstall data-removal prompts.
 
 The Developer clean uninstall prompt is currently visible during installer testing. It maps to the same RoleThread-owned local data roots as full local data removal, with stricter testing intent. It does not remove repositories, `.venv`, `.dev`, Git data, generated source-tree build artifacts, arbitrary custom paths, or external/cloud backup destinations.
 

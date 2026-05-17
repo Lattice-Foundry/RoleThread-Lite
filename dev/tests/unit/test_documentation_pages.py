@@ -300,6 +300,11 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "Normal uninstall preserves RoleThread user data by default" in (
         packaging.content
     )
+    assert "Start Menu **Uninstall\nRoleThread Lite** shortcut" in packaging.content
+    assert "Rerunning the setup executable" in packaging.content
+    assert "rebuilds the PyInstaller bundle by default" in packaging.content
+    assert "refuses to build the setup executable" in packaging.content
+    assert "they differ" in packaging.content
     assert "Cloud backup copies outside those local RoleThread folders are preserved" in (
         packaging.content
     )
@@ -316,6 +321,10 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "Default uninstall removes installed app files and shortcuts" in (
         launcher.content
     )
+    assert "Start Menu **Uninstall RoleThread\nLite** shortcut" in launcher.content
+    assert "not expected to show the uninstall data-removal prompts" in launcher.content
+    assert "rebuild the PyInstaller bundle by default" in launcher.content
+    assert "prevents a setup executable from accidentally shipping stale" in launcher.content
     assert "Developer clean uninstall" in launcher.content
     assert "does not remove repositories" in launcher.content
     assert "Cloud backup copies outside the local RoleThread folders are preserved" in (

@@ -72,11 +72,17 @@ Final setup executables belong in GitHub Releases after a release build is teste
 The expected early release flow is manual:
 
 1. bump and tag the release
-2. run the Windows bundle build
-3. smoke-test the bundled app outside the repository
-4. build the Inno Setup installer prototype
+2. build the Inno Setup installer prototype, which rebuilds the PyInstaller bundle by default
+3. smoke-test the bundled app outside the repository when needed
+4. verify the setup executable packages the same version as the source tree
 5. test install, launch, uninstall, and data preservation behavior
 6. upload the setup executable to GitHub Releases
+
+The installer build script validates bundle freshness before Inno packaging. It
+compares the source-tree `core/version.py` value with the bundled
+`_internal/core/version.py` value and refuses to build the setup executable when
+they differ. Reusing an existing bundle requires an explicit opt-out and still
+runs the version check.
 
 The Windows installer defaults to the managed Edge webapp launch mode because
 that path has the strongest launcher-owned lifecycle behavior. Normal browser
@@ -87,6 +93,11 @@ also remove local RoleThread app data and workspace folders when the user
 explicitly confirms that destructive option.
 
 Cloud backup copies outside those local RoleThread folders are preserved.
+
+The local data-removal prompts are part of the real Windows uninstall path,
+such as Windows Installed apps, Control Panel, or the Start Menu **Uninstall
+RoleThread Lite** shortcut. Rerunning the setup executable uses Inno Setup's
+install/maintenance path and should not be treated as the data-removal flow.
 
 CI/CD may automate pieces later; the source tree should stay free of generated artifacts either way.
 

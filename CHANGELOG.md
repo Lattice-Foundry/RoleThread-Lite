@@ -16,6 +16,20 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.87] - 2026-05-17
+
+### Changed
+
+- Hardened Windows installer builds so the PyInstaller bundle is rebuilt by default before Inno packaging.
+- Added installer build validation that rejects stale bundles when bundled app version metadata does not match the source tree version.
+
+## [1.3.86] - 2026-05-17
+
+### Changed
+
+- Added a Start Menu uninstall shortcut and clarified that local data removal prompts are available through the real uninstall path, not setup maintenance reruns.
+- Updated installer documentation for normal uninstall, local data removal, developer clean uninstall, and cloud backup preservation.
+
 ## [1.3.85] - 2026-05-17
 
 ### Fixed

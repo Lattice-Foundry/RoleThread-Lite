@@ -1,5 +1,6 @@
 param(
-    [switch]$BuildBundle
+    [switch]$BuildBundle,
+    [switch]$UseExistingBundle
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,13 +11,23 @@ $bundleExe = Join-Path $bundleDir "RoleThreadLauncher.exe"
 $innoScript = Join-Path $repoRoot "installer\windows\inno\rolethread_lite.iss"
 $outputDir = Join-Path $repoRoot "installer\windows\output"
 $versionFile = Join-Path $repoRoot "core\version.py"
+$bundleVersionFile = Join-Path $bundleDir "_internal\core\version.py"
 
 function Get-RoleThreadVersion {
-    $versionText = Get-Content -LiteralPath $versionFile -Raw
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Could not find RoleThread version file: $Path"
+    }
+
+    $versionText = Get-Content -LiteralPath $Path -Raw
     if ($versionText -match 'ROLETHREAD_VERSION\s*=\s*"([^"]+)"') {
         return $Matches[1]
     }
-    throw "Could not read ROLETHREAD_VERSION from $versionFile"
+    throw "Could not read ROLETHREAD_VERSION from $Path"
 }
 
 function Resolve-InnoCompiler {
@@ -62,19 +73,29 @@ Expected common locations:
 "@
 }
 
-$version = Get-RoleThreadVersion
+$version = Get-RoleThreadVersion -Path $versionFile
 $expectedSetup = Join-Path $outputDir "RoleThreadLiteSetup-v$version.exe"
+$bundleWasRebuilt = -not $UseExistingBundle
 
 Write-Host "RoleThread Lite Inno Setup installer prototype"
 Write-Host "Repository root: $repoRoot"
-Write-Host "Version: $version"
+Write-Host "Repo version: $version"
+Write-Host "Setup output version: $version"
 Write-Host "Bundle folder: $bundleDir"
 Write-Host "Inno script: $innoScript"
 Write-Host ""
 
-if ($BuildBundle) {
-    Write-Host "Building PyInstaller bundle first..."
+if ($BuildBundle -and $UseExistingBundle) {
+    throw "Use either -BuildBundle or -UseExistingBundle, not both."
+}
+
+if (-not $UseExistingBundle) {
+    Write-Host "Building fresh PyInstaller bundle before installer packaging..."
     & (Join-Path $PSScriptRoot "build_bundle.ps1")
+    Write-Host ""
+} else {
+    Write-Host "Using existing PyInstaller bundle by explicit request."
+    Write-Host "Version validation will still run before packaging."
     Write-Host ""
 }
 
@@ -86,7 +107,37 @@ $bundleExe
 Build it first:
 powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_bundle.ps1
 
-Or run this script with -BuildBundle.
+Then rerun this installer build. By default, build_installer.ps1 rebuilds the
+bundle unless -UseExistingBundle is explicitly passed.
+"@
+}
+
+if (-not (Test-Path -LiteralPath $bundleVersionFile)) {
+    throw @"
+Bundled RoleThread version file was not found:
+$bundleVersionFile
+
+The bundle is incomplete or stale. Rebuild it with:
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_bundle.ps1
+"@
+}
+
+$bundleVersion = Get-RoleThreadVersion -Path $bundleVersionFile
+Write-Host "Bundle version: $bundleVersion"
+Write-Host "Bundle rebuilt this run: $bundleWasRebuilt"
+Write-Host ""
+
+if ($bundleVersion -ne $version) {
+    throw @"
+Refusing to build installer from a stale PyInstaller bundle.
+
+Repo version:   $version
+Bundle version: $bundleVersion
+
+Rebuild the bundle before packaging:
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_installer.ps1
+
+If you intentionally reuse an existing bundle, it must still match the repo version.
 "@
 }
 

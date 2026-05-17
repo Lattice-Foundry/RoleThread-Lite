@@ -202,23 +202,31 @@ Recommended Windows install:
 winget install --id JRSoftware.InnoSetup -e
 ```
 
-Build the PyInstaller bundle first:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_bundle.ps1
-```
-
-Then build the installer:
+Build the installer from a fresh PyInstaller bundle:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_installer.ps1
 ```
 
-The installer script can also build the bundle first:
+`build_installer.ps1` rebuilds the PyInstaller bundle by default before running
+Inno Setup. This is the recommended release/test path because it prevents the
+setup executable from packaging stale bundled source.
+
+If you need to smoke-test the bundle separately, run:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_installer.ps1 -BuildBundle
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_bundle.ps1
 ```
+
+An existing bundle can be reused only with an explicit opt-out:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_installer.ps1 -UseExistingBundle
+```
+
+Even in `-UseExistingBundle` mode, the script compares `core/version.py` from
+the source tree with `_internal/core/version.py` inside the bundled app and
+fails if the versions do not match.
 
 Expected setup output:
 
@@ -230,6 +238,7 @@ The prototype installer:
 
 - installs bundled app/runtime files under `{autopf}\RoleThread Lite`
 - creates a Start Menu shortcut named **RoleThread Lite**
+- creates a Start Menu shortcut named **Uninstall RoleThread Lite**
 - offers an optional Desktop shortcut
 - enables **Launch RoleThread Lite as a Windows Edge webapp** by default
 - registers a normal Windows uninstaller
@@ -250,8 +259,7 @@ keeps Settings authoritative after install while avoiding broad JSON editing in
 Inno Setup.
 
 The prototype installer does not yet implement firewall rules, code signing,
-auto-update, GitHub Release automation, final branding polish, or optional
-full user-data removal.
+auto-update, GitHub Release automation, or final branding polish.
 
 ### Uninstall behavior
 
@@ -262,6 +270,17 @@ Windows uninstall entry. It preserves:
 %LOCALAPPDATA%\RoleThread
 %USERPROFILE%\RoleThread
 ```
+
+Use one of the real Windows uninstall paths to access the data-removal prompts:
+
+- Start Menu > RoleThread Lite > **Uninstall RoleThread Lite**
+- Windows Settings > Apps > Installed apps > RoleThread Lite > Uninstall
+- Control Panel > Programs and Features > RoleThread Lite > Uninstall
+
+Rerunning `RoleThreadLiteSetup-v<version>.exe` enters the Inno Setup install /
+maintenance path. That path may show install tasks such as the webapp launch
+option, but it is not the expected place to access uninstall data-removal
+prompts.
 
 During interactive uninstall, the uninstaller asks whether to remove local
 RoleThread user data. Choosing this option deletes local database/app state,
@@ -404,6 +423,11 @@ Full uninstall targets:
 External/cloud backup copies outside those local RoleThread folders are
 preserved.
 
+The data-removal prompts are exposed by the real uninstaller, not by rerunning
+the setup executable. The installer also creates a Start Menu shortcut named
+**Uninstall RoleThread Lite** so testers do not have to hunt through Windows
+Settings during repeated installer validation.
+
 ## Expected Manual Release Flow
 
 Until CI/CD packaging is added, the likely release flow is manual:
@@ -422,5 +446,4 @@ Pushing to `main` does not automatically create installer artifacts unless CI/CD
 This is installer prototype work. The source-controlled scripts can build a
 PyInstaller one-folder launcher bundle and package that bundle into a first
 Inno Setup installer executable. The prototype does not yet implement firewall
-rules, code signing, auto-update, final full-uninstall data removal, or release
-publishing automation.
+rules, code signing, auto-update, or release publishing automation.
