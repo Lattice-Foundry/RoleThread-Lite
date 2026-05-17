@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.0] - 2026-05-17
+
+### Added
+
+- Added the initial core `generation` package for deterministic external data-generation prompt compilation.
+- Added the conversation scenario generation config, template registry, reusable placeholder chunks, compiler, and pure unit coverage.
+
 ## [1.3.98] - 2026-05-17
 
 ### Changed
