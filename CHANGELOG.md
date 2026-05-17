@@ -16,6 +16,16 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.77] - 2026-05-17
+
+### Added
+
+- Added developer Help articles for build packaging, Windows launcher architecture, contribution expectations, and Lite/Studio boundaries.
+
+### Changed
+
+- Completed the foundational `For Developers` Help section with packaging, launcher, and contribution guidance.
+
 ## [1.3.76] - 2026-05-17
 
 ### Changed

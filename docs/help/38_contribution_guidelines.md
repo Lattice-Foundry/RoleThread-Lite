@@ -1,0 +1,85 @@
+# Contribution Guidelines
+
+RoleThread Lite welcomes focused, maintainable contributions.
+
+The project is intentionally engineered around data integrity, readable workflows, and clear boundaries. Contributions should make the app easier to trust and easier to maintain.
+
+## Contribution Philosophy
+
+Prefer small changes with clear intent.
+
+A good contribution usually does one thing:
+
+- fixes a specific bug
+- adds a focused workflow improvement
+- improves a service or helper without changing public behavior
+- clarifies documentation
+- strengthens tests around a safety-critical path
+
+Large rewrites should earn their size by reducing real complexity or unlocking a clear product direction.
+
+## Preserve Layer Boundaries
+
+Keep durable business logic out of the UI layer.
+
+The `ui/` layer may render controls, read session state, and call services. Workflow rules, mutation behavior, validation, backups, persistence, and platform detection should live in `services/` or `core/`.
+
+`core/` and `services/` should remain framework-independent. They should not import Streamlit.
+
+## Data Integrity Comes First
+
+Contributors should treat dataset files, sidecars, backups, and registry metadata as user-owned work.
+
+Be conservative around:
+
+- deletes
+- overwrites
+- repairs
+- tag lifecycle changes
+- merge behavior
+- cloud backup publishing
+- preference changes
+
+When in doubt, preserve data, report clearly, and avoid silent destructive behavior.
+
+## Testing Expectations
+
+Changes that affect behavior should usually include tests.
+
+Prioritize tests for:
+
+- dataset mutation workflows
+- tag lifecycle and alias behavior
+- validation and repair
+- backup and cloud sync behavior
+- preferences and platform paths
+- launcher command construction
+- Help/FAQ registry changes
+
+Avoid brittle UI-heavy tests when a pure helper or service test can prove the rule more directly.
+
+## Documentation Expectations
+
+Update Help or developer docs when a change alters how users or contributors should understand the workflow.
+
+Docs should stay calm, practical, and specific. Avoid marketing language and avoid explaining implementation details that do not help users make decisions.
+
+## Naming and Style
+
+Follow the Naming and Terminology Guide.
+
+Use descriptive Python names, standard conventions, and clear side-effect naming. A workflow function that writes, saves, backs up, replaces, repairs, or deletes should make that behavior visible in its name or surrounding service result.
+
+## What To Avoid
+
+Avoid contributions that:
+
+- put business logic into Streamlit rendering code
+- bypass service-layer safety behavior
+- silently discard unknown metadata
+- add platform-specific checks outside centralized helpers
+- introduce generated build artifacts into Git
+- make Lite carry workflows better suited to future Studio work
+
+RoleThread Lite should stay approachable, careful, and understandable.
+

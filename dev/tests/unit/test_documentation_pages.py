@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 35
+    assert len(registry) == 39
     assert get_default_help_article_id() == "getting-started"
     assert registry["getting-started"].file_name == "01_getting_started.md"
     assert registry["glossary"].category == "Reference"
@@ -131,6 +131,25 @@ def test_help_article_registry_has_expected_articles():
         "35_ui_and_theme_style_guide.md"
     )
     assert registry["ui-and-theme-style-guide"].category == "For Developers"
+    assert registry["build-and-packaging-overview"].file_name == (
+        "36_build_and_packaging_overview.md"
+    )
+    assert registry["build-and-packaging-overview"].category == "For Developers"
+    assert registry["windows-installer-and-launcher-architecture"].file_name == (
+        "37_windows_installer_and_launcher_architecture.md"
+    )
+    assert (
+        registry["windows-installer-and-launcher-architecture"].category
+        == "For Developers"
+    )
+    assert registry["contribution-guidelines"].file_name == (
+        "38_contribution_guidelines.md"
+    )
+    assert registry["contribution-guidelines"].category == "For Developers"
+    assert registry["lite-vs-studio-boundaries"].file_name == (
+        "39_lite_vs_studio_boundaries.md"
+    )
+    assert registry["lite-vs-studio-boundaries"].category == "For Developers"
     assert len(registry) == len(set(registry))
 
 
@@ -267,6 +286,45 @@ def test_developer_philosophy_help_articles_document_engineering_conventions():
     assert "AI startup dashboard chaos" in style.content
 
 
+def test_developer_packaging_help_articles_document_release_and_contribution_flows():
+    packaging = load_help_document("build-and-packaging-overview")
+    launcher = load_help_document("windows-installer-and-launcher-architecture")
+    contribution = load_help_document("contribution-guidelines")
+    boundaries = load_help_document("lite-vs-studio-boundaries")
+
+    assert packaging.article.category == "For Developers"
+    assert "PyInstaller one-folder bundle" in packaging.content
+    assert "Inno Setup" in packaging.content
+    assert "GitHub Releases" in packaging.content
+    assert "requirements-dev.txt" in packaging.content
+    assert "Generated artifacts do not belong in Git" in packaging.content
+
+    assert launcher.article.category == "For Developers"
+    assert "launcher owns startup orchestration" in launcher.content
+    assert "selected launch mode" in launcher.content
+    assert "windowed/no-console" in launcher.content
+    assert "Managed webapp mode is Windows/Microsoft Edge only" in launcher.content
+    assert "should not invent its own browser cleanup" in launcher.content
+
+    assert contribution.article.category == "For Developers"
+    assert "Prefer small changes with clear intent" in contribution.content
+    assert "Keep durable business logic out of the UI layer" in contribution.content
+    assert "`core/` and `services/` should remain framework-independent" in (
+        contribution.content
+    )
+    assert "Changes that affect behavior should usually include tests" in (
+        contribution.content
+    )
+
+    assert boundaries.article.category == "For Developers"
+    assert "Lite is the stable dataset workshop" in boundaries.content
+    assert "Studio is the future advanced environment" in boundaries.content
+    assert "This is direction, not a feature promise or release schedule" in (
+        boundaries.content
+    )
+    assert "Does it directly improve dataset creation" in boundaries.content
+
+
 def test_help_article_registry_has_unique_file_names_and_orders():
     articles = tuple(get_help_article_registry().values())
     file_names = [article.file_name for article in articles]
@@ -284,13 +342,16 @@ def test_help_article_order_is_global_reader_order():
     ordered_ids = [article.article_id for article in get_help_article_order()]
 
     assert ordered_ids[0] == "getting-started"
-    assert ordered_ids[-1] == "ui-and-theme-style-guide"
+    assert ordered_ids[-1] == "lite-vs-studio-boundaries"
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
     assert ordered_ids.index("developer-launch-flags") < ordered_ids.index(
         "codebase-architecture"
     )
     assert ordered_ids.index("platform-support-philosophy") < ordered_ids.index(
         "data-safety-philosophy"
+    )
+    assert ordered_ids.index("ui-and-theme-style-guide") < ordered_ids.index(
+        "build-and-packaging-overview"
     )
 
 
@@ -328,6 +389,10 @@ def test_help_article_category_order_and_grouping():
         "testing-philosophy",
         "naming-and-terminology-guide",
         "ui-and-theme-style-guide",
+        "build-and-packaging-overview",
+        "windows-installer-and-launcher-architecture",
+        "contribution-guidelines",
+        "lite-vs-studio-boundaries",
     ]
 
 
@@ -496,7 +561,15 @@ def test_adjacent_help_articles_follow_global_order():
     previous_article, next_article = get_adjacent_help_articles("data-safety-philosophy")
     assert previous_article.article_id == "platform-support-philosophy"
     assert next_article.article_id == "testing-philosophy"
-    assert get_adjacent_help_articles("ui-and-theme-style-guide")[1] is None
+    previous_article, next_article = get_adjacent_help_articles("ui-and-theme-style-guide")
+    assert previous_article.article_id == "naming-and-terminology-guide"
+    assert next_article.article_id == "build-and-packaging-overview"
+    previous_article, next_article = get_adjacent_help_articles(
+        "build-and-packaging-overview"
+    )
+    assert previous_article.article_id == "ui-and-theme-style-guide"
+    assert next_article.article_id == "windows-installer-and-launcher-architecture"
+    assert get_adjacent_help_articles("lite-vs-studio-boundaries")[1] is None
 
 
 def test_related_help_articles_follow_registry_metadata():

@@ -527,6 +527,58 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
             "naming-and-terminology-guide",
         ),
     ),
+    HelpArticle(
+        "build-and-packaging-overview",
+        "36_build_and_packaging_overview.md",
+        "Build and Packaging Overview",
+        "For Developers",
+        330,
+        "How RoleThread approaches bundles, installers, dev environments, and releases.",
+        (
+            "windows-installer-and-launcher-architecture",
+            "developer-launch-flags",
+            "platform-support-philosophy",
+        ),
+    ),
+    HelpArticle(
+        "windows-installer-and-launcher-architecture",
+        "37_windows_installer_and_launcher_architecture.md",
+        "Windows Installer and Launcher Architecture",
+        "For Developers",
+        340,
+        "How the Windows launcher starts RoleThread and delegates app-owned behavior.",
+        (
+            "build-and-packaging-overview",
+            "developer-launch-flags",
+            "platform-support-philosophy",
+        ),
+    ),
+    HelpArticle(
+        "contribution-guidelines",
+        "38_contribution_guidelines.md",
+        "Contribution Guidelines",
+        "For Developers",
+        350,
+        "How contributors should preserve maintainability, tests, and architecture boundaries.",
+        (
+            "layer-boundaries-and-responsibilities",
+            "testing-philosophy",
+            "naming-and-terminology-guide",
+        ),
+    ),
+    HelpArticle(
+        "lite-vs-studio-boundaries",
+        "39_lite_vs_studio_boundaries.md",
+        "Lite vs Studio Boundaries",
+        "For Developers",
+        360,
+        "Which ideas belong in Lite and which are better suited to future Studio work.",
+        (
+            "rolethread-studio-vision",
+            "codebase-architecture",
+            "contribution-guidelines",
+        ),
+    ),
 )
 
 
