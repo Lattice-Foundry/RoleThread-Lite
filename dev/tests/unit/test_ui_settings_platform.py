@@ -81,12 +81,12 @@ def test_platform_path_format_shows_source_in_dev_mode():
     assert "default `C:/Users/digit/RoleThread/training_data`" in value
 
 
-def test_webapp_experimental_preference_uses_platform_capability():
-    windows_capabilities = detect_platform("Windows").capabilities
-    linux_capabilities = detect_platform("Linux").capabilities
+def test_settings_no_longer_exposes_webapp_preference_toggle():
+    source = Path(ui_settings.__file__).read_text(encoding="utf-8")
 
-    assert ui_settings._supports_webapp_launch_preference(windows_capabilities) is True
-    assert ui_settings._supports_webapp_launch_preference(linux_capabilities) is False
+    assert "Experimental Features" not in source
+    assert "Enable webapp launch mode" not in source
+    assert "_enable_webapp_launch_mode_checkbox" not in source
 
 
 def test_public_launch_mode_summarizes_active_or_preferred_mode():
@@ -98,10 +98,10 @@ def test_public_launch_mode_summarizes_active_or_preferred_mode():
         LaunchFlags(webapp=True),
         {},
     ) == "`Webapp mode`"
-    assert "future launchers" in ui_settings._format_public_launch_mode(
+    assert ui_settings._format_public_launch_mode(
         LaunchFlags(),
         {"enable_webapp_launch_mode": True},
-    )
+    ) == "`Normal mode`"
 
 
 def test_launch_flags_detected_summary_is_compact():

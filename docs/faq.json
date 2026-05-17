@@ -236,6 +236,10 @@
     "answer": "Probably. But losing training data is worse."
   },
   {
+    "question": "Safety and identity: Is it absurd that RoleThread Lite runs Streamlit through a native-style webapp launcher with a compiled installer?",
+    "answer": "Absolutely. We did it for science reasons. We regret nothing...mostly."
+  },
+  {
     "question": "Operational expectations: Why does RoleThread prefer deterministic workflows?",
     "answer": "Deterministic tools are easier to inspect, repeat, and trust. Search, validation, export, merge policy, and cleanup behavior should be predictable.\n\nThat matters when you are preparing training data and need to understand what changed."
   },

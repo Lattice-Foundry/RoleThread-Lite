@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "1.3.94"
+#define AppVersion "1.3.97"
 #endif
 
 #define AppName "RoleThread Lite"
@@ -33,7 +33,7 @@ SetupLogging=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "webappmode"; Description: "Launch RoleThread Lite as a Windows Edge webapp (recommended; can be changed later in Settings > Experimental Features)"; GroupDescription: "Launch mode:"
+Name: "webappmode"; Description: "Use Windows Edge webapp mode by default (recommended)"; GroupDescription: "Launch mode:"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
@@ -51,6 +51,36 @@ Filename: "{app}\{#AppExeName}"; Description: "Launch RoleThread Lite"; Flags: n
 var
   RemoveLocalDataOnUninstall: Boolean;
   DeveloperCleanUninstall: Boolean;
+
+const
+  SW_RESTORE = 9;
+
+function ShowWindow(hWnd: HWND; nCmdShow: Integer): Boolean;
+  external 'ShowWindow@user32.dll stdcall';
+function SetForegroundWindow(hWnd: HWND): Boolean;
+  external 'SetForegroundWindow@user32.dll stdcall';
+function SetActiveWindow(hWnd: HWND): HWND;
+  external 'SetActiveWindow@user32.dll stdcall';
+
+procedure BringWizardToFront();
+begin
+  WizardForm.Show;
+  ShowWindow(WizardForm.Handle, SW_RESTORE);
+  WizardForm.BringToFront;
+  SetActiveWindow(WizardForm.Handle);
+  SetForegroundWindow(WizardForm.Handle);
+end;
+
+procedure InitializeWizard();
+begin
+  BringWizardToFront();
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = wpWelcome then
+    BringWizardToFront();
+end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var

@@ -95,8 +95,12 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 39
-    assert get_default_help_article_id() == "getting-started"
+    assert len(registry) == 40
+    assert get_default_help_article_id() == "installing-rolethread-lite"
+    assert registry["installing-rolethread-lite"].file_name == (
+        "00_installing_rolethread_lite.md"
+    )
+    assert registry["installing-rolethread-lite"].category == "Getting Started"
     assert registry["getting-started"].file_name == "01_getting_started.md"
     assert registry["glossary"].category == "Reference"
     assert (
@@ -180,6 +184,24 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     assert "Diagnostics are gated behind `dev`" in document.content
 
 
+def test_installing_rolethread_lite_help_article_documents_install_and_uninstall():
+    document = load_help_document("installing-rolethread-lite")
+
+    assert document.article.title == "Installing RoleThread Lite"
+    assert "Windows setup executable is a beta convenience path" in document.content
+    assert "streamlit run app.py -- webapp" in document.content
+    assert "Linux uses the source/manual workflow" in document.content
+    assert "macOS is beta/manual for V1" in document.content
+    assert "Start Menu > RoleThread Lite > **RoleThread Uninstaller**" in (
+        document.content
+    )
+    assert "default Windows uninstall path removes installed app/runtime files" not in (
+        document.content
+    )
+    assert "Cloud backup copies and external sync folders" in document.content
+    assert "minimize other windows or\ncheck the taskbar" in document.content
+
+
 def test_os_compatibility_help_article_documents_v1_policy():
     document = load_help_document("os-compatibility-and-storage-policy")
 
@@ -190,7 +212,8 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "%LOCALAPPDATA%\\RoleThread" in document.content
     assert "~/.local/share/rolethread" in document.content
     assert "~/Library/Application Support/RoleThread" in document.content
-    assert "Edge web app" in document.content
+    assert "Edge webapp" in document.content
+    assert "For setup commands and uninstall instructions" in document.content
     assert "Cloud sync folders are optional backup or sync targets" in document.content
 
 
@@ -297,10 +320,13 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "Inno Setup" in packaging.content
     assert "Inno Setup installer prototype" in packaging.content
     assert "managed Edge webapp launch mode" in packaging.content
+    assert "clearing the installer option during setup" in packaging.content
+    assert "check the taskbar for the RoleThread Lite installer" in packaging.content
+    assert "through Settings" not in packaging.content
     assert "Normal uninstall preserves RoleThread user data by default" in (
         packaging.content
     )
-    assert "Start Menu **Uninstall\nRoleThread Lite** shortcut" in packaging.content
+    assert "Start Menu **RoleThread\nUninstaller** shortcut" in packaging.content
     assert "Rerunning the setup executable" in packaging.content
     assert "rebuilds the PyInstaller bundle by default" in packaging.content
     assert "refuses to build the setup executable" in packaging.content
@@ -315,7 +341,7 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert launcher.article.category == "For Developers"
     assert "startup orchestrator" in launcher.content
     assert "installer prototype installs bundled app files" in launcher.content
-    assert "Launch RoleThread Lite as a Windows Edge webapp" in launcher.content
+    assert "Use Windows Edge webapp mode by default (recommended)" in launcher.content
     assert "`enable_webapp_launch_mode`" in launcher.content
     assert "DB-backed setting" in launcher.content
     assert "Default uninstall removes installed app files and shortcuts" in (
@@ -339,6 +365,7 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "`kill()` only as a last resort" in launcher.content
     assert "Managed webapp mode is Windows/Microsoft Edge only" in launcher.content
     assert "launcher-managed environment marker" in launcher.content
+    assert "Settings > Experimental Features" not in launcher.content
 
     assert contribution.article.category == "For Developers"
     assert "small, testable" in contribution.content
@@ -375,7 +402,8 @@ def test_help_article_registry_validates_relationships():
 def test_help_article_order_is_global_reader_order():
     ordered_ids = [article.article_id for article in get_help_article_order()]
 
-    assert ordered_ids[0] == "getting-started"
+    assert ordered_ids[0] == "installing-rolethread-lite"
+    assert ordered_ids[1] == "getting-started"
     assert ordered_ids[-1] == "lite-vs-studio-boundaries"
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
     assert ordered_ids.index("developer-launch-flags") < ordered_ids.index(
@@ -394,6 +422,7 @@ def test_help_article_category_order_and_grouping():
 
     assert tuple(grouped) == get_help_category_order()
     assert [article.article_id for article in grouped["Getting Started"]] == [
+        "installing-rolethread-lite",
         "getting-started",
         "what-rolethread-lite-does",
         "dataset-formats",
@@ -431,9 +460,9 @@ def test_help_article_category_order_and_grouping():
 
 
 def test_help_article_lookup_falls_back_to_default():
-    assert resolve_help_article_id(None) == "getting-started"
-    assert resolve_help_article_id("missing") == "getting-started"
-    assert get_help_article("missing").article_id == "getting-started"
+    assert resolve_help_article_id(None) == "installing-rolethread-lite"
+    assert resolve_help_article_id("missing") == "installing-rolethread-lite"
+    assert get_help_article("missing").article_id == "installing-rolethread-lite"
     assert get_help_article("exporting-datasets").title == "Exporting Datasets"
 
 
@@ -446,8 +475,10 @@ def test_active_help_article_uses_session_state_and_repairs_invalid_state(monkey
     assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "exporting-datasets"
 
     fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] = "unknown-article"
-    assert ui_help.get_active_help_article_id() == "getting-started"
-    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "getting-started"
+    assert ui_help.get_active_help_article_id() == "installing-rolethread-lite"
+    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
+        "installing-rolethread-lite"
+    )
 
 
 def test_select_help_article_updates_state_and_reruns(monkeypatch):
@@ -504,8 +535,12 @@ def test_select_help_article_falls_back_for_unknown_article(monkeypatch):
     fake = FakeHelpStreamlit()
     monkeypatch.setattr(ui_help, "st", fake)
 
-    assert ui_help.select_help_article("unknown-article", rerun=False) == "getting-started"
-    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "getting-started"
+    assert ui_help.select_help_article("unknown-article", rerun=False) == (
+        "installing-rolethread-lite"
+    )
+    assert fake.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
+        "installing-rolethread-lite"
+    )
 
 
 def test_scroll_to_top_does_not_run_on_initial_article_render(monkeypatch):
@@ -575,7 +610,10 @@ def test_adjacent_help_articles_follow_global_order():
 
     assert previous_article.article_id == "understanding-the-main-workspaces"
     assert next_article.article_id == "default-mode-vs-group-chat"
-    assert get_adjacent_help_articles("getting-started")[0] is None
+    assert get_adjacent_help_articles("installing-rolethread-lite")[0] is None
+    previous_article, next_article = get_adjacent_help_articles("getting-started")
+    assert previous_article.article_id == "installing-rolethread-lite"
+    assert next_article.article_id == "what-rolethread-lite-does"
     previous_article, next_article = get_adjacent_help_articles(
         "v1-limitations-and-future-boundaries"
     )
@@ -807,6 +845,13 @@ def test_help_related_previous_and_next_buttons_render_selected_articles():
         default_timeout=10,
     ).run()
 
+    app.button(key="_help_related_getting-started").click().run()
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "getting-started"
+    assert any(
+        value.startswith("# Getting Started")
+        for value in _markdown_values(app)
+    )
+
     app.button(key="_help_related_creating-entries").click().run()
     assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "creating-entries"
     assert any(
@@ -961,6 +1006,11 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert sum(len(group) for group in grouped.values()) == len(entries)
     assert all(entry.category in get_faq_category_order() for entry in entries)
     assert all(grouped[category] for category in get_faq_category_order())
+    assert any(
+        "native-style webapp launcher with a compiled installer" in entry.question
+        and "science reasons" in entry.answer
+        for entry in entries
+    )
 
 
 def test_faq_category_descriptions_are_available_for_reader_polish():

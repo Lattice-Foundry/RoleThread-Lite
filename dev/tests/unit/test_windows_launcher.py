@@ -607,7 +607,8 @@ def test_inno_installer_script_packages_launcher_bundle():
     assert "postinstall" in inno_text
     assert "OutputBaseFilename=RoleThreadLiteSetup-v{#AppVersion}" in inno_text
     assert 'Name: "webappmode"' in inno_text
-    assert "Windows Edge webapp" in inno_text
+    assert "Use Windows Edge webapp mode by default (recommended)" in inno_text
+    assert "can be changed later in Settings" not in inno_text
     assert "installer_seed.json" in inno_text
     assert '"enable_webapp_launch_mode": true' in inno_text
     assert '"enable_webapp_launch_mode": false' in inno_text
@@ -622,6 +623,11 @@ def test_inno_installer_script_packages_launcher_bundle():
     assert "RoleThreadWorkspaceRoot()" in inno_text
     assert "DelTree(Path, True, True, True)" in inno_text
     assert "External/cloud backup destinations" in inno_text
+    assert "BringWizardToFront" in inno_text
+    assert "ShowWindow(WizardForm.Handle, SW_RESTORE)" in inno_text
+    assert "WizardForm.BringToFront" in inno_text
+    assert "SetActiveWindow(WizardForm.Handle)" in inno_text
+    assert "SetForegroundWindow(WizardForm.Handle)" in inno_text
 
 
 def test_build_installer_script_validates_bundle_and_inno_compiler():

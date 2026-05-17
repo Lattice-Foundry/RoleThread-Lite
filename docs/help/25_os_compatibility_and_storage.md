@@ -1,22 +1,32 @@
 # OS Compatibility and Storage Policy
 
-RoleThread Lite V1 is local-first and platform-aware.
+RoleThread Lite V1 is platform-aware. App-managed state should live in normal
+operating-system app data locations, while visible datasets, exports, imports,
+and backups live in a clear user workspace.
 
-The goal is simple: app-managed state should live in normal operating-system app data locations, while your visible datasets, exports, imports, and backups live in a clear user workspace.
+For setup commands and uninstall instructions, see **Installing RoleThread
+Lite**.
 
 ## Support Levels
 
 **Windows is a primary V1 support platform.**
 
-Windows is the main maintainer-tested desktop target. Installer support is planned later. A Microsoft Edge web-app workflow is also planned when Edge is available, with default-browser fallback when Edge is not available.
+Windows is the main maintainer-tested desktop target. RoleThread Lite has a
+beta setup installer for Windows and a managed Microsoft Edge webapp workflow
+when Edge is available. Manual source installs remain supported.
 
 **Linux is a primary V1 support platform.**
 
-Linux is expected to use a manual or git-clone workflow for V1. Launching through the default browser or manually opening the local Streamlit URL is the expected model. OneDrive-specific integration is not supported on Linux.
+Linux uses the manual/source workflow for V1. Launching through the default
+browser or manually opening the local Streamlit URL is the expected model.
+OneDrive-specific integration is not supported on Linux.
 
 **macOS is beta-supported for V1.**
 
-macOS support is intended, but is community-tested because the maintainer cannot fully validate it directly yet. There is no V1 macOS installer planned. Default-browser use is the expected workflow. Safari-style web-app usage may work as a user-managed beta workflow, but RoleThread does not automate it in V1.
+macOS support is intended, but is community-tested because the maintainer
+cannot fully validate it directly yet. There is no V1 macOS installer planned.
+Default-browser use is the expected workflow. Safari-style web-app usage may
+work as a user-managed beta workflow, but RoleThread does not automate it in V1.
 
 **Unknown platforms are unsupported.**
 
@@ -30,7 +40,8 @@ Older Python versions are blocked so the app fails clearly instead of producing 
 
 Newer Python versions may run, but they are untested for V1 unless documented later.
 
-Manual Linux/macOS users should create their environment with `python3.14`. Windows development users should use `py -3.14`.
+Manual Linux/macOS users should create their environment with `python3.14`.
+Windows development users should use `py -3.14`.
 
 ## Fresh-Install Storage Defaults
 
@@ -110,17 +121,28 @@ The safest pattern is:
 
 ## Launch Behavior Policy
 
-RoleThread V1 defines platform-aware launch policy and diagnostics. Production
-installer, shortcut, and packaged browser behavior are still planned later.
+RoleThread V1 defines platform-aware launch policy and diagnostics.
 
-For V1, run RoleThread normally and use the browser workflow that is most
-reliable on your machine. If you want an app-style window, use your browser's
-built-in install or shortcut option manually. In Microsoft Edge, open the local
-RoleThread URL and use **Apps > Install this site as an app** or the equivalent
-shortcut option.
+The Windows installer defaults to Microsoft Edge webapp mode because that path
+has the strongest launcher-owned app-window lifecycle. Manual Windows users can
+use:
 
-The `webapp` flag is RoleThread's internal Windows web-app launch method for
-future launcher and installer workflows. It opens Microsoft Edge app mode when
+```bat
+streamlit run app.py -- webapp
+```
+
+Normal browser mode remains available through:
+
+```bat
+streamlit run app.py
+```
+
+Linux and macOS use normal browser mode. If you want an app-style window on
+those platforms, use your browser's built-in install or shortcut option
+manually.
+
+The `webapp` flag is RoleThread's Windows webapp launch method for manual
+testing and installed launcher workflows. It opens Microsoft Edge app mode when
 Edge is available. If Streamlit opens a normal browser window first, RoleThread
 attempts to close only that duplicate browser window after the Edge app window
 is observed. On Linux, macOS, or unknown platforms, the flag does not attempt
@@ -136,10 +158,9 @@ app-window candidates.
 
 Windows:
 
-- preferred future workflow: Microsoft Edge web app when Edge is detected
-- fallback: default browser when Edge is unavailable
-- installer and shortcut integration are planned later
-- V1 workflow: normal browser launch, with manual browser install-as-app if desired
+- preferred installed workflow: Microsoft Edge webapp when Edge is detected
+- fallback: normal browser mode when webapp mode is unavailable or disabled
+- manual workflow: `streamlit run app.py` or `streamlit run app.py -- webapp`
 
 Linux:
 
@@ -163,13 +184,13 @@ Unknown platforms:
 
 Open **Settings** and review **About This Installation**.
 
-That section shows:
+In normal mode, that section shows:
 
 - detected platform
 - Python runtime compatibility
-- platform capabilities
-- browser support
 - launch behavior
-- raw diagnostics
-- platform path defaults and path sources
+- storage locations
+
+Developer diagnostics are shown only when the app is launched with developer
+flags.
 

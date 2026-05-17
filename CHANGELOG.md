@@ -16,6 +16,30 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.97] - 2026-05-17
+
+### Added
+
+- Added a first-position Help article for installing RoleThread Lite, covering the Windows beta setup installer, manual Windows/Linux/macOS workflows, and uninstall behavior.
+- Added a FAQ entry about the delightfully excessive Streamlit/webapp/installer stack.
+
+### Changed
+
+- Polished user-facing install, README, OS compatibility, and installer docs to match the current beta installer and Windows Edge webapp lifecycle.
+
+## [1.3.96] - 2026-05-17
+
+### Changed
+
+- Added one more foreground restore attempt for the Inno Setup wizard after UAC and documented the Windows taskbar fallback if setup appears behind other windows.
+
+## [1.3.95] - 2026-05-17
+
+### Changed
+
+- Removed the visible Settings webapp launch toggle while preserving installer/launcher preference plumbing.
+- Updated installer webapp option wording and added a lightweight wizard foreground restore during setup startup.
+
 ## [1.3.94] - 2026-05-17
 
 ### Changed

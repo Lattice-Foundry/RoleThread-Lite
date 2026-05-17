@@ -86,7 +86,11 @@ runs the version check.
 
 The Windows installer defaults to the managed Edge webapp launch mode because
 that path has the strongest launcher-owned lifecycle behavior. Normal browser
-mode remains available through the installer option and through Settings.
+mode remains available by clearing the installer option during setup.
+
+On some Windows systems, the setup wizard may appear behind other windows after
+the UAC prompt. If setup does not appear immediately, minimize other windows or
+check the taskbar for the RoleThread Lite installer.
 
 Normal uninstall preserves RoleThread user data by default. The uninstaller can
 also remove local RoleThread app data and workspace folders when the user
@@ -95,8 +99,8 @@ explicitly confirms that destructive option.
 Cloud backup copies outside those local RoleThread folders are preserved.
 
 The local data-removal prompts are part of the real Windows uninstall path,
-such as Windows Installed apps, Control Panel, or the Start Menu **Uninstall
-RoleThread Lite** shortcut. Rerunning the setup executable uses Inno Setup's
+such as Windows Installed apps, Control Panel, or the Start Menu **RoleThread
+Uninstaller** shortcut. Rerunning the setup executable uses Inno Setup's
 install/maintenance path and should not be treated as the data-removal flow.
 
 CI/CD may automate pieces later; the source tree should stay free of generated artifacts either way.

@@ -87,14 +87,24 @@ available for a clear restore if the machine or process fails mid-operation.
 
 RoleThread Lite 1.0 is the stable release surface for dataset craftsmanship.
 
-## Supported Runtime
+## Install Options
 
 RoleThread Lite V1 officially supports Python `3.14.4`.
 
 Other Python versions may run, but they are not guaranteed for V1 unless they
-are tested later. Python versions below `3.14.4` are unsupported. Windows
-installer work will bundle or target the supported runtime later; manual
-Linux/macOS setup should use `python3.14`.
+are tested later. Python versions below `3.14.4` are unsupported.
+
+Windows users have two practical paths:
+
+* **Windows setup executable**: a beta convenience installer published through
+  GitHub Releases. It bundles the runtime and starts RoleThread Lite like a
+  desktop app.
+* **Manual source install**: the most transparent technical workflow for
+  contributors, power users, and anyone who wants direct control over the
+  Python environment.
+
+The in-app Help system includes an **Installing RoleThread Lite** guide with
+current setup and uninstall details.
 
 Linux/macOS manual setup:
 
@@ -114,19 +124,19 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Windows app-style browser workflow:
+Windows setup installer:
 
-Run RoleThread normally, then use your browser's built-in app shortcut feature
-if you want a standalone window. In Microsoft Edge, open the local RoleThread
-URL and use **Apps > Install this site as an app** or the equivalent shortcut
-option. This remains the reliable V1 fallback.
+Download the latest `RoleThreadLiteSetup-v<version>.exe` from GitHub Releases.
+The installer is a beta convenience path, not the only supported way to run
+RoleThread Lite. It is expected to improve as installer testing continues.
 
 `streamlit run app.py -- webapp` is the internal Windows web-app launch method
-that future launcher and installer workflows will call. It opens the local app
-in Microsoft Edge app mode when Edge is available. If Streamlit opens a normal
-browser window first, RoleThread attempts to close only that duplicate browser
-window by targeting the exact Windows window handle after the Edge app window is
-observed. On Linux, macOS, or unknown platforms, the flag is a safe no-op:
+used by manual Windows testing and the installed launcher when webapp mode is
+selected. It opens the local app in Microsoft Edge app mode when Edge is
+available. If Streamlit opens a normal browser window first, RoleThread attempts
+to close only that duplicate browser window by targeting the exact Windows
+window handle after the Edge app window is observed. On Linux, macOS, or unknown
+platforms, the flag is a safe no-op:
 RoleThread continues in normal browser mode.
 
 Developer diagnostics are hidden by default. Add `dev` to expose launch and
@@ -142,16 +152,16 @@ Windows exposes it. Cleanup uses a polite window-close request against an exact
 window handle or a tightly classified candidate; it does not use `taskkill` or
 close app-window candidates.
 
-## Windows Installer Plan
+## Windows Installer Status
 
-RoleThread Lite V1 will ship a fully bundled Windows installer for normal users.
-The installer will package a tested release snapshot; it will not clone or pull
-from Git on the user's machine.
+RoleThread Lite has a beta Windows setup installer for normal users. The
+installer packages a tested release snapshot; it does not clone or pull from Git
+on the user's machine.
 
 Target packaging stack:
 
 * PyInstaller one-folder bundle for the app/runtime.
-* Inno Setup for the final Windows setup executable.
+* Inno Setup for the Windows setup executable.
 * GitHub Releases for publishing generated setup executables.
 
 Installer source scaffolding lives under `installer/windows/`. Generated build
@@ -170,12 +180,13 @@ User data remains separate:
 %USERPROFILE%\RoleThread\
 ```
 
-Default uninstall should remove installed app/runtime files while preserving
-user data. A future full uninstall option may remove all RoleThread data only
-after a clear warning.
+Default uninstall removes installed app/runtime files while preserving user
+data. The uninstaller can optionally remove local RoleThread data after a clear
+warning. Cloud/external backup destinations outside RoleThread-owned local
+folders are preserved.
 
-See `installer/windows/README.md` for the current packaging architecture and
-manual release plan.
+See `installer/windows/README.md` for packaging architecture and manual release
+workflow details.
 
 ## OS Compatibility and Storage
 
@@ -202,9 +213,8 @@ storage can cause constant sync activity, file locking, conflicts, or odd
 timestamps. If OneDrive keeps syncing RoleThread files, review OneDrive backup
 and sync settings for folders such as Documents or Desktop.
 
-Launch policy is defined for future launcher/installer work. Windows will
-prefer an Edge web-app workflow when Edge is available and fall back to the
-default browser when it is not. Linux and macOS use default-browser or manual
+Launch policy is platform-aware. The Windows installer defaults to Edge webapp
+mode when available, while Linux and macOS use default-browser or manual
 local-URL workflows.
 
 The V1 stability gate is:

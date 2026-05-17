@@ -276,8 +276,6 @@ def render_settings_page() -> None:
                 st.success("Settings imported.")
                 st.rerun()
 
-    _render_experimental_features_settings()
-
     st.divider()
     _render_platform_about()
 
@@ -302,61 +300,11 @@ def _apply_preferences_to_session(prefs: dict) -> None:
         "backup_destination_custom_path",
         "",
     )
-    st.session_state.enable_webapp_launch_mode = prefs.get(
-        "enable_webapp_launch_mode",
-        False,
-    )
     save_backup_config_from_settings(prefs)
     st.session_state.auto_correct_validation_errors = prefs.get(
         "auto_correct_validation_errors",
         prefs.get("auto_normalize_on_load", True),
     )
-
-
-def _render_experimental_features_settings() -> None:
-    platform_info = detect_platform()
-    can_use_webapp = _supports_webapp_launch_preference(platform_info.capabilities)
-    current_value = bool(
-        st.session_state.prefs.get("enable_webapp_launch_mode", False)
-    )
-
-    def _persist_webapp_launch_mode():
-        enabled = bool(st.session_state["_enable_webapp_launch_mode_checkbox"])
-        st.session_state.enable_webapp_launch_mode = enabled
-        update_prefs({"enable_webapp_launch_mode": enabled})
-        st.session_state["_webapp_launch_mode_changed"] = True
-
-    st.divider()
-    st.subheader("Experimental Features")
-    st.checkbox(
-        "Enable webapp launch mode",
-        value=current_value and can_use_webapp,
-        key="_enable_webapp_launch_mode_checkbox",
-        disabled=not can_use_webapp,
-        on_change=_persist_webapp_launch_mode,
-        help=(
-            "Stores a preference for future launcher/installer startup. It does "
-            "not relaunch the current Streamlit session."
-        ),
-    )
-    if can_use_webapp:
-        st.caption(
-            "When enabled, future launchers/installers should start RoleThread with "
-            "`webapp` launch mode. Restart or relaunch RoleThread for launcher "
-            "behavior changes to take effect. This does not create shortcuts or "
-            "installers yet."
-        )
-    else:
-        st.caption(
-            "Webapp launch mode is currently Windows/Edge focused and is not "
-            "available on this platform."
-        )
-    if st.session_state.get("_webapp_launch_mode_changed"):
-        st.info("Webapp launch preference saved. Restart or relaunch RoleThread to use it.")
-
-
-def _supports_webapp_launch_preference(capabilities) -> bool:
-    return bool(capabilities.supports_edge_webapp)
 
 
 def _render_platform_about() -> None:
@@ -409,17 +357,11 @@ def _render_platform_about() -> None:
                 f"`{'Available' if launch_plan.edge_webapp_ready else 'Unavailable'}`",
             )
         )
-        st.caption(
-            _format_about_row(
-                "Webapp preference",
-                f"`{'Enabled' if preferences.get('enable_webapp_launch_mode', False) else 'Disabled'}`",
-            )
-        )
         if capabilities.supports_edge_webapp:
             st.caption(
                 _format_about_row(
                     "Note",
-                    "Windows Edge webapp mode is experimental and can be enabled in Experimental Features.",
+                    "Windows Edge webapp mode is selected during installer setup or by launching manually with `webapp`.",
                 )
             )
         for note in launch_plan.notes:
@@ -755,8 +697,6 @@ def _is_dev_mode() -> bool:
 def _format_public_launch_mode(flags, preferences: dict) -> str:
     if getattr(flags, "webapp", False):
         return "`Webapp mode`"
-    if preferences.get("enable_webapp_launch_mode", False):
-        return "`Normal mode`; webapp preference enabled for future launchers"
     return "`Normal mode`"
 
 

@@ -43,7 +43,7 @@ Use `webapp` to start RoleThread through the Edge webapp launch path:
 streamlit run app.py -- webapp
 ```
 
-This path is Windows/Microsoft Edge only. It is the official internal webapp launch mode used by the Windows launcher/installer pipeline when webapp launch mode is enabled. Launch mode is evaluated during startup, so preference changes require a relaunch.
+This path is Windows/Microsoft Edge only. It is the official internal webapp launch mode used by the Windows launcher/installer pipeline when webapp mode is selected during setup. Launch mode is evaluated during startup.
 
 When Edge is available, RoleThread attempts to open the app in Microsoft Edge app mode. If Streamlit opens a normal browser window first, RoleThread may close only that duplicate browser window after the Edge app window is identified.
 
@@ -87,7 +87,7 @@ streamlit run app.py -- webapp webapp-debug
 
 It enables the same Edge launch debug diagnostics as `edge-debug`.
 
-## Experimental Feature Preference
+## Installer Launch Preference
 
-Settings includes **Experimental Features > Enable webapp launch mode**. That preference does not relaunch the current app session. It stores the user's choice so a future launcher or installer can decide whether to start RoleThread normally or with `webapp`.
+The Windows installer can seed the internal `enable_webapp_launch_mode` preference during setup. The launcher reads that preference on startup to choose normal browser mode or webapp mode. This is installer/launcher plumbing, not a normal Settings control.
 

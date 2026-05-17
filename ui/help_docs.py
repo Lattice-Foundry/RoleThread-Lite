@@ -10,7 +10,7 @@ import re
 
 DOCS_ROOT = Path(__file__).resolve().parents[1] / "docs"
 HELP_DIR = DOCS_ROOT / "help"
-DEFAULT_HELP_ARTICLE_ID = "getting-started"
+DEFAULT_HELP_ARTICLE_ID = "installing-rolethread-lite"
 
 
 @dataclass(frozen=True)
@@ -64,6 +64,19 @@ HELP_CATEGORY_ORDER = (
 
 
 HELP_ARTICLES: tuple[HelpArticle, ...] = (
+    HelpArticle(
+        "installing-rolethread-lite",
+        "00_installing_rolethread_lite.md",
+        "Installing RoleThread Lite",
+        "Getting Started",
+        5,
+        "Windows installer, manual setup, launch modes, and uninstall behavior.",
+        (
+            "getting-started",
+            "os-compatibility-and-storage-policy",
+            "settings-and-preferences",
+        ),
+    ),
     HelpArticle(
         "getting-started",
         "01_getting_started.md",

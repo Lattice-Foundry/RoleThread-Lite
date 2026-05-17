@@ -92,12 +92,11 @@ packages it. The build script also compares the source-tree app version with
 the bundled `_internal/core/version.py` value and stops if they differ. This
 prevents a setup executable from accidentally shipping stale app/runtime code.
 
-The installer offers **Launch RoleThread Lite as a Windows Edge webapp** as a
-checked-by-default option. That option writes an installer seed file containing
-only `enable_webapp_launch_mode`. The launcher consumes the seed on first run,
-updates the DB-backed setting, removes the seed file, and leaves unrelated
-preferences untouched. Users can later change the same preference in **Settings
-> Experimental Features**.
+The installer offers **Use Windows Edge webapp mode by default (recommended)**
+as a checked-by-default option. That option writes an installer seed file
+containing only `enable_webapp_launch_mode`. The launcher consumes the seed on
+first run, updates the DB-backed setting, removes the seed file, and leaves
+unrelated preferences untouched.
 
 The installer keeps app/runtime files separate from user data. Default uninstall removes installed app files and shortcuts while preserving datasets, preferences, exports, backups, logs, and cache. Interactive uninstall can optionally remove local RoleThread data under `%LOCALAPPDATA%\RoleThread` and `%USERPROFILE%\RoleThread` after a clear warning.
 

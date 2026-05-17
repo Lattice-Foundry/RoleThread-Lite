@@ -1,4 +1,4 @@
-# RoleThread Lite Windows Installer Plan
+# RoleThread Lite Windows Installer Build Notes
 
 This folder is the source-controlled home for the Windows packaging and installer work.
 
@@ -191,11 +191,11 @@ log. Those entries record whether the `webapp` flag was seen and whether the
 session is launcher-managed. These diagnostics are intentionally file-based so
 the packaged no-console launcher remains quiet for users.
 
-To smoke-test bundled webapp mode, enable **Settings > Experimental Features >
-Enable webapp launch mode**, close RoleThread, then run the bundled launcher
-again. The launcher should start Streamlit headless, open the initial Edge app
-window after health succeeds, and pass the app's `webapp` flag with a
-launcher-managed marker so the app does not relaunch Edge during reruns.
+To smoke-test bundled webapp mode, install with **Use Windows Edge webapp mode
+by default (recommended)** selected, then run the bundled launcher. The launcher
+should start Streamlit headless, open the initial Edge app window after health
+succeeds, and pass the app's `webapp` flag with a launcher-managed marker so the
+app does not relaunch Edge during reruns.
 
 ## Inno Setup Installer Prototype
 
@@ -253,13 +253,17 @@ Expected setup output:
 installer\windows\output\RoleThreadLiteSetup-v<version>.exe
 ```
 
+On some Windows systems, the installer may appear behind other windows after
+the UAC prompt. If setup does not appear immediately, minimize other windows or
+check the taskbar for the **RoleThread Lite** installer.
+
 The prototype installer:
 
 - installs bundled app/runtime files under `{autopf}\RoleThread Lite`
 - creates a Start Menu shortcut named **RoleThread Lite**
 - creates a Start Menu shortcut named **RoleThread Uninstaller**
 - offers an optional Desktop shortcut
-- enables **Launch RoleThread Lite as a Windows Edge webapp** by default
+- enables **Use Windows Edge webapp mode by default (recommended)** by default
 - registers a normal Windows uninstaller
 - offers **Launch RoleThread Lite** after setup completes
 - removes installed app/runtime files and shortcuts during normal uninstall
@@ -267,8 +271,7 @@ The prototype installer:
 
 The Windows Edge webapp option is recommended for installed Windows builds
 because it gives RoleThread the best managed app-window lifecycle. Normal
-browser mode remains available by clearing the installer option or later
-turning off **Settings > Experimental Features > Enable webapp launch mode**.
+browser mode remains available by clearing the installer option during setup.
 
 The installer writes a small first-run seed file under
 `%LOCALAPPDATA%\RoleThread\installer_seed.json`. On launch, the RoleThread
@@ -353,10 +356,9 @@ Before smoke testing, make sure no other RoleThread/Streamlit process is already
 using port `8501`. If the port is busy, the launcher exits with a clear message
 instead of starting a second server.
 
-To test webapp mode, enable **Settings > Experimental Features > Enable webapp
-launch mode**, close RoleThread, then run the launcher again. The launcher only
-chooses the startup flag; Edge app mode and duplicate-browser cleanup still
-belong to the app's `webapp` startup path.
+To test webapp mode, set `enable_webapp_launch_mode` in the local launcher
+preferences or installer seed, then run the launcher again. Manual source users
+can use `streamlit run app.py -- webapp` instead of editing preferences.
 
 ## Developer User-Data Cleanup
 
