@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -49,6 +50,15 @@ class LauncherConfigurationError(RuntimeError):
     """Raised when the launcher cannot construct a runnable command."""
 
 
+def validate_app_root(app_root: Path) -> Path:
+    resolved = Path(app_root).resolve()
+    if not (resolved / "app.py").is_file():
+        raise LauncherConfigurationError(
+            f"Could not find LoreForge app.py under app root: {resolved}"
+        )
+    return resolved
+
+
 def resolve_app_root(
     *,
     start_path: Path | None = None,
@@ -66,7 +76,7 @@ def resolve_app_root(
     for candidate in candidates:
         if (candidate / "app.py").is_file():
             return candidate
-    return Path.cwd().resolve()
+    return validate_app_root(Path.cwd())
 
 
 def resolve_app_data_root(env: dict[str, str] | None = None) -> Path:
@@ -135,7 +145,7 @@ def build_launcher_config(
     env: dict[str, str] | None = None,
     current_executable: str | None = None,
 ) -> LauncherConfig:
-    resolved_root = Path(app_root).resolve() if app_root is not None else resolve_app_root()
+    resolved_root = validate_app_root(app_root) if app_root is not None else resolve_app_root()
     preferences_path = resolve_preferences_path(env)
     log_path = resolve_launcher_log_path(env)
     python_path = resolve_python_runtime(
@@ -156,6 +166,27 @@ def build_launcher_config(
     )
 
 
+def is_port_available(host: str = "127.0.0.1", port: int = int(STREAMLIT_PORT)) -> bool:
+    """Return False when something is already listening on the Streamlit port."""
+
+    try:
+        with socket.create_connection((host, port), timeout=0.25):
+            return False
+    except OSError:
+        return True
+
+
+def ensure_streamlit_port_available(
+    *,
+    port_available_fn: Callable[[], bool] = is_port_available,
+) -> None:
+    if not port_available_fn():
+        raise LauncherConfigurationError(
+            f"Port {STREAMLIT_PORT} is already in use. Close the existing LoreForge "
+            "session or choose a future launcher port before starting another copy."
+        )
+
+
 def write_launcher_log(log_path: Path, lines: Sequence[str]) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().isoformat(timespec="seconds")
@@ -174,6 +205,7 @@ def launch_loreforge(
     config: LauncherConfig,
     *,
     popen: Callable[..., subprocess.Popen] = subprocess.Popen,
+    port_available_fn: Callable[[], bool] = is_port_available,
 ) -> subprocess.Popen:
     write_launcher_log(
         config.log_path,
@@ -185,9 +217,25 @@ def launch_loreforge(
             f"command={format_command(config.command)}",
         ),
     )
+    try:
+        ensure_streamlit_port_available(port_available_fn=port_available_fn)
+    except Exception as exc:
+        write_launcher_log(config.log_path, (f"error={exc}",))
+        raise
+
     # Future pass: own subprocess lifecycle, browser/window close detection,
     # graceful shutdown, and forceful termination fallback if needed.
-    return popen(config.command, cwd=config.app_root)
+    try:
+        process = popen(config.command, cwd=config.app_root)
+    except Exception as exc:
+        write_launcher_log(config.log_path, (f"subprocess_error={exc}",))
+        raise
+
+    write_launcher_log(
+        config.log_path,
+        (f"started_pid={getattr(process, 'pid', 'unknown')}",),
+    )
+    return process
 
 
 def main() -> int:
@@ -210,4 +258,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

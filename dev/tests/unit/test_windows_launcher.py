@@ -113,6 +113,19 @@ def test_python_path_selection_errors_without_runtime(tmp_path):
         )
 
 
+def test_build_launcher_config_errors_when_app_root_has_no_app_py(tmp_path):
+    app_root = tmp_path / "not_loreforge"
+    app_root.mkdir()
+
+    with pytest.raises(launcher.LauncherConfigurationError) as exc_info:
+        launcher.build_launcher_config(
+            app_root=app_root,
+            current_executable=str(tmp_path / "missing.exe"),
+        )
+
+    assert "app.py" in str(exc_info.value)
+
+
 def test_launcher_log_path_resolution_uses_localappdata():
     log_path = launcher.resolve_launcher_log_path(
         {"LOCALAPPDATA": "C:/Users/Public/AppData/Local"}
@@ -171,4 +184,77 @@ def test_launch_loreforge_logs_and_invokes_subprocess(tmp_path):
     log_text = log_path.read_text(encoding="utf-8")
     assert "launch_mode=normal" in log_text
     assert "command=python.exe -m streamlit run app.py" in log_text
+    assert "started_pid=unknown" in log_text
 
+
+def test_launch_loreforge_reports_port_in_use_without_starting_subprocess(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    log_path = tmp_path / "logs" / "launcher.log"
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=log_path,
+        launch_mode=launcher.LAUNCH_MODE_NORMAL,
+        command=("python.exe", "-m", "streamlit", "run", "app.py"),
+    )
+
+    with pytest.raises(launcher.LauncherConfigurationError) as exc_info:
+        launcher.launch_loreforge(
+            config,
+            popen=lambda *args, **kwargs: (_ for _ in ()).throw(
+                AssertionError("subprocess should not start")
+            ),
+            port_available_fn=lambda: False,
+        )
+
+    assert "Port 8501 is already in use" in str(exc_info.value)
+    assert "Port 8501 is already in use" in log_path.read_text(encoding="utf-8")
+
+
+def test_launch_loreforge_logs_subprocess_failure(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    log_path = tmp_path / "logs" / "launcher.log"
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=log_path,
+        launch_mode=launcher.LAUNCH_MODE_NORMAL,
+        command=("python.exe", "-m", "streamlit", "run", "app.py"),
+    )
+
+    def fail_popen(*args, **kwargs):
+        raise OSError("streamlit exploded")
+
+    with pytest.raises(OSError):
+        launcher.launch_loreforge(
+            config,
+            popen=fail_popen,
+            port_available_fn=lambda: True,
+        )
+
+    log_text = log_path.read_text(encoding="utf-8")
+    assert "subprocess_error=streamlit exploded" in log_text
+
+
+def test_port_available_false_when_connection_succeeds(monkeypatch):
+    class FakeSocket:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(launcher.socket, "create_connection", lambda *args, **kwargs: FakeSocket())
+
+    assert launcher.is_port_available() is False
+
+
+def test_port_available_true_when_connection_fails(monkeypatch):
+    def fail(*args, **kwargs):
+        raise OSError("closed")
+
+    monkeypatch.setattr(launcher.socket, "create_connection", fail)
+
+    assert launcher.is_port_available() is True

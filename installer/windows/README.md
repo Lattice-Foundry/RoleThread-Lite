@@ -80,10 +80,42 @@ The prototype currently:
 - starts Streamlit with `python -m streamlit run app.py`
 - adds `-- webapp` when webapp launch mode is enabled
 - writes launcher logs under `%LOCALAPPDATA%\LoreForge\logs\launcher.log`
+- reports clearly when `app.py` is missing, the runtime cannot be found, or port `8501` is already in use
 
 The launcher does not own Microsoft Edge launch or duplicate-browser cleanup.
 It delegates that behavior to the app's existing internal `webapp` startup
 path.
+
+## Dev Launcher Smoke Test
+
+Run the launcher prototype from the repository root:
+
+```powershell
+trainer\Scripts\python.exe installer\windows\launcher\loreforge_launcher.py
+```
+
+Or use the helper script:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\run_launcher_dev.ps1
+```
+
+Expected behavior:
+
+- the launcher uses `trainer\Scripts\python.exe`
+- the launcher reads `%LOCALAPPDATA%\LoreForge\preferences.json`
+- `enable_webapp_launch_mode: false` or missing preferences starts normal browser mode
+- `enable_webapp_launch_mode: true` adds the app's `webapp` launch flag
+- logs are appended to `%LOCALAPPDATA%\LoreForge\logs\launcher.log`
+
+Before smoke testing, make sure no other LoreForge/Streamlit process is already
+using port `8501`. If the port is busy, the launcher exits with a clear message
+instead of starting a second server.
+
+To test webapp mode, enable **Settings > Experimental Features > Enable webapp
+launch mode**, close LoreForge, then run the launcher again. The launcher only
+chooses the startup flag; Edge app mode and duplicate-browser cleanup still
+belong to the app's `webapp` startup path.
 
 The launcher should eventually:
 

@@ -16,6 +16,18 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.66] - 2026-05-16
+
+### Added
+
+- Added a dev helper script for running the Windows launcher prototype.
+- Added launcher safeguards for missing app roots, occupied Streamlit ports, and subprocess startup failures.
+- Documented launcher smoke-test steps for normal and webapp preference modes.
+
+### Internal
+
+- Expanded launcher unit coverage for port checks, app-root validation, and failure logging.
+
 ## [1.3.65] - 2026-05-16
 
 ### Added
