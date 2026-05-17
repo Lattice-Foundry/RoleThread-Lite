@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from core.platform import detect_platform
 from core.launch import LaunchFlags
 from core.cloud_sync import (
@@ -107,6 +109,16 @@ def test_launch_flags_detected_summary_is_compact():
     assert ui_settings._format_launch_flags_detected(
         LaunchFlags(dev=True, webapp=True, edge_debug=True)
     ) == "`dev`, `webapp`, `edge-debug/webapp-debug`"
+
+
+def test_edge_launch_debug_diagnostics_are_consolidated_under_edge_debug():
+    source = Path(ui_settings.__file__).read_text(encoding="utf-8")
+
+    assert "Edge Launch Debug Diagnostics" in source
+    assert "edge_debug_mode" in source
+    assert "Duplicate Browser Cleanup Diagnostics" not in source
+    assert "Edge Window Debug" not in source
+    assert "Edge Process Debug" not in source
 
 
 def test_project_info_markup_preserves_official_attribution_and_colors():

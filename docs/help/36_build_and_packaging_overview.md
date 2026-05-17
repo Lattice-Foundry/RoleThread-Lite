@@ -104,3 +104,4 @@ CI/CD may automate pieces later; the source tree should stay free of generated a
 ## Current Status
 
 Packaging is still evolving before V1. The architecture is fixed around a bundled Windows app plus a source-based contributor workflow.
+

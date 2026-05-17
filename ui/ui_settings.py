@@ -365,6 +365,7 @@ def _render_platform_about() -> None:
     platform_info = detect_platform()
     dev_mode = _is_dev_mode()
     flags = st.session_state.get("_runtime_launch_flags")
+    edge_debug_mode = bool(getattr(flags, "edge_debug", False))
     capabilities = platform_info.capabilities
     diagnostics = platform_info.diagnostics
     runtime_status = get_python_runtime_status()
@@ -484,14 +485,21 @@ def _render_platform_about() -> None:
             )
 
         _render_webapp_launch_diagnostics()
-        _render_edge_cleanup_diagnostics()
-        _render_edge_window_debug_report()
-        _render_edge_process_debug_report()
+        if not edge_debug_mode:
+            st.caption(
+                _format_about_row(
+                    "Edge launch internals",
+                    "Run with `edge-debug` or `webapp-debug` to show Edge window/process diagnostics.",
+                )
+            )
     else:
         with st.expander("Storage Locations"):
             _render_platform_paths(platform_paths, include_source=False, include_advanced=False)
             with st.expander("Advanced storage paths"):
                 _render_advanced_platform_paths(platform_paths, include_source=False)
+
+    if edge_debug_mode:
+        _render_edge_launch_debug_diagnostics()
 
     st.divider()
     st.markdown(_format_project_info_markup(), unsafe_allow_html=True)
@@ -609,106 +617,117 @@ def _render_webapp_launch_diagnostics() -> None:
             )
 
 
-def _render_edge_cleanup_diagnostics() -> None:
+def _render_edge_launch_debug_diagnostics() -> None:
+    """Render Edge launch diagnostics as one edge-debug-gated section."""
+
     cleanup = st.session_state.get("_dev_edge_cleanup_status")
+    process_report = st.session_state.get("_dev_edge_debug_report")
+    window_report = st.session_state.get("_dev_edge_window_debug_report")
+    if cleanup is None and process_report is None and window_report is None:
+        return
+
+    with st.expander("Edge Launch Debug Diagnostics"):
+        st.caption("Detailed diagnostics captured by the `edge-debug` / `webapp-debug` launch flag.")
+        _render_edge_cleanup_debug_details(cleanup)
+        _render_edge_window_debug_details(window_report)
+        _render_edge_process_debug_details(process_report)
+
+
+def _render_edge_cleanup_debug_details(cleanup) -> None:
     if cleanup is None:
         return
 
-    with st.expander("Duplicate Browser Cleanup Diagnostics"):
+    st.markdown("**Duplicate Browser Cleanup**")
+    st.caption(
+        _format_about_row("Cleanup attempted", f"`{'Yes' if cleanup.attempted else 'No'}`")
+    )
+    st.caption(_format_about_row("Cleanup status", f"`{cleanup.status_code}`"))
+    st.caption(_format_about_row("Cleanup method", f"`{cleanup.method}`"))
+    if cleanup.target_pid is not None:
+        title = cleanup.target_title or "No visible title"
+        st.caption(_format_about_row("Cleanup target", f"`{cleanup.target_pid}` / `{title}`"))
+    st.caption(_format_about_row("Cleanup result", f"`{cleanup.result}`"))
+    st.caption(_format_about_row("Cleanup note", cleanup.message))
+    if cleanup.decision_details:
+        st.caption(_format_about_row("Cleanup decision", ""))
+        for detail in cleanup.decision_details:
+            st.caption(f"- {detail}")
+
+
+def _render_edge_process_debug_details(report) -> None:
+    if report is None:
+        return
+
+    st.markdown("**Edge Process Snapshot**")
+    poll = st.session_state.get("_dev_edge_snapshot_poll")
+    if poll is not None:
         st.caption(
-            _format_about_row("Cleanup attempted", f"`{'Yes' if cleanup.attempted else 'No'}`")
-        )
-        st.caption(_format_about_row("Cleanup status", f"`{cleanup.status_code}`"))
-        st.caption(_format_about_row("Cleanup method", f"`{cleanup.method}`"))
-        if cleanup.target_pid is not None:
-            title = cleanup.target_title or "No visible title"
-            st.caption(_format_about_row("Cleanup target", f"`{cleanup.target_pid}` / `{title}`"))
-        st.caption(_format_about_row("Cleanup result", f"`{cleanup.result}`"))
-        st.caption(_format_about_row("Cleanup note", cleanup.message))
-        if cleanup.decision_details:
-            st.caption(_format_about_row("Cleanup decision", ""))
-            for detail in cleanup.decision_details:
-                st.caption(f"- {detail}")
-
-
-def _render_edge_process_debug_report() -> None:
-    report = st.session_state.get("_dev_edge_debug_report")
-    if report is None:
-        return
-
-    with st.expander("Edge Process Debug"):
-        st.caption("Secondary experimental process-level diagnostics.")
-        poll = st.session_state.get("_dev_edge_snapshot_poll")
-        if poll is not None:
-            st.caption(
-                _format_about_row(
-                    "Snapshot polling",
-                    f"`{poll.attempts}` attempts / `{poll.delay_seconds}` seconds",
-                )
+            _format_about_row(
+                "Snapshot polling",
+                f"`{poll.attempts}` attempts / `{poll.delay_seconds}` seconds",
             )
-            if poll.error:
-                st.caption(_format_about_row("Snapshot polling note", poll.error))
-        st.caption(_format_about_row("PIDs before", _format_pid_tuple(report.before_pids)))
-        st.caption(_format_about_row("PIDs after", _format_pid_tuple(report.after_pids)))
-        st.caption(_format_about_row("New candidate PIDs", _format_pid_tuple(report.new_pids)))
-        st.caption(_format_about_row("Confidence", f"`{report.confidence_level}`"))
-        st.caption(_format_about_row("Observation", report.distinguishability_note))
-        st.caption(_format_about_row("Timing", report.process_order_note))
-        if report.new_processes:
-            classifications = {
-                classification.pid: classification
-                for classification in report.classifications
-            }
-            for process in report.new_processes:
-                title = process.window_title or "No visible title"
-                parent = process.parent_pid if process.parent_pid is not None else "Unknown"
-                command = process.command_line or "No command line captured"
-                classification = classifications.get(process.pid)
-                classification_label = (
-                    classification.classification if classification is not None else "uncertain"
-                )
-                confidence = (
-                    classification.confidence if classification is not None else "unreliable"
-                )
-                reasons = (
-                    "; ".join(classification.reasons)
-                    if classification is not None
-                    else "No classification details captured"
-                )
-                st.caption(
-                    _format_about_row(
-                        f"Candidate {process.pid}",
-                        (
-                            f"`{classification_label}` / `{confidence}`; parent `{parent}`; "
-                            f"title `{title}`; reasons {reasons}; command `{command}`"
-                        ),
-                    ),
-                )
-
-
-def _render_edge_window_debug_report() -> None:
-    report = st.session_state.get("_dev_edge_window_debug_report")
-    if report is None:
-        return
-
-    with st.expander("Edge Window Debug"):
-        st.caption("Primary experimental diagnostics for webapp duplicate-window cleanup.")
-        st.caption(_format_about_row("Window handles before", _format_text_tuple(report.before_handles)))
-        st.caption(_format_about_row("Window handles after", _format_text_tuple(report.after_handles)))
-        st.caption(_format_about_row("New window handles", _format_text_tuple(report.new_handles)))
-        st.caption(_format_about_row("Window observation", report.note))
-        for window in report.new_windows:
-            command = window.command_line or "No command line captured"
+        )
+        if poll.error:
+            st.caption(_format_about_row("Snapshot polling note", poll.error))
+    st.caption(_format_about_row("PIDs before", _format_pid_tuple(report.before_pids)))
+    st.caption(_format_about_row("PIDs after", _format_pid_tuple(report.after_pids)))
+    st.caption(_format_about_row("New candidate PIDs", _format_pid_tuple(report.new_pids)))
+    st.caption(_format_about_row("Confidence", f"`{report.confidence_level}`"))
+    st.caption(_format_about_row("Observation", report.distinguishability_note))
+    st.caption(_format_about_row("Timing", report.process_order_note))
+    if report.new_processes:
+        classifications = {
+            classification.pid: classification
+            for classification in report.classifications
+        }
+        for process in report.new_processes:
+            title = process.window_title or "No visible title"
+            parent = process.parent_pid if process.parent_pid is not None else "Unknown"
+            command = process.command_line or "No command line captured"
+            classification = classifications.get(process.pid)
+            classification_label = (
+                classification.classification if classification is not None else "uncertain"
+            )
+            confidence = (
+                classification.confidence if classification is not None else "unreliable"
+            )
+            reasons = (
+                "; ".join(classification.reasons)
+                if classification is not None
+                else "No classification details captured"
+            )
             st.caption(
                 _format_about_row(
-                    f"Window {window.handle}",
+                    f"Candidate {process.pid}",
                     (
-                        f"pid `{window.pid}`; process `{window.process_name or 'Unknown'}`; "
-                        f"class `{window.class_name or 'Unknown'}`; "
-                        f"title `{window.title or 'No visible title'}`; command `{command}`"
+                        f"`{classification_label}` / `{confidence}`; parent `{parent}`; "
+                        f"title `{title}`; reasons {reasons}; command `{command}`"
                     ),
                 ),
             )
+
+
+def _render_edge_window_debug_details(report) -> None:
+    if report is None:
+        return
+
+    st.markdown("**Edge Window Snapshot**")
+    st.caption(_format_about_row("Window handles before", _format_text_tuple(report.before_handles)))
+    st.caption(_format_about_row("Window handles after", _format_text_tuple(report.after_handles)))
+    st.caption(_format_about_row("New window handles", _format_text_tuple(report.new_handles)))
+    st.caption(_format_about_row("Window observation", report.note))
+    for window in report.new_windows:
+        command = window.command_line or "No command line captured"
+        st.caption(
+            _format_about_row(
+                f"Window {window.handle}",
+                (
+                    f"pid `{window.pid}`; process `{window.process_name or 'Unknown'}`; "
+                    f"class `{window.class_name or 'Unknown'}`; "
+                    f"title `{window.title or 'No visible title'}`; command `{command}`"
+                ),
+            ),
+        )
 
 
 def _format_pid_tuple(pids: tuple[int, ...]) -> str:

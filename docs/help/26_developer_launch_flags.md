@@ -32,9 +32,6 @@ In dev mode, **Settings > About This Installation** adds a diagnostics stack:
 - Platform Path Defaults with source/provenance
 - Raw Platform Diagnostics
 - Webapp Launch Diagnostics
-- Duplicate Browser Cleanup Diagnostics
-- Edge Window Debug
-- Edge Process Debug
 
 The normal About view keeps only the support-oriented summary, runtime compatibility, launch behavior, and storage locations.
 
@@ -67,22 +64,28 @@ streamlit run app.py -- webapp dev
 Use `edge-debug` when investigating Microsoft Edge process/window behavior:
 
 ```bat
-streamlit run app.py -- webapp dev edge-debug
+streamlit run app.py -- webapp edge-debug
 ```
 
-`edge-debug` should generally be combined with `dev`; otherwise detailed diagnostic UI stays hidden. It records Edge process IDs, HWND/window handles, candidate classifications, and cleanup decisions where Windows exposes that metadata.
+`edge-debug` exposes a single **Edge Launch Debug Diagnostics** section in
+**Settings > About This Installation**. It records Edge process IDs,
+HWND/window handles, candidate classifications, and cleanup decisions where
+Windows exposes that metadata.
 
-Edge Window Debug is currently the most useful diagnostic for duplicate browser cleanup because the normal browser window may already exist before `app.py` runs. Edge Process Debug remains available as secondary process-level evidence.
+The window-handle section is usually the most useful diagnostic for duplicate
+browser cleanup because the normal browser window may already exist before
+`app.py` runs. Process-level evidence remains in the same expander as secondary
+context.
 
 ## Webapp Debug Alias
 
 `webapp-debug` is also recognized as a debug flag for webapp launch investigation:
 
 ```bat
-streamlit run app.py -- webapp dev webapp-debug
+streamlit run app.py -- webapp webapp-debug
 ```
 
-It should generally be used with `dev` for the same reason as `edge-debug`.
+It enables the same Edge launch debug diagnostics as `edge-debug`.
 
 ## Experimental Feature Preference
 

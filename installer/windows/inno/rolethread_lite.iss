@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "1.3.87"
+#define AppVersion "1.3.88"
 #endif
 
 #define AppName "RoleThread Lite"
@@ -41,7 +41,7 @@ Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 
 [Icons]
 Name: "{group}\RoleThread Lite"; Filename: "{app}\{#AppExeName}"
-Name: "{group}\Uninstall RoleThread Lite"; Filename: "{uninstallexe}"
+Name: "{group}\RoleThread Uninstaller"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\RoleThread Lite"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]

@@ -173,9 +173,9 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     assert "`webapp`" in document.content
     assert "`edge-debug`" in document.content
     assert "`webapp-debug`" in document.content
-    assert "streamlit run app.py -- webapp dev edge-debug" in document.content
+    assert "streamlit run app.py -- webapp edge-debug" in document.content
     assert "Launch Flags Detected" in document.content
-    assert "Edge Window Debug" in document.content
+    assert "Edge Launch Debug Diagnostics" in document.content
     assert "official internal webapp launch mode" in document.content
     assert "Diagnostics are gated behind `dev`" in document.content
 
@@ -321,7 +321,7 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "Default uninstall removes installed app files and shortcuts" in (
         launcher.content
     )
-    assert "Start Menu **Uninstall RoleThread\nLite** shortcut" in launcher.content
+    assert "Start Menu **RoleThread\nUninstaller** shortcut" in launcher.content
     assert "not expected to show the uninstall data-removal prompts" in launcher.content
     assert "rebuild the PyInstaller bundle by default" in launcher.content
     assert "prevents a setup executable from accidentally shipping stale" in launcher.content
@@ -1093,4 +1093,5 @@ def test_faq_sidebar_category_and_search_controls_render_browser_state():
 
     assert app.session_state[ui_faq.FAQ_SEARCH_QUERY_KEY] == ""
     assert app.session_state[ui_faq.FAQ_SEARCH_RESULTS_VISIBLE_KEY] is False
+
 

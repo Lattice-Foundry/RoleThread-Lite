@@ -440,7 +440,7 @@ def test_inno_installer_script_packages_launcher_bundle():
     assert "#define BundleDir \"..\\dist\\RoleThreadLauncher\"" in inno_text
     assert "Source: \"{#BundleDir}\\*\"" in inno_text
     assert "Name: \"{group}\\RoleThread Lite\"" in inno_text
-    assert "Name: \"{group}\\Uninstall RoleThread Lite\"" in inno_text
+    assert "Name: \"{group}\\RoleThread Uninstaller\"" in inno_text
     assert 'Filename: "{uninstallexe}"' in inno_text
     assert "Name: \"{autodesktop}\\RoleThread Lite\"" in inno_text
     assert "Tasks: desktopicon" in inno_text
@@ -833,3 +833,4 @@ def test_run_launcher_lifecycle_does_not_shutdown_when_monitoring_unsupported(tm
 
     assert result.final_state == "monitoring_unavailable"
     assert result.shutdown_request.attempted is False
+

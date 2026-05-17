@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.88] - 2026-05-17
+
+### Changed
+
+- Consolidated Edge launch debug details into one `edge-debug` / `webapp-debug` diagnostics section.
+- Renamed the Start Menu uninstall shortcut to **RoleThread Uninstaller**.
+
 ## [1.3.87] - 2026-05-17
 
 ### Changed

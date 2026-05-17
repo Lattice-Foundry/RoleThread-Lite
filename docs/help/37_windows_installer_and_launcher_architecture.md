@@ -98,9 +98,9 @@ preferences untouched. Users can later change the same preference in **Settings
 The installer keeps app/runtime files separate from user data. Default uninstall removes installed app files and shortcuts while preserving datasets, preferences, exports, backups, logs, and cache. Interactive uninstall can optionally remove local RoleThread data under `%LOCALAPPDATA%\RoleThread` and `%USERPROFILE%\RoleThread` after a clear warning.
 
 The data-removal prompts appear through the real Windows uninstall path:
-Windows Installed apps, Control Panel, or the Start Menu **Uninstall RoleThread
-Lite** shortcut. Rerunning the setup executable is an install/maintenance flow
-and is not expected to show the uninstall data-removal prompts.
+Windows Installed apps, Control Panel, or the Start Menu **RoleThread
+Uninstaller** shortcut. Rerunning the setup executable is an install/maintenance
+flow and is not expected to show the uninstall data-removal prompts.
 
 The Developer clean uninstall prompt is currently visible during installer testing. It maps to the same RoleThread-owned local data roots as full local data removal, with stricter testing intent. It does not remove repositories, `.venv`, `.dev`, Git data, generated source-tree build artifacts, arbitrary custom paths, or external/cloud backup destinations.
 
@@ -111,3 +111,4 @@ If `RoleThreadLauncher.exe` is still running, the uninstaller asks the user to c
 ## Graceful Shutdown Direction
 
 Shutdown lifecycle remains future work. The long-term launcher direction is to own the Streamlit subprocess, detect normal exit conditions where practical, and leave room for graceful cleanup before forceful termination.
+

@@ -238,7 +238,7 @@ The prototype installer:
 
 - installs bundled app/runtime files under `{autopf}\RoleThread Lite`
 - creates a Start Menu shortcut named **RoleThread Lite**
-- creates a Start Menu shortcut named **Uninstall RoleThread Lite**
+- creates a Start Menu shortcut named **RoleThread Uninstaller**
 - offers an optional Desktop shortcut
 - enables **Launch RoleThread Lite as a Windows Edge webapp** by default
 - registers a normal Windows uninstaller
@@ -273,7 +273,7 @@ Windows uninstall entry. It preserves:
 
 Use one of the real Windows uninstall paths to access the data-removal prompts:
 
-- Start Menu > RoleThread Lite > **Uninstall RoleThread Lite**
+- Start Menu > RoleThread Lite > **RoleThread Uninstaller**
 - Windows Settings > Apps > Installed apps > RoleThread Lite > Uninstall
 - Control Panel > Programs and Features > RoleThread Lite > Uninstall
 
@@ -425,7 +425,7 @@ preserved.
 
 The data-removal prompts are exposed by the real uninstaller, not by rerunning
 the setup executable. The installer also creates a Start Menu shortcut named
-**Uninstall RoleThread Lite** so testers do not have to hunt through Windows
+**RoleThread Uninstaller** so testers do not have to hunt through Windows
 Settings during repeated installer validation.
 
 ## Expected Manual Release Flow
@@ -447,3 +447,4 @@ This is installer prototype work. The source-controlled scripts can build a
 PyInstaller one-folder launcher bundle and package that bundle into a first
 Inno Setup installer executable. The prototype does not yet implement firewall
 rules, code signing, auto-update, or release publishing automation.
+
