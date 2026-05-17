@@ -1,34 +1,35 @@
+# Local/editor/config folders
 .claude/
+.dev/
 .pytest_cache/
+.pytest_tmp/
 .streamlit/*
 !.streamlit/config.toml
-start.bat
-lfstart.bat
-lfserver.bat
-.pytest_tmp/
-pytest_tmp_*/
+
+# Environment/cache folders
+.env/
+.venv/
 .cache/
 __pycache__/
-trainer/
-app_data/backups/
+pytest_tmp_*/
+
+# Local app/user data
+app_data/*
+!app_data/.gitkeep
 training_data/
-notes/
-venv/
-app_data/preferences.json
-app_data/backup_config.json
-app_data/rolethread.db
-backup_config.json
-*.pyc
-*.jsonl
 
 # Generated packaging artifacts
-/build/
-/dist/
-/installer/windows/build/
-/installer/windows/dist/
-/installer/windows/output/
-/installer/windows/_work/
-/installer/windows/inno/Output/
-/installer/windows/**/*.exe
-/installer/windows/**/*.msi
+build/
+dist/
+installer/windows/build/
+installer/windows/dist/
+installer/windows/output/
+installer/windows/_work/
+installer/windows/inno/Output/
 
+# Generated files
+*.pyc
+*.jsonl
+*.exe
+*.msi
+backup_config.json
