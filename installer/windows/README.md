@@ -212,6 +212,41 @@ launch mode**, close RoleThread, then run the launcher again. The launcher only
 chooses the startup flag; Edge app mode and duplicate-browser cleanup still
 belong to the app's `webapp` startup path.
 
+## Developer User-Data Cleanup
+
+Installer testing can create state in the same platform-default locations used
+by normal RoleThread runs:
+
+```text
+%LOCALAPPDATA%\RoleThread\
+%USERPROFILE%\RoleThread\
+```
+
+The developer cleanup helper is intentionally more aggressive than the future
+normal uninstaller flow. Use it only when local test data can be deleted.
+
+Dry run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\clean_rolethread_user_data.ps1
+```
+
+Destructive cleanup:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\clean_rolethread_user_data.ps1 -ConfirmDelete
+```
+
+The script reports the targets before deleting anything. It removes RoleThread
+local app state, preferences, logs, cache, training data, imports, exports,
+backups, and workspace data. It handles missing folders as a normal skip.
+
+Safety guards prevent the script from deleting folders that do not end in
+`RoleThread`, are outside the expected `%LOCALAPPDATA%` or `%USERPROFILE%`
+parents, or appear to contain a Git repository or Python virtual environment.
+It does not touch the source repository, `.venv`, `.dev`, generated bundle
+folders, Git data, or unrelated user folders.
+
 The launcher should eventually:
 
 - use the bundled runtime and bundled app files

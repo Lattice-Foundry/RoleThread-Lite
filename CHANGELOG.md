@@ -16,6 +16,16 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.80] - 2026-05-17
+
+### Added
+
+- Added a dry-run-first developer cleanup script for resetting RoleThread app data and workspace folders during Windows installer testing.
+
+### Changed
+
+- Documented developer cleanup usage and safety guards in the Windows installer notes.
+
 ## [1.3.79] - 2026-05-17
 
 ### Added
