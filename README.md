@@ -143,6 +143,41 @@ Windows exposes it. Cleanup uses a polite window-close request against an exact
 window handle or a tightly classified candidate; it does not use `taskkill` or
 close app-window candidates.
 
+## Windows Installer Plan
+
+LoreForge Lite V1 will ship a fully bundled Windows installer for normal users.
+The installer will package a tested release snapshot; it will not clone or pull
+from Git on the user's machine.
+
+Target packaging stack:
+
+* PyInstaller one-folder bundle for the app/runtime.
+* Inno Setup for the final Windows setup executable.
+* GitHub Releases for publishing generated setup executables.
+
+Installer source scaffolding lives under `installer/windows/`. Generated build
+output and final setup executables are ignored and should not be committed.
+
+The intended installed app/runtime location is:
+
+```text
+C:\Program Files\LoreForge Lite\
+```
+
+User data remains separate:
+
+```text
+%LOCALAPPDATA%\LoreForge\
+%USERPROFILE%\LoreForge\
+```
+
+Default uninstall should remove installed app/runtime files while preserving
+user data. A future full uninstall option may remove all LoreForge data only
+after a clear warning.
+
+See `installer/windows/README.md` for the current packaging architecture and
+manual release plan.
+
 ## OS Compatibility and Storage
 
 LoreForge Lite V1 supports Windows and Linux as primary platforms. macOS is
@@ -168,10 +203,10 @@ storage can cause constant sync activity, file locking, conflicts, or odd
 timestamps. If OneDrive keeps syncing LoreForge files, review OneDrive backup
 and sync settings for folders such as Documents or Desktop.
 
-Launch policy is defined but not automated in V1 foundation passes. Windows
-will prefer an Edge web-app workflow when Edge is available and fall back to
-the default browser when it is not. Linux and macOS use default-browser or
-manual local-URL workflows.
+Launch policy is defined for future launcher/installer work. Windows will
+prefer an Edge web-app workflow when Edge is available and fall back to the
+default browser when it is not. Linux and macOS use default-browser or manual
+local-URL workflows.
 
 The V1 stability gate is:
 

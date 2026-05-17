@@ -21,4 +21,15 @@ backup_config.json
 *.pyc
 *.jsonl
 
+# Generated packaging artifacts
+/build/
+/dist/
+/installer/windows/build/
+/installer/windows/dist/
+/installer/windows/output/
+/installer/windows/_work/
+/installer/windows/inno/Output/
+/installer/windows/**/*.exe
+/installer/windows/**/*.msi
+
 

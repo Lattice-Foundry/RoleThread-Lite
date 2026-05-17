@@ -16,6 +16,18 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.64] - 2026-05-16
+
+### Added
+
+- Added the initial Windows installer and packaging skeleton under `installer/windows/`.
+- Documented the PyInstaller one-folder and Inno Setup packaging plan.
+- Added placeholder Windows build scripts for future bundle and installer passes.
+
+### Internal
+
+- Added gitignore rules for future generated packaging artifacts.
+
 ## [1.3.63] - 2026-05-16
 
 ### Added
