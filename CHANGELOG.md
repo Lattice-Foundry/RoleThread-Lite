@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.85] - 2026-05-17
+
+### Fixed
+
+- Restored safe duplicate Edge browser closure for manual `-- webapp` runs by matching exact top-level browser window handles after confirming an app window exists.
+- Added dev diagnostics explaining duplicate-browser cleanup window candidate decisions.
+
 ## [1.3.84] - 2026-05-17
 
 ### Fixed

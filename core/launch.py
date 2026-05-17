@@ -193,6 +193,7 @@ class EdgeDuplicateCleanupStatus:
     result: str
     message: str
     status_code: str
+    decision_details: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -839,22 +840,34 @@ def _close_duplicate_edge_browser_window_by_handle(
     *,
     run_fn: Callable[..., subprocess.CompletedProcess[str]],
 ) -> EdgeDuplicateCleanupStatus | None:
-    """Close a pre-launch normal browser HWND only when a new app window appeared."""
+    """Close one normal browser HWND only when app-window evidence is present."""
 
     if not flags.webapp or window_diff is None:
         return None
 
+    decision_details = _describe_window_cleanup_candidates(window_diff)
+    app_candidates = [
+        window
+        for window in window_diff.after_windows
+        if _is_rolethread_app_window_candidate(window)
+    ]
+    if not app_candidates:
+        return _skip_edge_cleanup(
+            "Window cleanup found no confirmed app-window candidate.",
+            decision_details=decision_details,
+        )
+
     browser_candidates = [
         window
-        for window in window_diff.before_windows
+        for window in window_diff.after_windows
         if _is_streamlit_browser_window_candidate(window)
     ]
-    app_candidates = [
-        window for window in window_diff.new_windows if _is_rolethread_app_window_candidate(window)
-    ]
 
-    if len(browser_candidates) != 1 or len(app_candidates) != 1:
-        return None
+    if len(browser_candidates) != 1:
+        return _skip_edge_cleanup(
+            f"Window cleanup expected exactly one browser candidate, found {len(browser_candidates)}.",
+            decision_details=decision_details,
+        )
 
     target = browser_candidates[0]
     close_script = f"""
@@ -892,7 +905,7 @@ if ($command -notlike '*localhost:8501*' -or $command -like '*--app=*') {{
 $titleBuilder = New-Object System.Text.StringBuilder 512
 [void][RoleThreadWindowCloser]::GetWindowText($handle, $titleBuilder, $titleBuilder.Capacity)
 $title = [string]$titleBuilder.ToString()
-if ($title -notlike '*RoleThread*' -or $title -notlike '*Microsoft*Edge*') {{
+if ($title -notlike '*RoleThread*' -and $title -notlike '*localhost:8501*') {{
     Write-Output 'unsafe_title'
     exit 2
 }}
@@ -922,6 +935,7 @@ exit 1
             result="exception",
             message=f"Window-handle duplicate browser cleanup failed nonfatally: {exc}",
             status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+            decision_details=decision_details,
         )
 
     output = (result.stdout or result.stderr or "").strip()
@@ -934,25 +948,36 @@ exit 1
         method=EDGE_CLEANUP_METHOD_CLOSE_WINDOW_HANDLE,
         result=output or f"return_code_{result.returncode}",
         message=(
-            "Experimental duplicate Edge browser cleanup used the pre-launch "
-            f"normal browser window handle {target.handle} after observing a new "
-            "RoleThread app window."
+            "Experimental duplicate Edge browser cleanup used exact window handle "
+            f"{target.handle} after confirming a RoleThread app window."
         ),
         status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
+        decision_details=decision_details,
     )
 
 
 def _is_streamlit_browser_window_candidate(window: EdgeWindowInfo) -> bool:
     command = window.command_line.lower()
     title = window.title.lower()
+    process_name = window.process_name.lower()
+    class_name = window.class_name
     return (
-        window.process_name.lower() == "msedge.exe"
-        and DEFAULT_STREAMLIT_LOCAL_URL.lower() in command
-        and "--app" not in command
-        and "rolethread" in title
-        and "microsoft" in title
-        and "edge" in title
+        process_name == "msedge.exe"
+        and class_name.startswith("Chrome_WidgetWin")
+        and _window_command_references_streamlit_browser(command)
+        and _window_title_can_be_rolethread_browser(title)
     )
+
+
+def _window_command_references_streamlit_browser(command: str) -> bool:
+    return (
+        DEFAULT_STREAMLIT_LOCAL_URL.lower() in command
+        and "--app" not in command
+    )
+
+
+def _window_title_can_be_rolethread_browser(title: str) -> bool:
+    return "rolethread" in title or "localhost:8501" in title
 
 
 def _process_title_identifies_normal_edge_browser(process: EdgeProcessInfo) -> bool:
@@ -962,15 +987,72 @@ def _process_title_identifies_normal_edge_browser(process: EdgeProcessInfo) -> b
 
 def _is_rolethread_app_window_candidate(window: EdgeWindowInfo) -> bool:
     title = window.title.strip().lower()
+    command = window.command_line.lower()
     return (
         window.class_name.startswith("Chrome_WidgetWin")
+        and _window_command_references_app_mode(command)
         and "rolethread" in title
         and "microsoft" not in title
         and "edge" not in title
     )
 
 
-def _skip_edge_cleanup(reason: str) -> EdgeDuplicateCleanupStatus:
+def _window_command_references_app_mode(command: str) -> bool:
+    return (
+        "--app=" in command
+        or "--app-id=" in command
+        or "--embedded-browser-edgeview=1" in command
+    )
+
+
+def _describe_window_cleanup_candidates(window_diff: EdgeWindowDiff) -> tuple[str, ...]:
+    details = [
+        f"window observation: {window_diff.note}",
+        f"after windows: {len(window_diff.after_windows)}",
+        f"new windows: {len(window_diff.new_windows)}",
+    ]
+    for window in window_diff.after_windows:
+        if _is_rolethread_app_window_candidate(window):
+            classification = "app_window_candidate"
+            reason = "title looks app-mode without normal Edge browser branding"
+        elif _is_streamlit_browser_window_candidate(window):
+            classification = "browser_window_candidate"
+            reason = "top-level Edge window references local Streamlit URL without app mode"
+        else:
+            classification = "rejected"
+            reason = _describe_rejected_window_candidate(window)
+        details.append(
+            (
+                f"{window.handle}: {classification}; pid={window.pid}; "
+                f"title={window.title or 'No visible title'}; "
+                f"class={window.class_name or 'Unknown'}; reason={reason}"
+            )
+        )
+    return tuple(details)
+
+
+def _describe_rejected_window_candidate(window: EdgeWindowInfo) -> str:
+    reasons: list[str] = []
+    command = window.command_line.lower()
+    title = window.title.lower()
+    if window.process_name.lower() != "msedge.exe":
+        reasons.append("process is not msedge.exe")
+    if not window.class_name.startswith("Chrome_WidgetWin"):
+        reasons.append("not a Chrome_WidgetWin top-level window")
+    if DEFAULT_STREAMLIT_LOCAL_URL.lower() not in command:
+        reasons.append("command does not reference local Streamlit URL")
+    if _window_command_references_app_mode(command) and not _is_rolethread_app_window_candidate(window):
+        reasons.append("command contains app-mode flag but title was not app-like")
+    if "rolethread" not in title and "localhost:8501" not in title:
+        reasons.append("title does not identify RoleThread or localhost")
+    return "; ".join(reasons) or "candidate did not meet browser/app safety gates"
+
+
+def _skip_edge_cleanup(
+    reason: str,
+    *,
+    decision_details: tuple[str, ...] = (),
+) -> EdgeDuplicateCleanupStatus:
     return EdgeDuplicateCleanupStatus(
         cleanup_requested=False,
         attempted=False,
@@ -981,6 +1063,7 @@ def _skip_edge_cleanup(reason: str) -> EdgeDuplicateCleanupStatus:
         result="skipped",
         message=reason,
         status_code=EDGE_CLEANUP_STATUS_SKIPPED,
+        decision_details=decision_details,
     )
 
 

@@ -625,6 +625,10 @@ def _render_edge_cleanup_diagnostics() -> None:
             st.caption(_format_about_row("Cleanup target", f"`{cleanup.target_pid}` / `{title}`"))
         st.caption(_format_about_row("Cleanup result", f"`{cleanup.result}`"))
         st.caption(_format_about_row("Cleanup note", cleanup.message))
+        if cleanup.decision_details:
+            st.caption(_format_about_row("Cleanup decision", ""))
+            for detail in cleanup.decision_details:
+                st.caption(f"- {detail}")
 
 
 def _render_edge_process_debug_report() -> None:
