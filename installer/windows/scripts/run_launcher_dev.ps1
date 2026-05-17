@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
-$pythonExe = Join-Path $repoRoot "trainer\Scripts\python.exe"
+$pythonExe = Join-Path $repoRoot ".venv\Scripts\python.exe"
 $launcher = Join-Path $repoRoot "installer\windows\launcher\rolethread_launcher.py"
 
 if (-not (Test-Path $pythonExe)) {
@@ -28,5 +28,3 @@ try {
 finally {
     Pop-Location
 }
-
-

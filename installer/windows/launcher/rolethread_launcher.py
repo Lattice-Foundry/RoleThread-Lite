@@ -127,7 +127,7 @@ def resolve_python_runtime(
             "Could not find the bundled RoleThread launcher executable."
         )
 
-    dev_runtime = app_root / "trainer" / "Scripts" / "python.exe"
+    dev_runtime = app_root / ".venv" / "Scripts" / "python.exe"
     if dev_runtime.is_file():
         return dev_runtime
 
@@ -136,7 +136,7 @@ def resolve_python_runtime(
         return fallback
 
     raise LauncherConfigurationError(
-        "Could not find a usable Python runtime. Expected trainer\\Scripts\\python.exe "
+        "Could not find a usable Python runtime. Expected .venv\\Scripts\\python.exe "
         "or a valid current Python executable."
     )
 
@@ -325,4 +325,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

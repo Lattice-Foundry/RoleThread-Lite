@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
-$pythonExe = Join-Path $repoRoot "trainer\Scripts\python.exe"
+$pythonExe = Join-Path $repoRoot ".venv\Scripts\python.exe"
 $specPath = Join-Path $repoRoot "installer\windows\rolethread_launcher.spec"
 $distPath = Join-Path $repoRoot "installer\windows\dist"
 $buildPath = Join-Path $repoRoot "installer\windows\build"
@@ -25,7 +25,7 @@ if (-not (Test-Path $specPath)) {
 
 $pyinstallerCheck = & $pythonExe -m pip show pyinstaller 2>$null
 if ($LASTEXITCODE -ne 0) {
-    throw "PyInstaller is not installed in trainer. Run: trainer\Scripts\python.exe -m pip install -r requirements-dev.txt"
+    throw "PyInstaller is not installed in .venv. Run: .venv\Scripts\python.exe -m pip install -r requirements-dev.txt"
 }
 
 if ($Clean) {
@@ -59,4 +59,3 @@ Write-Host $bundlePath
 Write-Host ""
 Write-Host "Run bundled prototype:"
 Write-Host (Join-Path $bundlePath "RoleThreadLauncher.exe")
-

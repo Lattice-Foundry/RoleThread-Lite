@@ -1049,7 +1049,7 @@ def test_load_dataset_summary_counts_auto_fixable_entries_as_issues(tmp_path):
 
 
 def test_load_dataset_with_summary_corrects_known_role_variants_from_dirty_fixture():
-    path = Path("training_data/test_originals/dirty/02_dirty_auto_fixable.jsonl")
+    path = Path("dev/tests/fixtures/dirty/02_dirty_auto_fixable.jsonl")
 
     summary, errors = load_dataset_with_summary(str(path), auto_normalize=False)
 

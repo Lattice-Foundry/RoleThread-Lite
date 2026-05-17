@@ -109,8 +109,8 @@ streamlit run app.py
 Windows/dev setup:
 
 ```bat
-py -3.14 -m venv trainer
-trainer\Scripts\activate
+py -3.14 -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app.py
 ```
@@ -226,4 +226,3 @@ RoleThread Lite focuses on the local, inspectable, repairable dataset workflow
 needed to build that data with confidence.
 
 Local-first. Creator-focused. Built for narrative AI datasets.
-

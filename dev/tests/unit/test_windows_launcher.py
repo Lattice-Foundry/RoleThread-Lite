@@ -11,7 +11,7 @@ def _make_app_root(tmp_path: Path, *, with_dev_python: bool = True) -> Path:
     app_root.mkdir()
     (app_root / "app.py").write_text("print('RoleThread')", encoding="utf-8")
     if with_dev_python:
-        python_path = app_root / "trainer" / "Scripts" / "python.exe"
+        python_path = app_root / ".venv" / "Scripts" / "python.exe"
         python_path.parent.mkdir(parents=True)
         python_path.write_text("", encoding="utf-8")
     return app_root
@@ -101,7 +101,7 @@ def test_bundled_command_uses_internal_streamlit_mode(tmp_path):
     )
 
 
-def test_dev_python_path_selection_prefers_trainer_runtime(tmp_path):
+def test_dev_python_path_selection_prefers_venv_runtime(tmp_path):
     app_root = _make_app_root(tmp_path, with_dev_python=True)
     fallback = tmp_path / "fallback.exe"
     fallback.write_text("", encoding="utf-8")
@@ -111,7 +111,7 @@ def test_dev_python_path_selection_prefers_trainer_runtime(tmp_path):
         current_executable=str(fallback),
     )
 
-    assert python_path == app_root / "trainer" / "Scripts" / "python.exe"
+    assert python_path == app_root / ".venv" / "Scripts" / "python.exe"
 
 
 def test_python_path_selection_falls_back_to_current_executable(tmp_path):
@@ -324,4 +324,3 @@ def test_port_available_true_when_connection_fails(monkeypatch):
     monkeypatch.setattr(launcher.socket, "create_connection", fail)
 
     assert launcher.is_port_available() is True
-

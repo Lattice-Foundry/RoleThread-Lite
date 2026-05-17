@@ -30,6 +30,7 @@ installer/windows/inno/Output/
 # Generated files
 *.pyc
 *.jsonl
+!dev/tests/fixtures/**/*.jsonl
 *.exe
 *.msi
 backup_config.json

@@ -1,0 +1,6 @@
+{"messages":[{"role":"system","content":"System"},{"role":"user","content":"Hi"},{"role":"assistant","content":"Hello"}],"tags":[""]}
+{"messages":[{"role":"SYSTEM","content":"System"},{"role":"USER","content":"Hi"},{"role":"ASSISTANT","content":"Hello"}],"tags":[""]}
+{"messages":[{"role":"system","content":"System"},{"role":"human","content":"Hi"},{"role":"gpt","content":"Hello"}],"tags":[""]}
+{"messages":[{"role":"system","content":" System "},{"role":"user","content":" Hi "},{"role":"assistant","content":" Hello "}],"tags":[""]}
+{"messages":[{"role":"system","content":"System"},{"role":"user","content":"Hi"},{"role":"assistant","content":"Hello"}],"tags":[]}
+{"messages":[{"role":"GPT","content":"System-ish"},{"role":"USER","content":"Hi"},{"role":"Bot","content":"Hello"}],"tags":[]}

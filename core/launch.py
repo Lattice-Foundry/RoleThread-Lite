@@ -34,7 +34,7 @@ WEBAPP_AUTOMATION_DEFERRED_MESSAGE = (
     "method. Manual browser install-as-app remains the reliable fallback."
 )
 RECOMMENDED_WEBAPP_STREAMLIT_COMMAND = (
-    "trainer\\Scripts\\python.exe -m streamlit run app.py "
+    ".venv\\Scripts\\python.exe -m streamlit run app.py "
     "--server.headless true --server.port 8501 -- webapp"
 )
 EDGE_CLASSIFICATION_APP = "app_window_candidate"
@@ -1348,4 +1348,3 @@ def attempt_webapp_launch(
         status_code=WEBAPP_LAUNCH_STATUS_LAUNCHED,
     )
     return _webapp_launch_status
-

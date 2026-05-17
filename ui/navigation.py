@@ -174,7 +174,7 @@ PageRenderer = Callable[[], None]
 APP_BRAND_TITLE = "RoleThread Lite"
 APP_BRAND_SUBTITLE = "Narrative Intelligence"
 APP_BRAND_LOGO_PATH = (
-    Path(__file__).resolve().parents[1] / "notes" / "logo" / "logo_crop.png"
+    Path(__file__).resolve().parent / "assets" / "rolethread_logo_crop.png"
 )
 
 

@@ -106,7 +106,7 @@ def test_external_webapp_launcher_env_detection():
 def test_recommended_webapp_commands():
     assert RECOMMENDED_V1_LAUNCH_COMMAND == "streamlit run app.py"
     assert RECOMMENDED_WEBAPP_STREAMLIT_COMMAND == (
-        "trainer\\Scripts\\python.exe -m streamlit run app.py "
+        ".venv\\Scripts\\python.exe -m streamlit run app.py "
         "--server.headless true --server.port 8501 -- webapp"
     )
 
@@ -1048,4 +1048,3 @@ def test_classify_edge_process_marks_opaque_metadata_uncertain():
 
     assert classification.classification == EDGE_CLASSIFICATION_UNCERTAIN
     assert classification.confidence == EDGE_CONFIDENCE_UNRELIABLE
-

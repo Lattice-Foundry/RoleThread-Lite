@@ -74,7 +74,7 @@ not to raw terminal commands.
 The prototype currently:
 
 - resolves the RoleThread app root for development use
-- prefers `trainer\Scripts\python.exe` when running from the repository
+- prefers `.venv\Scripts\python.exe` when running from the repository
 - reads `%LOCALAPPDATA%\RoleThread\preferences.json`
 - uses `enable_webapp_launch_mode` to choose normal or `webapp` launch mode
 - starts Streamlit with `python -m streamlit run app.py`
@@ -159,7 +159,7 @@ internal startup path used by source/dev mode.
 Run the launcher prototype from the repository root:
 
 ```powershell
-trainer\Scripts\python.exe installer\windows\launcher\rolethread_launcher.py
+.venv\Scripts\python.exe installer\windows\launcher\rolethread_launcher.py
 ```
 
 Or use the helper script:
@@ -170,7 +170,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\ru
 
 Expected behavior:
 
-- the launcher uses `trainer\Scripts\python.exe`
+- the launcher uses `.venv\Scripts\python.exe`
 - the launcher reads `%LOCALAPPDATA%\RoleThread\preferences.json`
 - `enable_webapp_launch_mode: false` or missing preferences starts normal browser mode
 - `enable_webapp_launch_mode: true` adds the app's `webapp` launch flag
@@ -245,4 +245,3 @@ Pushing to `main` does not automatically create installer artifacts unless CI/CD
 ## Current Status
 
 This is still pre-packaging work. It does not build the final launcher executable, PyInstaller bundle, Inno installer, bundled Python runtime, shortcuts, or release executable.
-

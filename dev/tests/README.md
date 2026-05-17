@@ -41,8 +41,8 @@ may work, but `3.14.4` is the official supported V1 runtime.
 Windows/dev environment:
 
 ```bat
-py -3.14 -m venv trainer
-trainer\Scripts\activate
+py -3.14 -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements-dev.txt
 ```
 
@@ -57,7 +57,7 @@ pip install -r requirements-dev.txt
 Install runtime and test dependencies:
 
 ```bat
-trainer\Scripts\python.exe -m pip install -r requirements-dev.txt
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 ```
 
 ## Running Tests
@@ -65,7 +65,7 @@ trainer\Scripts\python.exe -m pip install -r requirements-dev.txt
 Run the full suite:
 
 ```bat
-trainer\Scripts\python.exe -m pytest
+.venv\Scripts\python.exe -m pytest
 ```
 
 The test configuration keeps pytest temporary files under `.pytest_tmp/` in
@@ -75,7 +75,7 @@ temp directory permissions.
 Run one test file:
 
 ```bat
-trainer\Scripts\python.exe -m pytest dev\tests\unit\test_dataset.py
+.venv\Scripts\python.exe -m pytest dev\tests\unit\test_dataset.py
 ```
 
 There is also a small Windows helper:
@@ -90,4 +90,3 @@ Prefer behavior-focused tests over implementation-detail tests. Pure `core/`
 helpers and service workflows are the best first targets. Avoid brittle UI
 tests, exact wording checks, and heavy mocking unless a boundary truly needs
 to be isolated.
-
