@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 28
+    assert len(registry) == 31
     assert get_default_help_article_id() == "getting-started"
     assert registry["getting-started"].file_name == "01_getting_started.md"
     assert registry["glossary"].category == "Reference"
@@ -106,9 +106,19 @@ def test_help_article_registry_has_expected_articles():
     assert registry["understanding-default-tags"].file_name == "27_understanding_default_tags.md"
     assert registry["understanding-default-tags"].category == "Metadata and Organization"
     assert registry["developer-launch-flags"].file_name == "26_developer_launch_flags.md"
-    assert registry["developer-launch-flags"].category == "Reference"
+    assert registry["developer-launch-flags"].category == "For Developers"
     assert registry["rolethread-studio-vision"].file_name == "28_rolethread_studio_vision.md"
     assert registry["rolethread-studio-vision"].category == "Reference"
+    assert registry["codebase-architecture"].file_name == "29_codebase_architecture.md"
+    assert registry["codebase-architecture"].category == "For Developers"
+    assert registry["layer-boundaries-and-responsibilities"].file_name == (
+        "30_layer_boundaries_and_responsibilities.md"
+    )
+    assert registry["layer-boundaries-and-responsibilities"].category == "For Developers"
+    assert registry["platform-support-philosophy"].file_name == (
+        "31_platform_support_philosophy.md"
+    )
+    assert registry["platform-support-philosophy"].category == "For Developers"
     assert len(registry) == len(set(registry))
 
 
@@ -135,6 +145,8 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     assert "streamlit run app.py -- webapp dev edge-debug" in document.content
     assert "Launch Flags Detected" in document.content
     assert "Edge Window Debug" in document.content
+    assert "official internal webapp launch mode" in document.content
+    assert "Diagnostics are gated behind `dev`" in document.content
 
 
 def test_os_compatibility_help_article_documents_v1_policy():
@@ -174,6 +186,30 @@ def test_rolethread_studio_vision_documents_lite_and_studio_split():
     assert "local-first dataset crafting" in document.content
 
 
+def test_developer_architecture_help_articles_document_layer_boundaries():
+    architecture = load_help_document("codebase-architecture")
+    boundaries = load_help_document("layer-boundaries-and-responsibilities")
+    platform = load_help_document("platform-support-philosophy")
+
+    assert architecture.article.category == "For Developers"
+    assert "Streamlit is the current UI shell" in architecture.content
+    assert "`ui/`" in architecture.content
+    assert "`services/`" in architecture.content
+    assert "`core/`" in architecture.content
+    assert "future RoleThread Studio surface" in architecture.content
+
+    assert boundaries.article.category == "For Developers"
+    assert "business logic in the UI layer" in boundaries.content
+    assert "Services may call core modules" in boundaries.content
+    assert "Core modules should be usable from tests" in boundaries.content
+
+    assert platform.article.category == "For Developers"
+    assert "Windows is a primary supported platform" in platform.content
+    assert "Linux is a primary supported platform" in platform.content
+    assert "macOS is beta/manual support" in platform.content
+    assert "Managed webapp mode is Windows/Microsoft Edge only" in platform.content
+
+
 def test_help_article_registry_has_unique_file_names_and_orders():
     articles = tuple(get_help_article_registry().values())
     file_names = [article.file_name for article in articles]
@@ -191,8 +227,11 @@ def test_help_article_order_is_global_reader_order():
     ordered_ids = [article.article_id for article in get_help_article_order()]
 
     assert ordered_ids[0] == "getting-started"
-    assert ordered_ids[-1] == "developer-launch-flags"
+    assert ordered_ids[-1] == "platform-support-philosophy"
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
+    assert ordered_ids.index("developer-launch-flags") < ordered_ids.index(
+        "codebase-architecture"
+    )
 
 
 def test_help_article_category_order_and_grouping():
@@ -219,7 +258,12 @@ def test_help_article_category_order_and_grouping():
         "os-compatibility-and-storage-policy",
         "v1-limitations-and-future-boundaries",
         "rolethread-studio-vision",
+    ]
+    assert [article.article_id for article in grouped["For Developers"]] == [
         "developer-launch-flags",
+        "codebase-architecture",
+        "layer-boundaries-and-responsibilities",
+        "platform-support-philosophy",
     ]
 
 
@@ -377,7 +421,10 @@ def test_adjacent_help_articles_follow_global_order():
     previous_article, next_article = get_adjacent_help_articles("rolethread-studio-vision")
     assert previous_article.article_id == "v1-limitations-and-future-boundaries"
     assert next_article.article_id == "developer-launch-flags"
-    assert get_adjacent_help_articles("developer-launch-flags")[1] is None
+    previous_article, next_article = get_adjacent_help_articles("developer-launch-flags")
+    assert previous_article.article_id == "rolethread-studio-vision"
+    assert next_article.article_id == "codebase-architecture"
+    assert get_adjacent_help_articles("platform-support-philosophy")[1] is None
 
 
 def test_related_help_articles_follow_registry_metadata():

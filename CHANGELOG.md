@@ -16,6 +16,17 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.74] - 2026-05-17
+
+### Added
+
+- Added a `For Developers` Help section.
+- Added developer Help articles for codebase architecture, layer boundaries, and platform support philosophy.
+
+### Changed
+
+- Moved Developer Launch Flags from Reference into the new developer Help section and clarified diagnostics/webapp launch wording.
+
 ## [1.3.73] - 2026-05-17
 
 ### Added

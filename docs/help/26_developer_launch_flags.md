@@ -1,6 +1,8 @@
 # Developer Launch Flags
 
-RoleThread can be started with optional launch flags after Streamlit's `--` separator. These flags are intended for developers, testers, and future launcher/installer integration. Normal users do not need them during everyday work.
+RoleThread can be started with optional launch flags after Streamlit's `--` separator. These flags are intended for developers, testers, and launcher/installer integration. Normal users do not need them during everyday work.
+
+Launch flags are deliberately centralized. They should not be checked with scattered `sys.argv` parsing throughout the app.
 
 ## Normal Launch
 
@@ -19,6 +21,8 @@ streamlit run app.py -- dev
 ```
 
 Dev mode is useful when checking platform detection, runtime details, browser availability, launch behavior, path resolution, or support diagnostics. Diagnostic details may change before release.
+
+Diagnostics are gated behind `dev` so normal users do not see raw platform, path, browser, or window metadata during ordinary use. The default About view stays support-oriented; `dev` exposes the lower-level details a maintainer needs.
 
 In dev mode, **Settings > About This Installation** adds a diagnostics stack:
 
@@ -42,9 +46,11 @@ Use `webapp` to start RoleThread through the internal Edge webapp launch pathway
 streamlit run app.py -- webapp
 ```
 
-This path is Windows/Microsoft Edge only. It is the method future launchers or installers should call when webapp launch mode is enabled. It may require a fresh relaunch to take effect because the launch mode is evaluated during startup.
+This path is Windows/Microsoft Edge only. It is the official internal webapp launch mode used by the Windows launcher and future installer pipeline when webapp launch mode is enabled. It may require a fresh relaunch to take effect because the launch mode is evaluated during startup.
 
 When Edge is available, RoleThread attempts to open the app in Microsoft Edge app mode. If Streamlit opens a normal browser window first, RoleThread may close only that duplicate browser window after the Edge app window is identified.
+
+The launcher does not duplicate Edge cleanup logic. It chooses the startup mode and lets the app's internal `webapp` path own Edge detection, app-window launch, and duplicate-window cleanup.
 
 On Linux, macOS, or unknown platforms, `webapp` does not attempt Edge launch, Windows window inspection, or duplicate-browser cleanup. RoleThread shows a controlled note and continues in normal browser mode. Use your browser's manual install-as-app or create-shortcut feature if you want an app-like shell on those platforms.
 

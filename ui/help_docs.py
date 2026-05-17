@@ -59,6 +59,7 @@ HELP_CATEGORY_ORDER = (
     "Quality and Review",
     "Output and Recovery",
     "Reference",
+    "For Developers",
 )
 
 
@@ -423,12 +424,52 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "developer-launch-flags",
         "26_developer_launch_flags.md",
         "Developer Launch Flags",
-        "Reference",
+        "For Developers",
         250,
         "Developer/tester launch flags for diagnostics and webapp startup.",
         (
+            "codebase-architecture",
+            "platform-support-philosophy",
             "os-compatibility-and-storage-policy",
-            "settings-and-preferences",
+        ),
+    ),
+    HelpArticle(
+        "codebase-architecture",
+        "29_codebase_architecture.md",
+        "Codebase Architecture",
+        "For Developers",
+        260,
+        "The major codebase layers and why RoleThread keeps Streamlit as a UI shell.",
+        (
+            "layer-boundaries-and-responsibilities",
+            "developer-launch-flags",
+            "rolethread-studio-vision",
+        ),
+    ),
+    HelpArticle(
+        "layer-boundaries-and-responsibilities",
+        "30_layer_boundaries_and_responsibilities.md",
+        "Layer Boundaries and Responsibilities",
+        "For Developers",
+        270,
+        "What belongs in UI, services, and core modules.",
+        (
+            "codebase-architecture",
+            "platform-support-philosophy",
+            "rolethread-studio-vision",
+        ),
+    ),
+    HelpArticle(
+        "platform-support-philosophy",
+        "31_platform_support_philosophy.md",
+        "Platform Support Philosophy",
+        "For Developers",
+        280,
+        "How Windows, Linux, macOS, webapp mode, and storage support are scoped.",
+        (
+            "developer-launch-flags",
+            "os-compatibility-and-storage-policy",
+            "codebase-architecture",
         ),
     ),
 )
