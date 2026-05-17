@@ -61,7 +61,29 @@ Keeping the install directory separate from user data lets upgrades replace app/
 
 ## Launcher Responsibilities
 
-The final Windows launcher is not implemented in this skeleton pass.
+A first source prototype lives at:
+
+```text
+installer/windows/launcher/loreforge_launcher.py
+```
+
+This launcher source is intended to be wrapped by PyInstaller in a later pass.
+The Inno installer will eventually create shortcuts to the wrapped launcher,
+not to raw terminal commands.
+
+The prototype currently:
+
+- resolves the LoreForge app root for development use
+- prefers `trainer\Scripts\python.exe` when running from the repository
+- reads `%LOCALAPPDATA%\LoreForge\preferences.json`
+- uses `enable_webapp_launch_mode` to choose normal or `webapp` launch mode
+- starts Streamlit with `python -m streamlit run app.py`
+- adds `-- webapp` when webapp launch mode is enabled
+- writes launcher logs under `%LOCALAPPDATA%\LoreForge\logs\launcher.log`
+
+The launcher does not own Microsoft Edge launch or duplicate-browser cleanup.
+It delegates that behavior to the app's existing internal `webapp` startup
+path.
 
 The launcher should eventually:
 
@@ -74,6 +96,11 @@ The launcher should eventually:
 - keep local server startup, readiness detection, browser/webapp launch, and shutdown lifecycle under launcher control
 
 The current in-app `webapp` flag remains the internal launch path future launcher/installer procedures should call when webapp mode is enabled.
+
+Future graceful shutdown work should make the launcher own the Streamlit
+subprocess, detect app-window/browser shutdown where practical, request a
+normal app shutdown so `atexit` and cloud sync cleanup can run, and use forceful
+termination only as a fallback.
 
 ## Uninstall Requirements
 
@@ -117,5 +144,4 @@ Pushing to `main` does not automatically create installer artifacts unless CI/CD
 
 ## Current Status
 
-This is a planning and scaffolding pass only. It does not build the final launcher, PyInstaller bundle, Inno installer, bundled Python runtime, shortcuts, or release executable.
-
+This is still pre-packaging work. It does not build the final launcher executable, PyInstaller bundle, Inno installer, bundled Python runtime, shortcuts, or release executable.

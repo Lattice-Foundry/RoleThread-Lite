@@ -16,6 +16,17 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.65] - 2026-05-16
+
+### Added
+
+- Added the first Windows launcher source prototype for future PyInstaller wrapping.
+- Added unit coverage for launcher preference handling, command construction, runtime selection, and logging.
+
+### Internal
+
+- Documented launcher responsibilities and future graceful shutdown expectations in the Windows installer plan.
+
 ## [1.3.64] - 2026-05-16
 
 ### Added
