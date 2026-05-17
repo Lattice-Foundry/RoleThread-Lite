@@ -31,6 +31,7 @@ STREAMLIT_ARGS = (
     "--server.port",
     STREAMLIT_PORT,
 )
+INTERNAL_STREAMLIT_FLAG = "--loreforge-run-streamlit"
 LAUNCH_MODE_NORMAL = "normal"
 LAUNCH_MODE_WEBAPP = "webapp"
 WEBAPP_PREFERENCE_KEY = "enable_webapp_launch_mode"
@@ -68,8 +69,8 @@ def resolve_app_root(
 
     is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
     if is_frozen:
-        # Future bundled builds can adjust this if PyInstaller layout differs.
-        return Path(sys.executable).resolve().parent
+        bundled_root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+        return validate_app_root(bundled_root)
 
     current = Path(start_path or Path(__file__)).resolve()
     candidates = [current, *current.parents]
@@ -115,7 +116,17 @@ def resolve_python_runtime(
     app_root: Path,
     *,
     current_executable: str | None = None,
+    frozen: bool | None = None,
 ) -> Path:
+    is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
+    if is_frozen:
+        executable = Path(current_executable or sys.executable)
+        if executable.is_file():
+            return executable
+        raise LauncherConfigurationError(
+            "Could not find the bundled LoreForge launcher executable."
+        )
+
     dev_runtime = app_root / "trainer" / "Scripts" / "python.exe"
     if dev_runtime.is_file():
         return dev_runtime
@@ -130,8 +141,28 @@ def resolve_python_runtime(
     )
 
 
-def build_streamlit_command(python_path: Path, *, launch_mode: str) -> tuple[str, ...]:
-    command: tuple[str, ...] = (str(python_path), *STREAMLIT_ARGS)
+def build_streamlit_command(
+    python_path: Path,
+    *,
+    launch_mode: str,
+    app_root: Path | None = None,
+    frozen: bool = False,
+) -> tuple[str, ...]:
+    if frozen:
+        if app_root is None:
+            raise LauncherConfigurationError("Bundled launch requires an app root.")
+        app_script = validate_app_root(app_root) / "app.py"
+        command: tuple[str, ...] = (
+            str(python_path),
+            INTERNAL_STREAMLIT_FLAG,
+            str(app_script),
+            "--global.developmentMode=false",
+            "--server.port",
+            STREAMLIT_PORT,
+        )
+    else:
+        command = (str(python_path), *STREAMLIT_ARGS)
+
     if launch_mode == LAUNCH_MODE_WEBAPP:
         return (*command, "--", "webapp")
     if launch_mode == LAUNCH_MODE_NORMAL:
@@ -144,18 +175,30 @@ def build_launcher_config(
     app_root: Path | None = None,
     env: dict[str, str] | None = None,
     current_executable: str | None = None,
+    frozen: bool | None = None,
 ) -> LauncherConfig:
-    resolved_root = validate_app_root(app_root) if app_root is not None else resolve_app_root()
+    is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
+    resolved_root = (
+        validate_app_root(app_root)
+        if app_root is not None
+        else resolve_app_root(frozen=is_frozen)
+    )
     preferences_path = resolve_preferences_path(env)
     log_path = resolve_launcher_log_path(env)
     python_path = resolve_python_runtime(
         resolved_root,
         current_executable=current_executable,
+        frozen=is_frozen,
     )
     launch_mode = select_launch_mode(
         enable_webapp_launch_mode=read_enable_webapp_launch_mode(preferences_path),
     )
-    command = build_streamlit_command(python_path, launch_mode=launch_mode)
+    command = build_streamlit_command(
+        python_path,
+        launch_mode=launch_mode,
+        app_root=resolved_root,
+        frozen=is_frozen,
+    )
     return LauncherConfig(
         app_root=resolved_root,
         python_path=python_path,
@@ -238,7 +281,31 @@ def launch_loreforge(
     return process
 
 
+def run_bundled_streamlit(argv: Sequence[str] | None = None) -> int:
+    """Run Streamlit from inside the frozen PyInstaller runtime."""
+
+    args = list(sys.argv[2:] if argv is None else argv)
+    if not args:
+        raise LauncherConfigurationError("Bundled Streamlit mode requires an app.py path.")
+
+    app_script = Path(args[0]).resolve()
+    if not app_script.is_file():
+        raise LauncherConfigurationError(f"Could not find bundled app.py: {app_script}")
+
+    streamlit_args = ["streamlit", "run", str(app_script), *args[1:]]
+    sys.path.insert(0, str(app_script.parent))
+    sys.argv = streamlit_args
+
+    from streamlit.web.cli import main as streamlit_main
+
+    streamlit_main()
+    return 0
+
+
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == INTERNAL_STREAMLIT_FLAG:
+        return run_bundled_streamlit()
+
     try:
         config = build_launcher_config()
         print(f"Starting {APP_NAME} in {config.launch_mode} mode...")

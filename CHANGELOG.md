@@ -16,6 +16,19 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.67] - 2026-05-16
+
+### Added
+
+- Added a PyInstaller one-folder spec for the Windows launcher bundle prototype.
+- Added a real bundle build script for producing `installer/windows/dist/LoreForgeLauncher/`.
+- Documented bundled normal/webapp smoke-test workflows.
+
+### Internal
+
+- Added bundled-mode launcher command/runtime detection for PyInstaller.
+- Added launcher unit coverage for frozen app-root, runtime, and command construction.
+
 ## [1.3.66] - 2026-05-16
 
 ### Added

@@ -86,6 +86,74 @@ The launcher does not own Microsoft Edge launch or duplicate-browser cleanup.
 It delegates that behavior to the app's existing internal `webapp` startup
 path.
 
+## PyInstaller Bundle Prototype
+
+The first bundled prototype builds the launcher in PyInstaller one-folder mode.
+The bundle target is the launcher, not `app.py` directly.
+
+Source-controlled packaging files:
+
+```text
+installer/windows/loreforge_launcher.spec
+installer/windows/scripts/build_bundle.ps1
+```
+
+Build from the repository root:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_bundle.ps1
+```
+
+Expected output folder:
+
+```text
+installer\windows\dist\LoreForgeLauncher\
+```
+
+Run the bundled prototype:
+
+```powershell
+installer\windows\dist\LoreForgeLauncher\LoreForgeLauncher.exe
+```
+
+Bundled mode uses the PyInstaller executable as the runtime entry point. The
+launcher starts a second internal copy of itself with a private Streamlit
+bootstrap flag, then the child process runs the bundled `app.py` through
+Streamlit. This keeps normal users independent of local Python, virtual
+environment activation, and repository paths.
+
+The one-folder bundle includes:
+
+- launcher source
+- `app.py`
+- `core/`
+- `services/`
+- `ui/`
+- `docs/`
+- Streamlit configuration
+- runtime dependencies collected by PyInstaller
+
+Generated `build/` and `dist/` folders remain ignored and should not be
+committed.
+
+### Bundle Smoke Test
+
+1. Build the bundle with `build_bundle.ps1`.
+2. Copy `installer\windows\dist\LoreForgeLauncher\` to a temporary folder
+   outside the repository.
+3. Run `LoreForgeLauncher.exe` from the copied folder.
+4. Confirm LoreForge starts on port `8501`.
+5. Confirm launcher logs are still written under:
+
+```text
+%LOCALAPPDATA%\LoreForge\logs\launcher.log
+```
+
+To smoke-test bundled webapp mode, enable **Settings > Experimental Features >
+Enable webapp launch mode**, close LoreForge, then run the bundled launcher
+again. The launcher should pass the app's `webapp` flag through the same
+internal startup path used by source/dev mode.
+
 ## Dev Launcher Smoke Test
 
 Run the launcher prototype from the repository root:

@@ -77,6 +77,30 @@ def test_command_construction_for_webapp_launch(tmp_path):
     assert command[:4] == (str(python_path), "-m", "streamlit", "run")
 
 
+def test_bundled_command_uses_internal_streamlit_mode(tmp_path):
+    app_root = _make_app_root(tmp_path, with_dev_python=False)
+    launcher_exe = tmp_path / "LoreForgeLauncher.exe"
+    launcher_exe.write_text("", encoding="utf-8")
+
+    command = launcher.build_streamlit_command(
+        launcher_exe,
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        app_root=app_root,
+        frozen=True,
+    )
+
+    assert command == (
+        str(launcher_exe),
+        launcher.INTERNAL_STREAMLIT_FLAG,
+        str(app_root / "app.py"),
+        "--global.developmentMode=false",
+        "--server.port",
+        "8501",
+        "--",
+        "webapp",
+    )
+
+
 def test_dev_python_path_selection_prefers_trainer_runtime(tmp_path):
     app_root = _make_app_root(tmp_path, with_dev_python=True)
     fallback = tmp_path / "fallback.exe"
@@ -103,6 +127,20 @@ def test_python_path_selection_falls_back_to_current_executable(tmp_path):
     assert python_path == fallback
 
 
+def test_bundled_runtime_selection_uses_launcher_executable(tmp_path):
+    app_root = _make_app_root(tmp_path, with_dev_python=False)
+    launcher_exe = tmp_path / "LoreForgeLauncher.exe"
+    launcher_exe.write_text("", encoding="utf-8")
+
+    python_path = launcher.resolve_python_runtime(
+        app_root,
+        current_executable=str(launcher_exe),
+        frozen=True,
+    )
+
+    assert python_path == launcher_exe
+
+
 def test_python_path_selection_errors_without_runtime(tmp_path):
     app_root = _make_app_root(tmp_path, with_dev_python=False)
 
@@ -124,6 +162,34 @@ def test_build_launcher_config_errors_when_app_root_has_no_app_py(tmp_path):
         )
 
     assert "app.py" in str(exc_info.value)
+
+
+def test_resolve_app_root_uses_pyinstaller_meipass_in_frozen_mode(tmp_path, monkeypatch):
+    app_root = _make_app_root(tmp_path, with_dev_python=False)
+    monkeypatch.setattr(launcher.sys, "_MEIPASS", str(app_root), raising=False)
+
+    assert launcher.resolve_app_root(frozen=True) == app_root.resolve()
+
+
+def test_build_launcher_config_uses_bundled_command_in_frozen_mode(tmp_path):
+    app_root = _make_app_root(tmp_path, with_dev_python=False)
+    launcher_exe = tmp_path / "LoreForgeLauncher.exe"
+    launcher_exe.write_text("", encoding="utf-8")
+
+    config = launcher.build_launcher_config(
+        app_root=app_root,
+        env={"LOCALAPPDATA": str(tmp_path / "local")},
+        current_executable=str(launcher_exe),
+        frozen=True,
+    )
+
+    assert config.python_path == launcher_exe
+    assert config.command[:3] == (
+        str(launcher_exe),
+        launcher.INTERNAL_STREAMLIT_FLAG,
+        str(app_root / "app.py"),
+    )
+    assert "-m" not in config.command
 
 
 def test_launcher_log_path_resolution_uses_localappdata():
