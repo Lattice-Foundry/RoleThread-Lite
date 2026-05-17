@@ -137,6 +137,12 @@ bootstrap flag, then the child process runs the bundled `app.py` through
 Streamlit. This keeps normal users independent of local Python, virtual
 environment activation, and repository paths.
 
+Bundled webapp mode starts Streamlit with `--server.headless true`, waits for
+the health endpoint, then opens Microsoft Edge app mode from the launcher. The
+child Streamlit app still receives the `webapp` flag, but it also receives a
+launcher-managed environment marker so it does not relaunch Edge during
+Streamlit reruns. Normal browser mode does not force headless mode.
+
 The one-folder bundle includes:
 
 - launcher source
@@ -174,6 +180,12 @@ monitoring, shutdown requests, fallback termination, port-release status, and
 startup errors. If startup fails before the app opens, the launcher writes the
 error to the log and may show a minimal Windows error dialog pointing to that
 log.
+
+Bundled webapp startup also writes app-side breadcrumbs to the same launcher
+log. Those entries record whether the `webapp` flag was seen, whether the
+rerun guard suppressed a repeated launch, whether Edge launch was attempted,
+and the duplicate-browser cleanup decision. These diagnostics are intentionally
+file-based so the packaged no-console launcher remains quiet for users.
 
 To smoke-test bundled webapp mode, enable **Settings > Experimental Features >
 Enable webapp launch mode**, close RoleThread, then run the bundled launcher
@@ -389,11 +401,15 @@ The launcher should eventually:
 The current in-app `webapp` flag remains the internal launch path future launcher/installer procedures should call when webapp mode is enabled.
 
 The launcher now owns the shutdown lifecycle for supported webapp runs: it
-starts the Streamlit subprocess, waits for health, tracks the observed Edge
-webapp HWND, requests local token-protected shutdown when that handle closes so
-`atexit` and cloud sync cleanup can run, then escalates to terminate/kill only
-for the backend subprocess it started. It logs the final port `8501` state so
-stale installed backends are easier to diagnose.
+starts the Streamlit subprocess, waits for health, selects a stable observed
+Edge webapp HWND, requests local token-protected shutdown when that handle
+closes so `atexit` and cloud sync cleanup can run, then escalates to
+terminate/kill only for the backend subprocess it started. It logs the final
+port `8501` state so stale installed backends are easier to diagnose.
+
+If a webapp launch never produces a stable app-window handle, the launcher
+does not leave the backend running indefinitely. It logs the timeout and
+terminates only the backend subprocess it started.
 
 ## Uninstall Requirements
 

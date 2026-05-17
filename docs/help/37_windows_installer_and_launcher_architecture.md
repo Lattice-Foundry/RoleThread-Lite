@@ -33,7 +33,7 @@ For supported webapp runs, the launcher lifecycle is:
 
 1. start the Streamlit subprocess
 2. wait for `/_stcore/health`
-3. monitor the Edge app window through exact Windows HWND metadata
+3. select a stable Edge app window through exact Windows HWND metadata
 4. request graceful shutdown after the app window closes
 5. wait for app exit hooks to run
 6. fall back to `terminate()`
@@ -51,6 +51,8 @@ If webapp launch mode is disabled or preferences are missing, the launcher start
 If webapp launch mode is enabled, the launcher passes the app's `webapp` flag into startup. The app-owned launch path then handles Microsoft Edge detection, Edge app-window launch, and duplicate-browser cleanup.
 
 This keeps one source of truth for webapp behavior and avoids browser-control drift between launcher and app code.
+
+Bundled webapp mode starts Streamlit with `--server.headless true`, waits for health, then opens the initial Microsoft Edge app window from the launcher. The child app still receives the `webapp` flag for diagnostics and compatibility, but a launcher-managed environment marker prevents the app from relaunching Edge during Streamlit reruns. Normal browser mode does not force headless mode.
 
 ## PyInstaller Windowed Bundle
 
@@ -73,6 +75,7 @@ Launcher logs should capture:
 - fallback termination result
 - final port-release state
 - startup errors
+- app-side webapp launch breadcrumbs when the `webapp` flag is active
 
 ## Webapp Mode Boundary
 
@@ -116,4 +119,6 @@ If `RoleThreadLauncher.exe` is still running, the uninstaller asks the user to c
 The launcher should release port `8501` by shutting down the backend it started, not by attaching to or killing unrelated listeners. Reusing an existing healthy backend can mask stale installed builds after an update, so the default lifecycle is shutdown, process exit, and a fresh start on the next launch.
 
 If graceful shutdown does not complete, fallback termination targets only the launcher-owned Streamlit subprocess. Unknown processes on port `8501` are logged for diagnosis and left alone.
+
+If a launcher-started webapp session never produces a stable app HWND, the launcher treats that as a failed webapp startup and terminates only the backend subprocess it owns. That prevents a failed app-window launch from leaving port `8501` occupied indefinitely.
 

@@ -16,6 +16,35 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.93] - 2026-05-17
+
+### Fixed
+
+- Replaced the installed launcher webapp-window monitor's PowerShell HWND probe with direct Win32 window enumeration so packaged no-console builds can reliably observe the Edge app window.
+- Prevented the launcher from tearing down the backend during frontend startup when the Edge app window has already opened.
+
+## [1.3.92] - 2026-05-17
+
+### Fixed
+
+- Moved the initial installed Edge webapp open into the Windows launcher after Streamlit health succeeds, allowing headless bundled sessions to create the first browser session.
+- Marked launcher-started webapp sessions as externally managed so the app does not relaunch Edge during Streamlit reruns.
+
+## [1.3.91] - 2026-05-17
+
+### Fixed
+
+- Added bundled webapp startup breadcrumbs to launcher logs so installed Edge launch loops can be diagnosed from `%LOCALAPPDATA%\RoleThread\logs\launcher.log`.
+- Made launcher webapp monitor timeouts terminate only the launcher-owned backend subprocess instead of leaving port `8501` occupied.
+- Added an environment-backed webapp launch guard so Streamlit reruns cannot bypass the process-level Edge launch guard if module state is reloaded.
+
+## [1.3.90] - 2026-05-17
+
+### Fixed
+
+- Started bundled webapp-mode launcher sessions with Streamlit headless so installed builds do not open a normal browser window before app-owned Edge webapp launch.
+- Added stable HWND selection for launcher app-window monitoring so transient startup handles are ignored before shutdown lifecycle tracking begins.
+
 ## [1.3.89] - 2026-05-17
 
 ### Fixed

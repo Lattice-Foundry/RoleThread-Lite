@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import subprocess
 import sqlite3
+from types import SimpleNamespace
 
 import pytest
 
@@ -170,9 +171,26 @@ def test_bundled_command_uses_internal_streamlit_mode(tmp_path):
         "--global.developmentMode=false",
         "--server.port",
         "8501",
+        "--server.headless",
+        "true",
         "--",
         "webapp",
     )
+
+
+def test_bundled_normal_command_does_not_force_headless(tmp_path):
+    app_root = _make_app_root(tmp_path, with_dev_python=False)
+    launcher_exe = tmp_path / "RoleThreadLauncher.exe"
+    launcher_exe.write_text("", encoding="utf-8")
+
+    command = launcher.build_streamlit_command(
+        launcher_exe,
+        launch_mode=launcher.LAUNCH_MODE_NORMAL,
+        app_root=app_root,
+        frozen=True,
+    )
+
+    assert "--server.headless" not in command
 
 
 def test_dev_python_path_selection_prefers_venv_runtime(tmp_path):
@@ -451,6 +469,20 @@ def test_capture_rolethread_webapp_windows_parses_exact_hwnd_metadata(monkeypatc
     assert launcher.count_rolethread_webapp_windows(run_fn=fake_run) == 1
 
 
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        ("RoleThread Lite", True),
+        ("RoleThread Lite - Personal - Microsoft Edge", False),
+        ("RoleThread Lite - Microsoft Edge", False),
+        ("RoleThread", False),
+        ("Codex", False),
+    ],
+)
+def test_webapp_window_title_rejects_normal_edge_browser_chrome(title, expected):
+    assert launcher._is_rolethread_webapp_window_title(title) is expected
+
+
 def test_wait_for_app_window_close_tracks_exact_webapp_handle():
     target = launcher.WebappWindowInfo(
         handle="0x7D09AA",
@@ -459,7 +491,7 @@ def test_wait_for_app_window_close_tracks_exact_webapp_handle():
         class_name="Chrome_WidgetWin_1",
         process_name="msedge",
     )
-    calls = iter([(), (target,), (target,), ()])
+    calls = iter([(), (target,), (target,), (target,), ()])
 
     result = launcher.wait_for_app_window_close(
         launcher.LAUNCH_MODE_WEBAPP,
@@ -475,6 +507,36 @@ def test_wait_for_app_window_close_tracks_exact_webapp_handle():
     assert result.target_handle == "0x7D09AA"
     assert result.target_pid == 25740
     assert result.target_title == "RoleThread Lite"
+
+
+def test_wait_for_app_window_close_rejects_transient_webapp_handle():
+    transient = launcher.WebappWindowInfo(
+        handle="0x111",
+        pid=100,
+        title="RoleThread Lite",
+        class_name="Chrome_WidgetWin_1",
+        process_name="msedge",
+    )
+    stable = launcher.WebappWindowInfo(
+        handle="0x222",
+        pid=101,
+        title="RoleThread Lite",
+        class_name="Chrome_WidgetWin_1",
+        process_name="msedge",
+    )
+    calls = iter([(transient,), (), (stable,), (stable,), ()])
+
+    result = launcher.wait_for_app_window_close(
+        launcher.LAUNCH_MODE_WEBAPP,
+        capture_windows_fn=lambda: next(calls),
+        sleep_fn=lambda _: None,
+        appear_timeout_seconds=5,
+        poll_seconds=0,
+    )
+
+    assert result.supported is True
+    assert result.closed is True
+    assert result.target_handle == "0x222"
 
 
 def test_check_port_release_status_reports_free_port():
@@ -625,6 +687,69 @@ def test_build_subprocess_env_includes_shutdown_control(tmp_path):
     assert env["BASE"] == "1"
     assert env[SHUTDOWN_PORT_ENV] == "54321"
     assert env[SHUTDOWN_TOKEN_ENV] == "secret"
+    assert env[launcher.LAUNCHER_LOG_PATH_ENV] == str(config.log_path)
+    assert env[launcher.EXTERNAL_WEBAPP_LAUNCH_ENV] == "1"
+
+
+def test_build_subprocess_env_does_not_mark_normal_launch_as_external_webapp(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_NORMAL,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+
+    env = launcher.build_subprocess_env(config, {})
+
+    assert launcher.EXTERNAL_WEBAPP_LAUNCH_ENV not in env
+
+
+def test_launch_edge_webapp_window_uses_detected_edge_path(monkeypatch):
+    edge_path = Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe")
+    monkeypatch.setattr(
+        launcher,
+        "detect_browser_capabilities",
+        lambda: SimpleNamespace(
+            platform=SimpleNamespace(os_name="windows"),
+            browser=SimpleNamespace(edge_path=edge_path),
+        ),
+    )
+    commands = []
+
+    result = launcher.launch_edge_webapp_window(
+        url="http://127.0.0.1:8501",
+        popen=lambda command: commands.append(tuple(command)),
+    )
+
+    assert result.attempted is True
+    assert result.launched is True
+    assert result.command == (str(edge_path), "--app=http://127.0.0.1:8501")
+    assert commands == [result.command]
+
+
+def test_launch_edge_webapp_window_skips_without_edge(monkeypatch):
+    monkeypatch.setattr(
+        launcher,
+        "detect_browser_capabilities",
+        lambda: SimpleNamespace(
+            platform=SimpleNamespace(os_name="windows"),
+            browser=SimpleNamespace(edge_path=None),
+        ),
+    )
+
+    result = launcher.launch_edge_webapp_window(
+        popen=lambda command: (_ for _ in ()).throw(
+            AssertionError("should not launch without Edge")
+        ),
+    )
+
+    assert result.attempted is False
+    assert result.launched is False
 
 
 def test_request_graceful_shutdown_builds_tokenized_local_request(tmp_path):
@@ -800,6 +925,12 @@ def test_run_launcher_lifecycle_graceful_shutdown_path(tmp_path):
             "free",
             "released",
         ),
+        edge_launch_fn=lambda: launcher.EdgeLaunchResult(
+            True,
+            True,
+            ("msedge", "--app=http://127.0.0.1:8501"),
+            "launched",
+        ),
     )
 
     assert result.final_state == "graceful_shutdown"
@@ -861,6 +992,7 @@ def test_run_launcher_lifecycle_terminates_after_shutdown_timeout(tmp_path, monk
             "free",
             "released",
         ),
+        edge_launch_fn=lambda: launcher.EdgeLaunchResult(False, False, (), "skipped"),
     )
 
     assert result.final_state == "terminated"
@@ -952,8 +1084,69 @@ def test_run_launcher_lifecycle_does_not_shutdown_when_monitoring_unsupported(tm
             "unknown_process",
             "still occupied",
         ),
+        edge_launch_fn=lambda: (_ for _ in ()).throw(
+            AssertionError("normal mode should not launch Edge")
+        ),
     )
 
     assert result.final_state == "monitoring_unavailable"
     assert result.shutdown_request.attempted is False
+
+
+def test_run_launcher_lifecycle_terminates_owned_webapp_backend_when_window_never_appears(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "logs" / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+
+    class FakeProcess:
+        pid = 1001
+
+    result = launcher.run_launcher_lifecycle(
+        config,
+        popen=lambda *args, **kwargs: FakeProcess(),
+        port_available_fn=lambda: True,
+        health_check_fn=lambda: launcher.HealthCheckResult(True, "url", 1, "ok"),
+        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
+            False,
+            False,
+            False,
+            "Timed out waiting for the Edge app window to appear.",
+        ),
+        shutdown_request_fn=lambda cfg: (_ for _ in ()).throw(
+            AssertionError("shutdown should not run without app-window close")
+        ),
+        termination_fn=lambda process: launcher.TerminationResult(
+            True,
+            "terminate",
+            True,
+            "terminated owned backend",
+        ),
+        port_release_fn=lambda pid: launcher.PortReleaseStatus(
+            True,
+            None,
+            "free",
+            "released",
+        ),
+        edge_launch_fn=lambda: launcher.EdgeLaunchResult(
+            True,
+            True,
+            ("msedge", "--app=http://127.0.0.1:8501"),
+            "launched",
+        ),
+    )
+
+    assert result.final_state == "window_monitor_failed_terminated"
+    assert result.termination.attempted is True
+    assert result.termination.method == "terminate"
+    log_text = config.log_path.read_text(encoding="utf-8")
+    assert "lifecycle=window_monitor_failed" in log_text
+    assert "terminated owned backend" in log_text
 

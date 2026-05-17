@@ -27,6 +27,8 @@ from core.shutdown_control import (
     SHUTDOWN_PORT_ENV,
     SHUTDOWN_TOKEN_ENV,
 )
+from core.launch import EXTERNAL_WEBAPP_LAUNCH_ENV
+from core.platform import detect_browser_capabilities
 
 
 APP_NAME = "RoleThread Lite"
@@ -47,6 +49,7 @@ STREAMLIT_ARGS = (
     STREAMLIT_PORT,
 )
 INTERNAL_STREAMLIT_FLAG = "--rolethread-run-streamlit"
+LAUNCHER_LOG_PATH_ENV = "ROLETHREAD_LAUNCHER_LOG_PATH"
 LAUNCH_MODE_NORMAL = "normal"
 LAUNCH_MODE_WEBAPP = "webapp"
 WEBAPP_PREFERENCE_KEY = "enable_webapp_launch_mode"
@@ -101,6 +104,14 @@ class TerminationResult:
     attempted: bool
     method: str
     completed: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class EdgeLaunchResult:
+    attempted: bool
+    launched: bool
+    command: tuple[str, ...]
     message: str
 
 
@@ -356,7 +367,7 @@ def build_streamlit_command(
         if app_root is None:
             raise LauncherConfigurationError("Bundled launch requires an app root.")
         app_script = validate_app_root(app_root) / "app.py"
-        command: tuple[str, ...] = (
+        command_parts: tuple[str, ...] = (
             str(python_path),
             INTERNAL_STREAMLIT_FLAG,
             str(app_script),
@@ -364,6 +375,9 @@ def build_streamlit_command(
             "--server.port",
             STREAMLIT_PORT,
         )
+        if launch_mode == LAUNCH_MODE_WEBAPP:
+            command_parts = (*command_parts, "--server.headless", "true")
+        command = command_parts
     else:
         command = (str(python_path), *STREAMLIT_ARGS)
 
@@ -579,6 +593,9 @@ def build_subprocess_env(
     if config.shutdown_port and config.shutdown_token:
         child_env[SHUTDOWN_PORT_ENV] = str(config.shutdown_port)
         child_env[SHUTDOWN_TOKEN_ENV] = config.shutdown_token
+    child_env[LAUNCHER_LOG_PATH_ENV] = str(config.log_path)
+    if config.launch_mode == LAUNCH_MODE_WEBAPP:
+        child_env[EXTERNAL_WEBAPP_LAUNCH_ENV] = "1"
     return child_env
 
 
@@ -632,6 +649,51 @@ def build_streamlit_health_url(
     port: str = STREAMLIT_PORT,
 ) -> str:
     return f"http://{host}:{port}{STREAMLIT_HEALTH_PATH}"
+
+
+def build_streamlit_app_url(
+    *,
+    host: str = STREAMLIT_HOST,
+    port: str = STREAMLIT_PORT,
+) -> str:
+    return f"http://{host}:{port}"
+
+
+def launch_edge_webapp_window(
+    *,
+    url: str | None = None,
+    popen: Callable[..., subprocess.Popen] = subprocess.Popen,
+) -> EdgeLaunchResult:
+    """Open the launcher-managed Edge app window after Streamlit is healthy."""
+
+    detection = detect_browser_capabilities()
+    edge_path = detection.browser.edge_path
+    if detection.platform.os_name != "windows" or edge_path is None:
+        return EdgeLaunchResult(
+            attempted=False,
+            launched=False,
+            command=(),
+            message="Windows Microsoft Edge webapp launch is unavailable.",
+        )
+
+    target_url = url or build_streamlit_app_url()
+    command = (str(edge_path), f"--app={target_url}")
+    try:
+        popen(command)
+    except Exception as exc:
+        return EdgeLaunchResult(
+            attempted=True,
+            launched=False,
+            command=command,
+            message=f"Edge webapp launch failed: {exc}",
+        )
+
+    return EdgeLaunchResult(
+        attempted=True,
+        launched=True,
+        command=command,
+        message="Edge webapp launch command was started.",
+    )
 
 
 def wait_for_streamlit_health(
@@ -689,6 +751,100 @@ def capture_rolethread_webapp_windows(
 
     if os.name != "nt":
         return None
+    if run_fn is subprocess.run:
+        return capture_rolethread_webapp_windows_native()
+
+    return capture_rolethread_webapp_windows_powershell(run_fn=run_fn)
+
+
+def _resolve_process_name_native(pid: int) -> str:
+    """Return a Windows process image name using Win32 APIs when available."""
+
+    process_query_limited_information = 0x1000
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.OpenProcess(process_query_limited_information, False, int(pid))
+    if not handle:
+        return ""
+    try:
+        buffer = ctypes.create_unicode_buffer(32768)
+        size = ctypes.c_ulong(len(buffer))
+        if kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+            return Path(buffer.value).stem
+    finally:
+        kernel32.CloseHandle(handle)
+    return ""
+
+
+def capture_rolethread_webapp_windows_native() -> tuple[WebappWindowInfo, ...] | None:
+    """Return visible RoleThread Edge app windows using direct Win32 HWND APIs."""
+
+    if os.name != "nt":
+        return None
+    try:
+        user32 = ctypes.windll.user32
+    except Exception:
+        return None
+
+    enum_windows_proc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+    windows: list[WebappWindowInfo] = []
+
+    def callback(hwnd: int, lparam: int) -> bool:
+        try:
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            title_buffer = ctypes.create_unicode_buffer(512)
+            class_buffer = ctypes.create_unicode_buffer(256)
+            user32.GetWindowTextW(hwnd, title_buffer, len(title_buffer))
+            user32.GetClassNameW(hwnd, class_buffer, len(class_buffer))
+            title = title_buffer.value.strip()
+            class_name = class_buffer.value.strip()
+            if not _is_rolethread_webapp_window_title(title):
+                return True
+            if not class_name.startswith("Chrome_WidgetWin"):
+                return True
+            pid_value = ctypes.c_ulong(0)
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid_value))
+            pid = int(pid_value.value)
+            process_name = _resolve_process_name_native(pid).lower()
+            if process_name and process_name != "msedge":
+                return True
+            windows.append(
+                WebappWindowInfo(
+                    handle=f"0x{int(hwnd):X}",
+                    pid=pid,
+                    title=title,
+                    class_name=class_name,
+                    process_name=process_name or "unknown",
+                )
+            )
+        except Exception:
+            return True
+        return True
+
+    try:
+        if not user32.EnumWindows(enum_windows_proc(callback), 0):
+            return None
+    except Exception:
+        return None
+    return tuple(sorted(windows, key=lambda item: item.handle))
+
+
+def _is_rolethread_webapp_window_title(title: str) -> bool:
+    """Return whether a title looks like the app-mode window, not browser chrome."""
+
+    normalized = title.strip().lower()
+    if "rolethread lite" not in normalized:
+        return False
+    if "microsoft edge" in normalized:
+        return False
+    return True
+
+
+def capture_rolethread_webapp_windows_powershell(
+    *,
+    run_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> tuple[WebappWindowInfo, ...] | None:
+    """Return visible RoleThread Edge app windows using the legacy PowerShell probe."""
 
     script = """
 $ErrorActionPreference = 'Stop'
@@ -922,8 +1078,24 @@ def wait_for_exact_app_window_close(
                 target_title=target.title if target else "",
             )
         if windows:
-            target = sorted(windows, key=lambda item: item.handle)[0]
-            break
+            candidate = sorted(windows, key=lambda item: item.handle)[0]
+            sleep_fn(poll_seconds)
+            stable_windows = capture_windows_fn()
+            if stable_windows is None:
+                return WindowCloseDetectionResult(
+                    supported=False,
+                    closed=False,
+                    observed=False,
+                    message="Windows app-window detection became unavailable while selecting a stable target.",
+                    target_handle=candidate.handle,
+                    target_pid=candidate.pid,
+                    target_title=candidate.title,
+                )
+            stable_handles = {window.handle for window in stable_windows}
+            if candidate.handle in stable_handles:
+                target = candidate
+                break
+            continue
         sleep_fn(poll_seconds)
 
     if target is None:
@@ -1101,6 +1273,7 @@ def run_launcher_lifecycle(
         TerminationResult,
     ] = terminate_process_fallback,
     port_release_fn: Callable[[int | None], PortReleaseStatus] | None = None,
+    edge_launch_fn: Callable[[], EdgeLaunchResult] = launch_edge_webapp_window,
 ) -> LauncherLifecycleResult:
     """Start RoleThread and manage the first launcher-owned shutdown lifecycle."""
 
@@ -1159,6 +1332,19 @@ def run_launcher_lifecycle(
             final_state="health_failed",
         )
 
+    if config.launch_mode == LAUNCH_MODE_WEBAPP:
+        edge_launch = edge_launch_fn()
+        write_launcher_log(
+            config.log_path,
+            (
+                "lifecycle=edge_webapp_launch",
+                f"attempted={edge_launch.attempted}",
+                f"launched={edge_launch.launched}",
+                f"command={format_command(edge_launch.command)}",
+                f"message={edge_launch.message}",
+            ),
+        )
+
     close_waiter = wait_for_close_fn or (
         lambda mode, proc: wait_for_app_window_close(mode, process=proc)
     )
@@ -1184,12 +1370,31 @@ def run_launcher_lifecycle(
             status_code=None,
             message="Skipped shutdown request because app-window close was not detected.",
         )
-        termination = TerminationResult(
-            attempted=False,
-            method="none",
-            completed=False,
-            message="Lifecycle monitor did not own shutdown for this launch mode.",
-        )
+        if config.launch_mode == LAUNCH_MODE_WEBAPP:
+            termination = termination_fn(process)
+            final_state = (
+                "window_monitor_failed_terminated"
+                if termination.completed
+                else "window_monitor_failed_termination_failed"
+            )
+            write_launcher_log(
+                config.log_path,
+                (
+                    "lifecycle=window_monitor_failed",
+                    "reason=webapp window was not observed or did not close",
+                    f"termination_method={termination.method}",
+                    f"termination_completed={termination.completed}",
+                    f"termination_message={termination.message}",
+                ),
+            )
+        else:
+            termination = TerminationResult(
+                attempted=False,
+                method="none",
+                completed=False,
+                message="Lifecycle monitor did not own shutdown for this launch mode.",
+            )
+            final_state = "monitoring_unavailable"
         log_port_release_status(
             config.log_path,
             (port_release_fn or (lambda owner_pid: check_port_release_status(owned_pid=owner_pid)))(
@@ -1203,7 +1408,7 @@ def run_launcher_lifecycle(
             close_detection=close_detection,
             shutdown_request=shutdown_result,
             termination=termination,
-            final_state="monitoring_unavailable",
+            final_state=final_state,
         )
 
     shutdown_result = shutdown_request_fn(config)

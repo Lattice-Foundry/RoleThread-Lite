@@ -4,11 +4,15 @@ Owns app startup and session initialization. Navigation wiring and page-state
 compatibility live in ui.navigation.
 """
 import atexit
+from datetime import datetime
+import os
 from pathlib import Path
 
 import streamlit as st
 
 from core.launch import (
+    build_external_webapp_launch_status,
+    is_external_webapp_launcher,
     should_show_dev_diagnostics,
     parse_launch_flags,
 )
@@ -17,6 +21,29 @@ from core.shutdown_control import start_launcher_shutdown_server
 
 st.set_page_config(page_title="RoleThread Lite", layout="wide")
 start_launcher_shutdown_server()
+
+
+def _write_webapp_startup_log(*lines: str) -> None:
+    """Write bundled webapp launch breadcrumbs for launcher diagnostics."""
+
+    log_path_value = os.environ.get("ROLETHREAD_LAUNCHER_LOG_PATH", "").strip()
+    if log_path_value:
+        log_path = Path(log_path_value)
+    else:
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if not local_app_data:
+            return
+        log_path = Path(local_app_data) / "RoleThread" / "logs" / "launcher.log"
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().isoformat(timespec="seconds")
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"[{timestamp}] RoleThread Lite app webapp startup\n")
+            for line in lines:
+                handle.write(f"{line}\n")
+            handle.write("\n")
+    except Exception:
+        return
 
 _runtime_status = get_python_runtime_status()
 if _runtime_status.is_below_minimum:
@@ -49,32 +76,61 @@ def _handle_webapp_launch(flags) -> None:
         diff_edge_process_snapshots,
         diff_edge_window_snapshots,
         get_webapp_launch_guidance,
+        is_external_webapp_launcher,
         should_attempt_webapp_launch,
         supports_managed_webapp_launch,
     )
     from core.platform import detect_browser_capabilities
 
+    external_launcher = is_external_webapp_launcher()
+    _write_webapp_startup_log(
+        "event=webapp_flag_detected",
+        f"session_guard={bool(st.session_state.get('_dev_webapp_launch_attempted'))}",
+        f"env_guard={os.environ.get('ROLETHREAD_WEBAPP_LAUNCH_ATTEMPTED', '')}",
+        f"external_launcher={external_launcher}",
+    )
     browser_detection = detect_browser_capabilities()
     if flags.dev:
         st.session_state["_dev_webapp_launch_guidance"] = get_webapp_launch_guidance(
             flags,
             streamlit_headless=_get_streamlit_headless_config(),
+            external_launcher=external_launcher,
         )
     should_attempt = should_attempt_webapp_launch(
         flags,
         already_attempted=bool(st.session_state.get("_dev_webapp_launch_attempted")),
+        external_launcher=external_launcher,
     )
     if not should_attempt:
+        if flags.webapp and external_launcher:
+            st.session_state["_dev_webapp_launch_status"] = build_external_webapp_launch_status(
+                flags,
+            )
+        _write_webapp_startup_log("event=webapp_launch_skipped_by_guard")
         return
 
     st.session_state["_dev_webapp_launch_attempted"] = True
     managed_webapp_supported = supports_managed_webapp_launch(browser_detection)
+    _write_webapp_startup_log(
+        "event=webapp_launch_precheck",
+        f"managed_supported={managed_webapp_supported}",
+        f"platform={browser_detection.platform.os_name}",
+        f"edge_path={browser_detection.browser.edge_path}",
+    )
     if managed_webapp_supported:
         edge_before = capture_edge_process_snapshot()
         edge_windows_before = capture_edge_window_snapshot()
     st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(
         flags,
         browser_detection=browser_detection,
+    )
+    launch_status = st.session_state["_dev_webapp_launch_status"]
+    _write_webapp_startup_log(
+        "event=edge_launch_attempt_result",
+        f"status={launch_status.status_code}",
+        f"attempted={launch_status.attempted}",
+        f"launched={launch_status.launched}",
+        f"message={launch_status.message}",
     )
     if not managed_webapp_supported:
         st.session_state["_webapp_unsupported_notice"] = (
@@ -104,6 +160,16 @@ def _handle_webapp_launch(flags) -> None:
         window_diff=edge_window_diff,
     )
     cleanup_status = st.session_state["_dev_edge_cleanup_status"]
+    _write_webapp_startup_log(
+        "event=duplicate_browser_cleanup_result",
+        f"status={cleanup_status.status_code}",
+        f"attempted={cleanup_status.attempted}",
+        f"method={cleanup_status.method}",
+        f"target={cleanup_status.target_pid}",
+        f"result={cleanup_status.result}",
+        f"message={cleanup_status.message}",
+        f"decision={' | '.join(cleanup_status.decision_details)}",
+    )
     if flags.dev:
         print(
             "RoleThread Edge cleanup: "

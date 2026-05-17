@@ -21,6 +21,7 @@ DEV_FLAG = "dev"
 EDGE_DEBUG_FLAG = "edge-debug"
 WEBAPP_DEBUG_FLAG = "webapp-debug"
 EXTERNAL_WEBAPP_LAUNCH_ENV = "ROLETHREAD_EXTERNAL_WEBAPP_LAUNCH"
+WEBAPP_LAUNCH_ATTEMPTED_ENV = "ROLETHREAD_WEBAPP_LAUNCH_ATTEMPTED"
 DEFAULT_STREAMLIT_LOCAL_URL = "http://localhost:8501"
 RECOMMENDED_V1_LAUNCH_COMMAND = "streamlit run app.py"
 WEBAPP_EXPERIMENTAL_MESSAGE = (
@@ -1226,8 +1227,8 @@ def build_external_webapp_launch_status(
         edge_path=None,
         command=(),
         message=(
-            "External dev launcher mode is experimental and deferred. RoleThread skipped "
-            "in-app Edge launch; use the normal browser workflow for V1."
+            "Launcher-managed webapp mode is active. RoleThread skipped in-app "
+            "Edge launch because the Windows launcher owns the initial app window."
         ),
         status_code=WEBAPP_LAUNCH_STATUS_EXTERNAL,
     )
@@ -1239,6 +1240,7 @@ def reset_webapp_launch_guard_for_tests() -> None:
     global _webapp_launch_attempted, _webapp_launch_status
     _webapp_launch_attempted = False
     _webapp_launch_status = None
+    os.environ.pop(WEBAPP_LAUNCH_ATTEMPTED_ENV, None)
 
 
 def get_webapp_launch_status() -> EdgeWebappLaunchStatus | None:
@@ -1273,7 +1275,13 @@ def attempt_webapp_launch(
             status_code=WEBAPP_LAUNCH_STATUS_NOT_REQUESTED,
         )
 
-    if _webapp_launch_attempted:
+    env_attempted = os.environ.get(WEBAPP_LAUNCH_ATTEMPTED_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if _webapp_launch_attempted or env_attempted:
         if _webapp_launch_status is not None:
             return EdgeWebappLaunchStatus(
                 webapp_requested=True,
@@ -1305,6 +1313,7 @@ def attempt_webapp_launch(
         )
 
     _webapp_launch_attempted = True
+    os.environ[WEBAPP_LAUNCH_ATTEMPTED_ENV] = "1"
 
     detection = browser_detection or detect_browser_capabilities()
     platform_info = detection.platform

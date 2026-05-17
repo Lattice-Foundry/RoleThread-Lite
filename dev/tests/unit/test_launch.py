@@ -24,6 +24,7 @@ from core.launch import (
     RECOMMENDED_WEBAPP_STREAMLIT_COMMAND,
     WEBAPP_AUTOMATION_DEFERRED_MESSAGE,
     WEBAPP_DEBUG_FLAG,
+    WEBAPP_LAUNCH_ATTEMPTED_ENV,
     WEBAPP_LAUNCH_STATUS_FALLBACK,
     WEBAPP_UNSUPPORTED_PLATFORM_MESSAGE,
     attempt_webapp_launch,
@@ -190,7 +191,7 @@ def test_external_launch_status_records_app_skip():
     assert status.attempted is False
     assert status.launched is False
     assert status.status_code == "external_orchestrated"
-    assert "experimental and deferred" in status.message
+    assert "Launcher-managed webapp mode is active" in status.message
 
 
 def test_external_launch_status_ignores_missing_flag():
@@ -386,6 +387,22 @@ def test_attempt_webapp_launch_is_process_idempotent():
     assert second.status_code == "already_attempted"
     assert "already handled" in second.message
     assert commands == [first.command]
+
+
+def test_attempt_webapp_launch_uses_env_guard_for_rerun_resilience(monkeypatch):
+    monkeypatch.setenv(WEBAPP_LAUNCH_ATTEMPTED_ENV, "1")
+
+    status = attempt_webapp_launch(
+        LaunchFlags(webapp=True),
+        url="http://localhost:8501",
+        popen_fn=lambda command: (_ for _ in ()).throw(
+            AssertionError("should not launch when env guard is set")
+        ),
+    )
+
+    assert status.launched is False
+    assert status.attempted is False
+    assert status.status_code == "already_attempted"
 
 
 def test_should_attempt_webapp_launch_guards_reruns():
