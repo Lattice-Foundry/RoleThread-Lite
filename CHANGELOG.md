@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.69] - 2026-05-16
+
+### Internal
+
+- Verified code comments, docstrings, developer docs, installer notes, scripts, tests, and changelog text use RoleThread naming consistently.
+- Confirmed tracked-source developer text has no remaining retired-brand references or transition-branding notes.
+
 ## [1.3.68] - 2026-05-16
 
 ### Changed
