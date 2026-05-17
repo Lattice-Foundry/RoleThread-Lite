@@ -37,6 +37,8 @@ from ui.file_dialogs import (
 from core.storage import get_backups_dir, get_default_training_data_dir
 from ui.session_state import update_prefs
 
+INLINE_CODE_TEXT_GREEN = "#3D9F64"
+
 
 def render_settings_page() -> None:
     """Render the Settings page."""
@@ -490,6 +492,33 @@ def _render_platform_about() -> None:
             _render_platform_paths(platform_paths, include_source=False, include_advanced=False)
             with st.expander("Advanced storage paths"):
                 _render_advanced_platform_paths(platform_paths, include_source=False)
+
+    st.divider()
+    st.markdown(_format_project_info_markup(), unsafe_allow_html=True)
+
+
+def _format_project_info_markup() -> str:
+    """Return the official project attribution block for Settings/About."""
+
+    return f"""
+<div style="line-height: 1.7; color: #FFFFFF;">
+  <div>Developed by:</div>
+  <br>
+  <div>
+    <span style="color: {INLINE_CODE_TEXT_GREEN}; font-weight: 700;">LatticeFoundry</span><br>
+    <span>A Sierra Cognitive Group company</span>
+  </div>
+  <br>
+  <div>
+    <span>latticefoundry.dev</span><br>
+    <span>github.com/Lattice-Foundry/RoleThread-Lite</span>
+  </div>
+  <br>
+  <div>
+    <span>Scott Jackson | </span><span style="color: {INLINE_CODE_TEXT_GREEN}; font-weight: 700;">d1g1talshad0w</span>
+  </div>
+</div>
+"""
 
 
 def _platform_capability_labels(capabilities) -> tuple[tuple[str, bool], ...]:

@@ -108,3 +108,16 @@ def test_launch_flags_detected_summary_is_compact():
         LaunchFlags(dev=True, webapp=True, edge_debug=True)
     ) == "`dev`, `webapp`, `edge-debug/webapp-debug`"
 
+
+def test_project_info_markup_preserves_official_attribution_and_colors():
+    markup = ui_settings._format_project_info_markup()
+
+    assert "Developed by:" in markup
+    assert "LatticeFoundry" in markup
+    assert "A Sierra Cognitive Group company" in markup
+    assert "latticefoundry.dev" in markup
+    assert "github.com/Lattice-Foundry/RoleThread-Lite" in markup
+    assert "Scott Jackson | " in markup
+    assert "d1g1talshad0w" in markup
+    assert markup.count("color: #3D9F64") == 2
+
