@@ -18,9 +18,9 @@ Start from **Manage Dataset**.
 
 Use names that describe the dataset clearly:
 
-- `nicole_group_scenes`
+- `group_chat_examples`
 - `fantasy_tavern_dialogue`
-- `medical_roleplay_v1`
+- `support_conversations_v1`
 - `character_training_short_responses`
 
 Avoid names that are too generic, such as:

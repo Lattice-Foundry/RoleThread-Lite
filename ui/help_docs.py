@@ -215,9 +215,23 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         120,
         "Using tags and categories as durable organizational metadata.",
         (
+            "understanding-default-tags",
             "archived-and-imported-tags",
             "insights-and-dataset-quality",
             "exporting-datasets",
+        ),
+    ),
+    HelpArticle(
+        "understanding-default-tags",
+        "27_understanding_default_tags.md",
+        "Understanding Default Tags",
+        "Metadata and Organization",
+        125,
+        "The V1 built-in tag taxonomy and how to use defaults versus custom tags.",
+        (
+            "tags-categories-and-tag-lifecycle",
+            "archived-and-imported-tags",
+            "insights-and-dataset-quality",
         ),
     ),
     HelpArticle(
@@ -228,6 +242,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         130,
         "Handling unknown, inactive, and imported tag vocabulary safely.",
         (
+            "understanding-default-tags",
             "tags-categories-and-tag-lifecycle",
             "loading-datasets-and-working-copies",
             "sidecars-and-portable-metadata",

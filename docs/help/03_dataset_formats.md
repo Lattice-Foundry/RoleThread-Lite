@@ -28,7 +28,7 @@ ChatML is RoleThread Lite's main working format. A ChatML-style entry has a `mes
     {"role": "user", "content": "What does the traveler see?"},
     {"role": "assistant", "content": "The road bends toward a watchtower half swallowed by ivy."}
   ],
-  "tags": ["fantasy", "scene_description"]
+  "tags": ["roleplay", "descriptive"]
 }
 ```
 

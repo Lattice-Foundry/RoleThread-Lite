@@ -16,6 +16,16 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.71] - 2026-05-16
+
+### Added
+
+- Added a Help article explaining the finalized V1 default tag taxonomy, including every built-in category and tag.
+
+### Changed
+
+- Cleaned stale prototype-style tag examples from Help docs and reinforced custom tags as the place for domain-specific vocabulary.
+
 ## [1.3.70] - 2026-05-16
 
 ### Changed

@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 26
+    assert len(registry) == 27
     assert get_default_help_article_id() == "getting-started"
     assert registry["getting-started"].file_name == "01_getting_started.md"
     assert registry["glossary"].category == "Reference"
@@ -103,6 +103,8 @@ def test_help_article_registry_has_expected_articles():
         registry["os-compatibility-and-storage-policy"].file_name
         == "25_os_compatibility_and_storage.md"
     )
+    assert registry["understanding-default-tags"].file_name == "27_understanding_default_tags.md"
+    assert registry["understanding-default-tags"].category == "Metadata and Organization"
     assert registry["developer-launch-flags"].file_name == "26_developer_launch_flags.md"
     assert registry["developer-launch-flags"].category == "Reference"
     assert len(registry) == len(set(registry))
@@ -147,6 +149,19 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "Cloud sync folders are optional backup or sync targets" in document.content
 
 
+def test_understanding_default_tags_documents_v1_taxonomy():
+    document = load_help_document("understanding-default-tags")
+
+    assert document.article.title == "Understanding Default Tags"
+    assert "conversational dataset engineering" in document.content
+    assert "`no_user_control`" in document.content
+    assert "`grounded`" in document.content
+    assert "`imported`" in document.content
+    assert "`duplicate`" in document.content
+    assert "Custom tags are expected" in document.content
+    assert "Overtagging can become noisy" in document.content
+
+
 def test_help_article_registry_has_unique_file_names_and_orders():
     articles = tuple(get_help_article_registry().values())
     file_names = [article.file_name for article in articles]
@@ -178,6 +193,14 @@ def test_help_article_category_order_and_grouping():
         "dataset-formats",
         "loading-datasets-and-working-copies",
         "creating-a-new-dataset",
+    ]
+    assert [article.article_id for article in grouped["Metadata and Organization"]] == [
+        "tags-categories-and-tag-lifecycle",
+        "understanding-default-tags",
+        "archived-and-imported-tags",
+        "character-registry-and-character-mappings",
+        "system-prompt-library",
+        "sidecars-and-portable-metadata",
     ]
     assert [article.article_id for article in grouped["Reference"]] == [
         "glossary",
