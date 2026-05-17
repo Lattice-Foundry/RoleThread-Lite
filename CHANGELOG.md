@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.1] - 2026-05-17
+
+### Added
+
+- Added the first Tools > Data Generation UI for compiling placeholder external-generation prompts from structured settings.
+- Added a framework-independent generation service between the Streamlit page and the core prompt compiler.
+
 ## [1.4.0] - 2026-05-17
 
 ### Added

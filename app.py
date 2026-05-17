@@ -206,6 +206,7 @@ from ui.session_state import (
 from ui.navigation import (
     PAGE_CHARACTER_MANAGEMENT,
     PAGE_CREATE_ENTRY,
+    PAGE_DATA_GENERATION,
     PAGE_EDIT_ENTRIES,
     PAGE_EXPORT,
     PAGE_FAQ,
@@ -229,6 +230,7 @@ from ui.ui_create import init_editor_state, render_create_page
 from ui.ui_edit_entries import render_edit_entries_page
 from ui.ui_export import render_export_page
 from ui.ui_faq import render_faq_page
+from ui.ui_generation import render_generation_page
 from ui.ui_help import render_help_page
 from ui.ui_tag_management import render_tag_management_page
 from ui.manage import render_manage_page
@@ -623,6 +625,7 @@ _PAGE_RENDERERS = {
     PAGE_EDIT_ENTRIES: render_edit_entries_page,
     PAGE_MERGE_DATASETS: render_merge_page,
     PAGE_EXPORT: render_export_page,
+    PAGE_DATA_GENERATION: render_generation_page,
     PAGE_VALIDATION: render_validation_page,
     PAGE_TAG_MANAGEMENT: render_tag_management_page,
     PAGE_CHARACTER_MANAGEMENT: render_character_management_page,

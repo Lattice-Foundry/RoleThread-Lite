@@ -52,6 +52,7 @@ def test_page_registry_exposes_legacy_pages():
 
     assert navigation.PAGE_CREATE_ENTRY in registry
     assert navigation.PAGE_MANAGE_DATASET in registry
+    assert navigation.PAGE_DATA_GENERATION in registry
     assert navigation.PAGE_EDIT_ENTRIES in registry
     assert navigation.PAGE_EDIT_ENTRIES == "Edit Entries"
     assert navigation.get_page_title(navigation.PAGE_EDIT_ENTRIES) == "Deep Edit"
@@ -103,6 +104,9 @@ def test_top_navigation_sections_follow_workflow_categories():
         "Output": [
             navigation.PAGE_MERGE_DATASETS,
             navigation.PAGE_EXPORT,
+        ],
+        "Tools": [
+            navigation.PAGE_DATA_GENERATION,
         ],
         "Support": [
             navigation.PAGE_HELP,

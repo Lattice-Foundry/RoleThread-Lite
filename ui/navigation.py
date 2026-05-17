@@ -18,6 +18,7 @@ PAGE_MANAGE_DATASET = "Manage Dataset"
 PAGE_EDIT_ENTRIES = "Edit Entries"
 PAGE_MERGE_DATASETS = "Merge Datasets"
 PAGE_EXPORT = "Export"
+PAGE_DATA_GENERATION = "Data Generation"
 PAGE_VALIDATION = "Validation"
 PAGE_TAG_MANAGEMENT = "Tag Management"
 PAGE_CHARACTER_MANAGEMENT = "Character Management"
@@ -74,6 +75,13 @@ _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
         "Output",
         ":material/download:",
         "export",
+    ),
+    PageDefinition(
+        PAGE_DATA_GENERATION,
+        "Data Generation",
+        "Tools",
+        ":material/manufacturing:",
+        "data-generation",
     ),
     PageDefinition(
         PAGE_VALIDATION,
@@ -150,6 +158,7 @@ _TOP_NAVIGATION_ORDER = {
     ),
     "Quality": (PAGE_VALIDATION, PAGE_INSIGHTS),
     "Output": (PAGE_MERGE_DATASETS, PAGE_EXPORT),
+    "Tools": (PAGE_DATA_GENERATION,),
     "Support": (PAGE_HELP, PAGE_FAQ, PAGE_SETTINGS),
 }
 
