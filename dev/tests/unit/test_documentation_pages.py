@@ -295,12 +295,14 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert packaging.article.category == "For Developers"
     assert "PyInstaller one-folder bundle" in packaging.content
     assert "Inno Setup" in packaging.content
+    assert "Inno Setup installer prototype" in packaging.content
     assert "GitHub Releases" in packaging.content
     assert "requirements-dev.txt" in packaging.content
     assert "Generated artifacts do not belong in Git" in packaging.content
 
     assert launcher.article.category == "For Developers"
     assert "startup orchestrator" in launcher.content
+    assert "installer prototype installs bundled app files" in launcher.content
     assert "selected launch mode" in launcher.content
     assert "windowed/no-console" in launcher.content
     assert "local-only shutdown endpoint" in launcher.content

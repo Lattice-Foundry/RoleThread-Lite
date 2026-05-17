@@ -1,3 +1,8 @@
 -r requirements.txt
 pytest
 pyinstaller
+
+# External Windows installer prerequisite:
+# Inno Setup 6 provides ISCC.exe and is not installed through pip.
+# Recommended Windows install:
+# winget install --id JRSoftware.InnoSetup -e

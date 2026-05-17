@@ -16,6 +16,16 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.81] - 2026-05-17
+
+### Added
+
+- Added the first Inno Setup installer prototype for packaging the PyInstaller bundle into a Windows setup executable.
+
+### Changed
+
+- Replaced the installer scaffold script with a real Inno compiler wrapper that validates prerequisites and reports the generated setup path.
+
 ## [1.3.80] - 2026-05-17
 
 ### Added

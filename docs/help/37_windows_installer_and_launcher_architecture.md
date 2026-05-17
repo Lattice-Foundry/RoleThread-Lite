@@ -81,7 +81,7 @@ The launcher should not invent its own browser cleanup. It should call the app's
 
 ## Installer Responsibilities
 
-The Inno Setup installer will install bundled app files and create shortcuts to the wrapped launcher.
+The Inno Setup installer prototype installs bundled app files and creates shortcuts to the wrapped launcher.
 
 The installer should keep app/runtime files separate from user data. Default uninstall should remove installed app files while preserving datasets, preferences, exports, backups, logs, and cache unless the user explicitly chooses full data removal.
 

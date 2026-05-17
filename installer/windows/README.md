@@ -178,6 +178,68 @@ Enable webapp launch mode**, close RoleThread, then run the bundled launcher
 again. The launcher should pass the app's `webapp` flag through the same
 internal startup path used by source/dev mode.
 
+## Inno Setup Installer Prototype
+
+The first installer prototype packages the PyInstaller one-folder bundle into a
+standard Windows setup executable.
+
+Source-controlled installer files:
+
+```text
+installer/windows/inno/rolethread_lite.iss
+installer/windows/scripts/build_installer.ps1
+```
+
+Prerequisite:
+
+```text
+Inno Setup 6
+```
+
+Recommended Windows install:
+
+```powershell
+winget install --id JRSoftware.InnoSetup -e
+```
+
+Build the PyInstaller bundle first:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_bundle.ps1
+```
+
+Then build the installer:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_installer.ps1
+```
+
+The installer script can also build the bundle first:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\build_installer.ps1 -BuildBundle
+```
+
+Expected setup output:
+
+```text
+installer\windows\output\RoleThreadLiteSetup-v<version>.exe
+```
+
+The prototype installer:
+
+- installs bundled app/runtime files under `{autopf}\RoleThread Lite`
+- creates a Start Menu shortcut named **RoleThread Lite**
+- offers an optional Desktop shortcut
+- registers a normal Windows uninstaller
+- offers **Launch RoleThread Lite** after setup completes
+- removes installed app/runtime files and shortcuts during normal uninstall
+- preserves `%LOCALAPPDATA%\RoleThread` and `%USERPROFILE%\RoleThread`
+
+The prototype installer does not yet implement firewall rules, code signing,
+auto-update, GitHub Release automation, final branding polish, or optional
+full user-data removal.
+
 ## Dev Launcher Smoke Test
 
 Run the launcher prototype from the repository root:
@@ -307,7 +369,8 @@ Pushing to `main` does not automatically create installer artifacts unless CI/CD
 
 ## Current Status
 
-This is still pre-installer work. The source-controlled scripts can build a
-PyInstaller one-folder launcher bundle prototype, but they do not build the
-final Inno installer, create shortcuts, implement uninstall behavior, or
-produce a release setup executable.
+This is installer prototype work. The source-controlled scripts can build a
+PyInstaller one-folder launcher bundle and package that bundle into a first
+Inno Setup installer executable. The prototype does not yet implement firewall
+rules, code signing, auto-update, final full-uninstall data removal, or release
+publishing automation.

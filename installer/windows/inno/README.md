@@ -1,9 +1,21 @@
 # Inno Setup Sources
 
-Future Inno Setup source files for the RoleThread Lite Windows installer belong here.
+This folder contains source-controlled Inno Setup scripts for the RoleThread
+Lite Windows installer.
 
-Generated Inno output, including final setup executables, should not be committed. Those artifacts belong in local build folders and GitHub Releases.
+The current prototype script is:
 
-The initial installer script will be added in a later pass after the Windows launcher and PyInstaller bundle shape are stable.
+```text
+rolethread_lite.iss
+```
+
+It packages the PyInstaller one-folder bundle from:
+
+```text
+installer/windows/dist/RoleThreadLauncher/
+```
+
+Generated Inno output, including final setup executables, should not be
+committed. Those artifacts belong in local build folders and GitHub Releases.
 
 

@@ -359,6 +359,48 @@ def test_pyinstaller_spec_uses_windowed_no_console_mode():
     assert "console=True" not in spec_text
 
 
+def test_inno_installer_script_packages_launcher_bundle():
+    inno_path = (
+        Path(__file__).parents[3]
+        / "installer"
+        / "windows"
+        / "inno"
+        / "rolethread_lite.iss"
+    )
+    inno_text = inno_path.read_text(encoding="utf-8")
+
+    assert "AppName={#AppName}" in inno_text
+    assert '#define AppName "RoleThread Lite"' in inno_text
+    assert "DefaultDirName={autopf}\\RoleThread Lite" in inno_text
+    assert "#define BundleDir \"..\\dist\\RoleThreadLauncher\"" in inno_text
+    assert "Source: \"{#BundleDir}\\*\"" in inno_text
+    assert "Name: \"{group}\\RoleThread Lite\"" in inno_text
+    assert "Name: \"{autodesktop}\\RoleThread Lite\"" in inno_text
+    assert "Tasks: desktopicon" in inno_text
+    assert "postinstall" in inno_text
+    assert "OutputBaseFilename=RoleThreadLiteSetup-v{#AppVersion}" in inno_text
+
+
+def test_build_installer_script_validates_bundle_and_inno_compiler():
+    script_path = (
+        Path(__file__).parents[3]
+        / "installer"
+        / "windows"
+        / "scripts"
+        / "build_installer.ps1"
+    )
+    script_text = script_path.read_text(encoding="utf-8")
+
+    assert "rolethread_lite.iss" in script_text
+    assert "RoleThreadLauncher.exe" in script_text
+    assert "Resolve-InnoCompiler" in script_text
+    assert "ISCC.exe" in script_text
+    assert "Inno Setup compiler was not found" in script_text
+    assert "/DAppVersion=$version" in script_text
+    assert "RoleThreadLiteSetup-v$version.exe" in script_text
+    assert "BuildBundle" in script_text
+
+
 def test_shutdown_control_resolves_only_when_launcher_env_is_complete():
     assert resolve_launcher_shutdown_control({}) is None
     assert resolve_launcher_shutdown_control(

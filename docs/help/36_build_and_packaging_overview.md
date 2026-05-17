@@ -74,7 +74,7 @@ The expected early release flow is manual:
 1. bump and tag the release
 2. run the Windows bundle build
 3. smoke-test the bundled app outside the repository
-4. build the installer when that pass exists
+4. build the Inno Setup installer prototype
 5. test install, launch, uninstall, and data preservation behavior
 6. upload the setup executable to GitHub Releases
 
