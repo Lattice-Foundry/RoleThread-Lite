@@ -27,7 +27,12 @@ function Resolve-InnoCompiler {
 
     $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
     $programFiles = [Environment]::GetEnvironmentVariable("ProgramFiles")
+    $localAppData = [Environment]::GetEnvironmentVariable("LOCALAPPDATA")
     $candidates = @()
+
+    if ($localAppData) {
+        $candidates += Join-Path $localAppData "Programs\Inno Setup 6\ISCC.exe"
+    }
 
     if ($programFilesX86) {
         $candidates += Join-Path $programFilesX86 "Inno Setup 6\ISCC.exe"
@@ -51,6 +56,7 @@ Recommended install command:
 winget install --id JRSoftware.InnoSetup -e
 
 Expected common locations:
+- $localAppData\Programs\Inno Setup 6\ISCC.exe
 - $programFilesX86\Inno Setup 6\ISCC.exe
 - $programFiles\Inno Setup 6\ISCC.exe
 "@

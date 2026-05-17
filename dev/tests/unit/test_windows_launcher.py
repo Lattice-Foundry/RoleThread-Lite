@@ -399,6 +399,8 @@ def test_build_installer_script_validates_bundle_and_inno_compiler():
     assert "/DAppVersion=$version" in script_text
     assert "RoleThreadLiteSetup-v$version.exe" in script_text
     assert "BuildBundle" in script_text
+    assert "LOCALAPPDATA" in script_text
+    assert "Programs\\Inno Setup 6\\ISCC.exe" in script_text
 
 
 def test_shutdown_control_resolves_only_when_launcher_env_is_complete():
