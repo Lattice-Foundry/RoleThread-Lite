@@ -87,5 +87,4 @@ RoleThread Lite is currently a Streamlit app, but the core design keeps future o
 
 A future RoleThread Studio surface, native shell, or different UI technology should be able to reuse much of the Python core and service logic. That does not mean Lite is already Studio. It means Lite avoids tying every important rule to one UI framework.
 
-This is why the project is careful about boundaries: local-first behavior, deterministic workflows, and reusable service logic are easier to preserve when the layers have clear responsibilities.
-
+This is why the project is careful about boundaries: deterministic workflows, user-controlled data, and reusable service logic are easier to preserve when the layers have clear responsibilities.

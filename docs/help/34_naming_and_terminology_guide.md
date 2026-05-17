@@ -34,7 +34,7 @@ Use this term when the discussion is about back-and-forth conversational structu
 
 A `working copy` is the editable local copy RoleThread uses while protecting the original imported file.
 
-This term matters because RoleThread is local-first and cautious about user data. The working copy is where active changes happen; the original file should remain recoverable.
+This term matters because RoleThread is cautious about direct filesystem ownership and user-controlled data. The working copy is where active changes happen; the original file should remain recoverable.
 
 ## Sidecar
 
@@ -72,8 +72,6 @@ Use this term for the workflow shape, not as a generic replacement for every mul
 
 ## Slugs and Labels
 
-Python identifiers should follow standard `snake_case` conventions.
-
 Tag slugs should be lowercase `snake_case`, stable, and machine-friendly. Human-readable labels can be separate from slugs and should be used when the UI needs friendlier text.
 
 Good examples:
@@ -85,9 +83,33 @@ Good examples:
 
 Avoid making slugs depend on capitalization, punctuation, or display styling.
 
+## Python Naming and Style
+
+RoleThread follows PEP 8 where practical.
+
+The goal is readable, maintainable code rather than rigid style-lawyering. Contributors should prefer names that make workflows and side effects clear.
+
+Use standard Python conventions:
+
+- `snake_case` for variables, functions, and modules
+- `PascalCase` for classes and dataclasses
+- `ALL_CAPS` for constants
+- lowercase `snake_case` for tag slugs and stable metadata keys
+
+Prefer descriptive workflow-oriented names over clever abbreviations or vague internal jargon.
+
+Good examples:
+
+- `save_dataset()`
+- `create_dataset_backup()`
+- `replace_tags_bulk_service()`
+
+Service names may be longer when the name clarifies the workflow. A function that writes files, creates backups, replaces tags, or updates sidecars should not hide those side effects behind a cute or overly generic name.
+
+Small pragmatic deviations from PEP 8 are acceptable when they make a workflow easier to read, but the default posture should be consistency, explicitness, and boring clarity.
+
 ## Why Naming Discipline Matters
 
 Consistent terminology lowers the cost of contributing.
 
 When UI labels, Help docs, tests, service names, and metadata concepts use the same words, contributors spend less time translating between mental models. That makes the project easier to maintain, and it makes future Studio work easier to reason about without turning Lite into something it is not.
-

@@ -53,7 +53,7 @@ The split is simple:
 - Lite stays focused and reliable.
 - Studio absorbs heavier and more experimental workflows.
 
-Not every useful idea belongs in Lite. A feature can be valuable and still be the wrong fit for a local-first dataset editor.
+Not every useful idea belongs in Lite. A feature can be valuable and still be the wrong fit for a focused dataset editor.
 
 Lite should protect the core workflow: open data, inspect it, improve it, validate it, back it up, and export it cleanly. Studio can explore workflows that need more orchestration, more automation, or more runtime complexity.
 
@@ -74,4 +74,3 @@ RoleThread Studio is conceptual and planned.
 It is not publicly released, and this Help article should not be read as a commitment to specific features, dates, or packaging decisions.
 
 For V1, RoleThread Lite remains the product surface: local-first dataset crafting, validation, repair, organization, and export.
-

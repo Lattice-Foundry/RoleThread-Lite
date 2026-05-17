@@ -83,7 +83,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "What RoleThread Lite Does",
         "Getting Started",
         20,
-        "The app's purpose, local-first scope, and practical boundaries.",
+        "The app's purpose, file-owned workflow, and practical boundaries.",
         (
             "getting-started",
             "dataset-formats",

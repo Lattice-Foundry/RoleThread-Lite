@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.76] - 2026-05-17
+
+### Changed
+
+- Added explicit Python naming, PEP 8, and side-effect naming guidance to developer terminology docs.
+- Refined repeated local-first wording across developer Help pages so the concept remains intentional without becoming repetitive.
+
 ## [1.3.75] - 2026-05-17
 
 ### Added

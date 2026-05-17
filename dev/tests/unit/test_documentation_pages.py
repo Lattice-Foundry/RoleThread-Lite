@@ -247,7 +247,15 @@ def test_developer_philosophy_help_articles_document_engineering_conventions():
     assert "Interaction, Not Scene" in naming.content
     assert "Working Copy" in naming.content
     assert "Sidecar" in naming.content
+    assert "Python Naming and Style" in naming.content
+    assert "PEP 8" in naming.content
+    assert "`snake_case` for variables, functions, and modules" in naming.content
+    assert "`PascalCase` for classes and dataclasses" in naming.content
+    assert "`ALL_CAPS` for constants" in naming.content
     assert "lowercase `snake_case`" in naming.content
+    assert "`save_dataset()`" in naming.content
+    assert "`create_dataset_backup()`" in naming.content
+    assert "`replace_tags_bulk_service()`" in naming.content
     assert "RoleThread Studio" in naming.content
 
     assert style.article.category == "For Developers"

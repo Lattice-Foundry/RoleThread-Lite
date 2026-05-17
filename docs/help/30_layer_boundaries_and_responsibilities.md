@@ -78,7 +78,7 @@ Separating the layers helps:
 
 - reduce accidental UI-driven behavior changes
 - make service tests faster and clearer
-- preserve local-first safety rules
+- preserve data-safety rules
 - support future launcher and installer work
 - keep future Studio options open
 
@@ -89,4 +89,3 @@ The goal is not to build a heavy enterprise architecture.
 The goal is to keep important behavior in the smallest layer that can own it responsibly. UI code can stay expressive. Services can stay workflow-focused. Core logic can stay portable.
 
 That balance lets RoleThread Lite remain approachable while still being serious about data safety and maintainability.
-

@@ -33,7 +33,7 @@ dataset engineering.
 
 RoleThread Lite is designed around:
 
-* local-first, privacy-first workflows
+* privacy-first, file-owned workflows
 * maintainable JSONL training data
 * deterministic validation and repair before subjective scoring
 * portable sidecar metadata for registry and character reconstruction
@@ -85,8 +85,7 @@ available for a clear restore if the machine or process fails mid-operation.
 
 ## Version 1 Stable Status
 
-RoleThread Lite 1.0 is the stable local-first release surface for dataset
-craftsmanship.
+RoleThread Lite 1.0 is the stable release surface for dataset craftsmanship.
 
 ## Supported Runtime
 
@@ -225,4 +224,4 @@ High-quality narrative AI experiences begin with high-quality narrative data.
 RoleThread Lite focuses on the local, inspectable, repairable dataset workflow
 needed to build that data with confidence.
 
-Local-first. Creator-focused. Built for narrative AI datasets.
+Creator-controlled. File-owned. Built for narrative AI datasets.

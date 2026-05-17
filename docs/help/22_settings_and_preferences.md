@@ -6,8 +6,6 @@ The defaults are intentionally conservative. RoleThread tries to expose useful c
 
 ## Configuration Philosophy
 
-RoleThread Lite is local-first.
-
 Settings are about:
 
 - where local files live

@@ -1,6 +1,6 @@
 # Backups, Cloud Sync, and Recovery
 
-RoleThread Lite is local-first. Your working files, registry database, sidecars, backups, and settings live on your machine unless you configure cloud backup.
+Your working files, registry database, sidecars, backups, and settings live on your machine unless you configure cloud backup.
 
 The safety model is simple:
 
@@ -145,7 +145,7 @@ If cloud backup finds usable material during startup, RoleThread may offer resto
 
 **Mistake:** Treating cloud sync like a live shared workspace.
 
-**Better mental model:** RoleThread is local-first. Cloud sync is a backup mirror, not collaborative editing.
+**Better mental model:** Cloud sync is a backup mirror, not collaborative editing.
 
 ## Practical Tips
 

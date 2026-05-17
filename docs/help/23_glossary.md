@@ -4,7 +4,7 @@ This glossary defines the main terms used across RoleThread Lite.
 
 ## RoleThread Lite
 
-The local-first app for creating, organizing, validating, editing, merging, analyzing, and exporting narrative training datasets.
+The local dataset app for creating, organizing, validating, editing, merging, analyzing, and exporting narrative training datasets.
 
 ## Dataset
 

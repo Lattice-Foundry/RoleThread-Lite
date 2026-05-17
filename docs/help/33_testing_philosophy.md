@@ -2,7 +2,7 @@
 
 RoleThread Lite uses tests to protect behavior, not to create ceremony.
 
-The project is local-first and data-oriented, so the most important tests are the ones that prove datasets, sidecars, tags, backups, preferences, and launch decisions behave predictably.
+The project is data-oriented, so the most important tests are the ones that prove datasets, sidecars, tags, backups, preferences, and launch decisions behave predictably.
 
 ## Lightweight and Deterministic
 
@@ -88,4 +88,3 @@ Useful tests are usually:
 - not dependent on local machine state unless explicitly mocked
 
 RoleThread's test suite should make refactoring safer, not make the codebase afraid to move.
-
