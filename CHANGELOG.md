@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.84] - 2026-05-17
+
+### Fixed
+
+- Restored safer manual `-- webapp` duplicate-browser cleanup by preferring exact window-handle closure and removing exact-PID process termination fallback.
+- Tightened Edge cleanup gates so process-based cleanup requires a confirmed app-window candidate and visible normal Edge browser title.
+
 ## [1.3.83] - 2026-05-17
 
 ### Added

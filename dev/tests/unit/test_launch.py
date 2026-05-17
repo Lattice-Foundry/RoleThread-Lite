@@ -12,7 +12,6 @@ from core.launch import (
     EDGE_CLEANUP_STATUS_ATTEMPTED,
     EDGE_CLEANUP_STATUS_SKIPPED,
     EDGE_CLEANUP_METHOD_CLOSE_WINDOW_HANDLE,
-    EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID,
     EDGE_CONFIDENCE_LIKELY,
     EDGE_CONFIDENCE_PARTIAL,
     EDGE_CONFIDENCE_UNRELIABLE,
@@ -690,13 +689,18 @@ def _app_process(pid: int = 101) -> EdgeProcessInfo:
     )
 
 
-def _browser_process(pid: int = 102, *, command_line: str | None = None) -> EdgeProcessInfo:
+def _browser_process(
+    pid: int = 102,
+    *,
+    command_line: str | None = None,
+    window_title: str = "RoleThread Lite - Personal - Microsoft Edge",
+) -> EdgeProcessInfo:
     return EdgeProcessInfo(
         pid=pid,
         parent_pid=10,
         command_line=command_line or "msedge http://localhost:8501",
         executable_path="C:\\Edge\\msedge.exe",
-        window_title="RoleThread Lite - Streamlit",
+        window_title=window_title,
         creation_time="20260516010102.000000-300",
     )
 
@@ -902,23 +906,16 @@ def test_edge_cleanup_failure_is_nonfatal():
     assert "nonfatally" in status.message
 
 
-def test_edge_cleanup_falls_back_to_exact_pid_stop_after_graceful_failure():
+def test_edge_cleanup_does_not_fall_back_to_exact_pid_stop_after_graceful_failure():
     diff = _edge_diff_with_new_processes(_app_process(), _browser_process())
     commands = []
 
     def run_fn(command, **kwargs):
         commands.append(command)
-        if len(commands) == 1:
-            return subprocess.CompletedProcess(
-                command,
-                3,
-                stdout="no_main_window",
-                stderr="",
-            )
         return subprocess.CompletedProcess(
             command,
-            0,
-            stdout="stop_process_sent",
+            3,
+            stdout="no_main_window",
             stderr="",
         )
 
@@ -931,12 +928,47 @@ def test_edge_cleanup_falls_back_to_exact_pid_stop_after_graceful_failure():
 
     assert status.attempted is True
     assert status.target_pid == 102
-    assert status.method == EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID
-    assert status.result == "stop_process_sent"
-    assert len(commands) == 2
+    assert status.method != "stop_process_exact_pid"
+    assert status.result == "no_main_window"
+    assert len(commands) == 1
     assert "CloseMainWindow" in commands[0][-1]
-    assert "Stop-Process -Id 102" in commands[1][-1]
-    assert "taskkill" not in commands[1][-1].lower()
+    assert "Stop-Process" not in commands[0][-1]
+    assert "taskkill" not in commands[0][-1].lower()
+
+
+def test_edge_cleanup_requires_confirmed_app_window_candidate():
+    diff = _edge_diff_with_new_processes(_browser_process())
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        system_name="Windows",
+        run_fn=lambda command, **kwargs: (_ for _ in ()).throw(
+            AssertionError("should not close without app candidate")
+        ),
+    )
+
+    assert status.skipped is True
+    assert status.attempted is False
+
+
+def test_edge_cleanup_skips_process_candidate_without_visible_browser_title():
+    diff = _edge_diff_with_new_processes(
+        _app_process(),
+        _browser_process(window_title=""),
+    )
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        system_name="Windows",
+        run_fn=lambda command, **kwargs: (_ for _ in ()).throw(
+            AssertionError("should not close renderer-like process")
+        ),
+    )
+
+    assert status.skipped is True
+    assert "visible normal Edge browser title" in status.message
 
 
 def test_edge_cleanup_skips_without_webapp_flag():

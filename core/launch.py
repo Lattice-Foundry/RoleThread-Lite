@@ -705,14 +705,15 @@ def close_duplicate_edge_browser_window(
     if target_system.lower() != "windows":
         return _skip_edge_cleanup("Duplicate Edge cleanup is Windows-only.")
 
+    window_status = _close_duplicate_edge_browser_window_by_handle(
+        flags,
+        window_diff,
+        run_fn=run_fn,
+    )
+    if window_status is not None:
+        return window_status
+
     if diff.confidence_level != EDGE_CONFIDENCE_LIKELY:
-        window_status = _close_duplicate_edge_browser_window_by_handle(
-            flags,
-            window_diff,
-            run_fn=run_fn,
-        )
-        if window_status is not None:
-            return window_status
         return _skip_edge_cleanup(
             f"Classification confidence is {diff.confidence_level}, not likely_distinguishable."
         )
@@ -732,6 +733,17 @@ def close_duplicate_edge_browser_window(
         return _skip_edge_cleanup(
             f"Expected exactly one likely new browser candidate, found {len(browser_candidates)}."
         )
+    app_candidates = [
+        item
+        for item in diff.classifications
+        if item.classification == EDGE_CLASSIFICATION_APP
+        and item.confidence == EDGE_CONFIDENCE_LIKELY
+        and item.pid in diff.new_pids
+    ]
+    if len(app_candidates) != 1:
+        return _skip_edge_cleanup(
+            f"Expected exactly one likely new app-window candidate, found {len(app_candidates)}."
+        )
 
     target = browser_candidates[0]
     classification = classifications.get(target.pid)
@@ -743,6 +755,10 @@ def close_duplicate_edge_browser_window(
     if not command or DEFAULT_STREAMLIT_LOCAL_URL.lower() not in command or "--app" in command:
         return _skip_edge_cleanup(
             "Target command line did not safely identify a normal Streamlit browser window."
+        )
+    if not _process_title_identifies_normal_edge_browser(target):
+        return _skip_edge_cleanup(
+            "Target process did not expose a visible normal Edge browser title."
         )
 
     close_script = f"""
@@ -801,14 +817,6 @@ exit 2
             status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
         )
 
-    stop_result = _stop_exact_edge_process(
-        target,
-        run_fn=run_fn,
-        close_result=output or f"return_code_{result.returncode}",
-    )
-    if stop_result is not None:
-        return stop_result
-
     return EdgeDuplicateCleanupStatus(
         cleanup_requested=True,
         attempted=True,
@@ -820,82 +828,6 @@ exit 2
         message=(
             "Experimental duplicate Edge browser cleanup attempted a graceful close "
             f"for PID {target.pid}, but Windows reported no successful close."
-        ),
-        status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
-    )
-
-
-def _stop_exact_edge_process(
-    target: EdgeProcessInfo,
-    *,
-    run_fn: Callable[..., subprocess.CompletedProcess[str]],
-    close_result: str,
-) -> EdgeDuplicateCleanupStatus | None:
-    """Fallback to exact-PID process close after graceful window close fails."""
-
-    script = f"""
-$ErrorActionPreference = 'Stop'
-$process = Get-Process -Id {target.pid} -ErrorAction Stop
-if ($process.ProcessName -ne 'msedge') {{
-    Write-Output 'not_msedge'
-    exit 4
-}}
-Stop-Process -Id {target.pid} -ErrorAction Stop
-Write-Output 'stop_process_sent'
-exit 0
-"""
-    try:
-        result = run_fn(
-            ["powershell", "-NoProfile", "-Command", script],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except Exception as exc:
-        return EdgeDuplicateCleanupStatus(
-            cleanup_requested=True,
-            attempted=True,
-            skipped=False,
-            target_pid=target.pid,
-            target_title=target.window_title,
-            method=EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID,
-            result="exception",
-            message=(
-                "Graceful duplicate browser close failed, and exact-PID fallback "
-                f"failed nonfatally: {exc}. Graceful result: {close_result}"
-            ),
-            status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
-        )
-
-    output = (result.stdout or result.stderr or "").strip()
-    if result.returncode == 0:
-        return EdgeDuplicateCleanupStatus(
-            cleanup_requested=True,
-            attempted=True,
-            skipped=False,
-            target_pid=target.pid,
-            target_title=target.window_title,
-            method=EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID,
-            result=output or "stop_process_sent",
-            message=(
-                "Graceful duplicate browser close was unavailable, so RoleThread "
-                f"sent an exact-PID process close to browser candidate PID {target.pid}. "
-                f"Graceful result: {close_result}"
-            ),
-            status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
-        )
-
-    return EdgeDuplicateCleanupStatus(
-        cleanup_requested=True,
-        attempted=True,
-        skipped=False,
-        target_pid=target.pid,
-        target_title=target.window_title,
-        method=EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID,
-        result=output or f"return_code_{result.returncode}",
-        message=(
-            "Graceful duplicate browser close failed, and exact-PID fallback did "
-            f"not report success. Graceful result: {close_result}"
         ),
         status_code=EDGE_CLEANUP_STATUS_ATTEMPTED,
     )
@@ -1021,6 +953,11 @@ def _is_streamlit_browser_window_candidate(window: EdgeWindowInfo) -> bool:
         and "microsoft" in title
         and "edge" in title
     )
+
+
+def _process_title_identifies_normal_edge_browser(process: EdgeProcessInfo) -> bool:
+    title = process.window_title.lower()
+    return "rolethread" in title and "microsoft" in title and "edge" in title
 
 
 def _is_rolethread_app_window_candidate(window: EdgeWindowInfo) -> bool:
