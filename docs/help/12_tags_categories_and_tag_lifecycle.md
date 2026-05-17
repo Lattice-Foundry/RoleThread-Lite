@@ -64,7 +64,7 @@ You can use them for anything that helps you work:
 
 - `slow-burn`
 - `needs-review`
-- `medical-scene`
+- `domain-specific`
 - `combat-training`
 - `high-emotion`
 

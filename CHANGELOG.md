@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.70] - 2026-05-16
+
+### Changed
+
+- Verified public Help, FAQ, README, and installer documentation use RoleThread naming consistently.
+- Polished the tag lifecycle help examples to keep custom tag guidance broad and neutral.
+
 ## [1.3.69] - 2026-05-16
 
 ### Internal
