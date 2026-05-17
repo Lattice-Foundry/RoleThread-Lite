@@ -48,9 +48,7 @@ The launcher reads the stored preference for webapp launch mode.
 
 If webapp launch mode is disabled or preferences are missing, the launcher starts RoleThread in normal browser mode.
 
-If webapp launch mode is enabled, the launcher passes the app's `webapp` flag into startup. The app-owned launch path then handles Microsoft Edge detection, Edge app-window launch, and duplicate-browser cleanup.
-
-This keeps one source of truth for webapp behavior and avoids browser-control drift between launcher and app code.
+If webapp launch mode is enabled, the launcher passes the app's `webapp` flag into startup. Manual source/dev `-- webapp` runs still use the app-owned Edge launch and duplicate-browser cleanup path. Bundled installed runs open the initial Edge app window from the launcher after health succeeds, then mark the session as launcher-managed so the app does not relaunch Edge during reruns.
 
 Bundled webapp mode starts Streamlit with `--server.headless true`, waits for health, then opens the initial Microsoft Edge app window from the launcher. The child app still receives the `webapp` flag for diagnostics and compatibility, but a launcher-managed environment marker prevents the app from relaunching Edge during Streamlit reruns. Normal browser mode does not force headless mode.
 
@@ -121,4 +119,6 @@ The launcher should release port `8501` by shutting down the backend it started,
 If graceful shutdown does not complete, fallback termination targets only the launcher-owned Streamlit subprocess. Unknown processes on port `8501` are logged for diagnosis and left alone.
 
 If a launcher-started webapp session never produces a stable app HWND, the launcher treats that as a failed webapp startup and terminates only the backend subprocess it owns. That prevents a failed app-window launch from leaving port `8501` occupied indefinitely.
+
+When validating shutdown, the key failure condition is a remaining `LISTENING` row on port `8501`. Residual TCP rows such as `TIME_WAIT`, `FIN_WAIT_2`, or `CLOSE_WAIT` can appear briefly after Edge and Streamlit close old connections; those states do not indicate that the backend is still accepting new connections.
 

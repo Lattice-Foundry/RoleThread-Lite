@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.94] - 2026-05-17
+
+### Changed
+
+- Removed a stale PyInstaller data reference to an obsolete logo asset path.
+- Cleaned installer documentation around bundled webapp startup ownership and port-release validation semantics.
+
 ## [1.3.93] - 2026-05-17
 
 ### Fixed

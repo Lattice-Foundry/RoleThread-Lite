@@ -77,8 +77,9 @@ The prototype currently:
 - prefers `.venv\Scripts\python.exe` when running from the repository
 - reads `%LOCALAPPDATA%\RoleThread\preferences.json`
 - uses `enable_webapp_launch_mode` to choose normal or `webapp` launch mode
-- starts Streamlit with `python -m streamlit run app.py`
+- starts Streamlit with `python -m streamlit run app.py` in development mode
 - adds `-- webapp` when webapp launch mode is enabled
+- opens the initial Edge app window from the launcher in bundled webapp mode
 - passes a local-only shutdown token/port to app sessions it starts
 - waits for the Streamlit health endpoint before entering lifecycle monitoring
 - watches the exact Edge webapp window handle where Windows metadata allows it
@@ -87,9 +88,10 @@ The prototype currently:
 - writes launcher logs under `%LOCALAPPDATA%\RoleThread\logs\launcher.log`
 - reports clearly when `app.py` is missing, the runtime cannot be found, or port `8501` is already in use
 
-The launcher does not own Microsoft Edge launch or duplicate-browser cleanup.
-It delegates that behavior to the app's existing internal `webapp` startup
-path.
+In source/dev `-- webapp` runs, the app opens Edge and performs duplicate-browser
+cleanup. In bundled webapp mode, the launcher opens the initial Edge app window
+after the Streamlit health endpoint responds, while the app still receives the
+`webapp` flag for compatibility, diagnostics, and future shared behavior.
 
 The launcher does own backend subprocess lifecycle for launcher-started
 sessions. A local shutdown endpoint is enabled only when the launcher provides a
@@ -167,6 +169,9 @@ committed.
 5. Confirm RoleThread starts on port `8501`.
 6. In webapp mode, close the Edge app window and confirm the backend shutdown
    lifecycle and port-release result are logged.
+7. If you inspect `netstat -ano | findstr :8501`, treat a `LISTENING` row as
+   the failure condition. Temporary `TIME_WAIT`, `FIN_WAIT_2`, or `CLOSE_WAIT`
+   rows can remain while Windows and Edge finish closing old TCP connections.
 7. Confirm launcher logs are still written under:
 
 ```text
@@ -182,15 +187,15 @@ error to the log and may show a minimal Windows error dialog pointing to that
 log.
 
 Bundled webapp startup also writes app-side breadcrumbs to the same launcher
-log. Those entries record whether the `webapp` flag was seen, whether the
-rerun guard suppressed a repeated launch, whether Edge launch was attempted,
-and the duplicate-browser cleanup decision. These diagnostics are intentionally
-file-based so the packaged no-console launcher remains quiet for users.
+log. Those entries record whether the `webapp` flag was seen and whether the
+session is launcher-managed. These diagnostics are intentionally file-based so
+the packaged no-console launcher remains quiet for users.
 
 To smoke-test bundled webapp mode, enable **Settings > Experimental Features >
 Enable webapp launch mode**, close RoleThread, then run the bundled launcher
-again. The launcher should pass the app's `webapp` flag through the same
-internal startup path used by source/dev mode.
+again. The launcher should start Streamlit headless, open the initial Edge app
+window after health succeeds, and pass the app's `webapp` flag with a
+launcher-managed marker so the app does not relaunch Edge during reruns.
 
 ## Inno Setup Installer Prototype
 
@@ -388,17 +393,19 @@ parents, or appear to contain a Git repository or Python virtual environment.
 It does not touch the source repository, `.venv`, `.dev`, generated bundle
 folders, Git data, or unrelated user folders.
 
-The launcher should eventually:
+The launcher is responsible for:
 
-- use the bundled runtime and bundled app files
-- start RoleThread/Streamlit locally
-- read `enable_webapp_launch_mode` from preferences
-- launch either normal browser mode or Windows Edge webapp mode
-- use the existing internal `webapp` flag for managed Edge webapp startup
-- write launcher/app logs under `%LOCALAPPDATA%\RoleThread\logs`
-- continue improving normal-browser shutdown detection
+- using the bundled runtime and bundled app files
+- starting RoleThread/Streamlit locally
+- reading `enable_webapp_launch_mode` from preferences
+- launching either normal browser mode or Windows Edge webapp mode
+- passing the internal `webapp` flag when webapp mode is enabled
+- writing launcher/app logs under `%LOCALAPPDATA%\RoleThread\logs`
+- continuing to improve normal-browser shutdown detection
 
-The current in-app `webapp` flag remains the internal launch path future launcher/installer procedures should call when webapp mode is enabled.
+The in-app `webapp` flag remains the shared compatibility and diagnostics flag
+for webapp startup. Bundled installed runs also use a launcher-managed marker so
+the launcher owns the initial Edge app-window open.
 
 The launcher now owns the shutdown lifecycle for supported webapp runs: it
 starts the Streamlit subprocess, waits for health, selects a stable observed
@@ -406,6 +413,10 @@ Edge webapp HWND, requests local token-protected shutdown when that handle
 closes so `atexit` and cloud sync cleanup can run, then escalates to
 terminate/kill only for the backend subprocess it started. It logs the final
 port `8501` state so stale installed backends are easier to diagnose.
+
+For port checks, a remaining `TIME_WAIT`, `FIN_WAIT_2`, or `CLOSE_WAIT` row is
+not the same as a stuck backend. The important failure condition is a
+`LISTENING` row on port `8501`, especially one owned by `RoleThreadLauncher.exe`.
 
 If a webapp launch never produces a stable app-window handle, the launcher
 does not leave the backend running indefinitely. It logs the timeout and

@@ -338,7 +338,7 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "`terminate()`" in launcher.content
     assert "`kill()` only as a last resort" in launcher.content
     assert "Managed webapp mode is Windows/Microsoft Edge only" in launcher.content
-    assert "one source of truth for webapp behavior" in launcher.content
+    assert "launcher-managed environment marker" in launcher.content
 
     assert contribution.article.category == "For Developers"
     assert "small, testable" in contribution.content

@@ -44,7 +44,6 @@ datas += collect_project_data("docs", "docs")
 datas += collect_project_data(".streamlit/config.toml", ".streamlit")
 datas += collect_project_data("README.md", ".")
 datas += collect_project_data("requirements.txt", ".")
-datas += collect_project_data("notes/logo/logo_crop.png", "notes/logo")
 
 hiddenimports = [
     "streamlit.web.cli",
