@@ -253,6 +253,38 @@ The prototype installer does not yet implement firewall rules, code signing,
 auto-update, GitHub Release automation, final branding polish, or optional
 full user-data removal.
 
+### Uninstall behavior
+
+Normal uninstall removes only the installed app/runtime files, shortcuts, and
+Windows uninstall entry. It preserves:
+
+```text
+%LOCALAPPDATA%\RoleThread
+%USERPROFILE%\RoleThread
+```
+
+During interactive uninstall, the uninstaller asks whether to remove local
+RoleThread user data. Choosing this option deletes local database/app state,
+preferences, logs, cache, training data, imports, exports, backups, and
+workspace data under the two RoleThread-owned roots above.
+
+Cloud backup copies stored outside the local RoleThread folders are not
+removed. Delete those manually from the cloud provider or sync folder if
+desired.
+
+The uninstaller also shows a **Developer clean uninstall / remove installer
+test state** prompt. This is intended for repeated installer testing and clean
+machine-state checks. For now, it maps to the same local RoleThread-owned data
+roots as full local data removal, with testing intent logged by the
+uninstaller. It does not remove source repositories, `.venv`, `.dev`, Git data,
+generated source-tree build artifacts, arbitrary custom paths, or
+external/cloud backup destinations.
+
+Close RoleThread Lite before uninstalling. If `RoleThreadLauncher.exe` is still
+running, the uninstaller asks the user to close RoleThread and stops before
+removing files. It does not broadly kill Python, Streamlit, Edge, or unrelated
+browser processes.
+
 ## Dev Launcher Smoke Test
 
 Run the launcher prototype from the repository root:
@@ -349,7 +381,9 @@ Default uninstall should preserve:
 - `%LOCALAPPDATA%\RoleThread\`
 - `%USERPROFILE%\RoleThread\`
 
-The installer may later offer an explicit full uninstall option. That option must warn clearly that it deletes RoleThread user data, including:
+The installer offers an explicit full local data removal prompt during
+interactive uninstall. That option warns clearly that it deletes RoleThread
+user data, including:
 
 - datasets
 - exports
@@ -366,6 +400,9 @@ Full uninstall targets:
 %LOCALAPPDATA%\RoleThread\
 %USERPROFILE%\RoleThread\
 ```
+
+External/cloud backup copies outside those local RoleThread folders are
+preserved.
 
 ## Expected Manual Release Flow
 

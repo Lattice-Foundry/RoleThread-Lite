@@ -16,6 +16,16 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.83] - 2026-05-17
+
+### Added
+
+- Added uninstall-time prompts for optional local RoleThread data removal and developer clean uninstall testing.
+
+### Changed
+
+- Updated the Windows uninstaller to preserve user data by default, warn when RoleThread is still running, and keep cleanup scoped to RoleThread-owned local roots.
+
 ## [1.3.82] - 2026-05-17
 
 ### Added

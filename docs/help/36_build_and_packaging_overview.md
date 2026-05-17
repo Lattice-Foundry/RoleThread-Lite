@@ -82,6 +82,12 @@ The Windows installer defaults to the managed Edge webapp launch mode because
 that path has the strongest launcher-owned lifecycle behavior. Normal browser
 mode remains available through the installer option and through Settings.
 
+Normal uninstall preserves RoleThread user data by default. The uninstaller can
+also remove local RoleThread app data and workspace folders when the user
+explicitly confirms that destructive option.
+
+Cloud backup copies outside those local RoleThread folders are preserved.
+
 CI/CD may automate pieces later; the source tree should stay free of generated artifacts either way.
 
 ## Current Status

@@ -297,6 +297,12 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "Inno Setup" in packaging.content
     assert "Inno Setup installer prototype" in packaging.content
     assert "managed Edge webapp launch mode" in packaging.content
+    assert "Normal uninstall preserves RoleThread user data by default" in (
+        packaging.content
+    )
+    assert "Cloud backup copies outside those local RoleThread folders are preserved" in (
+        packaging.content
+    )
     assert "GitHub Releases" in packaging.content
     assert "requirements-dev.txt" in packaging.content
     assert "Generated artifacts do not belong in Git" in packaging.content
@@ -307,6 +313,15 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "Launch RoleThread Lite as a Windows Edge webapp" in launcher.content
     assert "`enable_webapp_launch_mode`" in launcher.content
     assert "DB-backed setting" in launcher.content
+    assert "Default uninstall removes installed app files and shortcuts" in (
+        launcher.content
+    )
+    assert "Developer clean uninstall" in launcher.content
+    assert "does not remove repositories" in launcher.content
+    assert "Cloud backup copies outside the local RoleThread folders are preserved" in (
+        launcher.content
+    )
+    assert "`RoleThreadLauncher.exe` is still running" in launcher.content
     assert "selected launch mode" in launcher.content
     assert "windowed/no-console" in launcher.content
     assert "local-only shutdown endpoint" in launcher.content

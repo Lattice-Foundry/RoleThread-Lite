@@ -90,7 +90,13 @@ updates the DB-backed setting, removes the seed file, and leaves unrelated
 preferences untouched. Users can later change the same preference in **Settings
 > Experimental Features**.
 
-The installer should keep app/runtime files separate from user data. Default uninstall should remove installed app files while preserving datasets, preferences, exports, backups, logs, and cache unless the user explicitly chooses full data removal.
+The installer keeps app/runtime files separate from user data. Default uninstall removes installed app files and shortcuts while preserving datasets, preferences, exports, backups, logs, and cache. Interactive uninstall can optionally remove local RoleThread data under `%LOCALAPPDATA%\RoleThread` and `%USERPROFILE%\RoleThread` after a clear warning.
+
+The Developer clean uninstall prompt is currently visible during installer testing. It maps to the same RoleThread-owned local data roots as full local data removal, with stricter testing intent. It does not remove repositories, `.venv`, `.dev`, Git data, generated source-tree build artifacts, arbitrary custom paths, or external/cloud backup destinations.
+
+Cloud backup copies outside the local RoleThread folders are preserved and must be removed manually from the cloud provider or sync folder if desired.
+
+If `RoleThreadLauncher.exe` is still running, the uninstaller asks the user to close RoleThread Lite before continuing. It does not broadly terminate Python, Streamlit, Edge, or unrelated browser processes.
 
 ## Graceful Shutdown Direction
 

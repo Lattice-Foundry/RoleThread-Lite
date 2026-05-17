@@ -450,6 +450,14 @@ def test_inno_installer_script_packages_launcher_bundle():
     assert '"enable_webapp_launch_mode": true' in inno_text
     assert '"enable_webapp_launch_mode": false' in inno_text
     assert "WizardIsTaskSelected('webappmode')" in inno_text
+    assert "Remove local RoleThread user data" in inno_text
+    assert "Developer clean uninstall / remove installer test state" in inno_text
+    assert "RoleThreadLauncher.exe" in inno_text
+    assert "tasklist" in inno_text
+    assert "RoleThreadAppDataRoot()" in inno_text
+    assert "RoleThreadWorkspaceRoot()" in inno_text
+    assert "DelTree(Path, True, True, True)" in inno_text
+    assert "External/cloud backup destinations" in inno_text
 
 
 def test_build_installer_script_validates_bundle_and_inno_compiler():

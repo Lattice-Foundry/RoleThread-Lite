@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "1.3.82"
+#define AppVersion "1.3.83"
 #endif
 
 #define AppName "RoleThread Lite"
@@ -47,6 +47,10 @@ Name: "{autodesktop}\RoleThread Lite"; Filename: "{app}\{#AppExeName}"; Tasks: d
 Filename: "{app}\{#AppExeName}"; Description: "Launch RoleThread Lite"; Flags: nowait postinstall skipifsilent
 
 [Code]
+var
+  RemoveLocalDataOnUninstall: Boolean;
+  DeveloperCleanUninstall: Boolean;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   SeedPath: string;
@@ -63,5 +67,125 @@ begin
       SeedValue := '{"enable_webapp_launch_mode": false}';
 
     SaveStringToFile(SeedPath, SeedValue + #13#10, False);
+  end;
+end;
+
+function RoleThreadAppDataRoot(): string;
+begin
+  Result := ExpandConstant('{localappdata}\RoleThread');
+end;
+
+function RoleThreadWorkspaceRoot(): string;
+begin
+  Result := AddBackslash(GetEnv('USERPROFILE')) + 'RoleThread';
+end;
+
+function IsSafeRoleThreadRoot(Path: string): Boolean;
+begin
+  Result := (ExtractFileName(RemoveBackslashUnlessRoot(Path)) = 'RoleThread');
+end;
+
+function IsRoleThreadLauncherRunning(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := False;
+  if Exec(
+    ExpandConstant('{cmd}'),
+    '/C tasklist /FI "IMAGENAME eq RoleThreadLauncher.exe" | find /I "RoleThreadLauncher.exe" >NUL',
+    '',
+    SW_HIDE,
+    ewWaitUntilTerminated,
+    ResultCode
+  ) then
+    Result := (ResultCode = 0);
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  RemoveAnswer: Integer;
+  DeveloperAnswer: Integer;
+begin
+  Result := True;
+  RemoveLocalDataOnUninstall := False;
+  DeveloperCleanUninstall := False;
+
+  if IsRoleThreadLauncherRunning() then
+  begin
+    MsgBox(
+      'RoleThread Lite appears to be running.' + #13#10#13#10 +
+      'Close RoleThread Lite before uninstalling so the installed files and local backend process can shut down cleanly.',
+      mbError,
+      MB_OK
+    );
+    Result := False;
+    Exit;
+  end;
+
+  if UninstallSilent() then
+    Exit;
+
+  RemoveAnswer := MsgBox(
+    'Remove local RoleThread user data?' + #13#10#13#10 +
+    'Choosing Yes deletes local database/app state, preferences, logs, cache, training data, imports, exports, backups, and workspace data under:' + #13#10#13#10 +
+    RoleThreadAppDataRoot() + #13#10 +
+    RoleThreadWorkspaceRoot() + #13#10#13#10 +
+    'Cloud backup copies stored outside these local RoleThread folders are not removed. Delete those manually from the cloud provider or sync folder if desired.' + #13#10#13#10 +
+    'Choose No for a normal uninstall that preserves user data.',
+    mbConfirmation,
+    MB_YESNO or MB_DEFBUTTON2
+  );
+  RemoveLocalDataOnUninstall := (RemoveAnswer = IDYES);
+
+  DeveloperAnswer := MsgBox(
+    'Developer clean uninstall / remove installer test state?' + #13#10#13#10 +
+    'This option is intended for installer testing and clean-machine reset checks. It currently removes the same local RoleThread-owned user-data roots as full local data removal, with testing intent logged by the uninstaller.' + #13#10#13#10 +
+    'It does not remove source repositories, .venv, .dev, Git data, generated source-tree build artifacts, arbitrary custom paths, or external/cloud backup destinations.',
+    mbConfirmation,
+    MB_YESNO or MB_DEFBUTTON2
+  );
+  DeveloperCleanUninstall := (DeveloperAnswer = IDYES);
+
+  if DeveloperCleanUninstall then
+    RemoveLocalDataOnUninstall := True;
+end;
+
+procedure DeleteRoleThreadRoot(Path: string; Description: string);
+begin
+  if Path = '' then
+    Exit;
+
+  if not IsSafeRoleThreadRoot(Path) then
+  begin
+    Log('Skipping unsafe RoleThread cleanup target: ' + Path);
+    Exit;
+  end;
+
+  if DirExists(Path) then
+  begin
+    Log('Removing ' + Description + ': ' + Path);
+    DelTree(Path, True, True, True);
+  end
+  else
+    Log('Skipping missing ' + Description + ': ' + Path);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    if RemoveLocalDataOnUninstall or DeveloperCleanUninstall then
+    begin
+      if DeveloperCleanUninstall then
+        Log('Developer clean uninstall requested. Cleanup remains scoped to RoleThread-owned local data roots.')
+      else
+        Log('Full local RoleThread user-data removal requested.');
+
+      DeleteRoleThreadRoot(RoleThreadAppDataRoot(), 'RoleThread local app data');
+      DeleteRoleThreadRoot(RoleThreadWorkspaceRoot(), 'RoleThread workspace data');
+      Log('External/cloud backup destinations outside RoleThread-owned local roots are preserved.');
+    end
+    else
+      Log('Normal uninstall selected. RoleThread local user data preserved.');
   end;
 end;
