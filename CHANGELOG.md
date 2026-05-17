@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.78] - 2026-05-17
+
+### Changed
+
+- Refined `For Developers` Help pages toward a more technical architecture/contributor documentation style.
+- Moved RoleThread Studio Vision into the developer Help section alongside Lite/Studio boundary guidance.
+
 ## [1.3.77] - 2026-05-17
 
 ### Added

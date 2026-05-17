@@ -1,12 +1,8 @@
 # Contribution Guidelines
 
-RoleThread Lite welcomes focused, maintainable contributions.
+RoleThread Lite contributions should be small, testable, and consistent with the existing layer boundaries.
 
-The project is intentionally engineered around data integrity, readable workflows, and clear boundaries. Contributions should make the app easier to trust and easier to maintain.
-
-## Contribution Philosophy
-
-Prefer small changes with clear intent.
+## Scope
 
 A good contribution usually does one thing:
 
@@ -16,7 +12,7 @@ A good contribution usually does one thing:
 - clarifies documentation
 - strengthens tests around a safety-critical path
 
-Large rewrites should earn their size by reducing real complexity or unlocking a clear product direction.
+Large rewrites should reduce real complexity or unlock a clearly scoped product direction.
 
 ## Preserve Layer Boundaries
 
@@ -26,9 +22,9 @@ The `ui/` layer may render controls, read session state, and call services. Work
 
 `core/` and `services/` should remain framework-independent. They should not import Streamlit.
 
-## Data Integrity Comes First
+## Mutation Safety
 
-Contributors should treat dataset files, sidecars, backups, and registry metadata as user-owned work.
+Dataset files, sidecars, backups, and registry metadata are safety-critical.
 
 Be conservative around:
 
@@ -60,9 +56,9 @@ Avoid brittle UI-heavy tests when a pure helper or service test can prove the ru
 
 ## Documentation Expectations
 
-Update Help or developer docs when a change alters how users or contributors should understand the workflow.
+Update Help or developer docs when a change alters workflow semantics, setup expectations, or contributor-facing architecture.
 
-Docs should stay calm, practical, and specific. Avoid marketing language and avoid explaining implementation details that do not help users make decisions.
+Docs should stay practical and specific. Avoid marketing language and avoid implementation detail that does not help users or contributors make decisions.
 
 ## Naming and Style
 
@@ -72,7 +68,7 @@ Use descriptive Python names, standard conventions, and clear side-effect naming
 
 ## What To Avoid
 
-Avoid contributions that:
+Avoid changes that:
 
 - put business logic into Streamlit rendering code
 - bypass service-layer safety behavior
@@ -80,6 +76,4 @@ Avoid contributions that:
 - add platform-specific checks outside centralized helpers
 - introduce generated build artifacts into Git
 - make Lite carry workflows better suited to future Studio work
-
-RoleThread Lite should stay approachable, careful, and understandable.
 

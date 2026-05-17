@@ -1,12 +1,12 @@
 # Layer Boundaries and Responsibilities
 
-RoleThread Lite keeps a practical boundary between UI code, workflow services, and core logic.
+RoleThread Lite separates presentation, workflow orchestration, and reusable core logic.
 
-The boundary is not meant to be ceremonial. It exists so dataset behavior stays testable, reusable, and easier to reason about.
+The boundary exists to keep mutation behavior testable without a live Streamlit session.
 
 ## `ui/`: Presentation and Interaction
 
-The `ui/` layer owns the Streamlit experience.
+The `ui/` layer owns the Streamlit runtime surface.
 
 Good fits for `ui/` include:
 
@@ -28,7 +28,7 @@ Poor fits for `ui/` include:
 - platform detection logic
 - file format conversion internals
 
-RoleThread Lite intentionally avoids putting durable business logic in the UI layer.
+The UI layer should not own durable business logic.
 
 ## `services/`: Workflow Orchestration
 
@@ -46,7 +46,7 @@ Good fits for `services/` include:
 
 Services may call core modules and return results that the UI can display. They should not import Streamlit or depend on live widgets.
 
-The service layer is where the app says, "This is the workflow."
+The service layer owns sequencing and operation-level error handling.
 
 ## `core/`: Reusable Logic and Persistence
 
@@ -66,11 +66,9 @@ Good fits for `core/` include:
 
 Core modules should be usable from tests, services, launchers, or future surfaces without Streamlit.
 
-The core layer is where the app says, "This is the rule."
+The core layer owns reusable rules and persistence primitives.
 
 ## Why The Boundary Matters
-
-RoleThread Lite works with files users care about.
 
 When a feature can change dataset content, registry metadata, sidecars, backups, or export output, it should be possible to test that behavior without clicking through the UI.
 
@@ -84,8 +82,6 @@ Separating the layers helps:
 
 ## Practical, Not Rigid
 
-The goal is not to build a heavy enterprise architecture.
+This is not a heavy enterprise layering model.
 
-The goal is to keep important behavior in the smallest layer that can own it responsibly. UI code can stay expressive. Services can stay workflow-focused. Core logic can stay portable.
-
-That balance lets RoleThread Lite remain approachable while still being serious about data safety and maintainability.
+Important behavior should live in the smallest layer that can own it responsibly. UI code can stay expressive; services can stay workflow-focused; core logic can stay portable.

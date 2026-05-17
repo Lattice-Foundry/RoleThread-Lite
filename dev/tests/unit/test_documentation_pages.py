@@ -108,7 +108,7 @@ def test_help_article_registry_has_expected_articles():
     assert registry["developer-launch-flags"].file_name == "26_developer_launch_flags.md"
     assert registry["developer-launch-flags"].category == "For Developers"
     assert registry["rolethread-studio-vision"].file_name == "28_rolethread_studio_vision.md"
-    assert registry["rolethread-studio-vision"].category == "Reference"
+    assert registry["rolethread-studio-vision"].category == "For Developers"
     assert registry["codebase-architecture"].file_name == "29_codebase_architecture.md"
     assert registry["codebase-architecture"].category == "For Developers"
     assert registry["layer-boundaries-and-responsibilities"].file_name == (
@@ -211,10 +211,10 @@ def test_rolethread_studio_vision_documents_lite_and_studio_split():
     document = load_help_document("rolethread-studio-vision")
 
     assert document.article.title == "RoleThread Studio Vision"
-    assert "Lite stays focused and reliable" in document.content
-    assert "Studio absorbs heavier and more experimental workflows" in document.content
-    assert "not a public timeline" in document.content
-    assert "local-first dataset crafting" in document.content
+    assert "separate product surfaces" in document.content
+    assert "Lite owns deterministic dataset creation" in document.content
+    assert "architectural boundary, not a public roadmap" in document.content
+    assert "dataset crafting, validation, repair, organization, and export" in document.content
 
 
 def test_developer_architecture_help_articles_document_layer_boundaries():
@@ -223,14 +223,14 @@ def test_developer_architecture_help_articles_document_layer_boundaries():
     platform = load_help_document("platform-support-philosophy")
 
     assert architecture.article.category == "For Developers"
-    assert "Streamlit is the current UI shell" in architecture.content
+    assert "Streamlit presentation shell" in architecture.content
     assert "`ui/`" in architecture.content
     assert "`services/`" in architecture.content
     assert "`core/`" in architecture.content
-    assert "future RoleThread Studio surface" in architecture.content
+    assert "important rules should not depend on one UI framework" in architecture.content
 
     assert boundaries.article.category == "For Developers"
-    assert "business logic in the UI layer" in boundaries.content
+    assert "durable business logic" in boundaries.content
     assert "Services may call core modules" in boundaries.content
     assert "Core modules should be usable from tests" in boundaries.content
 
@@ -248,7 +248,7 @@ def test_developer_philosophy_help_articles_document_engineering_conventions():
     style = load_help_document("ui-and-theme-style-guide")
 
     assert safety.article.category == "For Developers"
-    assert "RoleThread Lite treats user datasets as important authored work product" in (
+    assert "RoleThread Lite's mutation model" in (
         safety.content
     )
     assert "Backup Before Write" in safety.content
@@ -283,7 +283,7 @@ def test_developer_philosophy_help_articles_document_engineering_conventions():
     assert "#383A3C" in style.content
     assert "#E8E8E8" in style.content
     assert "#3D9F64" in style.content
-    assert "AI startup dashboard chaos" in style.content
+    assert "noisy dashboard patterns" in style.content
 
 
 def test_developer_packaging_help_articles_document_release_and_contribution_flows():
@@ -300,14 +300,14 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "Generated artifacts do not belong in Git" in packaging.content
 
     assert launcher.article.category == "For Developers"
-    assert "launcher owns startup orchestration" in launcher.content
+    assert "startup orchestrator" in launcher.content
     assert "selected launch mode" in launcher.content
     assert "windowed/no-console" in launcher.content
     assert "Managed webapp mode is Windows/Microsoft Edge only" in launcher.content
-    assert "should not invent its own browser cleanup" in launcher.content
+    assert "one source of truth for webapp behavior" in launcher.content
 
     assert contribution.article.category == "For Developers"
-    assert "Prefer small changes with clear intent" in contribution.content
+    assert "small, testable" in contribution.content
     assert "Keep durable business logic out of the UI layer" in contribution.content
     assert "`core/` and `services/` should remain framework-independent" in (
         contribution.content
@@ -317,9 +317,9 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     )
 
     assert boundaries.article.category == "For Developers"
-    assert "Lite is the stable dataset workshop" in boundaries.content
-    assert "Studio is the future advanced environment" in boundaries.content
-    assert "This is direction, not a feature promise or release schedule" in (
+    assert "Lite is the stable dataset tooling surface" in boundaries.content
+    assert "Studio is the planned surface" in boundaries.content
+    assert "boundary statement, not a feature promise or release schedule" in (
         boundaries.content
     )
     assert "Does it directly improve dataset creation" in boundaries.content
@@ -378,7 +378,6 @@ def test_help_article_category_order_and_grouping():
         "glossary",
         "os-compatibility-and-storage-policy",
         "v1-limitations-and-future-boundaries",
-        "rolethread-studio-vision",
     ]
     assert [article.article_id for article in grouped["For Developers"]] == [
         "developer-launch-flags",
@@ -392,6 +391,7 @@ def test_help_article_category_order_and_grouping():
         "build-and-packaging-overview",
         "windows-installer-and-launcher-architecture",
         "contribution-guidelines",
+        "rolethread-studio-vision",
         "lite-vs-studio-boundaries",
     ]
 
@@ -546,12 +546,9 @@ def test_adjacent_help_articles_follow_global_order():
         "v1-limitations-and-future-boundaries"
     )
     assert previous_article.article_id == "os-compatibility-and-storage-policy"
-    assert next_article.article_id == "rolethread-studio-vision"
-    previous_article, next_article = get_adjacent_help_articles("rolethread-studio-vision")
-    assert previous_article.article_id == "v1-limitations-and-future-boundaries"
     assert next_article.article_id == "developer-launch-flags"
     previous_article, next_article = get_adjacent_help_articles("developer-launch-flags")
-    assert previous_article.article_id == "rolethread-studio-vision"
+    assert previous_article.article_id == "v1-limitations-and-future-boundaries"
     assert next_article.article_id == "codebase-architecture"
     previous_article, next_article = get_adjacent_help_articles(
         "platform-support-philosophy"
@@ -569,6 +566,9 @@ def test_adjacent_help_articles_follow_global_order():
     )
     assert previous_article.article_id == "ui-and-theme-style-guide"
     assert next_article.article_id == "windows-installer-and-launcher-architecture"
+    previous_article, next_article = get_adjacent_help_articles("rolethread-studio-vision")
+    assert previous_article.article_id == "contribution-guidelines"
+    assert next_article.article_id == "lite-vs-studio-boundaries"
     assert get_adjacent_help_articles("lite-vs-studio-boundaries")[1] is None
 
 

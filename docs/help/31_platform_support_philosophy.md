@@ -1,14 +1,12 @@
 # Platform Support Philosophy
 
-RoleThread Lite is local-first software. Platform support is designed around that fact.
+RoleThread Lite uses centralized platform metadata for support levels, capability gates, path defaults, diagnostics, and launch planning.
 
-The app should run predictably, store data in understandable locations, and avoid pretending every operating system supports the same integrations.
+The app should not scatter raw operating-system checks across UI code.
 
 ## Windows
 
-Windows is a primary supported platform for V1.
-
-It is also the first installer target.
+Windows is a primary supported platform for V1 and the first installer target.
 
 Windows support includes:
 
@@ -18,7 +16,7 @@ Windows support includes:
 - managed Microsoft Edge webapp mode
 - future Inno Setup installer work
 
-The Windows launcher/installer path is prioritized because normal Windows users should not need to understand Python, virtual environments, Streamlit commands, or dependency setup.
+The Windows launcher/installer path exists to remove Python, virtual environment, Streamlit command, and dependency setup from the installed-user workflow.
 
 ## Linux
 
@@ -37,7 +35,7 @@ Linux uses standard browser workflows. OneDrive integration and managed Edge web
 
 macOS is beta/manual support for V1.
 
-RoleThread Lite is designed to degrade gracefully on macOS, but direct maintainer testing is limited. The expected workflow is similar to Linux: manual setup, local files, and default browser usage.
+RoleThread Lite should degrade gracefully on macOS, but direct maintainer testing is limited. The expected workflow is similar to Linux: manual setup, local files, and default browser usage.
 
 macOS installer behavior is not planned for V1.
 
@@ -45,7 +43,7 @@ macOS installer behavior is not planned for V1.
 
 Managed webapp mode is Windows/Microsoft Edge only.
 
-The reason is practical: the current implementation depends on Windows process and window metadata so RoleThread can open the Edge app window and, when safe, close the duplicate normal browser window Streamlit may create.
+The implementation depends on Windows process metadata and HWND/window inspection so RoleThread can open the Edge app window and, when classification is safe, close the duplicate normal browser window Streamlit may create.
 
 On unsupported platforms, the `webapp` flag should not crash. It should continue in normal browser mode and explain that managed webapp mode is Windows Edge only.
 
@@ -59,11 +57,8 @@ Cloud sync folders are treated as optional backup or sync targets, not preferred
 
 ## Why Support Is Explicit
 
-RoleThread Lite does not try to hide platform differences behind vague abstraction.
+RoleThread Lite does not hide platform differences behind vague abstraction.
 
-Different systems have different expectations around installers, browsers, filesystem locations, cloud folders, and desktop integration. The app uses centralized platform capability metadata so UI and launch behavior can adapt without scattered operating-system checks.
+Different systems have different expectations around installers, browsers, filesystem locations, cloud folders, and desktop integration. The app uses centralized platform capability metadata so UI and launch behavior can adapt without scattered OS checks.
 
-The priority is maintainability over pretending every platform should receive every integration at once.
-
-Advanced or experimental platform workflows may eventually fit more naturally in RoleThread Studio, where heavier runtime and orchestration systems can be explored without making Lite harder to maintain.
-
+The priority is explicit support behavior over pretending every platform should receive every integration at once.

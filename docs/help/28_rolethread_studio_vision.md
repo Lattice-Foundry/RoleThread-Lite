@@ -1,14 +1,12 @@
 # RoleThread Studio Vision
 
-RoleThread Lite and RoleThread Studio are meant to solve related problems at different scales.
+RoleThread Lite and RoleThread Studio are separate product surfaces for related engineering problems.
 
-Lite is the focused local tool. Studio is the future advanced environment where larger, heavier, and more experimental RoleThread workflows can live without making Lite harder to trust.
+Lite is the focused dataset tool. Studio is reserved for orchestration-heavy workflows that should not expand Lite's runtime or UI scope.
 
 ## What Lite Is
 
-RoleThread Lite is local-first dataset engineering software.
-
-It is designed to stay:
+RoleThread Lite should stay:
 
 - lightweight
 - deterministic
@@ -17,7 +15,7 @@ It is designed to stay:
 - maintainable
 - stable
 
-Lite focuses on the practical work of shaping conversational training data:
+Lite owns the practical dataset engineering surface:
 
 - creating and editing entries
 - validating structure
@@ -27,11 +25,11 @@ Lite focuses on the practical work of shaping conversational training data:
 - merging, splitting, joining, and exporting datasets
 - protecting work with backups and portable metadata
 
-The important idea is that Lite should feel complete without becoming a platform. It helps you work carefully with local files and keeps the workflow understandable.
+Lite should remain complete without becoming an orchestration platform.
 
 ## What Studio Is Intended To Become
 
-RoleThread Studio is the future advanced environment for larger RoleThread workflows.
+RoleThread Studio is the planned surface for larger RoleThread workflows.
 
 Studio is where more ambitious systems may belong, including:
 
@@ -44,33 +42,21 @@ Studio is where more ambitious systems may belong, including:
 - experimental AI-assisted workflows
 - native desktop workflows later, if they make sense
 
-That does not mean every idea listed here is promised for a specific release. Studio is a future-facing direction, not a public timeline.
+This is an architectural boundary, not a public roadmap.
 
 ## The Product Split
 
-The split is simple:
+The split is operational:
 
-- Lite stays focused and reliable.
-- Studio absorbs heavier and more experimental workflows.
-
-Not every useful idea belongs in Lite. A feature can be valuable and still be the wrong fit for a focused dataset editor.
-
-Lite should protect the core workflow: open data, inspect it, improve it, validate it, back it up, and export it cleanly. Studio can explore workflows that need more orchestration, more automation, or more runtime complexity.
+- Lite owns deterministic dataset creation, inspection, mutation, validation, backup, and export workflows.
+- Studio can own orchestration, automation, runtime, and inference-management workflows that require more state or heavier process control.
 
 ## Why The Separation Exists
 
-The separation exists to keep Lite healthy.
-
-RoleThread Lite should avoid feature bloat that makes common work slower, harder to understand, or harder to recover from. Its job is to be a dependable workshop for local conversational datasets.
-
-Studio gives RoleThread room to experiment without destabilizing that workshop.
-
-This matters because dataset tools need trust. If a tool touches training data, backups, metadata, exports, and repair workflows, users should be able to understand what happened and recover when something goes wrong.
+The separation prevents broad runtime experiments from weakening Lite's simpler mutation, validation, and recovery model.
 
 ## Current Status
 
-RoleThread Studio is conceptual and planned.
+RoleThread Studio is conceptual. This page documents product boundaries, not committed features, dates, or packaging decisions.
 
-It is not publicly released, and this Help article should not be read as a commitment to specific features, dates, or packaging decisions.
-
-For V1, RoleThread Lite remains the product surface: local-first dataset crafting, validation, repair, organization, and export.
+For V1, RoleThread Lite remains the active product surface for dataset crafting, validation, repair, organization, and export.

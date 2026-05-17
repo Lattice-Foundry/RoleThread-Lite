@@ -1,12 +1,12 @@
 # Codebase Architecture
 
-RoleThread Lite is organized as a layered local application, not as a single Streamlit script.
+RoleThread Lite is a layered Python application with a Streamlit presentation shell.
 
-Streamlit is the current UI shell. The durable behavior lives in framework-independent modules so the project can stay maintainable, testable, and portable as the RoleThread ecosystem grows.
+Durable behavior lives in framework-independent modules. Streamlit owns rendering and interaction, not the application model.
 
 ## The Main Layers
 
-The codebase is split into a few practical areas.
+The main source areas map to runtime responsibilities.
 
 ### `ui/`
 
@@ -21,15 +21,15 @@ It handles:
 - visual presentation
 - Help and FAQ browser rendering
 
-The UI layer may call services and core helpers, but it should not become the place where durable business rules live.
+The UI layer may call services and core helpers. It should not own durable mutation, validation, persistence, or platform rules.
 
 ### `services/`
 
 The `services/` layer owns workflow orchestration.
 
-It coordinates multi-step operations such as dataset mutations, registry sidecar updates, backup-before-write behavior, tag lifecycle changes, and result reporting.
+It coordinates multi-step operations such as dataset mutations, registry sidecar updates, backup-before-write flows, tag lifecycle changes, and result assembly.
 
-Services are allowed to know about workflows. They should stay framework-independent so they can be tested without Streamlit and reused by future launchers or product surfaces.
+Services are workflow-aware but framework-independent. They should be testable without Streamlit.
 
 ### `core/`
 
@@ -52,7 +52,7 @@ Core modules should not import Streamlit. They are the most reusable part of the
 
 The `installer/` area contains Windows packaging and launcher work.
 
-It includes the Windows launcher prototype, PyInstaller bundle configuration, Inno Setup planning, and packaging documentation. The launcher is separate from the Streamlit app because it will eventually own startup, bundled runtime selection, and installed-user behavior.
+It includes the Windows launcher, PyInstaller bundle configuration, Inno Setup planning, and packaging documentation. The launcher is separate from the Streamlit app because it owns startup orchestration, runtime selection, and installed-user behavior.
 
 ### `docs/`
 
@@ -60,13 +60,13 @@ The `docs/` folder contains user Help articles, FAQ content, setup notes, and de
 
 Help content is registered explicitly so the in-app documentation browser can provide category navigation, search, related links, and stable article IDs.
 
-## Architectural Philosophy
+## Boundary Model
 
-RoleThread Lite treats Streamlit as a UI shell, not the whole application architecture.
+Streamlit is a replaceable UI shell.
 
-That split matters because the project is handling user data, backups, sidecars, registry metadata, platform paths, launch behavior, and export workflows. Those pieces need tests and predictable behavior outside a live UI session.
+Dataset mutation, sidecar synchronization, registry metadata, platform paths, launch planning, and export workflows need deterministic behavior outside a live UI session.
 
-The goal is not architecture for its own sake. The goal is to keep the app understandable as it grows.
+This boundary keeps service/core behavior reusable by tests, launchers, and future product surfaces.
 
 ## Service Pipelines
 
@@ -79,12 +79,12 @@ Several workflows follow a repeated pattern:
 - update sidecars or registry metadata
 - return a structured result
 
-Service pipelines centralize those patterns where it is safe. They reduce duplication and make failure behavior more consistent without hiding the workflow itself.
+Service pipelines centralize the repeated mutation flow where the workflow shape is stable. They reduce duplication without hiding the operation being performed.
 
 ## Future Portability
 
-RoleThread Lite is currently a Streamlit app, but the core design keeps future options open.
+RoleThread Lite is currently served through Streamlit, but the service/core split keeps future UI surfaces possible.
 
-A future RoleThread Studio surface, native shell, or different UI technology should be able to reuse much of the Python core and service logic. That does not mean Lite is already Studio. It means Lite avoids tying every important rule to one UI framework.
+A future RoleThread Studio surface, native shell, or different UI technology should be able to reuse much of the Python core and service logic.
 
-This is why the project is careful about boundaries: deterministic workflows, user-controlled data, and reusable service logic are easier to preserve when the layers have clear responsibilities.
+The practical requirement is simple: important rules should not depend on one UI framework.

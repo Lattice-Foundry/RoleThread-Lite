@@ -1,12 +1,10 @@
 # UI and Theme Style Guide
 
-RoleThread Lite's interface should feel calm, readable, and creator-oriented.
+RoleThread Lite's interface is dark-theme-first, low-noise, and workflow-focused.
 
-The app is used for careful dataset work: reading entries, editing text, validating structure, repairing metadata, tagging content, and exporting training data. The UI should support concentration instead of competing for attention.
+The UI is optimized for reading entries, editing text, validating structure, repairing metadata, tagging content, and exporting training data.
 
 ## Design Philosophy
-
-RoleThread Lite is dark-theme-first, workflow-focused, and intentionally restrained.
 
 The interface should prioritize:
 
@@ -18,7 +16,7 @@ The interface should prioritize:
 - strong data visibility
 - clear feedback after actions
 
-It should avoid "AI startup dashboard chaos": noisy gradients, excessive cards, ornamental motion, overloaded metrics, and decoration that makes dataset work harder to scan.
+Avoid noisy dashboard patterns: excessive gradients, ornamental motion, overloaded metrics, and decoration that makes dataset work harder to scan.
 
 ## Theme Colors
 
@@ -31,7 +29,7 @@ The current Streamlit theme uses:
 
 RoleThread also uses the inline slug/path green `#3D9F64` for compact technical values such as slugs, paths, and developer-style metadata.
 
-Use these colors consistently. New UI should not introduce a competing palette unless there is a clear product reason.
+New UI should not introduce a competing palette without a clear product reason.
 
 ## Accent Use
 
@@ -73,7 +71,7 @@ Navigation labels should stay stable and workflow-oriented:
 - Settings
 - Help
 
-Labels should teach the user where work belongs without requiring long explanations.
+Labels should map to workflow ownership.
 
 ## Status and Notifications
 
@@ -81,7 +79,7 @@ Notifications should be readable, left-aligned, and proportional to the content.
 
 They should not collapse into narrow columns, center themselves awkwardly, or become a wall that hides the active workflow. Use status messages to explain what happened and what the user can do next, not to narrate every internal detail.
 
-Developer diagnostics belong behind developer mode. Normal users should see clear support information, not raw internals.
+Developer diagnostics belong behind developer mode; normal mode should not expose raw internals.
 
 ## Controls
 
@@ -109,6 +107,3 @@ RoleThread Lite should avoid:
 - centered operational lists
 - vague "AI magic" language
 - burying primary workflows below explanation text
-
-The best UI for RoleThread is one that quietly helps users protect, inspect, and improve their datasets.
-

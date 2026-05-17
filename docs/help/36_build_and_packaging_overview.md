@@ -1,11 +1,11 @@
 # Build and Packaging Overview
 
-RoleThread Lite supports two practical audiences:
+RoleThread Lite packaging supports two execution models:
 
-- normal Windows users who should be able to install and run the app without knowing Python, virtual environments, pip, or Streamlit commands
-- technical users and contributors who are comfortable running from Git and managing a development environment
+- bundled Windows install for normal users
+- source checkout for contributors and technical users
 
-The packaging work exists to serve the first group without removing the second path.
+The bundled path removes Python, virtual environment, pip, and Streamlit command knowledge from the installed-user workflow.
 
 ## Packaging Direction
 
@@ -15,13 +15,11 @@ The V1 Windows packaging direction is:
 - Inno Setup for the final Windows setup executable
 - GitHub Releases for publishing generated installer artifacts
 
-The installer packages a tested release snapshot. It does not clone from Git, pull source code, or depend on a user's local Python installation.
+The installer packages a tested release snapshot. It does not clone from Git, pull source code, or depend on system Python.
 
 ## Bundled Runtime Philosophy
 
-Normal installed users should not need to think about the Python runtime.
-
-The bundled Windows app should include the runtime and dependencies needed to start RoleThread. That keeps the installed experience closer to a normal desktop app and avoids asking users to troubleshoot virtual environments before they can work with their datasets.
+The bundled Windows app includes the runtime and dependencies needed to start RoleThread.
 
 Manual source workflows remain available for power users, contributors, and Linux/macOS users.
 
@@ -41,7 +39,7 @@ Development launch workflows may use:
 - `.venv\Scripts\python.exe installer\windows\launcher\rolethread_launcher.py`
 - scripts under `installer/windows/scripts/`
 
-The launcher and build scripts are source-controlled because they describe how the app is packaged. Generated bundles are not source-controlled.
+Launcher and build scripts are source-controlled because they define the build. Generated bundles are not source-controlled.
 
 ## Build Scripts
 
@@ -51,9 +49,9 @@ Windows build helpers live under:
 installer/windows/scripts/
 ```
 
-These scripts should be boring and explicit. They should print useful status, fail clearly, and avoid hiding important packaging assumptions.
+Scripts should print useful status, fail clearly, and avoid hiding packaging assumptions.
 
-The current PyInstaller bundle script produces a one-folder launcher bundle. Future installer passes can build on that output without changing the app's core runtime behavior.
+The current PyInstaller script produces a one-folder launcher bundle. Installer passes can consume that output without changing app runtime behavior.
 
 ## Generated Artifacts
 
@@ -80,11 +78,8 @@ The expected early release flow is manual:
 5. test install, launch, uninstall, and data preservation behavior
 6. upload the setup executable to GitHub Releases
 
-CI/CD may automate pieces later, but the source tree should stay clean either way.
+CI/CD may automate pieces later; the source tree should stay free of generated artifacts either way.
 
 ## Current Status
 
-Packaging is still evolving before V1.
-
-The important architectural direction is already set: normal Windows users get a bundled installed app, while technical users can continue running from source with a managed development environment.
-
+Packaging is still evolving before V1. The architecture is fixed around a bundled Windows app plus a source-based contributor workflow.

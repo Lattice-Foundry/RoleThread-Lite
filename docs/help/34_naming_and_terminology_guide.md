@@ -1,8 +1,8 @@
 # Naming and Terminology Guide
 
-RoleThread Lite uses consistent terminology because naming shapes how contributors understand the workflow.
+RoleThread Lite uses consistent terminology across UI labels, services, metadata, docs, and tests.
 
-The project prefers clear, workflow-oriented names over abstract internal jargon. Names should describe what the user is doing, what the data represents, or what safety rule is being protected.
+Prefer workflow-oriented names over abstract internal jargon. Names should describe the operation, data shape, or side effect being represented.
 
 ## Product Names
 
@@ -10,7 +10,7 @@ Use `RoleThread Lite` for this application.
 
 Use `RoleThread` when referring to the broader ecosystem or shared product philosophy.
 
-Use `RoleThread Studio` for the future advanced environment. Studio references should stay future-facing and restrained. Lite documentation should not imply that Studio features already exist.
+Use `RoleThread Studio` for the planned advanced environment. Lite documentation should not imply that Studio features already exist.
 
 ## Interaction, Not Scene
 
@@ -34,7 +34,7 @@ Use this term when the discussion is about back-and-forth conversational structu
 
 A `working copy` is the editable local copy RoleThread uses while protecting the original imported file.
 
-This term matters because RoleThread is cautious about direct filesystem ownership and user-controlled data. The working copy is where active changes happen; the original file should remain recoverable.
+The working copy is where active changes happen; the original file should remain recoverable.
 
 ## Sidecar
 
@@ -56,7 +56,7 @@ An `imported tag` is a tag found in loaded data that is not currently part of th
 
 An `archived tag` is preserved but not active for normal assignment.
 
-This distinction keeps unknown metadata safe without forcing every imported or old tag into the active taxonomy.
+This distinction preserves unknown metadata without forcing every imported or old tag into the active taxonomy.
 
 ## Dataset Mutation
 
@@ -87,7 +87,7 @@ Avoid making slugs depend on capitalization, punctuation, or display styling.
 
 RoleThread follows PEP 8 where practical.
 
-The goal is readable, maintainable code rather than rigid style-lawyering. Contributors should prefer names that make workflows and side effects clear.
+The goal is readable code, not rigid style-lawyering. Contributors should prefer names that make workflows and side effects clear.
 
 Use standard Python conventions:
 
@@ -104,12 +104,12 @@ Good examples:
 - `create_dataset_backup()`
 - `replace_tags_bulk_service()`
 
-Service names may be longer when the name clarifies the workflow. A function that writes files, creates backups, replaces tags, or updates sidecars should not hide those side effects behind a cute or overly generic name.
+Service names may be longer when the name clarifies the workflow. A function that writes files, creates backups, replaces tags, or updates sidecars should not hide those side effects behind an overly generic name.
 
-Small pragmatic deviations from PEP 8 are acceptable when they make a workflow easier to read, but the default posture should be consistency, explicitness, and boring clarity.
+Small pragmatic deviations from PEP 8 are acceptable when they make a workflow easier to read; consistency and explicitness remain the default.
 
 ## Why Naming Discipline Matters
 
-Consistent terminology lowers the cost of contributing.
+Consistent terminology lowers the cost of contribution and review.
 
-When UI labels, Help docs, tests, service names, and metadata concepts use the same words, contributors spend less time translating between mental models. That makes the project easier to maintain, and it makes future Studio work easier to reason about without turning Lite into something it is not.
+When UI labels, Help docs, tests, service names, and metadata concepts use the same words, contributors spend less time translating between mental models.
