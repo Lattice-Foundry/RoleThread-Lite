@@ -416,6 +416,104 @@ def test_port_available_true_when_connection_fails(monkeypatch):
     assert launcher.is_port_available() is True
 
 
+def test_capture_rolethread_webapp_windows_parses_exact_hwnd_metadata(monkeypatch):
+    monkeypatch.setattr(launcher.os, "name", "nt")
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "handle": "0x7D09AA",
+                        "pid": 25740,
+                        "title": "RoleThread Lite",
+                        "class_name": "Chrome_WidgetWin_1",
+                        "process_name": "msedge",
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    windows = launcher.capture_rolethread_webapp_windows(run_fn=fake_run)
+
+    assert windows == (
+        launcher.WebappWindowInfo(
+            handle="0x7D09AA",
+            pid=25740,
+            title="RoleThread Lite",
+            class_name="Chrome_WidgetWin_1",
+            process_name="msedge",
+        ),
+    )
+    assert launcher.count_rolethread_webapp_windows(run_fn=fake_run) == 1
+
+
+def test_wait_for_app_window_close_tracks_exact_webapp_handle():
+    target = launcher.WebappWindowInfo(
+        handle="0x7D09AA",
+        pid=25740,
+        title="RoleThread Lite",
+        class_name="Chrome_WidgetWin_1",
+        process_name="msedge",
+    )
+    calls = iter([(), (target,), (target,), ()])
+
+    result = launcher.wait_for_app_window_close(
+        launcher.LAUNCH_MODE_WEBAPP,
+        capture_windows_fn=lambda: next(calls),
+        sleep_fn=lambda _: None,
+        appear_timeout_seconds=5,
+        poll_seconds=0,
+    )
+
+    assert result.supported is True
+    assert result.observed is True
+    assert result.closed is True
+    assert result.target_handle == "0x7D09AA"
+    assert result.target_pid == 25740
+    assert result.target_title == "RoleThread Lite"
+
+
+def test_check_port_release_status_reports_free_port():
+    status = launcher.check_port_release_status(
+        owned_pid=123,
+        port_available_fn=lambda: True,
+        port_owner_fn=lambda: (_ for _ in ()).throw(
+            AssertionError("owner should not be queried for free port")
+        ),
+    )
+
+    assert status.released is True
+    assert status.owner_kind == "free"
+
+
+def test_check_port_release_status_reports_owned_process():
+    status = launcher.check_port_release_status(
+        owned_pid=123,
+        port_available_fn=lambda: False,
+        port_owner_fn=lambda: 123,
+    )
+
+    assert status.released is False
+    assert status.owner_pid == 123
+    assert status.owner_kind == "owned_process"
+
+
+def test_check_port_release_status_reports_unknown_process():
+    status = launcher.check_port_release_status(
+        owned_pid=123,
+        port_available_fn=lambda: False,
+        port_owner_fn=lambda: 999,
+    )
+
+    assert status.released is False
+    assert status.owner_pid == 999
+    assert status.owner_kind == "unknown_process"
+
+
 def test_pyinstaller_spec_uses_windowed_no_console_mode():
     spec_path = Path(__file__).parents[3] / "installer" / "windows" / "rolethread_launcher.spec"
     spec_text = spec_path.read_text(encoding="utf-8")
@@ -696,6 +794,12 @@ def test_run_launcher_lifecycle_graceful_shutdown_path(tmp_path):
         termination_fn=lambda process: (_ for _ in ()).throw(
             AssertionError("termination should not run")
         ),
+        port_release_fn=lambda pid: launcher.PortReleaseStatus(
+            True,
+            None,
+            "free",
+            "released",
+        ),
     )
 
     assert result.final_state == "graceful_shutdown"
@@ -704,6 +808,7 @@ def test_run_launcher_lifecycle_graceful_shutdown_path(tmp_path):
     assert "lifecycle=health_check" in log_text
     assert "lifecycle=window_monitor" in log_text
     assert "lifecycle=shutdown_request" in log_text
+    assert "lifecycle=port_release" in log_text
 
 
 def test_run_launcher_lifecycle_terminates_after_shutdown_timeout(tmp_path, monkeypatch):
@@ -750,6 +855,12 @@ def test_run_launcher_lifecycle_terminates_after_shutdown_timeout(tmp_path, monk
             True,
             "terminated",
         ),
+        port_release_fn=lambda pid: launcher.PortReleaseStatus(
+            True,
+            None,
+            "free",
+            "released",
+        ),
     )
 
     assert result.final_state == "terminated"
@@ -788,6 +899,12 @@ def test_run_launcher_lifecycle_terminates_when_health_check_fails(tmp_path):
             "terminate",
             True,
             "terminated",
+        ),
+        port_release_fn=lambda pid: launcher.PortReleaseStatus(
+            True,
+            None,
+            "free",
+            "released",
         ),
     )
 
@@ -828,6 +945,12 @@ def test_run_launcher_lifecycle_does_not_shutdown_when_monitoring_unsupported(tm
         ),
         termination_fn=lambda process: (_ for _ in ()).throw(
             AssertionError("termination should not run")
+        ),
+        port_release_fn=lambda pid: launcher.PortReleaseStatus(
+            False,
+            999,
+            "unknown_process",
+            "still occupied",
         ),
     )
 

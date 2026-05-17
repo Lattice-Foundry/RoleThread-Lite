@@ -83,6 +83,9 @@ class WindowCloseDetectionResult:
     closed: bool
     observed: bool
     message: str
+    target_handle: str = ""
+    target_pid: int | None = None
+    target_title: str = ""
 
 
 @dataclass(frozen=True)
@@ -110,6 +113,23 @@ class LauncherLifecycleResult:
     shutdown_request: ShutdownRequestResult
     termination: TerminationResult
     final_state: str
+
+
+@dataclass(frozen=True)
+class WebappWindowInfo:
+    handle: str
+    pid: int
+    title: str
+    class_name: str
+    process_name: str
+
+
+@dataclass(frozen=True)
+class PortReleaseStatus:
+    released: bool
+    owner_pid: int | None
+    owner_kind: str
+    message: str
 
 
 class LauncherConfigurationError(RuntimeError):
@@ -418,6 +438,95 @@ def is_port_available(host: str = "127.0.0.1", port: int = int(STREAMLIT_PORT)) 
         return True
 
 
+def get_port_owner_pid(port: int = int(STREAMLIT_PORT)) -> int | None:
+    """Return the owning PID for a listening TCP port when Windows exposes it."""
+
+    if os.name != "nt":
+        return None
+
+    script = f"""
+$connection = Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+if ($null -eq $connection) {{
+    Write-Output ''
+}} else {{
+    Write-Output ([string]$connection.OwningProcess)
+}}
+"""
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return None
+    if result.returncode != 0:
+        return None
+    output = (result.stdout or "").strip().splitlines()
+    if not output:
+        return None
+    try:
+        return int(output[-1].strip())
+    except ValueError:
+        return None
+
+
+def check_port_release_status(
+    *,
+    owned_pid: int | None,
+    port_available_fn: Callable[[], bool] = is_port_available,
+    port_owner_fn: Callable[[], int | None] = get_port_owner_pid,
+) -> PortReleaseStatus:
+    """Return the final Streamlit port state without killing unknown listeners."""
+
+    if port_available_fn():
+        return PortReleaseStatus(
+            released=True,
+            owner_pid=None,
+            owner_kind="free",
+            message=f"Port {STREAMLIT_PORT} is released.",
+        )
+
+    owner = port_owner_fn()
+    if owner is not None and owned_pid is not None and owner == owned_pid:
+        return PortReleaseStatus(
+            released=False,
+            owner_pid=owner,
+            owner_kind="owned_process",
+            message=f"Port {STREAMLIT_PORT} is still occupied by owned process {owner}.",
+        )
+
+    if owner is not None:
+        return PortReleaseStatus(
+            released=False,
+            owner_pid=owner,
+            owner_kind="unknown_process",
+            message=f"Port {STREAMLIT_PORT} is still occupied by unknown process {owner}.",
+        )
+
+    return PortReleaseStatus(
+        released=False,
+        owner_pid=None,
+        owner_kind="unknown_process",
+        message=f"Port {STREAMLIT_PORT} is still occupied; owner PID was unavailable.",
+    )
+
+
+def format_port_release_status(*, owned_pid: int | None) -> str:
+    """Return a concise final status for the Streamlit port after shutdown."""
+
+    status = check_port_release_status(owned_pid=owned_pid)
+    if status.released:
+        return "released"
+    if status.owner_kind == "owned_process":
+        return f"still occupied by owned process {status.owner_pid}"
+    if status.owner_pid is not None:
+        return f"still occupied by unknown process {status.owner_pid}"
+    return "still occupied by unknown process"
+
+
 def ensure_streamlit_port_available(
     *,
     port_available_fn: Callable[[], bool] = is_port_available,
@@ -499,8 +608,7 @@ def launch_rolethread(
         write_launcher_log(config.log_path, (f"error={exc}",))
         raise
 
-    # Future pass: own subprocess lifecycle, browser/window close detection,
-    # graceful shutdown, and forceful termination fallback if needed.
+    # Lifecycle management is handled after startup by run_launcher_lifecycle().
     try:
         process = popen(
             config.command,
@@ -567,6 +675,18 @@ def count_rolethread_webapp_windows(
 ) -> int | None:
     """Return the number of visible RoleThread Edge app windows, if Windows allows it."""
 
+    windows = capture_rolethread_webapp_windows(run_fn=run_fn)
+    if windows is None:
+        return None
+    return len(windows)
+
+
+def capture_rolethread_webapp_windows(
+    *,
+    run_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> tuple[WebappWindowInfo, ...] | None:
+    """Return visible RoleThread Edge app windows with exact HWND metadata."""
+
     if os.name != "nt":
         return None
 
@@ -590,7 +710,7 @@ public class RoleThreadWindowEnumerator {
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 }
 "@
-$matches = 0
+$script:matches = New-Object System.Collections.Generic.List[object]
 $callback = [RoleThreadWindowEnumerator+EnumWindowsProc]{
     param([IntPtr]$hWnd, [IntPtr]$lParam)
     if (-not [RoleThreadWindowEnumerator]::IsWindowVisible($hWnd)) { return $true }
@@ -605,13 +725,21 @@ $callback = [RoleThreadWindowEnumerator+EnumWindowsProc]{
         [void][RoleThreadWindowEnumerator]::GetWindowThreadProcessId($hWnd, [ref]$pid)
         try {
             $process = Get-Process -Id ([int]$pid) -ErrorAction Stop
-            if ($process.ProcessName -eq 'msedge') { $script:matches += 1 }
+            if ($process.ProcessName -eq 'msedge') {
+                $script:matches.Add([pscustomobject]@{
+                    handle = ('0x{0:X}' -f $hWnd.ToInt64())
+                    pid = [int]$pid
+                    title = $title
+                    class_name = $className
+                    process_name = $process.ProcessName
+                }) | Out-Null
+            }
         } catch {}
     }
     return $true
 }
 [void][RoleThreadWindowEnumerator]::EnumWindows($callback, [IntPtr]::Zero)
-Write-Output $matches
+$script:matches | Sort-Object handle | ConvertTo-Json -Compress
 """
     try:
         result = run_fn(
@@ -624,13 +752,37 @@ Write-Output $matches
         return None
     if result.returncode != 0:
         return None
-    output = (result.stdout or "").strip().splitlines()
+    output = (result.stdout or "").strip()
     if not output:
-        return None
+        return ()
     try:
-        return int(output[-1].strip())
-    except ValueError:
+        parsed = json.loads(output)
+    except json.JSONDecodeError:
         return None
+    if isinstance(parsed, dict):
+        parsed_items = [parsed]
+    elif isinstance(parsed, list):
+        parsed_items = parsed
+    else:
+        return ()
+
+    windows: list[WebappWindowInfo] = []
+    for item in parsed_items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            windows.append(
+                WebappWindowInfo(
+                    handle=str(item.get("handle", "")),
+                    pid=int(item.get("pid", 0)),
+                    title=str(item.get("title", "")),
+                    class_name=str(item.get("class_name", "")),
+                    process_name=str(item.get("process_name", "")),
+                )
+            )
+        except (TypeError, ValueError):
+            continue
+    return tuple(windows)
 
 
 def wait_for_app_window_close(
@@ -638,6 +790,9 @@ def wait_for_app_window_close(
     *,
     process: subprocess.Popen | None = None,
     count_windows_fn: Callable[[], int | None] = count_rolethread_webapp_windows,
+    capture_windows_fn: Callable[
+        [], tuple[WebappWindowInfo, ...] | None
+    ] | None = None,
     sleep_fn: Callable[[float], None] = time.sleep,
     appear_timeout_seconds: float = DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS,
     poll_seconds: float = DEFAULT_WINDOW_POLL_SECONDS,
@@ -653,6 +808,24 @@ def wait_for_app_window_close(
                 "Automatic browser-close detection is not enabled for normal "
                 "browser launch mode."
             ),
+        )
+
+    if capture_windows_fn is not None:
+        return wait_for_exact_app_window_close(
+            process=process,
+            capture_windows_fn=capture_windows_fn,
+            sleep_fn=sleep_fn,
+            appear_timeout_seconds=appear_timeout_seconds,
+            poll_seconds=poll_seconds,
+        )
+
+    if count_windows_fn is count_rolethread_webapp_windows:
+        return wait_for_exact_app_window_close(
+            process=process,
+            capture_windows_fn=capture_rolethread_webapp_windows,
+            sleep_fn=sleep_fn,
+            appear_timeout_seconds=appear_timeout_seconds,
+            poll_seconds=poll_seconds,
         )
 
     deadline = time.monotonic() + appear_timeout_seconds
@@ -708,6 +881,91 @@ def wait_for_app_window_close(
                 closed=True,
                 observed=True,
                 message="RoleThread app window closed.",
+            )
+        sleep_fn(poll_seconds)
+
+
+def wait_for_exact_app_window_close(
+    *,
+    process: subprocess.Popen | None = None,
+    capture_windows_fn: Callable[
+        [], tuple[WebappWindowInfo, ...] | None
+    ] = capture_rolethread_webapp_windows,
+    sleep_fn: Callable[[float], None] = time.sleep,
+    appear_timeout_seconds: float = DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS,
+    poll_seconds: float = DEFAULT_WINDOW_POLL_SECONDS,
+) -> WindowCloseDetectionResult:
+    """Monitor one observed Edge app-window HWND until that exact handle closes."""
+
+    deadline = time.monotonic() + appear_timeout_seconds
+    target: WebappWindowInfo | None = None
+    while time.monotonic() <= deadline:
+        if process is not None and process.poll() is not None:
+            return WindowCloseDetectionResult(
+                supported=True,
+                closed=True,
+                observed=target is not None,
+                message="Streamlit subprocess exited before app-window monitoring completed.",
+                target_handle=target.handle if target else "",
+                target_pid=target.pid if target else None,
+                target_title=target.title if target else "",
+            )
+        windows = capture_windows_fn()
+        if windows is None:
+            return WindowCloseDetectionResult(
+                supported=False,
+                closed=False,
+                observed=target is not None,
+                message="Windows app-window detection was unavailable.",
+                target_handle=target.handle if target else "",
+                target_pid=target.pid if target else None,
+                target_title=target.title if target else "",
+            )
+        if windows:
+            target = sorted(windows, key=lambda item: item.handle)[0]
+            break
+        sleep_fn(poll_seconds)
+
+    if target is None:
+        return WindowCloseDetectionResult(
+            supported=False,
+            closed=False,
+            observed=False,
+            message="Timed out waiting for the Edge app window to appear.",
+        )
+
+    while True:
+        if process is not None and process.poll() is not None:
+            return WindowCloseDetectionResult(
+                supported=True,
+                closed=True,
+                observed=True,
+                message="Streamlit subprocess exited while monitoring the app window.",
+                target_handle=target.handle,
+                target_pid=target.pid,
+                target_title=target.title,
+            )
+        windows = capture_windows_fn()
+        if windows is None:
+            return WindowCloseDetectionResult(
+                supported=False,
+                closed=False,
+                observed=True,
+                message="Windows app-window detection became unavailable.",
+                target_handle=target.handle,
+                target_pid=target.pid,
+                target_title=target.title,
+            )
+        active_handles = {window.handle for window in windows}
+        if target.handle not in active_handles:
+            return WindowCloseDetectionResult(
+                supported=True,
+                closed=True,
+                observed=True,
+                message="RoleThread app-window handle closed.",
+                target_handle=target.handle,
+                target_pid=target.pid,
+                target_title=target.title,
             )
         sleep_fn(poll_seconds)
 
@@ -812,6 +1070,19 @@ def terminate_process_fallback(
     )
 
 
+def log_port_release_status(log_path: Path, status: PortReleaseStatus) -> None:
+    write_launcher_log(
+        log_path,
+        (
+            "lifecycle=port_release",
+            f"released={status.released}",
+            f"owner_pid={status.owner_pid}",
+            f"owner_kind={status.owner_kind}",
+            f"message={status.message}",
+        ),
+    )
+
+
 def run_launcher_lifecycle(
     config: LauncherConfig,
     *,
@@ -829,6 +1100,7 @@ def run_launcher_lifecycle(
         [subprocess.Popen],
         TerminationResult,
     ] = terminate_process_fallback,
+    port_release_fn: Callable[[int | None], PortReleaseStatus] | None = None,
 ) -> LauncherLifecycleResult:
     """Start RoleThread and manage the first launcher-owned shutdown lifecycle."""
 
@@ -871,6 +1143,12 @@ def run_launcher_lifecycle(
                 f"termination_completed={termination.completed}",
             ),
         )
+        log_port_release_status(
+            config.log_path,
+            (port_release_fn or (lambda owner_pid: check_port_release_status(owned_pid=owner_pid)))(
+                pid
+            ),
+        )
         return LauncherLifecycleResult(
             process_pid=pid,
             launch_mode=config.launch_mode,
@@ -892,6 +1170,9 @@ def run_launcher_lifecycle(
             f"supported={close_detection.supported}",
             f"observed={close_detection.observed}",
             f"closed={close_detection.closed}",
+            f"target_handle={close_detection.target_handle}",
+            f"target_pid={close_detection.target_pid}",
+            f"target_title={close_detection.target_title}",
             f"message={close_detection.message}",
         ),
     )
@@ -908,6 +1189,12 @@ def run_launcher_lifecycle(
             method="none",
             completed=False,
             message="Lifecycle monitor did not own shutdown for this launch mode.",
+        )
+        log_port_release_status(
+            config.log_path,
+            (port_release_fn or (lambda owner_pid: check_port_release_status(owned_pid=owner_pid)))(
+                pid
+            ),
         )
         return LauncherLifecycleResult(
             process_pid=pid,
@@ -954,6 +1241,12 @@ def run_launcher_lifecycle(
             f"termination_method={termination.method}",
             f"termination_completed={termination.completed}",
             f"termination_message={termination.message}",
+        ),
+    )
+    log_port_release_status(
+        config.log_path,
+        (port_release_fn or (lambda owner_pid: check_port_release_status(owned_pid=owner_pid)))(
+            pid
         ),
     )
     return LauncherLifecycleResult(

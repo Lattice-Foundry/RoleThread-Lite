@@ -14,9 +14,10 @@ It is responsible for:
 - deciding normal launch mode versus webapp launch mode
 - starting the Streamlit app
 - waiting for the Streamlit health endpoint
-- monitoring app-window closure where practical
+- monitoring the exact Edge webapp window handle where practical
 - requesting local token-protected shutdown
 - using terminate/kill fallback only after graceful shutdown fails
+- logging the final port `8501` release state
 - writing launcher logs
 - reporting startup failures clearly
 
@@ -32,11 +33,12 @@ For supported webapp runs, the launcher lifecycle is:
 
 1. start the Streamlit subprocess
 2. wait for `/_stcore/health`
-3. monitor the Edge app window through Windows HWND metadata
+3. monitor the Edge app window through exact Windows HWND metadata
 4. request graceful shutdown after the app window closes
 5. wait for app exit hooks to run
 6. fall back to `terminate()`
 7. use `kill()` only as a last resort
+8. verify and log whether port `8501` was released
 
 Normal browser mode has limited automatic browser-close detection because default-browser tabs are not consistently attributable to the launcher. In that mode, lifecycle logging records the limitation instead of guessing.
 
@@ -69,6 +71,7 @@ Launcher logs should capture:
 - app-window close detection result
 - shutdown request result
 - fallback termination result
+- final port-release state
 - startup errors
 
 ## Webapp Mode Boundary
@@ -108,7 +111,9 @@ Cloud backup copies outside the local RoleThread folders are preserved and must 
 
 If `RoleThreadLauncher.exe` is still running, the uninstaller asks the user to close RoleThread Lite before continuing. It does not broadly terminate Python, Streamlit, Edge, or unrelated browser processes.
 
-## Graceful Shutdown Direction
+## Port Release Policy
 
-Shutdown lifecycle remains future work. The long-term launcher direction is to own the Streamlit subprocess, detect normal exit conditions where practical, and leave room for graceful cleanup before forceful termination.
+The launcher should release port `8501` by shutting down the backend it started, not by attaching to or killing unrelated listeners. Reusing an existing healthy backend can mask stale installed builds after an update, so the default lifecycle is shutdown, process exit, and a fresh start on the next launch.
+
+If graceful shutdown does not complete, fallback termination targets only the launcher-owned Streamlit subprocess. Unknown processes on port `8501` are logged for diagnosis and left alone.
 

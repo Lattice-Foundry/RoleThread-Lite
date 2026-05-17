@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.89] - 2026-05-17
+
+### Fixed
+
+- Improved Windows launcher webapp shutdown monitoring to track the exact Edge app-window HWND and request backend shutdown after that handle closes.
+- Added launcher port-release logging so stale backend listeners on port `8501` are visible after shutdown attempts.
+
 ## [1.3.88] - 2026-05-17
 
 ### Changed
