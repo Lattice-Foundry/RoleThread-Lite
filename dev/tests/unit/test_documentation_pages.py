@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 27
+    assert len(registry) == 28
     assert get_default_help_article_id() == "getting-started"
     assert registry["getting-started"].file_name == "01_getting_started.md"
     assert registry["glossary"].category == "Reference"
@@ -107,6 +107,8 @@ def test_help_article_registry_has_expected_articles():
     assert registry["understanding-default-tags"].category == "Metadata and Organization"
     assert registry["developer-launch-flags"].file_name == "26_developer_launch_flags.md"
     assert registry["developer-launch-flags"].category == "Reference"
+    assert registry["rolethread-studio-vision"].file_name == "28_rolethread_studio_vision.md"
+    assert registry["rolethread-studio-vision"].category == "Reference"
     assert len(registry) == len(set(registry))
 
 
@@ -162,6 +164,16 @@ def test_understanding_default_tags_documents_v1_taxonomy():
     assert "Overtagging can become noisy" in document.content
 
 
+def test_rolethread_studio_vision_documents_lite_and_studio_split():
+    document = load_help_document("rolethread-studio-vision")
+
+    assert document.article.title == "RoleThread Studio Vision"
+    assert "Lite stays focused and reliable" in document.content
+    assert "Studio absorbs heavier and more experimental workflows" in document.content
+    assert "not a public timeline" in document.content
+    assert "local-first dataset crafting" in document.content
+
+
 def test_help_article_registry_has_unique_file_names_and_orders():
     articles = tuple(get_help_article_registry().values())
     file_names = [article.file_name for article in articles]
@@ -206,6 +218,7 @@ def test_help_article_category_order_and_grouping():
         "glossary",
         "os-compatibility-and-storage-policy",
         "v1-limitations-and-future-boundaries",
+        "rolethread-studio-vision",
         "developer-launch-flags",
     ]
 
@@ -360,6 +373,9 @@ def test_adjacent_help_articles_follow_global_order():
         "v1-limitations-and-future-boundaries"
     )
     assert previous_article.article_id == "os-compatibility-and-storage-policy"
+    assert next_article.article_id == "rolethread-studio-vision"
+    previous_article, next_article = get_adjacent_help_articles("rolethread-studio-vision")
+    assert previous_article.article_id == "v1-limitations-and-future-boundaries"
     assert next_article.article_id == "developer-launch-flags"
     assert get_adjacent_help_articles("developer-launch-flags")[1] is None
 
@@ -743,6 +759,12 @@ def test_faq_related_help_ids_are_known_and_lightweight():
     ) == (
         "understanding-the-main-workspaces",
         "editing-entries",
+    )
+    assert derive_related_help_ids(
+        "Lite boundaries: Why separate Lite and Studio ideas?"
+    ) == (
+        "v1-limitations-and-future-boundaries",
+        "rolethread-studio-vision",
     )
 
 

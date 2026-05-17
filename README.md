@@ -37,11 +37,11 @@ RoleThread Lite is designed around:
 * maintainable JSONL training data
 * deterministic validation and repair before subjective scoring
 * portable sidecar metadata for registry and character reconstruction
-* a clear core/service/UI architecture that can support future Studio work
+* a clear core/service/UI architecture that can support future RoleThread Studio work
 
 Lite stays focused on dataset craftsmanship. Larger orchestration, cloud, and
-AI-assisted workflow systems belong in future Studio work rather than the Lite
-release surface.
+AI-assisted workflow systems belong in future RoleThread Studio work rather
+than the Lite release surface.
 
 ---
 
@@ -212,7 +212,7 @@ The V1 stability gate is:
 
 * Full unit and service suite passes with `python -m pytest`
 * Help and FAQ content are present in-app
-* Lite and future Studio boundaries are documented
+* Lite and future RoleThread Studio boundaries are documented
 * Local backups, sidecars, validation, merge, tag lifecycle, character mapping,
   export, and settings flows remain covered by regression tests
 * Known limitations are documented rather than implied as missing V1 work

@@ -113,7 +113,9 @@ It is a focused local tool for preparing narrative datasets.
 
 ## Where Studio Fits Later
 
-Future Studio work may explore larger workflows, more orchestration, and heavier automation. Lite should still feel complete on its own. The purpose of Lite is local dataset craftsmanship: safe files, clear structure, useful metadata, and reliable export.
+Future RoleThread Studio work may explore larger orchestration, heavier automation, advanced runtime workflows, and power-user systems. Lite should still feel complete on its own. The purpose of Lite is local dataset craftsmanship: safe files, clear structure, useful metadata, and reliable export.
+
+For the product split, see **RoleThread Studio Vision**.
 
 ## A Good Mental Model
 

@@ -16,6 +16,16 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.3.73] - 2026-05-17
+
+### Added
+
+- Added a Help reference article explaining the RoleThread Studio vision and the Lite/Studio product split.
+
+### Changed
+
+- Clarified existing Studio references in Help, FAQ, and README wording.
+
 ## [1.3.72] - 2026-05-17
 
 ### Changed

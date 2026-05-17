@@ -87,6 +87,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
             "getting-started",
             "dataset-formats",
             "v1-limitations-and-future-boundaries",
+            "rolethread-studio-vision",
         ),
     ),
     HelpArticle(
@@ -402,6 +403,20 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
             "what-rolethread-lite-does",
             "settings-and-preferences",
             "glossary",
+            "rolethread-studio-vision",
+        ),
+    ),
+    HelpArticle(
+        "rolethread-studio-vision",
+        "28_rolethread_studio_vision.md",
+        "RoleThread Studio Vision",
+        "Reference",
+        245,
+        "How Lite and future Studio workflows are philosophically separated.",
+        (
+            "what-rolethread-lite-does",
+            "v1-limitations-and-future-boundaries",
+            "developer-launch-flags",
         ),
     ),
     HelpArticle(

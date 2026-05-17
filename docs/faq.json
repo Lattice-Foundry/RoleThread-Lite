@@ -157,7 +157,7 @@
   },
   {
     "question": "V1 boundaries: Is Lite incomplete because larger Studio ideas are not included?",
-    "answer": "No. RoleThread Lite is intentionally scoped around local-first dataset craftsmanship.\n\nLarger hosted orchestration or team-scale systems belong outside the V1 Lite surface. Lite is meant to be focused, understandable, and useful on its own."
+    "answer": "No. RoleThread Lite is intentionally scoped around local-first dataset craftsmanship.\n\nLarger orchestration, advanced automation, or team-scale systems are more likely to belong in future RoleThread Studio workflows. Lite is meant to be focused, understandable, and useful on its own."
   },
   {
     "question": "Workflow philosophy: Why is Manage Dataset the main workflow hub?",
@@ -277,7 +277,7 @@
   },
   {
     "question": "Lite boundaries: Why separate Lite and Studio ideas?",
-    "answer": "Lite is the local-first dataset crafting surface. Future Studio ideas may involve larger orchestration or hosted workflows.\n\nKeeping those boundaries separate helps Lite remain useful and complete without becoming a heavier platform."
+    "answer": "Lite is the local-first dataset crafting surface. Future RoleThread Studio ideas may involve larger orchestration, advanced automation, runtime workflows, or power-user systems.\n\nKeeping those boundaries separate helps Lite remain useful and complete without becoming a heavier platform."
   }
 ]
 

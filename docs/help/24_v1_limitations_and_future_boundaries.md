@@ -93,9 +93,11 @@ This keeps the workflow understandable.
 
 RoleThread Lite is complete as a local-first dataset crafting tool.
 
-Future Studio work may explore larger orchestration, hosted workflows, AI-assisted tooling, or team-scale systems. Those boundaries are separate from the Lite V1 surface.
+Future RoleThread Studio workflows may explore larger orchestration, hosted or native runtime patterns, AI-assisted tooling, power-user automation, or team-scale systems. Those boundaries are separate from the Lite V1 surface.
 
 Lite should not feel like an incomplete product because it does not do those things. It is intentionally scoped around careful local work.
+
+For a deeper explanation, see **RoleThread Studio Vision**.
 
 ## Why These Boundaries Exist
 

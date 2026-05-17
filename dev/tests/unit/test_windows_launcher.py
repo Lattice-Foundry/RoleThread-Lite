@@ -244,7 +244,11 @@ def test_launch_rolethread_logs_and_invokes_subprocess(tmp_path):
         calls.append((args, kwargs))
         return FakeProcess()
 
-    result = launcher.launch_rolethread(config, popen=fake_popen)
+    result = launcher.launch_rolethread(
+        config,
+        popen=fake_popen,
+        port_available_fn=lambda: True,
+    )
 
     assert isinstance(result, FakeProcess)
     assert calls == [((command,), {"cwd": app_root})]

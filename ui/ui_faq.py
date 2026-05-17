@@ -79,6 +79,14 @@ _FAQ_PREFIX_HELP_RELATED = {
         "insights-and-dataset-quality",
     ),
     "metadata philosophy": ("sidecars-and-portable-metadata",),
+    "v1 boundaries": (
+        "v1-limitations-and-future-boundaries",
+        "rolethread-studio-vision",
+    ),
+    "lite boundaries": (
+        "v1-limitations-and-future-boundaries",
+        "rolethread-studio-vision",
+    ),
     "safety and identity": (
         "loading-datasets-and-working-copies",
         "backups-cloud-sync-and-recovery",
