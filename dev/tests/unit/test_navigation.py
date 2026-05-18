@@ -102,11 +102,9 @@ def test_top_navigation_sections_follow_workflow_categories():
             navigation.PAGE_INSIGHTS,
         ],
         "Output": [
+            navigation.PAGE_DATA_GENERATION,
             navigation.PAGE_MERGE_DATASETS,
             navigation.PAGE_EXPORT,
-        ],
-        "Tools": [
-            navigation.PAGE_DATA_GENERATION,
         ],
         "Support": [
             navigation.PAGE_HELP,
@@ -154,6 +152,10 @@ def test_top_navigation_and_quick_rail_cover_registered_pages():
     }
 
     assert top_nav_pages == registry_pages
+    assert "Tools" not in navigation.get_top_navigation_sections()
+    assert navigation.get_page_registry()[navigation.PAGE_DATA_GENERATION].category == (
+        "Output"
+    )
     assert quick_rail_pages < registry_pages
 
 

@@ -139,7 +139,7 @@ def _render_prompt_preview() -> None:
 
 
 def render_generation_page() -> None:
-    """Render the Tools > Data Generation page."""
+    """Render the Output > Data Generation page."""
 
     _ensure_generation_defaults()
 

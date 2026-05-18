@@ -71,7 +71,7 @@ _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
     ),
     PageDefinition(
         PAGE_EXPORT,
-        "Export",
+        "Export Dataset",
         "Output",
         ":material/download:",
         "export",
@@ -79,7 +79,7 @@ _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
     PageDefinition(
         PAGE_DATA_GENERATION,
         "Data Generation",
-        "Tools",
+        "Output",
         ":material/manufacturing:",
         "data-generation",
     ),
@@ -157,8 +157,7 @@ _TOP_NAVIGATION_ORDER = {
         PAGE_SYSTEM_PROMPTS,
     ),
     "Quality": (PAGE_VALIDATION, PAGE_INSIGHTS),
-    "Output": (PAGE_MERGE_DATASETS, PAGE_EXPORT),
-    "Tools": (PAGE_DATA_GENERATION,),
+    "Output": (PAGE_DATA_GENERATION, PAGE_MERGE_DATASETS, PAGE_EXPORT),
     "Support": (PAGE_HELP, PAGE_FAQ, PAGE_SETTINGS),
 }
 
