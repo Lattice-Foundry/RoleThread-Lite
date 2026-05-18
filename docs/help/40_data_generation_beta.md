@@ -1,5 +1,7 @@
 # Data Generation (Beta)
 
+The chapters from here through **Creator Ownership and Long-Term Workflow Philosophy** form the AI Training Fundamentals arc. They cover the concepts and practices behind building quality training data — including why dataset quality matters, how fine-tuning and LoRA workflows operate, and how to maintain a dataset over time. These articles complement RoleThread's tool documentation with the context behind the workflow decisions.
+
 Data Generation compiles structured settings into prompts you can paste into an external AI system.
 
 RoleThread Lite does not call an AI provider, generate responses internally, or require a cloud API key. It builds deterministic prompts for ChatML JSONL conversational dataset workflows while leaving model choice, execution, and review under your control.

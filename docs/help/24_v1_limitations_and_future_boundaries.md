@@ -1,4 +1,4 @@
-# V1 Limitations and Future Boundaries
+# V1 Scope and Intentional Boundaries
 
 RoleThread Lite is intentionally focused.
 

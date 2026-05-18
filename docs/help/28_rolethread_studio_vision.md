@@ -64,5 +64,5 @@ For V1, RoleThread Lite remains the active product surface for dataset crafting,
 ## Related Articles
 
 - **Lite vs Studio Boundaries**
-- **V1 Limitations and Future Boundaries**
+- **V1 Scope and Intentional Boundaries**
 - **What RoleThread Lite Does**

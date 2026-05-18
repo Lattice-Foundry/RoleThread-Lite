@@ -67,5 +67,5 @@ Lite should remain complete on its own. Studio boundaries should not turn Lite i
 ## Related Articles
 
 - **RoleThread Studio Vision**
-- **V1 Limitations and Future Boundaries**
+- **V1 Scope and Intentional Boundaries**
 - **Data Generation (Beta)**
