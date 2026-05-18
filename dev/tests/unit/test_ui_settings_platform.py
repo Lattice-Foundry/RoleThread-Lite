@@ -93,31 +93,26 @@ def test_public_launch_mode_summarizes_active_or_preferred_mode():
     assert ui_settings._format_public_launch_mode(
         LaunchFlags(),
         {},
-    ) == "`Normal mode`"
+    ) == "`Normal Streamlit mode`"
     assert ui_settings._format_public_launch_mode(
-        LaunchFlags(webapp=True),
-        {},
-    ) == "`Webapp mode`"
-    assert ui_settings._format_public_launch_mode(
-        LaunchFlags(),
+        LaunchFlags(dev=True),
         {"enable_webapp_launch_mode": True},
-    ) == "`Normal mode`"
+    ) == "`Dev diagnostics`"
 
 
 def test_launch_flags_detected_summary_is_compact():
     assert ui_settings._format_launch_flags_detected(LaunchFlags()) == "`None`"
-    assert ui_settings._format_launch_flags_detected(
-        LaunchFlags(dev=True, webapp=True, edge_debug=True)
-    ) == "`dev`, `webapp`, `edge-debug/webapp-debug`"
+    assert ui_settings._format_launch_flags_detected(LaunchFlags(dev=True)) == "`dev`"
 
 
-def test_edge_launch_debug_diagnostics_are_consolidated_under_edge_debug():
+def test_obsolete_edge_debug_diagnostics_are_removed_from_settings_ui():
     source = Path(ui_settings.__file__).read_text(encoding="utf-8")
 
-    assert "Edge Launch Debug Diagnostics" in source
-    assert "Edge Version History" in source
-    assert "get_edge_version_history" in source
-    assert "edge_debug_mode" in source
+    assert "Edge Launch Debug Diagnostics" not in source
+    assert "edge-debug" not in source
+    assert "webapp-debug" not in source
+    assert "get_edge_version_history" not in source
+    assert "edge_debug_mode" not in source
     assert "Duplicate Browser Cleanup Diagnostics" not in source
     assert "Edge Window Debug" not in source
     assert "Edge Process Debug" not in source

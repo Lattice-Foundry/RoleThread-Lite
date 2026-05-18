@@ -1,9 +1,7 @@
 """Canonical source/dev launcher for RoleThread Lite.
 
 This entrypoint starts RoleThread through the same launcher-owned lifecycle
-shape used by the packaged Windows launcher. The legacy
-`streamlit run app.py -- webapp` path remains available during the webapp
-lifecycle overhaul, but managed webapp runs should begin here.
+shape used by the packaged Windows launcher.
 """
 
 from __future__ import annotations
@@ -49,8 +47,10 @@ def parse_launch_args(argv: Sequence[str] | None = None) -> LaunchOptions:
     )
     parser.add_argument(
         "--debug",
+        "--diag",
+        dest="debug",
         action="store_true",
-        help="Print launcher command details before startup.",
+        help="Print launcher command details and lifecycle diagnostics before startup.",
     )
     namespace = parser.parse_args(argv)
     return LaunchOptions(

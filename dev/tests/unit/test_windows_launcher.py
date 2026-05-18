@@ -52,7 +52,7 @@ def test_build_launcher_config_uses_managed_webapp_without_installer_seed(tmp_pa
     assert config.launch_mode == launcher.LAUNCH_MODE_WEBAPP
     assert "--server.address" in config.command
     assert "--server.headless" in config.command
-    assert config.command[-2:] == ("--", "webapp")
+    assert "--" not in config.command
     assert seed_path.exists()
 
 
@@ -83,7 +83,6 @@ def test_command_construction_for_webapp_launch(tmp_path):
         launch_mode=launcher.LAUNCH_MODE_WEBAPP,
     )
 
-    assert command[-2:] == ("--", "webapp")
     assert command[:4] == (str(python_path), "-m", "streamlit", "run")
     assert "--server.port" in command
     assert command[command.index("--server.port") + 1] == "8501"
@@ -91,6 +90,7 @@ def test_command_construction_for_webapp_launch(tmp_path):
     assert command[command.index("--server.address") + 1] == "127.0.0.1"
     assert "--server.headless" in command
     assert command[command.index("--server.headless") + 1] == "true"
+    assert "--" not in command
 
 
 def test_bundled_command_uses_internal_streamlit_mode(tmp_path):
@@ -116,8 +116,6 @@ def test_bundled_command_uses_internal_streamlit_mode(tmp_path):
         "127.0.0.1",
         "--server.headless",
         "true",
-        "--",
-        "webapp",
     )
 
 
@@ -265,7 +263,7 @@ def test_build_launcher_config_ignores_legacy_preference_and_builds_webapp_comma
     assert "--server.address" in config.command
     assert config.command[config.command.index("--server.address") + 1] == "127.0.0.1"
     assert "--server.headless" in config.command
-    assert config.command[-2:] == ("--", "webapp")
+    assert "--" not in config.command
 
 
 def test_launch_rolethread_logs_and_invokes_subprocess(tmp_path):
@@ -665,7 +663,7 @@ def test_build_subprocess_env_includes_shutdown_control(tmp_path):
     assert env[SHUTDOWN_PORT_ENV] == "54321"
     assert env[SHUTDOWN_TOKEN_ENV] == "secret"
     assert env[launcher.LAUNCHER_LOG_PATH_ENV] == str(config.log_path)
-    assert env[launcher.EXTERNAL_WEBAPP_LAUNCH_ENV] == "1"
+    assert env[launcher.MANAGED_WEBAPP_LAUNCH_ENV] == "1"
 
 
 def test_build_subprocess_env_does_not_mark_normal_launch_as_external_webapp(tmp_path):
@@ -683,7 +681,7 @@ def test_build_subprocess_env_does_not_mark_normal_launch_as_external_webapp(tmp
 
     env = launcher.build_subprocess_env(config, {})
 
-    assert launcher.EXTERNAL_WEBAPP_LAUNCH_ENV not in env
+    assert launcher.MANAGED_WEBAPP_LAUNCH_ENV not in env
 
 
 def test_launch_edge_webapp_window_delegates_to_edge_adapter(monkeypatch):
@@ -1070,8 +1068,6 @@ def test_run_launcher_lifecycle_orders_managed_webapp_steps_and_reports_status(t
             "app.py",
             "--server.headless",
             "true",
-            "--",
-            "webapp",
         ),
         shutdown_port=54321,
         shutdown_token="secret",

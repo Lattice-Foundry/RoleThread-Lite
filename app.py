@@ -4,15 +4,11 @@ Owns app startup and session initialization. Navigation wiring and page-state
 compatibility live in ui.navigation.
 """
 import atexit
-from datetime import datetime
-import os
-from pathlib import Path
 
 import streamlit as st
 
 from core.launch import (
     parse_launch_flags,
-    run_legacy_app_owned_webapp_launch,
     should_show_dev_diagnostics,
 )
 from core.runtime import get_python_runtime_status
@@ -20,29 +16,6 @@ from core.shutdown_control import start_launcher_shutdown_server
 
 st.set_page_config(page_title="RoleThread Lite", layout="wide")
 start_launcher_shutdown_server()
-
-
-def _write_webapp_startup_log(*lines: str) -> None:
-    """Write bundled webapp launch breadcrumbs for launcher diagnostics."""
-
-    log_path_value = os.environ.get("ROLETHREAD_LAUNCHER_LOG_PATH", "").strip()
-    if log_path_value:
-        log_path = Path(log_path_value)
-    else:
-        local_app_data = os.environ.get("LOCALAPPDATA")
-        if not local_app_data:
-            return
-        log_path = Path(local_app_data) / "RoleThread" / "logs" / "launcher.log"
-    try:
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().isoformat(timespec="seconds")
-        with log_path.open("a", encoding="utf-8") as handle:
-            handle.write(f"[{timestamp}] RoleThread Lite app webapp startup\n")
-            for line in lines:
-                handle.write(f"{line}\n")
-            handle.write("\n")
-    except Exception:
-        return
 
 _runtime_status = get_python_runtime_status()
 if _runtime_status.is_below_minimum:
@@ -52,42 +25,9 @@ if _runtime_status.is_newer_than_tested:
     st.warning(_runtime_status.message)
 
 
-def _get_streamlit_headless_config() -> bool | None:
-    from streamlit import config as st_config
-
-    try:
-        return bool(st_config.get_option("server.headless"))
-    except Exception:
-        return None
-
-
-# LEGACY_WEBAPP_LIFECYCLE: this app-owned path keeps raw
-# `streamlit run app.py -- webapp` working while Streamlit may still open its
-# normal browser before RoleThread can coordinate Edge app-mode. The canonical
-# future model should move browser orchestration into the launcher/shared
-# lifecycle layer and leave app.py with diagnostics/compatibility only.
-def _handle_webapp_launch(flags) -> None:
-    """Run managed webapp launch work only when the webapp flag is active."""
-
-    run_legacy_app_owned_webapp_launch(
-        flags,
-        session_state=st.session_state,
-        startup_log_fn=_write_webapp_startup_log,
-        streamlit_headless_fn=_get_streamlit_headless_config,
-    )
-
-
 _launch_flags = parse_launch_flags()
 st.session_state["_runtime_launch_flags"] = _launch_flags
 st.session_state["_dev_mode"] = should_show_dev_diagnostics(_launch_flags)
-if _launch_flags.webapp:
-    _handle_webapp_launch(_launch_flags)
-
-if st.session_state.get("_legacy_webapp_launch_warning"):
-    st.warning(st.session_state["_legacy_webapp_launch_warning"])
-
-if st.session_state.get("_webapp_unsupported_notice"):
-    st.info(st.session_state["_webapp_unsupported_notice"])
 
 from core.cloud_sync import (
     get_cloud_restore_candidate,
@@ -362,30 +302,6 @@ div[data-baseweb="menu"] li[role="option"][aria-selected="true"] {{
 </style>
 """, unsafe_allow_html=True)
 
-
-def _render_dev_webapp_launch_status_once() -> None:
-    """Show the dev web-app launch status without cluttering every rerun."""
-
-    if not st.session_state.get("_dev_mode"):
-        return
-
-    status = st.session_state.get("_dev_webapp_launch_status")
-    guidance = st.session_state.get("_dev_webapp_launch_guidance")
-    if st.session_state.get("_dev_webapp_launch_status_rendered"):
-        return
-    if status is not None:
-        if status.launched:
-            st.success(status.message)
-        else:
-            st.info(status.message)
-    if guidance is not None and guidance.warning:
-        st.warning(guidance.message)
-    if status is None and guidance is None:
-        return
-    st.session_state["_dev_webapp_launch_status_rendered"] = True
-
-
-_render_dev_webapp_launch_status_once()
 
 # â”€â”€ Cloud backup startup hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _sync_cloud_backups_on_exit() -> None:

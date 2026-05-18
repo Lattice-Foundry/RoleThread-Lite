@@ -4,7 +4,6 @@ from pathlib import Path
 import streamlit as st
 
 from core.dataset import DEFAULT_SYSTEM_PROMPT
-from core.edge_version_history import get_edge_version_history
 from core.cloud_sync import (
     BACKUP_DESTINATION_BOX,
     BACKUP_DESTINATION_CUSTOM,
@@ -321,7 +320,6 @@ def _render_platform_about() -> None:
     platform_info = detect_platform()
     dev_mode = _is_dev_mode()
     flags = st.session_state.get("_runtime_launch_flags")
-    edge_debug_mode = bool(getattr(flags, "edge_debug", False))
     capabilities = platform_info.capabilities
     diagnostics = platform_info.diagnostics
     runtime_status = get_python_runtime_status()
@@ -369,7 +367,7 @@ def _render_platform_about() -> None:
             st.caption(
                 _format_about_row(
                     "Note",
-                    "Windows Edge webapp mode is selected during installer setup or by launching manually with `webapp`.",
+                    "Managed webapp mode is owned by `python launch.py --webapp` or the installed launcher.",
                 )
             )
         for note in launch_plan.notes:
@@ -434,22 +432,11 @@ def _render_platform_about() -> None:
                 )
             )
 
-        _render_webapp_launch_diagnostics()
-        if not edge_debug_mode:
-            st.caption(
-                _format_about_row(
-                    "Edge launch internals",
-                    "Run with `edge-debug` or `webapp-debug` to show Edge window/process diagnostics.",
-                )
-            )
     else:
         with st.expander("Storage Locations"):
             _render_platform_paths(platform_paths, include_source=False, include_advanced=False)
             with st.expander("Advanced storage paths"):
                 _render_advanced_platform_paths(platform_paths, include_source=False)
-
-    if edge_debug_mode:
-        _render_edge_launch_debug_diagnostics()
 
     st.divider()
     st.markdown(_format_project_info_markup(), unsafe_allow_html=True)
@@ -575,201 +562,6 @@ def _render_advanced_platform_paths(platform_paths, *, include_source: bool) -> 
         )
 
 
-def _render_webapp_launch_diagnostics() -> None:
-    """Render dev-only Edge webapp launch diagnostics."""
-
-    guidance = st.session_state.get("_dev_webapp_launch_guidance")
-    status = st.session_state.get("_dev_webapp_launch_status")
-    with st.expander("Webapp Launch Diagnostics"):
-        if status is None:
-            st.caption(_format_about_row("Webapp flag", "`Not requested`"))
-            return
-
-        st.caption(_format_about_row("Webapp flag", "`Detected`"))
-        st.caption(_format_about_row("Launch URL", f"`{status.url}`"))
-        st.caption(_format_about_row("Launch status", f"`{status.status_code}`"))
-        st.caption(
-            _format_about_row("Edge available", f"`{'Yes' if status.edge_available else 'No'}`")
-        )
-        st.caption(
-            _format_about_row(
-                "Launch result",
-                f"`{'Launched' if status.launched else 'Not launched'}`",
-            )
-        )
-        st.caption(
-            _format_about_row("Fallback used", f"`{'Yes' if status.fallback_used else 'No'}`")
-        )
-        if status.edge_path is not None:
-            st.caption(_format_about_row("Edge path", f"`{status.edge_path}`"))
-        st.caption(_format_about_row("Status", status.message))
-        if guidance is not None and guidance.warning:
-            st.caption(
-                _format_about_row(
-                    "Note",
-                    "Detailed launch flag usage lives in Help > Developer Launch Flags.",
-                )
-            )
-
-
-def _render_edge_launch_debug_diagnostics() -> None:
-    """Render Edge launch diagnostics as one edge-debug-gated section."""
-
-    cleanup = st.session_state.get("_dev_edge_cleanup_status")
-    process_report = st.session_state.get("_dev_edge_debug_report")
-    window_report = st.session_state.get("_dev_edge_window_debug_report")
-    if cleanup is None and process_report is None and window_report is None:
-        try:
-            if not get_edge_version_history():
-                return
-        except Exception:
-            return
-
-    with st.expander("Edge Launch Debug Diagnostics"):
-        st.caption("Detailed diagnostics captured by the `edge-debug` / `webapp-debug` launch flag.")
-        _render_edge_version_history()
-        _render_edge_cleanup_debug_details(cleanup)
-        _render_edge_window_debug_details(window_report)
-        _render_edge_process_debug_details(process_report)
-
-
-def _render_edge_version_history() -> None:
-    """Render local Edge version history inside edge-debug diagnostics."""
-
-    st.markdown("**Edge Version History**")
-    try:
-        records = get_edge_version_history()
-    except Exception as exc:
-        st.caption(_format_about_row("History", f"`Unavailable: {exc}`"))
-        return
-    if not records:
-        st.caption(_format_about_row("History", "`No Edge versions recorded yet`"))
-        return
-    for record in records:
-        source = record.source or "unknown"
-        st.caption(
-            _format_about_row(
-                record.version,
-                (
-                    f"`{record.browser_name}`; seen `{record.encounter_count}` time"
-                    f"{'' if record.encounter_count == 1 else 's'}; "
-                    f"first `{record.first_seen.isoformat()}`; "
-                    f"last `{record.last_seen.isoformat()}`; "
-                    f"source `{source}`"
-                ),
-            )
-        )
-
-
-def _render_edge_cleanup_debug_details(cleanup) -> None:
-    if cleanup is None:
-        return
-
-    st.markdown("**Duplicate Browser Cleanup**")
-    st.caption(
-        _format_about_row("Cleanup attempted", f"`{'Yes' if cleanup.attempted else 'No'}`")
-    )
-    st.caption(_format_about_row("Cleanup status", f"`{cleanup.status_code}`"))
-    st.caption(_format_about_row("Cleanup method", f"`{cleanup.method}`"))
-    if cleanup.target_pid is not None:
-        title = cleanup.target_title or "No visible title"
-        st.caption(_format_about_row("Cleanup target", f"`{cleanup.target_pid}` / `{title}`"))
-    st.caption(_format_about_row("Cleanup result", f"`{cleanup.result}`"))
-    st.caption(_format_about_row("Cleanup note", cleanup.message))
-    if cleanup.decision_details:
-        st.caption(_format_about_row("Cleanup decision", ""))
-        for detail in cleanup.decision_details:
-            st.caption(f"- {detail}")
-
-
-def _render_edge_process_debug_details(report) -> None:
-    if report is None:
-        return
-
-    st.markdown("**Edge Process Snapshot**")
-    poll = st.session_state.get("_dev_edge_snapshot_poll")
-    if poll is not None:
-        st.caption(
-            _format_about_row(
-                "Snapshot polling",
-                f"`{poll.attempts}` attempts / `{poll.delay_seconds}` seconds",
-            )
-        )
-        if poll.error:
-            st.caption(_format_about_row("Snapshot polling note", poll.error))
-    st.caption(_format_about_row("PIDs before", _format_pid_tuple(report.before_pids)))
-    st.caption(_format_about_row("PIDs after", _format_pid_tuple(report.after_pids)))
-    st.caption(_format_about_row("New candidate PIDs", _format_pid_tuple(report.new_pids)))
-    st.caption(_format_about_row("Confidence", f"`{report.confidence_level}`"))
-    st.caption(_format_about_row("Observation", report.distinguishability_note))
-    st.caption(_format_about_row("Timing", report.process_order_note))
-    if report.new_processes:
-        classifications = {
-            classification.pid: classification
-            for classification in report.classifications
-        }
-        for process in report.new_processes:
-            title = process.window_title or "No visible title"
-            parent = process.parent_pid if process.parent_pid is not None else "Unknown"
-            command = process.command_line or "No command line captured"
-            classification = classifications.get(process.pid)
-            classification_label = (
-                classification.classification if classification is not None else "uncertain"
-            )
-            confidence = (
-                classification.confidence if classification is not None else "unreliable"
-            )
-            reasons = (
-                "; ".join(classification.reasons)
-                if classification is not None
-                else "No classification details captured"
-            )
-            st.caption(
-                _format_about_row(
-                    f"Candidate {process.pid}",
-                    (
-                        f"`{classification_label}` / `{confidence}`; parent `{parent}`; "
-                        f"title `{title}`; reasons {reasons}; command `{command}`"
-                    ),
-                ),
-            )
-
-
-def _render_edge_window_debug_details(report) -> None:
-    if report is None:
-        return
-
-    st.markdown("**Edge Window Snapshot**")
-    st.caption(_format_about_row("Window handles before", _format_text_tuple(report.before_handles)))
-    st.caption(_format_about_row("Window handles after", _format_text_tuple(report.after_handles)))
-    st.caption(_format_about_row("New window handles", _format_text_tuple(report.new_handles)))
-    st.caption(_format_about_row("Window observation", report.note))
-    for window in report.new_windows:
-        command = window.command_line or "No command line captured"
-        st.caption(
-            _format_about_row(
-                f"Window {window.handle}",
-                (
-                    f"pid `{window.pid}`; process `{window.process_name or 'Unknown'}`; "
-                    f"class `{window.class_name or 'Unknown'}`; "
-                    f"title `{window.title or 'No visible title'}`; command `{command}`"
-                ),
-            ),
-        )
-
-
-def _format_pid_tuple(pids: tuple[int, ...]) -> str:
-    if not pids:
-        return "`None observed`"
-    return "`" + ", ".join(str(pid) for pid in pids) + "`"
-
-
-def _format_text_tuple(values: tuple[str, ...]) -> str:
-    if not values:
-        return "`None observed`"
-    return "`" + "`, `".join(values) + "`"
-
-
 def _format_path_source(source: str) -> str:
     if source == PATH_SOURCE_PLATFORM_DEFAULT:
         return "Platform Default"
@@ -781,19 +573,13 @@ def _is_dev_mode() -> bool:
 
 
 def _format_public_launch_mode(flags, preferences: dict) -> str:
-    if getattr(flags, "webapp", False):
-        return "`Webapp mode`"
-    return "`Normal mode`"
+    return "`Dev diagnostics`" if getattr(flags, "dev", False) else "`Normal Streamlit mode`"
 
 
 def _format_launch_flags_detected(flags) -> str:
     active: list[str] = []
     if getattr(flags, "dev", False):
         active.append("dev")
-    if getattr(flags, "webapp", False):
-        active.append("webapp")
-    if getattr(flags, "edge_debug", False):
-        active.append("edge-debug/webapp-debug")
     if not active:
         return "`None`"
     return "`" + "`, `".join(active) + "`"

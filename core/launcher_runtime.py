@@ -11,6 +11,7 @@ STREAMLIT_HOST = "127.0.0.1"
 STREAMLIT_HEALTH_PATH = "/_stcore/health"
 LAUNCH_MODE_NORMAL = "normal"
 LAUNCH_MODE_WEBAPP = "webapp"
+MANAGED_WEBAPP_LAUNCH_ENV = "ROLETHREAD_MANAGED_WEBAPP_LAUNCH"
 STREAMLIT_MODULE_ARGS = (
     "-m",
     "streamlit",
@@ -56,8 +57,6 @@ def build_streamlit_command(
             streamlit_host,
             "--server.headless",
             "true",
-            "--",
-            "webapp",
         )
     if launch_mode == LAUNCH_MODE_NORMAL:
         return command_parts

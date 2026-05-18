@@ -13,7 +13,7 @@ from core.launcher_runtime import (
 )
 
 
-def test_shared_dev_webapp_command_is_headless_loopback_and_keeps_separator(tmp_path):
+def test_shared_dev_webapp_command_is_headless_loopback_without_app_webapp_flag(tmp_path):
     python_path = tmp_path / "python.exe"
 
     command = build_streamlit_command(python_path, launch_mode=LAUNCH_MODE_WEBAPP)
@@ -30,9 +30,8 @@ def test_shared_dev_webapp_command_is_headless_loopback_and_keeps_separator(tmp_
         "127.0.0.1",
         "--server.headless",
         "true",
-        "--",
-        "webapp",
     )
+    assert "--" not in command
 
 
 def test_shared_normal_command_preserves_streamlit_browser_flow(tmp_path):
@@ -71,7 +70,7 @@ def test_shared_bundled_webapp_command_uses_internal_streamlit_adapter(tmp_path)
         "--global.developmentMode=false",
         "--server.port",
     )
-    assert command[-2:] == ("--", "webapp")
+    assert "--" not in command
     assert "--server.address" in command
     assert "--server.headless" in command
 

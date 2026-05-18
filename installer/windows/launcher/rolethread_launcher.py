@@ -44,13 +44,13 @@ from core.launcher_runtime import (
     build_streamlit_command as build_shared_streamlit_command,
     build_streamlit_health_url,
     format_command,
+    MANAGED_WEBAPP_LAUNCH_ENV,
 )
 from core.shutdown_control import (
     SHUTDOWN_HEADER,
     SHUTDOWN_PORT_ENV,
     SHUTDOWN_TOKEN_ENV,
 )
-from core.launch import EXTERNAL_WEBAPP_LAUNCH_ENV
 from core.webapp_browser_state import consume_pending_webapp_browser_state_reset
 
 
@@ -379,16 +379,13 @@ def build_subprocess_env(
 ) -> dict[str, str]:
     """Build the child-process environment with launcher shutdown controls."""
 
-    # WEBAPP_LIFECYCLE_TODO: these environment boundaries should remain the
-    # shared contract between the launcher-owned lifecycle and app-side
-    # compatibility/diagnostic code.
     child_env = dict(os.environ if env is None else env)
     if config.shutdown_port and config.shutdown_token:
         child_env[SHUTDOWN_PORT_ENV] = str(config.shutdown_port)
         child_env[SHUTDOWN_TOKEN_ENV] = config.shutdown_token
     child_env[LAUNCHER_LOG_PATH_ENV] = str(config.log_path)
     if config.launch_mode == LAUNCH_MODE_WEBAPP:
-        child_env[EXTERNAL_WEBAPP_LAUNCH_ENV] = "1"
+        child_env[MANAGED_WEBAPP_LAUNCH_ENV] = "1"
     return child_env
 
 

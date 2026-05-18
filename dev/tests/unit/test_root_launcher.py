@@ -32,6 +32,13 @@ def test_parse_launch_args_supports_webapp_and_debug():
     assert options.debug is True
 
 
+def test_parse_launch_args_supports_diag_alias_for_launcher_debug():
+    options = root_launcher.parse_launch_args(["--webapp", "--diag"])
+
+    assert options.launch_mode == launcher.LAUNCH_MODE_WEBAPP
+    assert options.debug is True
+
+
 def test_manual_webapp_config_starts_streamlit_headless(tmp_path):
     app_root = _make_app_root(tmp_path)
     python_path = tmp_path / "python.exe"
@@ -58,7 +65,7 @@ def test_manual_webapp_config_starts_streamlit_headless(tmp_path):
     assert config.command[config.command.index("--server.address") + 1] == "127.0.0.1"
     assert "--server.headless" in config.command
     assert config.command[config.command.index("--server.headless") + 1] == "true"
-    assert config.command[-2:] == ("--", "webapp")
+    assert "--" not in config.command
 
 
 def test_manual_browser_config_keeps_normal_streamlit_browser_flow(tmp_path):
@@ -200,8 +207,6 @@ def test_debug_run_prints_lifecycle_status_and_configuration(capsys):
             "app.py",
             "--server.headless",
             "true",
-            "--",
-            "webapp",
         ),
     )
 

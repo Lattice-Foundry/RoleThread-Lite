@@ -16,6 +16,14 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.35] - 2026-05-18
+
+### Changed
+
+- Removed legacy app-owned raw Streamlit webapp launch handling from `app.py`.
+- Removed obsolete `edge-debug` / `webapp-debug` app flag diagnostics and duplicate-browser cleanup tests.
+- Kept webapp lifecycle ownership in `launch.py` and the packaged launcher while preserving normal `streamlit run app.py` source workflows.
+
 ## [1.4.34] - 2026-05-18
 
 ### Changed
