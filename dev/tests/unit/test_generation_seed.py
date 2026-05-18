@@ -62,7 +62,11 @@ def test_seed_generation_prompt_chunks_creates_expected_records(tmp_path, monkey
         "style_roleplay_immersive",
         "style_instructional",
         "style_narrative_dialogue",
-        "tone",
+        "tone_neutral",
+        "tone_warm",
+        "tone_professional",
+        "tone_dramatic",
+        "tone_playful",
         "output_delivery_paste_jsonl",
         "output_delivery_download_file",
         "additional_instructions",
@@ -188,9 +192,35 @@ def test_seed_generation_prompt_chunks_creates_remaining_production_content(
         "Preserve readable conversational flow while maintaining clear user/assistant message alternation.\n\n"
         "Avoid long exposition blocks that overwhelm the dialogue or weaken the training usefulness of the exchange."
     )
-    assert chunks["tone"].chunk_text == (
+    assert chunks["tone_neutral"].chunk_text == (
         "Conversation tone requirements:\n\n"
-        "{{ tone }}"
+        "Maintain a balanced and emotionally neutral conversational tone.\n\n"
+        "Keep interactions grounded, coherent, and contextually appropriate without excessive emotional exaggeration.\n\n"
+        "Allow emotional nuance when appropriate to the scenario while preserving conversational realism."
+    )
+    assert chunks["tone_warm"].chunk_text == (
+        "Conversation tone requirements:\n\n"
+        "Maintain a warm, emotionally engaging, and personable conversational tone.\n\n"
+        "Responses should feel emotionally attentive, socially natural, and interpersonally engaged without becoming overly exaggerated or artificial.\n\n"
+        "Preserve conversational realism and believable emotional interaction patterns throughout each dataset entry."
+    )
+    assert chunks["tone_professional"].chunk_text == (
+        "Conversation tone requirements:\n\n"
+        "Maintain a professional, composed, and respectful conversational tone.\n\n"
+        "Prioritize clarity, competence, emotional control, and context-appropriate communication.\n\n"
+        "Avoid slang, excessive emotional volatility, or unprofessional conversational behavior unless explicitly required by the scenario."
+    )
+    assert chunks["tone_dramatic"].chunk_text == (
+        "Conversation tone requirements:\n\n"
+        "Maintain a dramatic, emotionally heightened, and tension-aware conversational tone.\n\n"
+        "Allow emotional tension, suspense, anticipation, and heightened interpersonal stakes when appropriate to the scenario.\n\n"
+        "Preserve coherence and conversational realism even during emotionally intense exchanges."
+    )
+    assert chunks["tone_playful"].chunk_text == (
+        "Conversation tone requirements:\n\n"
+        "Maintain a playful, lighthearted, and expressive conversational tone.\n\n"
+        "Allow humor, teasing, expressive phrasing, and socially playful interaction patterns when appropriate to the scenario.\n\n"
+        "Avoid breaking immersion or undermining conversational coherence with excessive randomness or forced humor."
     )
     assert chunks["output_delivery_paste_jsonl"].chunk_text == (
         "Return the generated dataset directly in a single fenced code block.\n\n"
@@ -236,12 +266,16 @@ def test_seed_generation_template_chunks_creates_expected_mappings(
         "style_roleplay_immersive",
         "style_instructional",
         "style_narrative_dialogue",
-        "tone",
+        "tone_neutral",
+        "tone_warm",
+        "tone_professional",
+        "tone_dramatic",
+        "tone_playful",
         "output_delivery_paste_jsonl",
         "output_delivery_download_file",
         "additional_instructions",
     ]
-    assert [mapping.sort_order for mapping in mappings] == list(range(1, 16))
+    assert [mapping.sort_order for mapping in mappings] == list(range(1, 20))
 
 
 def test_seed_generation_template_chunks_persists_conditional_mappings(
@@ -266,6 +300,11 @@ def test_seed_generation_template_chunks_persists_conditional_mappings(
     roleplay_immersive = mappings["style_roleplay_immersive"]
     instructional = mappings["style_instructional"]
     narrative_dialogue = mappings["style_narrative_dialogue"]
+    neutral = mappings["tone_neutral"]
+    warm = mappings["tone_warm"]
+    professional = mappings["tone_professional"]
+    dramatic = mappings["tone_dramatic"]
+    playful = mappings["tone_playful"]
     paste_jsonl = mappings["output_delivery_paste_jsonl"]
     download_file = mappings["output_delivery_download_file"]
     additional = mappings["additional_instructions"]
@@ -284,6 +323,21 @@ def test_seed_generation_template_chunks_persists_conditional_mappings(
     assert narrative_dialogue.is_required is False
     assert narrative_dialogue.condition_key == "style"
     assert narrative_dialogue.condition_value == "narrative_dialogue"
+    assert neutral.is_required is False
+    assert neutral.condition_key == "tone"
+    assert neutral.condition_value == "neutral"
+    assert warm.is_required is False
+    assert warm.condition_key == "tone"
+    assert warm.condition_value == "warm"
+    assert professional.is_required is False
+    assert professional.condition_key == "tone"
+    assert professional.condition_value == "professional"
+    assert dramatic.is_required is False
+    assert dramatic.condition_key == "tone"
+    assert dramatic.condition_value == "dramatic"
+    assert playful.is_required is False
+    assert playful.condition_key == "tone"
+    assert playful.condition_value == "playful"
     assert paste_jsonl.is_required is False
     assert paste_jsonl.condition_key == "output_delivery_mode"
     assert paste_jsonl.condition_value == "paste_jsonl"
@@ -397,6 +451,14 @@ def test_generation_seed_removes_obsolete_template_mappings(
             )
         )
         session.add(
+            GenerationPromptChunk(
+                slug="tone",
+                title="Old tone",
+                chunk_text="old generic tone text",
+                category="style",
+            )
+        )
+        session.add(
             GenerationTemplateChunk(
                 template_id="conversation_scenario",
                 chunk_slug="output_delivery",
@@ -408,6 +470,13 @@ def test_generation_seed_removes_obsolete_template_mappings(
                 template_id="conversation_scenario",
                 chunk_slug="style",
                 sort_order=8,
+            )
+        )
+        session.add(
+            GenerationTemplateChunk(
+                template_id="conversation_scenario",
+                chunk_slug="tone",
+                sort_order=12,
             )
         )
         session.commit()
@@ -426,19 +495,28 @@ def test_generation_seed_removes_obsolete_template_mappings(
             template_id="conversation_scenario",
             chunk_slug="style",
         ).first()
+        obsolete_tone_mapping = session.query(GenerationTemplateChunk).filter_by(
+            template_id="conversation_scenario",
+            chunk_slug="tone",
+        ).first()
         obsolete_chunk = session.query(GenerationPromptChunk).filter_by(
             slug="output_delivery"
         ).one()
         obsolete_style_chunk = session.query(GenerationPromptChunk).filter_by(
             slug="style"
         ).one()
+        obsolete_tone_chunk = session.query(GenerationPromptChunk).filter_by(
+            slug="tone"
+        ).one()
     finally:
         session.close()
 
     assert obsolete_mapping is None
     assert obsolete_style_mapping is None
+    assert obsolete_tone_mapping is None
     assert obsolete_chunk.chunk_text == "old combined output delivery text"
     assert obsolete_style_chunk.chunk_text == "old generic style text"
+    assert obsolete_tone_chunk.chunk_text == "old generic tone text"
 
 
 def test_generation_template_chunk_mapping_unique_constraint_exists():

@@ -148,6 +148,52 @@
     "answer": "No. RoleThread Lite prepares datasets. It does not host inference, train models, or run a hosted evaluation service.\n\nUse Export when the dataset is ready for another training workflow."
   },
   {
+    "question": "Data generation: Does RoleThread generate AI responses directly?",
+    "answer": "No. Data Generation compiles structured prompts for external AI systems.\n\nYou paste the compiled prompt into ChatGPT, Claude, Gemini, a local model, or another tool, then review the generated result before using it in your dataset.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "data-generation-beta",
+      "dataset-formats",
+      "validation-and-repair"
+    ]
+  },
+  {
+    "question": "Data generation: Do I need an API key?",
+    "answer": "No API key is required by RoleThread Lite because the app does not call AI providers directly.\n\nIf the external system you choose requires an account, subscription, or API key, that requirement belongs to that external tool, not RoleThread.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "data-generation-beta",
+      "v1-limitations-and-future-boundaries"
+    ]
+  },
+  {
+    "question": "Data generation: Which AI providers work with Data Generation?",
+    "answer": "Data Generation is provider-agnostic. The compiled prompts are designed for structured ChatML JSONL generation workflows and can be used with systems such as ChatGPT, Claude, Gemini, local models, or other tools that can follow detailed instructions.\n\nRoleThread does not claim official provider integrations in Lite.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "data-generation-beta",
+      "dataset-formats"
+    ]
+  },
+  {
+    "question": "Data generation: Why is Data Generation marked beta?",
+    "answer": "Beta reflects ongoing prompt refinement, provider-specific behavior tuning, and generation-quality iteration.\n\nThe compiler and template flow are deterministic. The active refinement area is how well external models follow the generated prompt and produce useful dataset drafts.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "data-generation-beta",
+      "lite-vs-studio-boundaries"
+    ]
+  },
+  {
+    "question": "Data generation: Why are generated results different across providers?",
+    "answer": "Different models interpret instructions, JSON formatting, safety policy, and long-output requests differently.\n\nRoleThread compiles the same prompt deterministically, but external model behavior is not identical across providers. Review generated output before importing or training with it.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "data-generation-beta",
+      "validation-and-repair"
+    ]
+  },
+  {
     "question": "V1 boundaries: Is RoleThread Lite a multi-user collaboration tool?",
     "answer": "No. Lite is a single-user local app.\n\nCloud backup is for recovery, not live shared editing. Avoid editing the same dataset from multiple machines through a cloud folder at the same time."
   },

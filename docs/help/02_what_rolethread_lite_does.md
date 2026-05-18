@@ -97,6 +97,12 @@ Insights gives deterministic quality signals, including:
 
 These are guidance tools. They help you notice patterns, but they do not replace creative judgment.
 
+### Compile Generation Prompts
+
+Data Generation compiles structured settings into prompts for external AI systems.
+
+RoleThread does not generate the dataset internally. It helps shape the request for ChatML JSONL generation, then you review the external result through normal validation, editing, and export workflows.
+
 ## What Lite Is Not
 
 RoleThread Lite is intentionally not:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from core.generation.models import (
     ConversationScenarioGenerationConfig,
-    ConversationTone,
     GenerationTemplateId,
     validate_conversation_scenario_config,
 )
@@ -18,29 +17,6 @@ def _value(value: object | None) -> str:
     if value is None:
         return ""
     return getattr(value, "value", str(value))
-
-
-TONE_INSTRUCTIONS: dict[ConversationTone, str] = {
-    ConversationTone.NEUTRAL: (
-        "Maintain a balanced and emotionally neutral conversational tone."
-    ),
-    ConversationTone.WARM: (
-        "Maintain a warm, emotionally engaging, and personable conversational tone."
-    ),
-    ConversationTone.PROFESSIONAL: (
-        "Maintain a professional, composed, and respectful conversational tone."
-    ),
-    ConversationTone.DRAMATIC: (
-        "Maintain a dramatic, emotionally heightened, and tension-aware conversational tone."
-    ),
-    ConversationTone.PLAYFUL: (
-        "Maintain a playful, lighthearted, and expressive conversational tone."
-    ),
-}
-
-
-def _tone_instruction(tone: ConversationTone) -> str:
-    return TONE_INSTRUCTIONS[tone]
 
 
 def render_generation_chunk_text(
@@ -60,6 +36,7 @@ def _condition_map(config: ConversationScenarioGenerationConfig) -> dict[str, st
         "system_prompt_mode": _value(config.system_prompt_mode),
         "output_delivery_mode": _value(config.output_delivery_mode),
         "style": _value(config.style),
+        "tone": _value(config.tone),
     }
     if config.additional_instructions and config.additional_instructions.strip():
         conditions["has_additional_instructions"] = "true"
@@ -77,7 +54,7 @@ def _template_variables(
         "system_prompt_mode": _value(config.system_prompt_mode),
         "custom_system_prompt": (config.custom_system_prompt or "").strip(),
         "style": _value(config.style),
-        "tone": _tone_instruction(config.tone),
+        "tone": _value(config.tone),
         "output_delivery_mode": _value(config.output_delivery_mode),
         "additional_instructions": (config.additional_instructions or "").strip(),
     }

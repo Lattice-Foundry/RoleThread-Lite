@@ -216,11 +216,63 @@ Avoid long exposition blocks that overwhelm the dialogue or weaken the training 
         category="style",
     ),
     GenerationPromptChunkSeed(
-        slug="tone",
-        title="Tone",
+        slug="tone_neutral",
+        title="Tone: neutral",
         chunk_text="""Conversation tone requirements:
 
-{{ tone }}""",
+Maintain a balanced and emotionally neutral conversational tone.
+
+Keep interactions grounded, coherent, and contextually appropriate without excessive emotional exaggeration.
+
+Allow emotional nuance when appropriate to the scenario while preserving conversational realism.""",
+        category="style",
+    ),
+    GenerationPromptChunkSeed(
+        slug="tone_warm",
+        title="Tone: warm",
+        chunk_text="""Conversation tone requirements:
+
+Maintain a warm, emotionally engaging, and personable conversational tone.
+
+Responses should feel emotionally attentive, socially natural, and interpersonally engaged without becoming overly exaggerated or artificial.
+
+Preserve conversational realism and believable emotional interaction patterns throughout each dataset entry.""",
+        category="style",
+    ),
+    GenerationPromptChunkSeed(
+        slug="tone_professional",
+        title="Tone: professional",
+        chunk_text="""Conversation tone requirements:
+
+Maintain a professional, composed, and respectful conversational tone.
+
+Prioritize clarity, competence, emotional control, and context-appropriate communication.
+
+Avoid slang, excessive emotional volatility, or unprofessional conversational behavior unless explicitly required by the scenario.""",
+        category="style",
+    ),
+    GenerationPromptChunkSeed(
+        slug="tone_dramatic",
+        title="Tone: dramatic",
+        chunk_text="""Conversation tone requirements:
+
+Maintain a dramatic, emotionally heightened, and tension-aware conversational tone.
+
+Allow emotional tension, suspense, anticipation, and heightened interpersonal stakes when appropriate to the scenario.
+
+Preserve coherence and conversational realism even during emotionally intense exchanges.""",
+        category="style",
+    ),
+    GenerationPromptChunkSeed(
+        slug="tone_playful",
+        title="Tone: playful",
+        chunk_text="""Conversation tone requirements:
+
+Maintain a playful, lighthearted, and expressive conversational tone.
+
+Allow humor, teasing, expressive phrasing, and socially playful interaction patterns when appropriate to the scenario.
+
+Avoid breaking immersion or undermining conversational coherence with excessive randomness or forced humor.""",
         category="style",
     ),
     GenerationPromptChunkSeed(
@@ -312,11 +364,50 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
         condition_key="style",
         condition_value="narrative_dialogue",
     ),
-    GenerationTemplateChunkSeed(CONVERSATION_SCENARIO_TEMPLATE_ID, "tone", 12),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "tone_neutral",
+        12,
+        is_required=False,
+        condition_key="tone",
+        condition_value="neutral",
+    ),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "tone_warm",
+        13,
+        is_required=False,
+        condition_key="tone",
+        condition_value="warm",
+    ),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "tone_professional",
+        14,
+        is_required=False,
+        condition_key="tone",
+        condition_value="professional",
+    ),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "tone_dramatic",
+        15,
+        is_required=False,
+        condition_key="tone",
+        condition_value="dramatic",
+    ),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "tone_playful",
+        16,
+        is_required=False,
+        condition_key="tone",
+        condition_value="playful",
+    ),
     GenerationTemplateChunkSeed(
         CONVERSATION_SCENARIO_TEMPLATE_ID,
         "output_delivery_paste_jsonl",
-        13,
+        17,
         is_required=False,
         condition_key="output_delivery_mode",
         condition_value="paste_jsonl",
@@ -324,7 +415,7 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
     GenerationTemplateChunkSeed(
         CONVERSATION_SCENARIO_TEMPLATE_ID,
         "output_delivery_download_file",
-        14,
+        18,
         is_required=False,
         condition_key="output_delivery_mode",
         condition_value="download_file",
@@ -332,7 +423,7 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
     GenerationTemplateChunkSeed(
         CONVERSATION_SCENARIO_TEMPLATE_ID,
         "additional_instructions",
-        15,
+        19,
         is_required=False,
         condition_key="has_additional_instructions",
         condition_value="true",
@@ -342,6 +433,7 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
 OBSOLETE_GENERATION_TEMPLATE_CHUNKS: tuple[tuple[str, str], ...] = (
     (CONVERSATION_SCENARIO_TEMPLATE_ID, "output_delivery"),
     (CONVERSATION_SCENARIO_TEMPLATE_ID, "style"),
+    (CONVERSATION_SCENARIO_TEMPLATE_ID, "tone"),
 )
 
 

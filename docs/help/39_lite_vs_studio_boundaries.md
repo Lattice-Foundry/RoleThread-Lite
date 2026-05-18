@@ -16,6 +16,7 @@ Good fits for Lite include:
 - validation and repair
 - tag and metadata organization
 - character mapping review
+- deterministic Data Generation prompt compilation
 - splitting, joining, duplicating, deleting, and merging entries
 - exporting training data
 - backups, sidecars, and recovery workflows
@@ -34,6 +35,7 @@ Better fits for Studio may include:
 - runtime roleplay systems
 - multi-agent workflows
 - inference management
+- provider coordination and semantic refinement pipelines
 - power-user experimentation
 - advanced AI-assisted systems
 - native desktop workflows if they need heavier runtime ownership

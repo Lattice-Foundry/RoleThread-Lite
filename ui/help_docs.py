@@ -55,6 +55,7 @@ class DocSection:
 HELP_CATEGORY_ORDER = (
     "Getting Started",
     "Core Workflows",
+    "Data Generation",
     "Metadata and Organization",
     "Quality and Review",
     "Output and Recovery",
@@ -220,6 +221,20 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
             "editing-entries",
             "validation-and-repair",
             "merging-datasets",
+        ),
+    ),
+    HelpArticle(
+        "data-generation-beta",
+        "40_data_generation_beta.md",
+        "Data Generation (Beta)",
+        "Data Generation",
+        115,
+        "Provider-agnostic prompt compilation for external ChatML JSONL generation workflows.",
+        (
+            "dataset-formats",
+            "creating-entries",
+            "validation-and-repair",
+            "lite-vs-studio-boundaries",
         ),
     ),
     HelpArticle(

@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 40
+    assert len(registry) == 41
     assert get_default_help_article_id() == "installing-rolethread-lite"
     assert registry["installing-rolethread-lite"].file_name == (
         "00_installing_rolethread_lite.md"
@@ -111,6 +111,8 @@ def test_help_article_registry_has_expected_articles():
     assert registry["understanding-default-tags"].category == "Metadata and Organization"
     assert registry["developer-launch-flags"].file_name == "26_developer_launch_flags.md"
     assert registry["developer-launch-flags"].category == "For Developers"
+    assert registry["data-generation-beta"].file_name == "40_data_generation_beta.md"
+    assert registry["data-generation-beta"].category == "Data Generation"
     assert registry["rolethread-studio-vision"].file_name == "28_rolethread_studio_vision.md"
     assert registry["rolethread-studio-vision"].category == "For Developers"
     assert registry["codebase-architecture"].file_name == "29_codebase_architecture.md"
@@ -238,6 +240,24 @@ def test_rolethread_studio_vision_documents_lite_and_studio_split():
     assert "Lite owns deterministic dataset creation" in document.content
     assert "architectural boundary, not a public roadmap" in document.content
     assert "dataset crafting, validation, repair, organization, and export" in document.content
+
+
+def test_data_generation_beta_help_article_documents_public_positioning():
+    document = load_help_document("data-generation-beta")
+
+    assert document.article.title == "Data Generation (Beta)"
+    assert document.article.category == "Data Generation"
+    assert "RoleThread Lite does not call an AI provider" in document.content
+    assert "deterministic prompt compiler" in document.content
+    assert "DB-backed prompt chunks" in document.content
+    assert "conditional style, tone, system prompt, and output-delivery instructions" in (
+        document.content
+    )
+    assert "ChatML JSONL" in document.content
+    assert "provider-agnostic" in document.content
+    assert "The beta label reflects" in document.content
+    assert "not mean the application architecture is unstable" in document.content
+    assert "Future RoleThread Studio work" in document.content
 
 
 def test_developer_architecture_help_articles_document_layer_boundaries():
@@ -422,6 +442,12 @@ def test_help_article_order_is_global_reader_order():
     assert ordered_ids[1] == "getting-started"
     assert ordered_ids[-1] == "lite-vs-studio-boundaries"
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
+    assert ordered_ids.index("splitting-and-joining-entries") < ordered_ids.index(
+        "data-generation-beta"
+    )
+    assert ordered_ids.index("data-generation-beta") < ordered_ids.index(
+        "tags-categories-and-tag-lifecycle"
+    )
     assert ordered_ids.index("developer-launch-flags") < ordered_ids.index(
         "codebase-architecture"
     )
@@ -444,6 +470,9 @@ def test_help_article_category_order_and_grouping():
         "dataset-formats",
         "loading-datasets-and-working-copies",
         "creating-a-new-dataset",
+    ]
+    assert [article.article_id for article in grouped["Data Generation"]] == [
+        "data-generation-beta",
     ]
     assert [article.article_id for article in grouped["Metadata and Organization"]] == [
         "tags-categories-and-tag-lifecycle",
@@ -1025,6 +1054,17 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert any(
         "native-style webapp launcher with a compiled installer" in entry.question
         and "science reasons" in entry.answer
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Does RoleThread generate AI responses directly?"
+        and entry.category == "Validation, Export, and Training"
+        and "data-generation-beta" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Why is Data Generation marked beta?"
+        and "prompt refinement" in entry.answer
         for entry in entries
     )
 

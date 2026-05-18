@@ -268,6 +268,10 @@ def test_compiler_renders_style_tone_and_output_delivery_values():
         "Conversation tone requirements:\n\n"
         "Maintain a playful, lighthearted, and expressive conversational tone."
     ) in prompt
+    assert (
+        "Avoid breaking immersion or undermining conversational coherence with excessive randomness or forced humor."
+        in prompt
+    )
     assert "If supported, provide the generated dataset as a downloadable `.jsonl` file." in prompt
 
 
@@ -341,31 +345,73 @@ def test_old_generic_style_chunk_text_does_not_render():
     [
         (
             ConversationTone.NEUTRAL,
-            "Maintain a balanced and emotionally neutral conversational tone.",
+            (
+                "Maintain a balanced and emotionally neutral conversational tone.",
+                "Keep interactions grounded, coherent, and contextually appropriate without excessive emotional exaggeration.",
+                "Allow emotional nuance when appropriate to the scenario while preserving conversational realism.",
+            ),
         ),
         (
             ConversationTone.WARM,
-            "Maintain a warm, emotionally engaging, and personable conversational tone.",
+            (
+                "Maintain a warm, emotionally engaging, and personable conversational tone.",
+                "Responses should feel emotionally attentive, socially natural, and interpersonally engaged without becoming overly exaggerated or artificial.",
+                "Preserve conversational realism and believable emotional interaction patterns throughout each dataset entry.",
+            ),
         ),
         (
             ConversationTone.PROFESSIONAL,
-            "Maintain a professional, composed, and respectful conversational tone.",
+            (
+                "Maintain a professional, composed, and respectful conversational tone.",
+                "Prioritize clarity, competence, emotional control, and context-appropriate communication.",
+                "Avoid slang, excessive emotional volatility, or unprofessional conversational behavior unless explicitly required by the scenario.",
+            ),
         ),
         (
             ConversationTone.DRAMATIC,
-            "Maintain a dramatic, emotionally heightened, and tension-aware conversational tone.",
+            (
+                "Maintain a dramatic, emotionally heightened, and tension-aware conversational tone.",
+                "Allow emotional tension, suspense, anticipation, and heightened interpersonal stakes when appropriate to the scenario.",
+                "Preserve coherence and conversational realism even during emotionally intense exchanges.",
+            ),
         ),
         (
             ConversationTone.PLAYFUL,
-            "Maintain a playful, lighthearted, and expressive conversational tone.",
+            (
+                "Maintain a playful, lighthearted, and expressive conversational tone.",
+                "Allow humor, teasing, expressive phrasing, and socially playful interaction patterns when appropriate to the scenario.",
+                "Avoid breaking immersion or undermining conversational coherence with excessive randomness or forced humor.",
+            ),
         ),
     ],
 )
-def test_compiler_renders_semantic_tone_text(tone, expected_text):
+def test_compiler_renders_selected_db_backed_tone_text(tone, expected_text):
     prompt = compile_conversation_scenario_prompt(_valid_config(tone=tone))
 
-    assert f"Conversation tone requirements:\n\n{expected_text}" in prompt
+    for expected in expected_text:
+        assert expected in prompt
     assert f"Conversation tone requirements:\n\n{tone.value}" not in prompt
+
+
+def test_compiler_renders_only_selected_tone_chunk():
+    prompt = compile_conversation_scenario_prompt(
+        _valid_config(tone=ConversationTone.DRAMATIC)
+    )
+
+    assert "Allow emotional tension, suspense, anticipation" in prompt
+    assert "Keep interactions grounded, coherent" not in prompt
+    assert "Responses should feel emotionally attentive" not in prompt
+    assert "Prioritize clarity, competence" not in prompt
+    assert "Avoid breaking immersion" not in prompt
+
+
+def test_old_generic_tone_chunk_text_does_not_render():
+    prompt = compile_conversation_scenario_prompt(
+        _valid_config(tone=ConversationTone.NEUTRAL)
+    )
+
+    assert "{{ tone }}" not in prompt
+    assert "Conversation tone requirements:\n\nneutral" not in prompt
 
 
 def test_compiler_does_not_render_raw_style_or_tone_slug_lines():
@@ -438,6 +484,7 @@ def test_compiler_loads_chunks_through_db_registry(monkeypatch):
                 "system_prompt_mode": "auto",
                 "output_delivery_mode": "paste_jsonl",
                 "style": "natural_dialogue",
+                "tone": "neutral",
             },
         )
     ]
