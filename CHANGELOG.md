@@ -16,6 +16,14 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.34] - 2026-05-18
+
+### Changed
+
+- Removed the Windows installer webapp-mode selection checkbox and installer seed file handling.
+- Made packaged RoleThread Lite launches always use the managed launcher-owned webapp lifecycle.
+- Kept source/developer browser and legacy raw Streamlit webapp workflows available outside packaged installs.
+
 ## [1.4.33] - 2026-05-18
 
 ### Changed

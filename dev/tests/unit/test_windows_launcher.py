@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 import subprocess
-import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -32,83 +31,13 @@ def _make_app_root(tmp_path: Path, *, with_dev_python: bool = True) -> Path:
     return app_root
 
 
-def test_missing_preferences_selects_normal_launch_mode(tmp_path):
-    preferences_path = tmp_path / "missing.json"
-
-    assert launcher.read_enable_webapp_launch_mode(preferences_path) is False
-    assert launcher.select_launch_mode(enable_webapp_launch_mode=False) == "normal"
-
-
-def test_false_preference_selects_normal_launch_mode(tmp_path):
-    preferences_path = tmp_path / "preferences.json"
-    preferences_path.write_text(
-        json.dumps({"enable_webapp_launch_mode": False}),
-        encoding="utf-8",
-    )
-
-    assert launcher.read_enable_webapp_launch_mode(preferences_path) is False
-    assert launcher.select_launch_mode(enable_webapp_launch_mode=False) == "normal"
-
-
-def test_true_preference_selects_webapp_launch_mode(tmp_path):
-    preferences_path = tmp_path / "preferences.json"
-    preferences_path.write_text(
-        json.dumps({"enable_webapp_launch_mode": True}),
-        encoding="utf-8",
-    )
-
-    assert launcher.read_enable_webapp_launch_mode(preferences_path) is True
-    assert launcher.select_launch_mode(enable_webapp_launch_mode=True) == "webapp"
-
-
-def test_db_webapp_preference_overrides_legacy_json_preference(tmp_path):
-    preferences_path = tmp_path / "preferences.json"
-    database_path = tmp_path / "rolethread.db"
-    preferences_path.write_text(
-        json.dumps({"enable_webapp_launch_mode": False}),
-        encoding="utf-8",
-    )
-
-    launcher.write_webapp_launch_preference_to_db(database_path, True)
-
-    assert launcher.read_enable_webapp_launch_mode_from_db(database_path) is True
-    assert launcher.resolve_enable_webapp_launch_mode(
-        preferences_path=preferences_path,
-        database_path=database_path,
-    ) is True
-
-
-def test_installer_seed_applies_only_webapp_preference_and_removes_seed(tmp_path):
-    seed_path = tmp_path / "installer_seed.json"
-    database_path = tmp_path / "rolethread.db"
-    log_path = tmp_path / "logs" / "launcher.log"
-    seed_path.write_text(
-        json.dumps({"enable_webapp_launch_mode": True, "unrelated": "ignored"}),
-        encoding="utf-8",
-    )
-
-    result = launcher.apply_installer_seed(
-        seed_path=seed_path,
-        database_path=database_path,
-        log_path=log_path,
-    )
-
-    assert result is True
-    assert not seed_path.exists()
-    assert launcher.read_enable_webapp_launch_mode_from_db(database_path) is True
-    with sqlite3.connect(database_path) as connection:
-        rows = connection.execute("SELECT key FROM app_settings").fetchall()
-    assert rows == [(launcher.WEBAPP_PREFERENCE_KEY,)]
-    assert "installer_seed_applied" in log_path.read_text(encoding="utf-8")
-
-
-def test_build_launcher_config_applies_installer_seed_before_launch_selection(tmp_path):
+def test_build_launcher_config_uses_managed_webapp_without_installer_seed(tmp_path):
     app_root = _make_app_root(tmp_path)
     local_app_data = tmp_path / "local"
     seed_path = local_app_data / "RoleThread" / "installer_seed.json"
     seed_path.parent.mkdir(parents=True)
     seed_path.write_text(
-        json.dumps({"enable_webapp_launch_mode": True}),
+        json.dumps({"enable_webapp_launch_mode": False}),
         encoding="utf-8",
     )
 
@@ -121,8 +50,10 @@ def test_build_launcher_config_applies_installer_seed_before_launch_selection(tm
     )
 
     assert config.launch_mode == launcher.LAUNCH_MODE_WEBAPP
+    assert "--server.address" in config.command
+    assert "--server.headless" in config.command
     assert config.command[-2:] == ("--", "webapp")
-    assert not seed_path.exists()
+    assert seed_path.exists()
 
 
 def test_command_construction_for_normal_launch(tmp_path):
@@ -310,13 +241,13 @@ def test_launcher_log_path_resolution_uses_localappdata():
     assert log_path == Path("C:/Users/Public/AppData/Local/RoleThread/logs/launcher.log")
 
 
-def test_build_launcher_config_reads_preference_and_builds_webapp_command(tmp_path):
+def test_build_launcher_config_ignores_legacy_preference_and_builds_webapp_command(tmp_path):
     app_root = _make_app_root(tmp_path)
     local_app_data = tmp_path / "local"
     preferences_path = local_app_data / "RoleThread" / "preferences.json"
     preferences_path.parent.mkdir(parents=True)
     preferences_path.write_text(
-        json.dumps({"enable_webapp_launch_mode": True}),
+        json.dumps({"enable_webapp_launch_mode": False}),
         encoding="utf-8",
     )
 
@@ -632,13 +563,13 @@ def test_inno_installer_script_packages_launcher_bundle():
     assert "Tasks: desktopicon" in inno_text
     assert "postinstall" in inno_text
     assert "OutputBaseFilename=RoleThreadLiteSetup-v{#AppVersion}" in inno_text
-    assert 'Name: "webappmode"' in inno_text
-    assert "Use Windows Edge webapp mode by default (recommended)" in inno_text
+    assert 'Name: "webappmode"' not in inno_text
+    assert "Use Windows Edge webapp mode by default (recommended)" not in inno_text
     assert "can be changed later in Settings" not in inno_text
-    assert "installer_seed.json" in inno_text
-    assert '"enable_webapp_launch_mode": true' in inno_text
-    assert '"enable_webapp_launch_mode": false' in inno_text
-    assert "WizardIsTaskSelected('webappmode')" in inno_text
+    assert "installer_seed.json" not in inno_text
+    assert '"enable_webapp_launch_mode": true' not in inno_text
+    assert '"enable_webapp_launch_mode": false' not in inno_text
+    assert "WizardIsTaskSelected('webappmode')" not in inno_text
     assert "Remove local RoleThread user data" in inno_text
     assert "database/app state, preferences, logs, cache" in inno_text
     assert "Developer clean uninstall / remove installer test state" not in inno_text

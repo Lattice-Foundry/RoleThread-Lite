@@ -15,7 +15,6 @@ import ctypes
 from datetime import datetime
 from pathlib import Path
 import subprocess
-import sqlite3
 import sys
 import time
 from typing import Callable, Sequence
@@ -58,12 +57,9 @@ from core.webapp_browser_state import consume_pending_webapp_browser_state_reset
 APP_NAME = "RoleThread Lite"
 APP_DATA_DIR_NAME = "RoleThread"
 PREFERENCES_FILE_NAME = "preferences.json"
-INSTALLER_SEED_FILE_NAME = "installer_seed.json"
 LAUNCHER_LOG_FILE_NAME = "launcher.log"
-DATABASE_FILE_NAME = "rolethread.db"
 INTERNAL_STREAMLIT_FLAG = "--rolethread-run-streamlit"
 LAUNCHER_LOG_PATH_ENV = "ROLETHREAD_LAUNCHER_LOG_PATH"
-WEBAPP_PREFERENCE_KEY = "enable_webapp_launch_mode"
 DEFAULT_HEALTH_TIMEOUT_SECONDS = 30.0
 DEFAULT_SHUTDOWN_TIMEOUT_SECONDS = 15.0
 DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS = 60.0
@@ -124,14 +120,6 @@ def resolve_preferences_path(env: dict[str, str] | None = None) -> Path:
     return resolve_app_data_root(env) / PREFERENCES_FILE_NAME
 
 
-def resolve_database_path(env: dict[str, str] | None = None) -> Path:
-    return resolve_app_data_root(env) / DATABASE_FILE_NAME
-
-
-def resolve_installer_seed_path(env: dict[str, str] | None = None) -> Path:
-    return resolve_app_data_root(env) / INSTALLER_SEED_FILE_NAME
-
-
 def resolve_launcher_log_path(env: dict[str, str] | None = None) -> Path:
     return resolve_app_data_root(env) / "logs" / LAUNCHER_LOG_FILE_NAME
 
@@ -148,119 +136,6 @@ def generate_shutdown_token() -> str:
     """Return an unguessable token for the launcher shutdown endpoint."""
 
     return secrets.token_urlsafe(32)
-
-
-def read_enable_webapp_launch_mode(preferences_path: Path) -> bool:
-    try:
-        data = json.loads(preferences_path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return False
-    except Exception:
-        return False
-    if not isinstance(data, dict):
-        return False
-    return bool(data.get(WEBAPP_PREFERENCE_KEY, False))
-
-
-def read_enable_webapp_launch_mode_from_db(database_path: Path) -> bool | None:
-    if not database_path.exists():
-        return None
-
-    try:
-        with sqlite3.connect(str(database_path)) as connection:
-            row = connection.execute(
-                "SELECT value FROM app_settings WHERE key = ?",
-                (WEBAPP_PREFERENCE_KEY,),
-            ).fetchone()
-    except sqlite3.Error:
-        return None
-
-    if row is None:
-        return None
-
-    try:
-        return bool(json.loads(row[0] or "false"))
-    except Exception:
-        return None
-
-
-def write_webapp_launch_preference_to_db(database_path: Path, enabled: bool) -> None:
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().isoformat()
-    with sqlite3.connect(str(database_path)) as connection:
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS app_settings (
-                key VARCHAR(120) NOT NULL PRIMARY KEY,
-                value TEXT,
-                updated_at DATETIME NOT NULL
-            )
-            """
-        )
-        connection.execute(
-            """
-            INSERT INTO app_settings (key, value, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(key) DO UPDATE SET
-                value = excluded.value,
-                updated_at = excluded.updated_at
-            """,
-            (WEBAPP_PREFERENCE_KEY, json.dumps(bool(enabled)), timestamp),
-        )
-        connection.commit()
-
-
-def read_installer_seed(seed_path: Path) -> bool | None:
-    try:
-        data = json.loads(seed_path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        return None
-    except Exception:
-        return None
-
-    if not isinstance(data, dict) or WEBAPP_PREFERENCE_KEY not in data:
-        return None
-    return bool(data.get(WEBAPP_PREFERENCE_KEY))
-
-
-def apply_installer_seed(
-    *,
-    seed_path: Path,
-    database_path: Path,
-    log_path: Path | None = None,
-) -> bool | None:
-    enabled = read_installer_seed(seed_path)
-    if enabled is None:
-        return None
-
-    try:
-        write_webapp_launch_preference_to_db(database_path, enabled)
-        seed_path.unlink(missing_ok=True)
-        if log_path is not None:
-            write_launcher_log(
-                log_path,
-                [f"installer_seed_applied {WEBAPP_PREFERENCE_KEY}={enabled}"],
-            )
-        return enabled
-    except Exception as exc:
-        if log_path is not None:
-            write_launcher_log(log_path, [f"installer_seed_error={exc}"])
-        return None
-
-
-def resolve_enable_webapp_launch_mode(
-    *,
-    preferences_path: Path,
-    database_path: Path,
-) -> bool:
-    db_value = read_enable_webapp_launch_mode_from_db(database_path)
-    if db_value is not None:
-        return db_value
-    return read_enable_webapp_launch_mode(preferences_path)
-
-
-def select_launch_mode(*, enable_webapp_launch_mode: bool) -> str:
-    return LAUNCH_MODE_WEBAPP if enable_webapp_launch_mode else LAUNCH_MODE_NORMAL
 
 
 def resolve_python_runtime(
@@ -336,24 +211,12 @@ def build_launcher_config(
     )
     preferences_path = resolve_preferences_path(env)
     log_path = resolve_launcher_log_path(env)
-    database_path = resolve_database_path(env)
-    seed_path = resolve_installer_seed_path(env)
-    apply_installer_seed(
-        seed_path=seed_path,
-        database_path=database_path,
-        log_path=log_path,
-    )
     python_path = resolve_python_runtime(
         resolved_root,
         current_executable=current_executable,
         frozen=is_frozen,
     )
-    launch_mode = select_launch_mode(
-        enable_webapp_launch_mode=resolve_enable_webapp_launch_mode(
-            preferences_path=preferences_path,
-            database_path=database_path,
-        ),
-    )
+    launch_mode = LAUNCH_MODE_WEBAPP
     command = build_streamlit_command(
         python_path,
         launch_mode=launch_mode,

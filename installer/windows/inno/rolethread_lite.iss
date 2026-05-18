@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "1.4.33"
+#define AppVersion "1.4.34"
 #endif
 
 #define AppName "RoleThread Lite"
@@ -33,7 +33,6 @@ SetupLogging=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "webappmode"; Description: "Use Windows Edge webapp mode by default (recommended)"; GroupDescription: "Launch mode:"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
@@ -79,25 +78,6 @@ procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = wpWelcome then
     BringWizardToFront();
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  SeedPath: string;
-  SeedValue: string;
-begin
-  if CurStep = ssPostInstall then
-  begin
-    ForceDirectories(ExpandConstant('{localappdata}\RoleThread'));
-    SeedPath := ExpandConstant('{localappdata}\RoleThread\installer_seed.json');
-
-    if WizardIsTaskSelected('webappmode') then
-      SeedValue := '{"enable_webapp_launch_mode": true}'
-    else
-      SeedValue := '{"enable_webapp_launch_mode": false}';
-
-    SaveStringToFile(SeedPath, SeedValue + #13#10, False);
-  end;
 end;
 
 function RoleThreadAppDataRoot(): string;
