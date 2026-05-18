@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.30] - 2026-05-18
+
+### Changed
+
+- Bound managed launcher-owned webapp Streamlit runs to `127.0.0.1` with `--server.address 127.0.0.1` to keep Lite local-machine-only by default.
+- Kept normal browser/dev Streamlit command construction unchanged while preserving managed webapp headless startup and loopback health/browser URLs.
+
 ## [1.4.29] - 2026-05-18
 
 ### Changed

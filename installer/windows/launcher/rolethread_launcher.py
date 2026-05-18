@@ -318,12 +318,24 @@ def build_streamlit_command(
             STREAMLIT_PORT,
         )
         if launch_mode == LAUNCH_MODE_WEBAPP:
-            command_parts = (*command_parts, "--server.headless", "true")
+            command_parts = (
+                *command_parts,
+                "--server.address",
+                STREAMLIT_HOST,
+                "--server.headless",
+                "true",
+            )
         command = command_parts
     else:
         command_parts = (str(python_path), *STREAMLIT_ARGS)
         if launch_mode == LAUNCH_MODE_WEBAPP:
-            command_parts = (*command_parts, "--server.headless", "true")
+            command_parts = (
+                *command_parts,
+                "--server.address",
+                STREAMLIT_HOST,
+                "--server.headless",
+                "true",
+            )
         command = command_parts
 
     if launch_mode == LAUNCH_MODE_WEBAPP:

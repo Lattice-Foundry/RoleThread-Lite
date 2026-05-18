@@ -52,6 +52,10 @@ def test_manual_webapp_config_starts_streamlit_headless(tmp_path):
     assert config.shutdown_port == 54321
     assert config.shutdown_token == "token"
     assert config.command[:4] == (str(python_path), "-m", "streamlit", "run")
+    assert "--server.port" in config.command
+    assert config.command[config.command.index("--server.port") + 1] == "8501"
+    assert "--server.address" in config.command
+    assert config.command[config.command.index("--server.address") + 1] == "127.0.0.1"
     assert "--server.headless" in config.command
     assert config.command[config.command.index("--server.headless") + 1] == "true"
     assert config.command[-2:] == ("--", "webapp")
@@ -73,6 +77,7 @@ def test_manual_browser_config_keeps_normal_streamlit_browser_flow(tmp_path):
 
     assert config.launch_mode == launcher.LAUNCH_MODE_NORMAL
     assert "--server.headless" not in config.command
+    assert "--server.address" not in config.command
     assert config.command == (
         str(python_path),
         "-m",
