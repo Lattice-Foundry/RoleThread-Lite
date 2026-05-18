@@ -178,17 +178,21 @@ Do not break message ordering or exchange structure.""",
         category="style",
     ),
     GenerationPromptChunkSeed(
-        slug="output_delivery",
-        title="Output delivery",
-        chunk_text="""If output_delivery_mode is "paste_jsonl":
+        slug="output_delivery_paste_jsonl",
+        title="Output delivery: paste JSONL",
+        chunk_text="""Return the generated dataset directly in a single fenced code block.
 
-- Return the generated dataset directly in a single fenced code block.
-- Do not include explanation before or after the dataset output.
+Do not include explanation before or after the dataset output.""",
+        category="output",
+    ),
+    GenerationPromptChunkSeed(
+        slug="output_delivery_download_file",
+        title="Output delivery: downloadable file",
+        chunk_text="""If supported, provide the generated dataset as a downloadable `.jsonl` file.
 
-If output_delivery_mode is "download_file":
+If downloadable file output is unavailable, return the generated dataset directly in a single fenced code block.
 
-- If supported, provide the generated dataset as a downloadable `.jsonl` file.
-- If downloadable file output is unavailable, return the dataset directly in a single fenced code block.""",
+Do not include explanation before or after the dataset output.""",
         category="output",
     ),
     GenerationPromptChunkSeed(
@@ -234,17 +238,32 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
     GenerationTemplateChunkSeed(CONVERSATION_SCENARIO_TEMPLATE_ID, "tone", 9),
     GenerationTemplateChunkSeed(
         CONVERSATION_SCENARIO_TEMPLATE_ID,
-        "output_delivery",
+        "output_delivery_paste_jsonl",
         10,
+        is_required=False,
+        condition_key="output_delivery_mode",
+        condition_value="paste_jsonl",
+    ),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "output_delivery_download_file",
+        11,
+        is_required=False,
+        condition_key="output_delivery_mode",
+        condition_value="download_file",
     ),
     GenerationTemplateChunkSeed(
         CONVERSATION_SCENARIO_TEMPLATE_ID,
         "additional_instructions",
-        11,
+        12,
         is_required=False,
         condition_key="has_additional_instructions",
         condition_value="true",
     ),
+)
+
+OBSOLETE_GENERATION_TEMPLATE_CHUNKS: tuple[tuple[str, str], ...] = (
+    (CONVERSATION_SCENARIO_TEMPLATE_ID, "output_delivery"),
 )
 
 
@@ -280,6 +299,12 @@ def seed_generation_template_chunks() -> None:
     init_db()
     session = SessionLocal()
     try:
+        for template_id, chunk_slug in OBSOLETE_GENERATION_TEMPLATE_CHUNKS:
+            (
+                session.query(GenerationTemplateChunk)
+                .filter_by(template_id=template_id, chunk_slug=chunk_slug)
+                .delete()
+            )
         for seed in DEFAULT_GENERATION_TEMPLATE_CHUNKS:
             mapping = (
                 session.query(GenerationTemplateChunk)

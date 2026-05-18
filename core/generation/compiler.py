@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from core.generation.models import (
     ConversationScenarioGenerationConfig,
+    ConversationStyle,
+    ConversationTone,
     GenerationTemplateId,
     validate_conversation_scenario_config,
 )
@@ -19,6 +21,48 @@ def _value(value: object | None) -> str:
     return getattr(value, "value", str(value))
 
 
+STYLE_INSTRUCTIONS: dict[ConversationStyle, str] = {
+    ConversationStyle.NATURAL_DIALOGUE: (
+        "Generate conversations that feel natural, grounded, and conversationally realistic."
+    ),
+    ConversationStyle.ROLEPLAY_IMMERSIVE: (
+        "Generate immersive roleplay-style conversations with strong scene continuity, emotional presence, and interaction detail."
+    ),
+    ConversationStyle.INSTRUCTIONAL: (
+        "Generate conversations focused on clarity, instruction-following, and helpful information exchange."
+    ),
+    ConversationStyle.NARRATIVE_DIALOGUE: (
+        "Generate conversations that blend dialogue with narrative scene description and contextual narration."
+    ),
+}
+
+TONE_INSTRUCTIONS: dict[ConversationTone, str] = {
+    ConversationTone.NEUTRAL: (
+        "Maintain a balanced and emotionally neutral conversational tone."
+    ),
+    ConversationTone.WARM: (
+        "Maintain a warm, emotionally engaging, and personable conversational tone."
+    ),
+    ConversationTone.PROFESSIONAL: (
+        "Maintain a professional, composed, and respectful conversational tone."
+    ),
+    ConversationTone.DRAMATIC: (
+        "Maintain a dramatic, emotionally heightened, and tension-aware conversational tone."
+    ),
+    ConversationTone.PLAYFUL: (
+        "Maintain a playful, lighthearted, and expressive conversational tone."
+    ),
+}
+
+
+def _style_instruction(style: ConversationStyle) -> str:
+    return STYLE_INSTRUCTIONS[style]
+
+
+def _tone_instruction(tone: ConversationTone) -> str:
+    return TONE_INSTRUCTIONS[tone]
+
+
 def render_generation_chunk_text(
     chunk_text: str,
     variables: dict[str, str],
@@ -32,7 +76,10 @@ def render_generation_chunk_text(
 
 
 def _condition_map(config: ConversationScenarioGenerationConfig) -> dict[str, str]:
-    conditions = {"system_prompt_mode": _value(config.system_prompt_mode)}
+    conditions = {
+        "system_prompt_mode": _value(config.system_prompt_mode),
+        "output_delivery_mode": _value(config.output_delivery_mode),
+    }
     if config.additional_instructions and config.additional_instructions.strip():
         conditions["has_additional_instructions"] = "true"
     return conditions
@@ -48,8 +95,8 @@ def _template_variables(
         "content_instructions": config.content_instructions.strip(),
         "system_prompt_mode": _value(config.system_prompt_mode),
         "custom_system_prompt": (config.custom_system_prompt or "").strip(),
-        "style": _value(config.style),
-        "tone": _value(config.tone),
+        "style": _style_instruction(config.style),
+        "tone": _tone_instruction(config.tone),
         "output_delivery_mode": _value(config.output_delivery_mode),
         "additional_instructions": (config.additional_instructions or "").strip(),
     }

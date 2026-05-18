@@ -60,7 +60,8 @@ def test_seed_generation_prompt_chunks_creates_expected_records(tmp_path, monkey
         "custom_system_prompt",
         "style",
         "tone",
-        "output_delivery",
+        "output_delivery_paste_jsonl",
+        "output_delivery_download_file",
         "additional_instructions",
     }
     assert chunks["rolethread_generation_task"].chunk_text == (
@@ -165,13 +166,14 @@ def test_seed_generation_prompt_chunks_creates_remaining_production_content(
         "Conversation tone requirements:\n\n"
         "{{ tone }}"
     )
-    assert chunks["output_delivery"].chunk_text == (
-        'If output_delivery_mode is "paste_jsonl":\n\n'
-        "- Return the generated dataset directly in a single fenced code block.\n"
-        "- Do not include explanation before or after the dataset output.\n\n"
-        'If output_delivery_mode is "download_file":\n\n'
-        "- If supported, provide the generated dataset as a downloadable `.jsonl` file.\n"
-        "- If downloadable file output is unavailable, return the dataset directly in a single fenced code block."
+    assert chunks["output_delivery_paste_jsonl"].chunk_text == (
+        "Return the generated dataset directly in a single fenced code block.\n\n"
+        "Do not include explanation before or after the dataset output."
+    )
+    assert chunks["output_delivery_download_file"].chunk_text == (
+        "If supported, provide the generated dataset as a downloadable `.jsonl` file.\n\n"
+        "If downloadable file output is unavailable, return the generated dataset directly in a single fenced code block.\n\n"
+        "Do not include explanation before or after the dataset output."
     )
     assert chunks["additional_instructions"].chunk_text == (
         "Additional instructions:\n\n"
@@ -206,10 +208,11 @@ def test_seed_generation_template_chunks_creates_expected_mappings(
         "custom_system_prompt",
         "style",
         "tone",
-        "output_delivery",
+        "output_delivery_paste_jsonl",
+        "output_delivery_download_file",
         "additional_instructions",
     ]
-    assert [mapping.sort_order for mapping in mappings] == list(range(1, 12))
+    assert [mapping.sort_order for mapping in mappings] == list(range(1, 13))
 
 
 def test_seed_generation_template_chunks_persists_conditional_mappings(
@@ -230,10 +233,18 @@ def test_seed_generation_template_chunks_persists_conditional_mappings(
         session.close()
 
     custom_prompt = mappings["custom_system_prompt"]
+    paste_jsonl = mappings["output_delivery_paste_jsonl"]
+    download_file = mappings["output_delivery_download_file"]
     additional = mappings["additional_instructions"]
     assert custom_prompt.is_required is False
     assert custom_prompt.condition_key == "system_prompt_mode"
     assert custom_prompt.condition_value == "custom"
+    assert paste_jsonl.is_required is False
+    assert paste_jsonl.condition_key == "output_delivery_mode"
+    assert paste_jsonl.condition_value == "paste_jsonl"
+    assert download_file.is_required is False
+    assert download_file.condition_key == "output_delivery_mode"
+    assert download_file.condition_value == "download_file"
     assert additional.is_required is False
     assert additional.condition_key == "has_additional_instructions"
     assert additional.condition_value == "true"
@@ -315,6 +326,50 @@ def test_generation_seed_updates_existing_placeholder_records(tmp_path, monkeypa
     assert task_mapping.is_required is True
     assert task_mapping.condition_key is None
     assert task_mapping.condition_value is None
+
+
+def test_generation_seed_removes_obsolete_output_delivery_mapping(
+    tmp_path,
+    monkeypatch,
+):
+    session_factory = _generation_seed_db(tmp_path, monkeypatch)
+    session = session_factory()
+    try:
+        session.add(
+            GenerationPromptChunk(
+                slug="output_delivery",
+                title="Old output delivery",
+                chunk_text="old combined output delivery text",
+                category="output",
+            )
+        )
+        session.add(
+            GenerationTemplateChunk(
+                template_id="conversation_scenario",
+                chunk_slug="output_delivery",
+                sort_order=10,
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    generation_seed.initialize_generation_registry()
+
+    session = session_factory()
+    try:
+        obsolete_mapping = session.query(GenerationTemplateChunk).filter_by(
+            template_id="conversation_scenario",
+            chunk_slug="output_delivery",
+        ).first()
+        obsolete_chunk = session.query(GenerationPromptChunk).filter_by(
+            slug="output_delivery"
+        ).one()
+    finally:
+        session.close()
+
+    assert obsolete_mapping is None
+    assert obsolete_chunk.chunk_text == "old combined output delivery text"
 
 
 def test_generation_template_chunk_mapping_unique_constraint_exists():

@@ -22,6 +22,19 @@ from core.generation.compiler import render_generation_chunk_text
 from core.models import Base, GenerationTemplateChunk
 
 
+RAW_STYLE_AND_TONE_SLUG_LINES = (
+    "natural_dialogue",
+    "roleplay_immersive",
+    "instructional",
+    "narrative_dialogue",
+    "neutral",
+    "warm",
+    "professional",
+    "dramatic",
+    "playful",
+)
+
+
 def _valid_config(**overrides):
     values = {
         "content_instructions": "Generate practical support conversations.",
@@ -75,7 +88,7 @@ def test_compiled_prompt_includes_production_generation_instructions():
         "Generate an appropriate system prompt for each dataset entry unless a custom system prompt is provided.",
         "Conversation style requirements:",
         "Conversation tone requirements:",
-        "If output_delivery_mode is \"paste_jsonl\":",
+        "Return the generated dataset directly in a single fenced code block.",
     )
     for phrase in expected_phrases:
         assert phrase in prompt
@@ -243,9 +256,109 @@ def test_compiler_renders_style_tone_and_output_delivery_values():
         )
     )
 
-    assert "Conversation style requirements:\n\nroleplay_immersive" in prompt
-    assert "Conversation tone requirements:\n\nplayful" in prompt
-    assert "If output_delivery_mode is \"download_file\":" in prompt
+    assert (
+        "Conversation style requirements:\n\n"
+        "Generate immersive roleplay-style conversations with strong scene continuity, emotional presence, and interaction detail."
+    ) in prompt
+    assert (
+        "Conversation tone requirements:\n\n"
+        "Maintain a playful, lighthearted, and expressive conversational tone."
+    ) in prompt
+    assert "If supported, provide the generated dataset as a downloadable `.jsonl` file." in prompt
+
+
+@pytest.mark.parametrize(
+    ("style", "expected_text"),
+    [
+        (
+            ConversationStyle.NATURAL_DIALOGUE,
+            "Generate conversations that feel natural, grounded, and conversationally realistic.",
+        ),
+        (
+            ConversationStyle.ROLEPLAY_IMMERSIVE,
+            "Generate immersive roleplay-style conversations with strong scene continuity, emotional presence, and interaction detail.",
+        ),
+        (
+            ConversationStyle.INSTRUCTIONAL,
+            "Generate conversations focused on clarity, instruction-following, and helpful information exchange.",
+        ),
+        (
+            ConversationStyle.NARRATIVE_DIALOGUE,
+            "Generate conversations that blend dialogue with narrative scene description and contextual narration.",
+        ),
+    ],
+)
+def test_compiler_renders_semantic_style_text(style, expected_text):
+    prompt = compile_conversation_scenario_prompt(_valid_config(style=style))
+
+    assert f"Conversation style requirements:\n\n{expected_text}" in prompt
+    assert f"Conversation style requirements:\n\n{style.value}" not in prompt
+
+
+@pytest.mark.parametrize(
+    ("tone", "expected_text"),
+    [
+        (
+            ConversationTone.NEUTRAL,
+            "Maintain a balanced and emotionally neutral conversational tone.",
+        ),
+        (
+            ConversationTone.WARM,
+            "Maintain a warm, emotionally engaging, and personable conversational tone.",
+        ),
+        (
+            ConversationTone.PROFESSIONAL,
+            "Maintain a professional, composed, and respectful conversational tone.",
+        ),
+        (
+            ConversationTone.DRAMATIC,
+            "Maintain a dramatic, emotionally heightened, and tension-aware conversational tone.",
+        ),
+        (
+            ConversationTone.PLAYFUL,
+            "Maintain a playful, lighthearted, and expressive conversational tone.",
+        ),
+    ],
+)
+def test_compiler_renders_semantic_tone_text(tone, expected_text):
+    prompt = compile_conversation_scenario_prompt(_valid_config(tone=tone))
+
+    assert f"Conversation tone requirements:\n\n{expected_text}" in prompt
+    assert f"Conversation tone requirements:\n\n{tone.value}" not in prompt
+
+
+def test_compiler_does_not_render_raw_style_or_tone_slug_lines():
+    prompt = compile_conversation_scenario_prompt(
+        _valid_config(
+            style=ConversationStyle.NARRATIVE_DIALOGUE,
+            tone=ConversationTone.DRAMATIC,
+        )
+    )
+
+    for slug in RAW_STYLE_AND_TONE_SLUG_LINES:
+        assert f"\n\n{slug}\n\n" not in prompt
+
+
+def test_paste_jsonl_output_delivery_excludes_download_file_branch():
+    prompt = compile_conversation_scenario_prompt(
+        _valid_config(output_delivery_mode=OutputDeliveryMode.PASTE_JSONL)
+    )
+
+    assert "Return the generated dataset directly in a single fenced code block." in prompt
+    assert "Do not include explanation before or after the dataset output." in prompt
+    assert "If supported, provide the generated dataset as a downloadable `.jsonl` file." not in prompt
+    assert "If downloadable file output is unavailable" not in prompt
+
+
+def test_download_file_output_delivery_excludes_paste_jsonl_branch():
+    prompt = compile_conversation_scenario_prompt(
+        _valid_config(output_delivery_mode=OutputDeliveryMode.DOWNLOAD_FILE)
+    )
+
+    assert "If supported, provide the generated dataset as a downloadable `.jsonl` file." in prompt
+    assert "If downloadable file output is unavailable" in prompt
+    assert "return the generated dataset directly in a single fenced code block." in prompt
+    assert "Do not include explanation before or after the dataset output." in prompt
 
 
 def test_compiler_preserves_multiline_content_instructions():
@@ -280,7 +393,10 @@ def test_compiler_loads_chunks_through_db_registry(monkeypatch):
     assert calls == [
         (
             "conversation_scenario",
-            {"system_prompt_mode": "auto"},
+            {
+                "system_prompt_mode": "auto",
+                "output_delivery_mode": "paste_jsonl",
+            },
         )
     ]
 

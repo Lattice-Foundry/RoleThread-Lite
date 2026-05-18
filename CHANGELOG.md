@@ -16,6 +16,20 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.9] - 2026-05-17
+
+### Changed
+
+- Improved Data Generation style and tone rendering with semantic instruction text.
+- Refined downloadable output delivery instructions to prohibit extra explanation.
+
+## [1.4.8] - 2026-05-17
+
+### Fixed
+
+- Split Data Generation output delivery instructions into conditional DB-backed chunks.
+- Conversation Scenario Generator prompts now include only the selected output delivery branch.
+
 ## [1.4.7] - 2026-05-17
 
 ### Changed
