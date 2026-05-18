@@ -261,6 +261,10 @@ def test_compiler_renders_style_tone_and_output_delivery_values():
         "Generate immersive roleplay-style conversations with strong scene continuity, emotional presence, and interaction detail."
     ) in prompt
     assert (
+        "Preserve environmental continuity, physical interaction awareness, emotional progression, and conversational pacing throughout each dataset entry."
+        in prompt
+    )
+    assert (
         "Conversation tone requirements:\n\n"
         "Maintain a playful, lighthearted, and expressive conversational tone."
     ) in prompt
@@ -272,27 +276,64 @@ def test_compiler_renders_style_tone_and_output_delivery_values():
     [
         (
             ConversationStyle.NATURAL_DIALOGUE,
-            "Generate conversations that feel natural, grounded, and conversationally realistic.",
+            (
+                "Generate conversations that feel natural, grounded, and conversationally realistic.",
+                "Prioritize believable conversational rhythm, context-aware responses, and realistic user/assistant interaction patterns.",
+                "Avoid overly theatrical phrasing, exaggerated narration, or artificial dialogue unless the scenario explicitly calls for it.",
+            ),
         ),
         (
             ConversationStyle.ROLEPLAY_IMMERSIVE,
-            "Generate immersive roleplay-style conversations with strong scene continuity, emotional presence, and interaction detail.",
+            (
+                "Generate immersive roleplay-style conversations with strong scene continuity, emotional presence, and interaction detail.",
+                "Preserve environmental continuity, physical interaction awareness, emotional progression, and conversational pacing throughout each dataset entry.",
+                "Avoid abrupt scene resets, emotionally disconnected responses, or generic roleplay filler.",
+            ),
         ),
         (
             ConversationStyle.INSTRUCTIONAL,
-            "Generate conversations focused on clarity, instruction-following, and helpful information exchange.",
+            (
+                "Generate conversations focused on clarity, instruction-following, and helpful information exchange.",
+                "Prioritize clear explanations, useful guidance, coherent sequencing, and practical conversational flow.",
+                "Avoid unnecessary dramatic narration, excessive emotional embellishment, or conversational drift.",
+            ),
         ),
         (
             ConversationStyle.NARRATIVE_DIALOGUE,
-            "Generate conversations that blend dialogue with narrative scene description and contextual narration.",
+            (
+                "Generate conversations that blend dialogue with narrative scene description and contextual narration.",
+                "Use narration to support scene progression, character movement, setting continuity, and emotional context.",
+                "Avoid long exposition blocks that overwhelm the dialogue or weaken the training usefulness of the exchange.",
+            ),
         ),
     ],
 )
-def test_compiler_renders_semantic_style_text(style, expected_text):
+def test_compiler_renders_selected_db_backed_style_text(style, expected_text):
     prompt = compile_conversation_scenario_prompt(_valid_config(style=style))
 
-    assert f"Conversation style requirements:\n\n{expected_text}" in prompt
+    for expected in expected_text:
+        assert expected in prompt
     assert f"Conversation style requirements:\n\n{style.value}" not in prompt
+
+
+def test_compiler_renders_only_selected_style_chunk():
+    prompt = compile_conversation_scenario_prompt(
+        _valid_config(style=ConversationStyle.ROLEPLAY_IMMERSIVE)
+    )
+
+    assert "Preserve environmental continuity" in prompt
+    assert "Avoid overly theatrical phrasing" not in prompt
+    assert "Keep responses focused on the instructional purpose" not in prompt
+    assert "Avoid long exposition blocks" not in prompt
+
+
+def test_old_generic_style_chunk_text_does_not_render():
+    prompt = compile_conversation_scenario_prompt(
+        _valid_config(style=ConversationStyle.NATURAL_DIALOGUE)
+    )
+
+    assert "{{ style }}" not in prompt
+    assert "Conversation style requirements:\n\nnatural_dialogue" not in prompt
 
 
 @pytest.mark.parametrize(
@@ -396,6 +437,7 @@ def test_compiler_loads_chunks_through_db_registry(monkeypatch):
             {
                 "system_prompt_mode": "auto",
                 "output_delivery_mode": "paste_jsonl",
+                "style": "natural_dialogue",
             },
         )
     ]

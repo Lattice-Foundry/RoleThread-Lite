@@ -162,11 +162,57 @@ Do not break message ordering or exchange structure.""",
         category="system_prompt",
     ),
     GenerationPromptChunkSeed(
-        slug="style",
-        title="Style",
+        slug="style_natural_dialogue",
+        title="Style: natural dialogue",
         chunk_text="""Conversation style requirements:
 
-{{ style }}""",
+Generate conversations that feel natural, grounded, and conversationally realistic.
+
+Prioritize believable conversational rhythm, context-aware responses, and realistic user/assistant interaction patterns.
+
+Avoid overly theatrical phrasing, exaggerated narration, or artificial dialogue unless the scenario explicitly calls for it.""",
+        category="style",
+    ),
+    GenerationPromptChunkSeed(
+        slug="style_roleplay_immersive",
+        title="Style: roleplay immersive",
+        chunk_text="""Conversation style requirements:
+
+Generate immersive roleplay-style conversations with strong scene continuity, emotional presence, and interaction detail.
+
+Preserve environmental continuity, physical interaction awareness, emotional progression, and conversational pacing throughout each dataset entry.
+
+Use narration and dialogue in a way that supports immersion without breaking the required ChatML JSONL structure.
+
+Avoid abrupt scene resets, emotionally disconnected responses, or generic roleplay filler.""",
+        category="style",
+    ),
+    GenerationPromptChunkSeed(
+        slug="style_instructional",
+        title="Style: instructional",
+        chunk_text="""Conversation style requirements:
+
+Generate conversations focused on clarity, instruction-following, and helpful information exchange.
+
+Prioritize clear explanations, useful guidance, coherent sequencing, and practical conversational flow.
+
+Keep responses focused on the instructional purpose of the scenario.
+
+Avoid unnecessary dramatic narration, excessive emotional embellishment, or conversational drift.""",
+        category="style",
+    ),
+    GenerationPromptChunkSeed(
+        slug="style_narrative_dialogue",
+        title="Style: narrative dialogue",
+        chunk_text="""Conversation style requirements:
+
+Generate conversations that blend dialogue with narrative scene description and contextual narration.
+
+Use narration to support scene progression, character movement, setting continuity, and emotional context.
+
+Preserve readable conversational flow while maintaining clear user/assistant message alternation.
+
+Avoid long exposition blocks that overwhelm the dialogue or weaken the training usefulness of the exchange.""",
         category="style",
     ),
     GenerationPromptChunkSeed(
@@ -234,12 +280,43 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
         condition_key="system_prompt_mode",
         condition_value="custom",
     ),
-    GenerationTemplateChunkSeed(CONVERSATION_SCENARIO_TEMPLATE_ID, "style", 8),
-    GenerationTemplateChunkSeed(CONVERSATION_SCENARIO_TEMPLATE_ID, "tone", 9),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "style_natural_dialogue",
+        8,
+        is_required=False,
+        condition_key="style",
+        condition_value="natural_dialogue",
+    ),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "style_roleplay_immersive",
+        9,
+        is_required=False,
+        condition_key="style",
+        condition_value="roleplay_immersive",
+    ),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "style_instructional",
+        10,
+        is_required=False,
+        condition_key="style",
+        condition_value="instructional",
+    ),
+    GenerationTemplateChunkSeed(
+        CONVERSATION_SCENARIO_TEMPLATE_ID,
+        "style_narrative_dialogue",
+        11,
+        is_required=False,
+        condition_key="style",
+        condition_value="narrative_dialogue",
+    ),
+    GenerationTemplateChunkSeed(CONVERSATION_SCENARIO_TEMPLATE_ID, "tone", 12),
     GenerationTemplateChunkSeed(
         CONVERSATION_SCENARIO_TEMPLATE_ID,
         "output_delivery_paste_jsonl",
-        10,
+        13,
         is_required=False,
         condition_key="output_delivery_mode",
         condition_value="paste_jsonl",
@@ -247,7 +324,7 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
     GenerationTemplateChunkSeed(
         CONVERSATION_SCENARIO_TEMPLATE_ID,
         "output_delivery_download_file",
-        11,
+        14,
         is_required=False,
         condition_key="output_delivery_mode",
         condition_value="download_file",
@@ -255,7 +332,7 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
     GenerationTemplateChunkSeed(
         CONVERSATION_SCENARIO_TEMPLATE_ID,
         "additional_instructions",
-        12,
+        15,
         is_required=False,
         condition_key="has_additional_instructions",
         condition_value="true",
@@ -264,6 +341,7 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
 
 OBSOLETE_GENERATION_TEMPLATE_CHUNKS: tuple[tuple[str, str], ...] = (
     (CONVERSATION_SCENARIO_TEMPLATE_ID, "output_delivery"),
+    (CONVERSATION_SCENARIO_TEMPLATE_ID, "style"),
 )
 
 

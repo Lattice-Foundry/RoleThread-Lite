@@ -58,7 +58,10 @@ def test_seed_generation_prompt_chunks_creates_expected_records(tmp_path, monkey
         "content_instructions",
         "system_prompt_mode",
         "custom_system_prompt",
-        "style",
+        "style_natural_dialogue",
+        "style_roleplay_immersive",
+        "style_instructional",
+        "style_narrative_dialogue",
         "tone",
         "output_delivery_paste_jsonl",
         "output_delivery_download_file",
@@ -158,9 +161,32 @@ def test_seed_generation_prompt_chunks_creates_remaining_production_content(
         "Use the following system prompt exactly:\n\n"
         "{{ custom_system_prompt }}"
     )
-    assert chunks["style"].chunk_text == (
+    assert chunks["style_natural_dialogue"].chunk_text == (
         "Conversation style requirements:\n\n"
-        "{{ style }}"
+        "Generate conversations that feel natural, grounded, and conversationally realistic.\n\n"
+        "Prioritize believable conversational rhythm, context-aware responses, and realistic user/assistant interaction patterns.\n\n"
+        "Avoid overly theatrical phrasing, exaggerated narration, or artificial dialogue unless the scenario explicitly calls for it."
+    )
+    assert chunks["style_roleplay_immersive"].chunk_text == (
+        "Conversation style requirements:\n\n"
+        "Generate immersive roleplay-style conversations with strong scene continuity, emotional presence, and interaction detail.\n\n"
+        "Preserve environmental continuity, physical interaction awareness, emotional progression, and conversational pacing throughout each dataset entry.\n\n"
+        "Use narration and dialogue in a way that supports immersion without breaking the required ChatML JSONL structure.\n\n"
+        "Avoid abrupt scene resets, emotionally disconnected responses, or generic roleplay filler."
+    )
+    assert chunks["style_instructional"].chunk_text == (
+        "Conversation style requirements:\n\n"
+        "Generate conversations focused on clarity, instruction-following, and helpful information exchange.\n\n"
+        "Prioritize clear explanations, useful guidance, coherent sequencing, and practical conversational flow.\n\n"
+        "Keep responses focused on the instructional purpose of the scenario.\n\n"
+        "Avoid unnecessary dramatic narration, excessive emotional embellishment, or conversational drift."
+    )
+    assert chunks["style_narrative_dialogue"].chunk_text == (
+        "Conversation style requirements:\n\n"
+        "Generate conversations that blend dialogue with narrative scene description and contextual narration.\n\n"
+        "Use narration to support scene progression, character movement, setting continuity, and emotional context.\n\n"
+        "Preserve readable conversational flow while maintaining clear user/assistant message alternation.\n\n"
+        "Avoid long exposition blocks that overwhelm the dialogue or weaken the training usefulness of the exchange."
     )
     assert chunks["tone"].chunk_text == (
         "Conversation tone requirements:\n\n"
@@ -206,13 +232,16 @@ def test_seed_generation_template_chunks_creates_expected_mappings(
         "content_instructions",
         "system_prompt_mode",
         "custom_system_prompt",
-        "style",
+        "style_natural_dialogue",
+        "style_roleplay_immersive",
+        "style_instructional",
+        "style_narrative_dialogue",
         "tone",
         "output_delivery_paste_jsonl",
         "output_delivery_download_file",
         "additional_instructions",
     ]
-    assert [mapping.sort_order for mapping in mappings] == list(range(1, 13))
+    assert [mapping.sort_order for mapping in mappings] == list(range(1, 16))
 
 
 def test_seed_generation_template_chunks_persists_conditional_mappings(
@@ -233,12 +262,28 @@ def test_seed_generation_template_chunks_persists_conditional_mappings(
         session.close()
 
     custom_prompt = mappings["custom_system_prompt"]
+    natural_dialogue = mappings["style_natural_dialogue"]
+    roleplay_immersive = mappings["style_roleplay_immersive"]
+    instructional = mappings["style_instructional"]
+    narrative_dialogue = mappings["style_narrative_dialogue"]
     paste_jsonl = mappings["output_delivery_paste_jsonl"]
     download_file = mappings["output_delivery_download_file"]
     additional = mappings["additional_instructions"]
     assert custom_prompt.is_required is False
     assert custom_prompt.condition_key == "system_prompt_mode"
     assert custom_prompt.condition_value == "custom"
+    assert natural_dialogue.is_required is False
+    assert natural_dialogue.condition_key == "style"
+    assert natural_dialogue.condition_value == "natural_dialogue"
+    assert roleplay_immersive.is_required is False
+    assert roleplay_immersive.condition_key == "style"
+    assert roleplay_immersive.condition_value == "roleplay_immersive"
+    assert instructional.is_required is False
+    assert instructional.condition_key == "style"
+    assert instructional.condition_value == "instructional"
+    assert narrative_dialogue.is_required is False
+    assert narrative_dialogue.condition_key == "style"
+    assert narrative_dialogue.condition_value == "narrative_dialogue"
     assert paste_jsonl.is_required is False
     assert paste_jsonl.condition_key == "output_delivery_mode"
     assert paste_jsonl.condition_value == "paste_jsonl"
@@ -328,7 +373,7 @@ def test_generation_seed_updates_existing_placeholder_records(tmp_path, monkeypa
     assert task_mapping.condition_value is None
 
 
-def test_generation_seed_removes_obsolete_output_delivery_mapping(
+def test_generation_seed_removes_obsolete_template_mappings(
     tmp_path,
     monkeypatch,
 ):
@@ -344,10 +389,25 @@ def test_generation_seed_removes_obsolete_output_delivery_mapping(
             )
         )
         session.add(
+            GenerationPromptChunk(
+                slug="style",
+                title="Old style",
+                chunk_text="old generic style text",
+                category="style",
+            )
+        )
+        session.add(
             GenerationTemplateChunk(
                 template_id="conversation_scenario",
                 chunk_slug="output_delivery",
                 sort_order=10,
+            )
+        )
+        session.add(
+            GenerationTemplateChunk(
+                template_id="conversation_scenario",
+                chunk_slug="style",
+                sort_order=8,
             )
         )
         session.commit()
@@ -362,14 +422,23 @@ def test_generation_seed_removes_obsolete_output_delivery_mapping(
             template_id="conversation_scenario",
             chunk_slug="output_delivery",
         ).first()
+        obsolete_style_mapping = session.query(GenerationTemplateChunk).filter_by(
+            template_id="conversation_scenario",
+            chunk_slug="style",
+        ).first()
         obsolete_chunk = session.query(GenerationPromptChunk).filter_by(
             slug="output_delivery"
+        ).one()
+        obsolete_style_chunk = session.query(GenerationPromptChunk).filter_by(
+            slug="style"
         ).one()
     finally:
         session.close()
 
     assert obsolete_mapping is None
+    assert obsolete_style_mapping is None
     assert obsolete_chunk.chunk_text == "old combined output delivery text"
+    assert obsolete_style_chunk.chunk_text == "old generic style text"
 
 
 def test_generation_template_chunk_mapping_unique_constraint_exists():

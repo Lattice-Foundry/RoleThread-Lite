@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from core.generation.models import (
     ConversationScenarioGenerationConfig,
-    ConversationStyle,
     ConversationTone,
     GenerationTemplateId,
     validate_conversation_scenario_config,
@@ -20,21 +19,6 @@ def _value(value: object | None) -> str:
         return ""
     return getattr(value, "value", str(value))
 
-
-STYLE_INSTRUCTIONS: dict[ConversationStyle, str] = {
-    ConversationStyle.NATURAL_DIALOGUE: (
-        "Generate conversations that feel natural, grounded, and conversationally realistic."
-    ),
-    ConversationStyle.ROLEPLAY_IMMERSIVE: (
-        "Generate immersive roleplay-style conversations with strong scene continuity, emotional presence, and interaction detail."
-    ),
-    ConversationStyle.INSTRUCTIONAL: (
-        "Generate conversations focused on clarity, instruction-following, and helpful information exchange."
-    ),
-    ConversationStyle.NARRATIVE_DIALOGUE: (
-        "Generate conversations that blend dialogue with narrative scene description and contextual narration."
-    ),
-}
 
 TONE_INSTRUCTIONS: dict[ConversationTone, str] = {
     ConversationTone.NEUTRAL: (
@@ -53,10 +37,6 @@ TONE_INSTRUCTIONS: dict[ConversationTone, str] = {
         "Maintain a playful, lighthearted, and expressive conversational tone."
     ),
 }
-
-
-def _style_instruction(style: ConversationStyle) -> str:
-    return STYLE_INSTRUCTIONS[style]
 
 
 def _tone_instruction(tone: ConversationTone) -> str:
@@ -79,6 +59,7 @@ def _condition_map(config: ConversationScenarioGenerationConfig) -> dict[str, st
     conditions = {
         "system_prompt_mode": _value(config.system_prompt_mode),
         "output_delivery_mode": _value(config.output_delivery_mode),
+        "style": _value(config.style),
     }
     if config.additional_instructions and config.additional_instructions.strip():
         conditions["has_additional_instructions"] = "true"
@@ -95,7 +76,7 @@ def _template_variables(
         "content_instructions": config.content_instructions.strip(),
         "system_prompt_mode": _value(config.system_prompt_mode),
         "custom_system_prompt": (config.custom_system_prompt or "").strip(),
-        "style": _style_instruction(config.style),
+        "style": _value(config.style),
         "tone": _tone_instruction(config.tone),
         "output_delivery_mode": _value(config.output_delivery_mode),
         "additional_instructions": (config.additional_instructions or "").strip(),

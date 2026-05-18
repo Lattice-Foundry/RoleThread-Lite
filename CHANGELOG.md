@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.10] - 2026-05-17
+
+### Changed
+
+- Moved Data Generation style guidance into DB-backed conditional chunks.
+- Added production style-specific prompt instructions for the Conversation Scenario Generator.
+
 ## [1.4.9] - 2026-05-17
 
 ### Changed
