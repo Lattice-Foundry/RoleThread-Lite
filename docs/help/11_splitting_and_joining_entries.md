@@ -130,11 +130,3 @@ Run Validation after restructuring. Split and join are safe operations with back
 **Mistake:** Splitting only because an entry looks long.
 
 **Better approach:** Split where the conversation naturally changes focus. Length is a signal, but coherence is the real goal.
-
-## Related Articles
-
-- **Creating Entries**
-- **Deep Edit**
-- **Validation and Repair**
-
-

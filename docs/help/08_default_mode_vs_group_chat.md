@@ -129,11 +129,3 @@ If imported data contains custom speaker names as roles, RoleThread may help det
 ## Practical Tip
 
 Use Group Chat mode when character identity matters to how you review or maintain the dataset. Use Default mode when the example is already clear as a normal user/assistant exchange.
-
-## Related Articles
-
-- **Creating Entries**
-- **Character Registry and Character Mappings**
-- **System Prompt Library**
-
-

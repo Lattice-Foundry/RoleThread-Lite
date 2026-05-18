@@ -122,11 +122,3 @@ This keeps more context available if you reopen the dataset later.
 ## Practical Tip
 
 If you are unsure, export a normal archive copy first, then create a clean export for training.
-
-## Related Articles
-
-- **Validation and Repair**
-- **Sidecars and Portable Metadata**
-- **Preparing Datasets for LoRA and Fine-Tuning**
-
-

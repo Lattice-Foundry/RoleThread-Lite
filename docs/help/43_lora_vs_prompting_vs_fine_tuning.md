@@ -91,9 +91,3 @@ Use RoleThread when you need to curate examples that show:
 - domain-specific conversational flow
 
 RoleThread does not replace prompting. It helps build the dataset layer beneath prompting, LoRAs, and fine-tuning.
-
-## Related Articles
-
-- **What Fine-Tuning Actually Is**
-- **Preparing Datasets for LoRA and Fine-Tuning**
-- **Realistic Expectations for Fine-Tuning**

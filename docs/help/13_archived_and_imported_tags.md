@@ -108,11 +108,3 @@ When a dataset arrives with metadata you did not create, RoleThread treats it ca
 ## Practical Tip
 
 Do not adopt every imported tag automatically. Keep the ones that support your workflow and leave the rest archived until they prove useful.
-
-## Related Articles
-
-- **Tags, Categories, and Tag Lifecycle**
-- **Understanding Default Tags**
-- **Loading Datasets and Working Copies**
-
-

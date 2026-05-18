@@ -921,10 +921,20 @@ def test_related_help_articles_follow_registry_metadata():
     related_articles = get_related_help_articles("getting-started")
 
     assert [article.article_id for article in related_articles] == [
-        "understanding-the-main-workspaces",
+        "what-rolethread-lite-does",
+        "dataset-formats",
         "loading-datasets-and-working-copies",
-        "creating-entries",
+        "understanding-the-main-workspaces",
     ]
+
+
+def test_public_help_articles_do_not_keep_temporary_related_sections():
+    for article in get_help_article_registry().values():
+        document = load_help_document(article.article_id)
+        if article.category == "For Developers":
+            continue
+
+        assert "## Related Articles" not in document.content
 
 
 def test_help_related_ids_are_known_unique_and_not_self_referential():
@@ -1125,26 +1135,30 @@ def test_help_related_previous_and_next_buttons_render_selected_articles():
         for value in _markdown_values(app)
     )
 
-    app.button(key="_help_related_creating-entries").click().run()
-    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "creating-entries"
-    assert any(
-        value.startswith("# Creating Entries")
-        for value in _markdown_values(app)
-    )
-
-    app.button(key="_help_previous_understanding-the-main-workspaces").click().run()
+    app.button(key="_help_related_loading-datasets-and-working-copies").click().run()
     assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
-        "understanding-the-main-workspaces"
+        "loading-datasets-and-working-copies"
     )
     assert any(
-        value.startswith("# Understanding the Main Workspaces")
+        value.startswith("# Loading Datasets and Working Copies")
         for value in _markdown_values(app)
     )
 
-    app.button(key="_help_next_creating-entries").click().run()
-    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == "creating-entries"
+    app.button(key="_help_previous_dataset-formats").click().run()
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
+        "dataset-formats"
+    )
     assert any(
-        value.startswith("# Creating Entries")
+        value.startswith("# Dataset Formats")
+        for value in _markdown_values(app)
+    )
+
+    app.button(key="_help_next_loading-datasets-and-working-copies").click().run()
+    assert app.session_state[ui_help.HELP_ACTIVE_ARTICLE_KEY] == (
+        "loading-datasets-and-working-copies"
+    )
+    assert any(
+        value.startswith("# Loading Datasets and Working Copies")
         for value in _markdown_values(app)
     )
 

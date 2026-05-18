@@ -137,11 +137,3 @@ You should still use:
 **Mistake:** Loading an outside dataset, then expecting RoleThread to edit that original file directly.
 
 **Better mental model:** RoleThread protects outside/untrusted files by creating a working copy. You edit the working copy. If you want a final file somewhere else, use Export.
-
-## Related Articles
-
-- **Creating a New Dataset**
-- **Sidecars and Portable Metadata**
-- **Dataset Formats**
-- **Validation and Repair**
-

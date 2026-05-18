@@ -207,11 +207,3 @@ A simple creation workflow:
 When an entry is saved, RoleThread assigns stable identity metadata such as an entry UUID, updates the dataset, refreshes sidecar metadata, and keeps the entry available for search, editing, validation, and export.
 
 You can always return to the entry later through Manage Dataset or Deep Edit.
-
-## Related Articles
-
-- **Deep Edit**
-- **Default Mode vs Group Chat**
-- **Splitting and Joining Entries**
-- **What Makes a Good Roleplay Dataset**
-

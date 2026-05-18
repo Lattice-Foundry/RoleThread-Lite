@@ -159,10 +159,3 @@ Manage Dataset is the right place to act on most focused views. Use it to tag, s
 ## Practical Tip
 
 Use Insights after a cleanup pass, not after every tiny edit. It is best for seeing patterns across the whole dataset.
-
-## Related Articles
-
-- **Validation and Repair**
-- **Searching and Filtering Entries**
-- **What Makes a Good Roleplay Dataset**
-

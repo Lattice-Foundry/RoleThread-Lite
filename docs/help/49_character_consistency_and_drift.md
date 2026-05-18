@@ -79,10 +79,3 @@ Repeated careful boundaries teach careful boundaries. Repeated rambling teaches 
 That is dataset behavior shaping: using examples to reinforce the behavior you want while removing patterns you do not want amplified.
 
 RoleThread helps by making entries inspectable, editable, taggable, searchable, and easier to validate before export.
-
-## Related Articles
-
-- **What Makes a Good Roleplay Dataset**
-- **Dialogue vs Narration Balance**
-- **Character Registry and Character Mappings**
-- **Roleplay Archetypes and Behavioral Bias**

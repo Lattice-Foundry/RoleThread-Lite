@@ -75,9 +75,3 @@ One entry may be fine by itself.
 The real question is what happens when the same behavior appears hundreds of times.
 
 RoleThread helps you inspect, tag, search, and rebalance those patterns before they become the model's default habits.
-
-## Related Articles
-
-- **What Makes a Good Roleplay Dataset**
-- **Character Consistency and Drift**
-- **Dialogue vs Narration Balance**

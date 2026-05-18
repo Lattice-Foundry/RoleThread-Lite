@@ -153,10 +153,3 @@ When this happens, Manage Dataset shows a banner explaining the focused view. Us
 **Mistake:** Thinking search only checks the current page.
 
 **Better mental model:** Search checks all entries that passed tag filtering. The page view is only the final display slice.
-
-## Related Articles
-
-- **Tags, Categories, and Tag Lifecycle**
-- **Insights and Dataset Quality**
-- **Validation and Repair**
-

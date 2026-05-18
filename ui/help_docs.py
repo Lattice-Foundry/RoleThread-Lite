@@ -75,8 +75,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Windows installer, manual setup, launch modes, and uninstall behavior.",
         (
             "getting-started",
+            "what-rolethread-lite-does",
+            "dataset-formats",
             "os-compatibility-and-storage-policy",
-            "settings-and-preferences",
         ),
     ),
     HelpArticle(
@@ -87,9 +88,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         10,
         "First-session workflow and the basic RoleThread rhythm.",
         (
-            "understanding-the-main-workspaces",
+            "what-rolethread-lite-does",
+            "dataset-formats",
             "loading-datasets-and-working-copies",
-            "creating-entries",
+            "understanding-the-main-workspaces",
         ),
     ),
     HelpArticle(
@@ -100,10 +102,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         20,
         "The app's purpose, file-owned workflow, and practical boundaries.",
         (
-            "what-rolethread-is-actually-for",
             "getting-started",
-            "dataset-formats",
-            "v1-limitations-and-future-boundaries",
+            "what-rolethread-is-actually-for",
+            "rolethread-studio-vision",
         ),
     ),
     HelpArticle(
@@ -114,8 +115,8 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         30,
         "JSONL, ChatML, ShareGPT, native metadata, and clean export basics.",
         (
+            "loading-datasets-and-working-copies",
             "exporting-datasets",
-            "default-mode-vs-group-chat",
             "sidecars-and-portable-metadata",
         ),
     ),
@@ -127,9 +128,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         40,
         "How loading, trust checks, protected copies, and sidecars work.",
         (
+            "creating-a-new-dataset",
             "sidecars-and-portable-metadata",
+            "dataset-formats",
             "validation-and-repair",
-            "backups-cloud-sync-and-recovery",
         ),
     ),
     HelpArticle(
@@ -140,9 +142,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         50,
         "Starting a fresh dataset file and understanding first-save behavior.",
         (
-            "getting-started",
             "loading-datasets-and-working-copies",
             "creating-entries",
+            "understanding-the-main-workspaces",
         ),
     ),
     HelpArticle(
@@ -153,10 +155,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         52,
         "The real workflow RoleThread supports between AI drafting and external training.",
         (
-            "what-fine-tuning-actually-is",
+            "ai-assisted-dataset-creation-workflow",
+            "why-dataset-quality-matters",
             "privacy-and-local-first-creative-workflows",
-            "data-generation-beta",
-            "what-rolethread-lite-does",
         ),
     ),
     HelpArticle(
@@ -168,8 +169,8 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "A practical explanation of model adaptation and behavioral pattern learning.",
         (
             "lora-vs-prompting-vs-fine-tuning",
+            "realistic-expectations-for-fine-tuning",
             "why-dataset-quality-matters",
-            "dataset-formats",
         ),
     ),
     HelpArticle(
@@ -181,8 +182,8 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "How prompting, character cards, RAG, LoRAs, and fine-tuning differ.",
         (
             "what-fine-tuning-actually-is",
-            "what-rolethread-is-actually-for",
-            "data-generation-beta",
+            "preparing-datasets-for-lora-and-fine-tuning",
+            "realistic-expectations-for-fine-tuning",
         ),
     ),
     HelpArticle(
@@ -193,9 +194,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         58,
         "Why structure, validation, balance, and consistency affect training usefulness.",
         (
-            "validation-and-repair",
-            "insights-and-dataset-quality",
-            "tags-categories-and-tag-lifecycle",
+            "what-makes-a-good-roleplay-dataset",
+            "common-dataset-mistakes",
+            "preparing-datasets-for-lora-and-fine-tuning",
         ),
     ),
     HelpArticle(
@@ -206,9 +207,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         59,
         "Why private creative datasets need ownership, offline capability, and local control.",
         (
+            "creator-ownership-and-long-term-workflow-philosophy",
             "what-rolethread-is-actually-for",
-            "backups-cloud-sync-and-recovery",
-            "v1-limitations-and-future-boundaries",
+            "sidecars-and-portable-metadata",
         ),
     ),
     HelpArticle(
@@ -222,6 +223,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
             "common-dataset-mistakes",
             "dialogue-vs-narration-balance",
             "character-consistency-and-drift",
+            "roleplay-archetypes-and-behavioral-bias",
         ),
     ),
     HelpArticle(
@@ -232,9 +234,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         61,
         "Common quality problems that synthetic and hand-edited datasets can accidentally teach.",
         (
-            "what-makes-a-good-roleplay-dataset",
-            "why-validation-matters",
             "why-dataset-quality-matters",
+            "what-makes-a-good-roleplay-dataset",
+            "dataset-scaling-and-maintenance",
         ),
     ),
     HelpArticle(
@@ -247,7 +249,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         (
             "what-makes-a-good-roleplay-dataset",
             "character-consistency-and-drift",
-            "creating-entries",
+            "roleplay-archetypes-and-behavioral-bias",
         ),
     ),
     HelpArticle(
@@ -258,9 +260,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         63,
         "How repeated examples shape character behavior, tone stability, and drift.",
         (
+            "what-makes-a-good-roleplay-dataset",
             "dialogue-vs-narration-balance",
             "character-registry-and-character-mappings",
-            "default-mode-vs-group-chat",
+            "roleplay-archetypes-and-behavioral-bias",
         ),
     ),
     HelpArticle(
@@ -273,7 +276,8 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         (
             "data-generation-beta",
             "what-rolethread-is-actually-for",
-            "common-dataset-mistakes",
+            "synthetic-data-vs-human-written-data",
+            "why-dataset-quality-matters",
         ),
     ),
     HelpArticle(
@@ -285,8 +289,8 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Why validation protects conversational structure and behavioral consistency.",
         (
             "validation-and-repair",
+            "preparing-datasets-for-lora-and-fine-tuning",
             "common-dataset-mistakes",
-            "why-dataset-quality-matters",
         ),
     ),
     HelpArticle(
@@ -297,9 +301,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         66,
         "Practical cleanup, balancing, export preparation, and iterative refinement guidance.",
         (
+            "what-fine-tuning-actually-is",
+            "lora-vs-prompting-vs-fine-tuning",
             "realistic-expectations-for-fine-tuning",
-            "why-validation-matters",
-            "exporting-datasets",
+            "why-dataset-quality-matters",
         ),
     ),
     HelpArticle(
@@ -312,7 +317,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         (
             "ai-assisted-dataset-creation-workflow",
             "common-dataset-mistakes",
-            "preparing-datasets-for-lora-and-fine-tuning",
+            "why-dataset-quality-matters",
         ),
     ),
     HelpArticle(
@@ -323,9 +328,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         68,
         "Long-term dataset growth, consistency, merge review, and maintenance strategy.",
         (
-            "preparing-datasets-for-lora-and-fine-tuning",
+            "why-dataset-quality-matters",
+            "common-dataset-mistakes",
+            "creator-ownership-and-long-term-workflow-philosophy",
             "merging-datasets",
-            "backups-cloud-sync-and-recovery",
         ),
     ),
     HelpArticle(
@@ -336,9 +342,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         69,
         "How datasets reinforce personality, pacing, initiative, intensity, and blind spots.",
         (
-            "character-consistency-and-drift",
             "what-makes-a-good-roleplay-dataset",
-            "dataset-scaling-and-maintenance",
+            "character-consistency-and-drift",
+            "dialogue-vs-narration-balance",
         ),
     ),
     HelpArticle(
@@ -351,7 +357,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         (
             "what-fine-tuning-actually-is",
             "preparing-datasets-for-lora-and-fine-tuning",
-            "dataset-scaling-and-maintenance",
+            "why-dataset-quality-matters",
         ),
     ),
     HelpArticle(
@@ -363,8 +369,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "The local-first ownership philosophy behind portable, creator-controlled datasets.",
         (
             "privacy-and-local-first-creative-workflows",
+            "sidecars-and-portable-metadata",
             "dataset-scaling-and-maintenance",
-            "what-rolethread-is-actually-for",
+            "backups-cloud-sync-and-recovery",
         ),
     ),
     HelpArticle(
@@ -376,9 +383,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "How the main RoleThread pages fit together during normal work.",
         (
             "creating-entries",
-            "editing-entries",
             "validation-and-repair",
             "insights-and-dataset-quality",
+            "searching-and-filtering-entries",
         ),
     ),
     HelpArticle(
@@ -390,8 +397,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Writing training examples, prompts, exchanges, tags, and quality cues.",
         (
             "editing-entries",
-            "insights-and-dataset-quality",
-            "system-prompt-library",
+            "default-mode-vs-group-chat",
+            "splitting-and-joining-entries",
+            "what-makes-a-good-roleplay-dataset",
         ),
     ),
     HelpArticle(
@@ -402,9 +410,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         76,
         "Choosing entry mode and preserving character identity safely.",
         (
+            "creating-entries",
             "character-registry-and-character-mappings",
-            "dataset-formats",
-            "exporting-datasets",
+            "system-prompt-library",
         ),
     ),
     HelpArticle(
@@ -415,7 +423,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         78,
         "Deep editing, Full Edit, duplicate workflows, and save behavior.",
         (
-            "searching-and-filtering-entries",
+            "creating-entries",
             "splitting-and-joining-entries",
             "validation-and-repair",
         ),
@@ -428,7 +436,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         80,
         "Finding focused subsets of a loaded dataset.",
         (
-            "understanding-the-main-workspaces",
+            "tags-categories-and-tag-lifecycle",
             "insights-and-dataset-quality",
             "validation-and-repair",
         ),
@@ -441,9 +449,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         82,
         "Reshaping entries while preserving useful context.",
         (
+            "creating-entries",
             "editing-entries",
             "validation-and-repair",
-            "merging-datasets",
         ),
     ),
     HelpArticle(
@@ -454,10 +462,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         115,
         "Provider-agnostic prompt compilation for external ChatML JSONL generation workflows.",
         (
-            "dataset-formats",
-            "creating-entries",
+            "what-rolethread-is-actually-for",
+            "ai-assisted-dataset-creation-workflow",
+            "synthetic-data-vs-human-written-data",
             "validation-and-repair",
-            "lite-vs-studio-boundaries",
         ),
     ),
     HelpArticle(
@@ -468,10 +476,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         120,
         "Using tags and categories as durable organizational metadata.",
         (
-            "understanding-default-tags",
             "archived-and-imported-tags",
-            "insights-and-dataset-quality",
-            "exporting-datasets",
+            "understanding-default-tags",
+            "searching-and-filtering-entries",
         ),
     ),
     HelpArticle(
@@ -495,10 +502,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         130,
         "Handling unknown, inactive, and imported tag vocabulary safely.",
         (
-            "understanding-default-tags",
             "tags-categories-and-tag-lifecycle",
+            "understanding-default-tags",
             "loading-datasets-and-working-copies",
-            "sidecars-and-portable-metadata",
         ),
     ),
     HelpArticle(
@@ -510,8 +516,8 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Preserving speaker identity without changing training roles.",
         (
             "default-mode-vs-group-chat",
+            "system-prompt-library",
             "sidecars-and-portable-metadata",
-            "validation-and-repair",
         ),
     ),
     HelpArticle(
@@ -523,7 +529,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Creating, loading, editing, and reusing system prompt templates.",
         (
             "creating-entries",
-            "insights-and-dataset-quality",
+            "character-registry-and-character-mappings",
             "default-mode-vs-group-chat",
         ),
     ),
@@ -548,9 +554,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         170,
         "Finding structural and quality issues before export.",
         (
-            "loading-datasets-and-working-copies",
             "insights-and-dataset-quality",
-            "backups-cloud-sync-and-recovery",
+            "exporting-datasets",
+            "why-validation-matters",
+            "merging-datasets",
         ),
     ),
     HelpArticle(
@@ -563,7 +570,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         (
             "validation-and-repair",
             "searching-and-filtering-entries",
-            "creating-entries",
+            "what-makes-a-good-roleplay-dataset",
         ),
     ),
     HelpArticle(
@@ -574,9 +581,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         190,
         "Combining datasets while preserving identity and metadata.",
         (
+            "loading-datasets-and-working-copies",
+            "exporting-datasets",
             "validation-and-repair",
-            "sidecars-and-portable-metadata",
-            "backups-cloud-sync-and-recovery",
+            "dataset-scaling-and-maintenance",
         ),
     ),
     HelpArticle(
@@ -587,9 +595,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         200,
         "Producing training, archive, and selected export files.",
         (
-            "dataset-formats",
+            "validation-and-repair",
             "sidecars-and-portable-metadata",
-            "backups-cloud-sync-and-recovery",
+            "preparing-datasets-for-lora-and-fine-tuning",
         ),
     ),
     HelpArticle(
@@ -600,9 +608,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         210,
         "Local backups, cloud sync expectations, and restore behavior.",
         (
-            "loading-datasets-and-working-copies",
             "sidecars-and-portable-metadata",
             "settings-and-preferences",
+            "os-compatibility-and-storage-policy",
         ),
     ),
     HelpArticle(
@@ -615,7 +623,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         (
             "backups-cloud-sync-and-recovery",
             "os-compatibility-and-storage-policy",
-            "getting-started",
+            "installing-rolethread-lite",
         ),
     ),
     HelpArticle(
@@ -627,8 +635,8 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Key RoleThread terms and workflow vocabulary.",
         (
             "getting-started",
+            "dataset-formats",
             "what-rolethread-lite-does",
-            "understanding-the-main-workspaces",
         ),
     ),
     HelpArticle(
@@ -639,9 +647,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         235,
         "Official V1 platform support, runtime, storage, and launch policy.",
         (
+            "installing-rolethread-lite",
             "settings-and-preferences",
             "backups-cloud-sync-and-recovery",
-            "v1-limitations-and-future-boundaries",
         ),
     ),
     HelpArticle(
@@ -652,10 +660,9 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         240,
         "What Lite intentionally does and does not try to be.",
         (
-            "what-rolethread-lite-does",
-            "settings-and-preferences",
-            "glossary",
             "rolethread-studio-vision",
+            "lite-vs-studio-boundaries",
+            "what-rolethread-lite-does",
         ),
     ),
     HelpArticle(

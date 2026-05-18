@@ -260,11 +260,3 @@ Then add:
 - sidecar-aware archive habits
 
 RoleThread is built around guided complexity. The structure is there when you need it, but you can grow into it.
-
-## Related Articles
-
-- **Creating Entries**
-- **Validation and Repair**
-- **Insights and Dataset Quality**
-- **Searching and Filtering Entries**
-

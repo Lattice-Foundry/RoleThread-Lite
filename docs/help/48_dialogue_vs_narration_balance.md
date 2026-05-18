@@ -94,9 +94,3 @@ Models learn from the balance they see.
 If 90% of assistant turns are long narration, the model may become long-winded. If almost everything is short dialogue, the model may struggle with immersion. If action formatting changes randomly, output formatting may drift.
 
 Use RoleThread to inspect, split, edit, and organize entries so the balance is intentional.
-
-## Related Articles
-
-- **What Makes a Good Roleplay Dataset**
-- **Character Consistency and Drift**
-- **Roleplay Archetypes and Behavioral Bias**

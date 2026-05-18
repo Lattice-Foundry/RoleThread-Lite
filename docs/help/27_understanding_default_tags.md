@@ -99,9 +99,3 @@ Start light. Add the tags that help you answer real workflow questions:
 - Which style or interaction patterns are overrepresented?
 
 If a tag will not help you find, review, export, or understand entries later, it may not need to exist.
-
-## Related Articles
-
-- **Tags, Categories, and Tag Lifecycle**
-- **Archived and Imported Tags**
-- **Insights and Dataset Quality**

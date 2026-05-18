@@ -149,11 +149,3 @@ If a mapping references a character that is missing or inactive, RoleThread shou
 ## Practical Tip
 
 Use character mappings when they help you maintain the dataset. If an entry is already clear as a simple user/assistant example, Default mode is still perfectly valid.
-
-## Related Articles
-
-- **Default Mode vs Group Chat**
-- **System Prompt Library**
-- **Sidecars and Portable Metadata**
-
-

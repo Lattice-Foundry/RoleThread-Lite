@@ -99,10 +99,3 @@ The assistant message is usually the behavior you are training hardest. Treat it
 A good roleplay dataset is not just large.
 
 It is shaped. It has variety without chaos, consistency without stiffness, and enough structure for the model to learn the behavior you actually want.
-
-## Related Articles
-
-- **Common Dataset Mistakes**
-- **Dialogue vs Narration Balance**
-- **Character Consistency and Drift**
-- **Roleplay Archetypes and Behavioral Bias**

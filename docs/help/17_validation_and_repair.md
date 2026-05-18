@@ -178,11 +178,3 @@ Run Validation after:
 ## Practical Tip
 
 Fix structural issues before content-quality issues. A clean structure makes every later review pass easier.
-
-## Related Articles
-
-- **Insights and Dataset Quality**
-- **Exporting Datasets**
-- **Why Validation Matters**
-- **Merging Datasets**
-

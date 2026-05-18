@@ -75,9 +75,3 @@ A healthy workflow may include:
 The point is not whether an entry was generated or written by hand. The point is whether it teaches the behavior you want.
 
 For a step-by-step look at how to build this workflow in practice, see AI-Assisted Dataset Creation Workflow.
-
-## Related Articles
-
-- **AI-Assisted Dataset Creation Workflow**
-- **Common Dataset Mistakes**
-- **Why Dataset Quality Matters**

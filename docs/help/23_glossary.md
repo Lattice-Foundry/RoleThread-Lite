@@ -129,11 +129,3 @@ A backup of the local database that stores tags, characters, prompt templates, s
 ## Portable Metadata
 
 Metadata that can travel with a dataset, usually through a sidecar, without being inserted into clean training records.
-
-## Related Articles
-
-- **Getting Started**
-- **Dataset Formats**
-- **What RoleThread Lite Does**
-
-

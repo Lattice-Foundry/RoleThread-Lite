@@ -116,12 +116,6 @@ Use **Split** when an entry contains too much.
 
 Use **Join** when related entries are too fragmented.
 
-## Related Articles
-
-- **Creating Entries**
-- **Splitting and Joining Entries**
-- **Validation and Repair**
-
 ## Practical Tip
 
 If you are cleaning a dataset, work in passes:
@@ -132,4 +126,3 @@ If you are cleaning a dataset, work in passes:
 4. Use Manage Dataset to retag, duplicate, join, or prepare a subset if needed.
 5. Run Validation for a broader review pass.
 6. Export only after the dataset feels stable.
-

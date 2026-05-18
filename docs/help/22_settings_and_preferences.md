@@ -169,11 +169,3 @@ If a change does not seem to affect something already loaded, it may apply the n
 **Mistake:** Pointing the local backup folder directly at a cloud-synced folder.
 
 **Better mental model:** Local backup is the stable local recovery point. Cloud Backup mirrors backup material separately.
-
-## Related Articles
-
-- **Backups, Cloud Sync, and Recovery**
-- **OS Compatibility and Storage Policy**
-- **Installing RoleThread Lite**
-
-

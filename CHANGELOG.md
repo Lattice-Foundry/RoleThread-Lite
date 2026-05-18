@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.20] - 2026-05-18
+
+### Changed
+
+- Migrated public Help related-article links from temporary markdown sections into the Help registry.
+- Removed temporary public Help `Related Articles` sections after preserving their curated link order in the UI relationship system.
+
 ## [1.4.19] - 2026-05-18
 
 ### Added
