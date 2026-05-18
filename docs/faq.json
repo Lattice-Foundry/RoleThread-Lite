@@ -1,26 +1,54 @@
 [
   {
     "question": "Getting started: What is RoleThread Lite?",
-    "answer": "RoleThread Lite is a local-first tool for creating, organizing, validating, analyzing, merging, and exporting narrative training datasets. It is built for practical dataset craftsmanship, not hosted orchestration.\n\nYour working files, sidecars, settings, backups, and local database stay on your machine unless you configure cloud backup."
+    "answer": "RoleThread Lite is a local-first tool for creating, organizing, validating, analyzing, merging, and exporting narrative training datasets. It is built for practical dataset craftsmanship, not hosted orchestration.\n\nYour working files, sidecars, settings, backups, and local database stay on your machine unless you configure cloud backup.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "what-rolethread-lite-does",
+      "what-rolethread-is-actually-for",
+      "getting-started"
+    ]
   },
   {
     "question": "Getting started: Why is an example dataset already loaded?",
-    "answer": "RoleThread Lite ships with curated example datasets so you can explore real workflows safely. One example dataset may load automatically on first launch.\n\nThe examples are learning material. You can inspect tags, prompts, sidecars, character mappings, Validation results, and Insights behavior before working on your own dataset."
+    "answer": "RoleThread Lite ships with curated example datasets so you can explore real workflows safely. One example dataset may load automatically on first launch.\n\nThe examples are learning material. You can inspect tags, prompts, sidecars, character mappings, Validation results, and Insights behavior before working on your own dataset.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "getting-started",
+      "installing-rolethread-lite"
+    ]
   },
   {
     "question": "Getting started: Where should I spend most of my time?",
-    "answer": "Most day-to-day work happens in Manage Dataset. It is the operational hub for browsing, filtering, searching, quick editing, tagging, duplication, joining, deletion, and export preparation.\n\nUse Deep Edit when you need deeper work such as Full Edit, Group Chat refinement, split workflows, or detailed character mapping review."
+    "answer": "Most day-to-day work happens in Manage Dataset. It is the operational hub for browsing, filtering, searching, quick editing, tagging, duplication, joining, deletion, and export preparation.\n\nUse Deep Edit when you need deeper work such as Full Edit, Group Chat refinement, split workflows, or detailed character mapping review.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "manage-dataset",
+      "deep-edit",
+      "getting-started"
+    ]
   },
   {
     "question": "Getting started: Do I need to understand every page before using the app?",
-    "answer": "No. Start with Manage Dataset, Create Entry, Quick Edit, and Validation before export.\n\nThe deeper systems are there when you need them. Tags, Group Chat mode, Insights, split/join, sidecars, and prompt templates can become part of your workflow gradually."
+    "answer": "No. Start with Manage Dataset, Create Entry, Quick Edit, and Validation before export.\n\nThe deeper systems are there when you need them. Tags, Group Chat mode, Insights, split/join, sidecars, and prompt templates can become part of your workflow gradually.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "getting-started",
+      "manage-dataset",
+      "what-rolethread-lite-does"
+    ]
   },
   {
     "question": "Getting started: Is RoleThread changing my original files?",
-    "answer": "Not usually. If RoleThread loads an untrusted outside dataset, it may create a protected working copy and edit that copy instead of the original.\n\nUse the current loaded dataset path in Manage Dataset to confirm which file you are editing."
+    "answer": "Not usually. If RoleThread loads an untrusted outside dataset, it may create a protected working copy and edit that copy instead of the original.\n\nUse the current loaded dataset path in Manage Dataset to confirm which file you are editing.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "loading-and-importing-datasets",
+      "sidecars-and-portable-metadata"
+    ]
   },
   {
-    "question": "AI training fundamentals: Is RoleThread a model trainer?",
+    "question": "Getting started: Is RoleThread a model trainer?",
     "answer": "No. RoleThread Lite does not train models, host inference, or run a chatbot service.\n\nIt is dataset infrastructure: a local workspace for shaping, validating, organizing, and exporting conversational training data before you use another tool for LoRA or fine-tuning workflows.",
     "category": "Getting Started",
     "related_help_ids": [
@@ -30,7 +58,7 @@
     ]
   },
   {
-    "question": "AI training fundamentals: What is the 80/20 workflow?",
+    "question": "Getting started: What is the 80/20 workflow?",
     "answer": "Use powerful AI models to scaffold the first 80% of structure, examples, or draft material. Then use RoleThread to refine, structure, validate, organize, and privately control the final 20%.\n\nThat final pass is where the dataset becomes intentional rather than just generated.",
     "category": "Getting Started",
     "related_help_ids": [
@@ -40,7 +68,7 @@
     ]
   },
   {
-    "question": "AI training fundamentals: Why not just prompt a model?",
+    "question": "Getting started: Why not just prompt a model?",
     "answer": "Prompting is temporary runtime guidance. It can work well, but it does not create durable training examples by itself.\n\nRoleThread helps when you need repeated conversational patterns, formatting, role consistency, style, or behavior captured as reviewable dataset entries.",
     "category": "Getting Started",
     "related_help_ids": [
@@ -49,9 +77,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: Why does conversational data matter?",
+    "question": "Export and training: Why does conversational data matter?",
     "answer": "Conversational data teaches patterns: role order, user intent, assistant response shape, formatting, pacing, system prompt behavior, and continuity.\n\nFor roleplay datasets, structure matters even more because narration, dialogue, character behavior, and scene continuity can all become part of the training signal.",
-    "category": "Validation, Export, and Training",
+    "category": "Export and Training",
     "related_help_ids": [
       "what-fine-tuning-actually-is",
       "why-dataset-quality-matters",
@@ -59,9 +87,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: Why keep creative training datasets local?",
+    "question": "Philosophy and boundaries: Why keep creative training datasets local?",
     "answer": "Many creative AI workflows are personal, sensitive, intimate, adult, niche, experimental, or simply private.\n\nRoleThread is local-first so creators can organize and refine datasets without uploading them to a hosted system. You control your files, exports, backups, and downstream training path.",
-    "category": "Safety, Backups, and Boundaries",
+    "category": "Philosophy and Boundaries",
     "related_help_ids": [
       "privacy-and-local-first-creative-workflows",
       "what-rolethread-is-actually-for",
@@ -69,9 +97,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: What makes a good roleplay dataset?",
+    "question": "Entry editing and search: What makes a good roleplay dataset?",
     "answer": "A good roleplay dataset teaches consistent roles, believable pacing, emotional continuity, conversational realism, and intentional narration/dialogue balance.\n\nIt is curated, not blindly generated. Repetitive structures, excessive verbosity, weak assistant turns, and robotic phrasing can all become learned habits.",
-    "category": "Validation, Export, and Training",
+    "category": "Entry Editing and Search",
     "related_help_ids": [
       "what-makes-a-good-roleplay-dataset",
       "dialogue-vs-narration-balance",
@@ -79,9 +107,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: Why not keep every synthetic generation?",
+    "question": "Export and training: Why not keep every synthetic generation?",
     "answer": "Synthetic data can be useful, but weak generations compound quickly. Repetition, shallow emotional loops, formatting drift, and generic assistant replies can contaminate the dataset signal.\n\nUse AI for draft momentum, then use RoleThread to review, remove, edit, validate, and organize what is actually worth training on.",
-    "category": "Validation, Export, and Training",
+    "category": "Export and Training",
     "related_help_ids": [
       "ai-assisted-dataset-creation-workflow",
       "common-dataset-mistakes",
@@ -89,18 +117,18 @@
     ]
   },
   {
-    "question": "AI training fundamentals: Is dialogue-heavy or narration-heavy roleplay better?",
+    "question": "Entry editing and search: Is dialogue-heavy or narration-heavy roleplay better?",
     "answer": "Neither is universally better. Dialogue-heavy datasets teach faster chat-style exchange. Narration-heavy datasets teach more immersive scene detail, action, and emotional context.\n\nThe important question is what behavior you want the model to learn. Shape the balance intentionally.",
-    "category": "Validation, Export, and Training",
+    "category": "Entry Editing and Search",
     "related_help_ids": [
       "dialogue-vs-narration-balance",
       "what-makes-a-good-roleplay-dataset"
     ]
   },
   {
-    "question": "AI training fundamentals: Why do characters drift during roleplay?",
+    "question": "Tags, characters, and metadata: Why do characters drift during roleplay?",
     "answer": "Characters drift when examples reinforce inconsistent personality, tone, pacing, boundaries, or emotional reactions.",
-    "category": "Metadata and Characters",
+    "category": "Tags, Characters, and Metadata",
     "related_help_ids": [
       "character-consistency-and-drift",
       "character-registry-and-character-mappings",
@@ -108,9 +136,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: Why does validation matter for roleplay datasets?",
+    "question": "Validation and Insights: Why does validation matter for roleplay datasets?",
     "answer": "Validation protects conversational structure and behavioral consistency. It helps catch malformed exchanges, invalid role order, duplicate conversations, broken formatting, tag inconsistency, and structural problems that are easy to miss in raw JSONL.\n\nIt is not about arbitrary restrictions. It is about keeping the training signal coherent.",
-    "category": "Validation, Export, and Training",
+    "category": "Validation and Insights",
     "related_help_ids": [
       "why-validation-matters",
       "validation-and-repair",
@@ -118,9 +146,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: How do I prepare a dataset for LoRA or fine-tuning?",
+    "question": "Export and training: How do I prepare a dataset for LoRA or fine-tuning?",
     "answer": "Clean the dataset before export: remove weak generations, check role order, reduce duplicates, review formatting, balance examples, and validate structure.\n\nTraining quality matters more than raw size. Small high-quality datasets can outperform large noisy ones, and refinement cycles are normal.",
-    "category": "Validation, Export, and Training",
+    "category": "Export and Training",
     "related_help_ids": [
       "preparing-datasets-for-lora-and-fine-tuning",
       "why-validation-matters",
@@ -128,9 +156,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: Is synthetic data worse than human-written data?",
+    "question": "Export and training: Is synthetic data worse than human-written data?",
     "answer": "Not automatically. Synthetic data can be an excellent force multiplier for draft examples, variation, and structure.\n\nThe risk is using it without review. Synthetic flaws such as repetitive phrasing, flattened emotion, generic responses, and pacing repetition compound quickly at scale.",
-    "category": "Validation, Export, and Training",
+    "category": "Export and Training",
     "related_help_ids": [
       "synthetic-data-vs-human-written-data",
       "ai-assisted-dataset-creation-workflow",
@@ -138,9 +166,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: How should datasets grow over time?",
+    "question": "Datasets and files: How should datasets grow over time?",
     "answer": "Grow incrementally. Add focused batches, validate them, check for style drift, review merges, and keep behavior consistent over time.",
-    "category": "Validation, Export, and Training",
+    "category": "Datasets and Files",
     "related_help_ids": [
       "dataset-scaling-and-maintenance",
       "preparing-datasets-for-lora-and-fine-tuning",
@@ -148,9 +176,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: What are behavioral blind spots?",
+    "question": "Entry editing and search: What are behavioral blind spots?",
     "answer": "Behavioral blind spots are patterns the dataset underrepresents or distorts. A model may inherit weak initiative, unrealistic emotion, repetitive pacing, excessive verbosity, or shallow conflict handling if that is what the examples reinforce.",
-    "category": "Validation, Export, and Training",
+    "category": "Entry Editing and Search",
     "related_help_ids": [
       "roleplay-archetypes-and-behavioral-bias",
       "character-consistency-and-drift",
@@ -158,9 +186,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: What should I expect from a first fine-tuning attempt?",
+    "question": "Export and training: What should I expect from a first fine-tuning attempt?",
     "answer": "Expect a useful experiment, not a perfect final result. Fine-tuning and LoRAs shape behavior gradually, and weak base models or weak datasets still have limits.\n\nMost serious workflows involve testing, identifying drift or repetition, improving the dataset, and training again.",
-    "category": "Validation, Export, and Training",
+    "category": "Export and Training",
     "related_help_ids": [
       "realistic-expectations-for-fine-tuning",
       "preparing-datasets-for-lora-and-fine-tuning",
@@ -168,9 +196,9 @@
     ]
   },
   {
-    "question": "AI training fundamentals: Why does creator ownership matter long term?",
+    "question": "Philosophy and boundaries: Why does creator ownership matter long term?",
     "answer": "Long-term dataset work needs control: local files, portable metadata, backups, exports, and the ability to return later and understand what changed.",
-    "category": "Safety, Backups, and Boundaries",
+    "category": "Philosophy and Boundaries",
     "related_help_ids": [
       "creator-ownership-and-long-term-workflow-philosophy",
       "privacy-and-local-first-creative-workflows",
@@ -178,137 +206,297 @@
     ]
   },
   {
-    "question": "Working copies and sidecars: Why did RoleThread create a working copy?",
-    "answer": "A working copy protects source files that did not clearly come from RoleThread Lite. This is common with ShareGPT files, manually edited JSONL, older files, or datasets from another tool.\n\nThe working copy is intentional. It lets you safely edit without accidentally mutating the original source."
+    "question": "Datasets and files: Why did RoleThread create a working copy?",
+    "answer": "A working copy protects source files that did not clearly come from RoleThread Lite. This is common with ShareGPT files, manually edited JSONL, older files, or datasets from another tool.\n\nThe working copy is intentional. It lets you safely edit without accidentally mutating the original source.",
+    "category": "Datasets and Files",
+    "related_help_ids": [
+      "loading-and-importing-datasets",
+      "sidecars-and-portable-metadata"
+    ]
   },
   {
-    "question": "Working copies and sidecars: What is a trusted dataset?",
-    "answer": "A trusted dataset carries stable RoleThread identity metadata, such as dataset UUID and entry UUID information.\n\nAn untrusted dataset may still be valid data. It simply means RoleThread should be careful before writing back to it."
+    "question": "Datasets and files: What is a trusted dataset?",
+    "answer": "A trusted dataset carries stable RoleThread identity metadata, such as dataset UUID and entry UUID information.\n\nAn untrusted dataset may still be valid data. It simply means RoleThread should be careful before writing back to it.",
+    "category": "Datasets and Files",
+    "related_help_ids": [
+      "loading-and-importing-datasets",
+      "sidecars-and-portable-metadata"
+    ]
   },
   {
-    "question": "Working copies and sidecars: Why is there a .registry.json file?",
-    "answer": "The `.registry.json` file is a sidecar. It stores portable metadata beside the JSONL file, such as tags, categories, character definitions, character mappings, system prompt templates, and dataset identity.\n\nThe sidecar keeps project context portable without stuffing that metadata into clean training records."
+    "question": "Datasets and files: Why is there a .registry.json file?",
+    "answer": "The `.registry.json` file is a sidecar. It stores portable metadata beside the JSONL file, such as tags, categories, character definitions, character mappings, system prompt templates, and dataset identity.\n\nThe sidecar keeps project context portable without stuffing that metadata into clean training records.",
+    "category": "Datasets and Files",
+    "related_help_ids": [
+      "sidecars-and-portable-metadata",
+      "loading-and-importing-datasets"
+    ]
   },
   {
-    "question": "Working copies and sidecars: Can I delete the sidecar?",
-    "answer": "You can, but you may lose RoleThread-specific context such as tag organization, character mappings, prompt templates, and archived/imported tag information.\n\nIf you want the dataset to remain fully useful in RoleThread later, keep the JSONL and sidecar together."
+    "question": "Datasets and files: Can I delete the sidecar?",
+    "answer": "You can, but you may lose RoleThread-specific context such as tag organization, character mappings, prompt templates, and archived/imported tag information.\n\nIf you want the dataset to remain fully useful in RoleThread later, keep the JSONL and sidecar together.",
+    "category": "Datasets and Files",
+    "related_help_ids": [
+      "sidecars-and-portable-metadata",
+      "backups-cloud-sync-and-recovery"
+    ]
   },
   {
-    "question": "Working copies and sidecars: What does a sidecar UUID warning mean?",
-    "answer": "It usually means the sidecar does not clearly belong to the loaded dataset. RoleThread may still load the entries, but skip the questionable sidecar metadata.\n\nThis protects you from accidentally pairing one dataset with another dataset's registry context."
+    "question": "Datasets and files: What does a sidecar UUID warning mean?",
+    "answer": "It usually means the sidecar does not clearly belong to the loaded dataset. RoleThread may still load the entries, but skip the questionable sidecar metadata.\n\nThis protects you from accidentally pairing one dataset with another dataset's registry context.",
+    "category": "Datasets and Files",
+    "related_help_ids": [
+      "sidecars-and-portable-metadata",
+      "loading-and-importing-datasets"
+    ]
   },
   {
-    "question": "Tags and metadata: Why are there archived/imported tags?",
-    "answer": "Archived/imported tags are unknown or inactive tags preserved from imported data, older metadata, or sidecars.\n\nThey are not errors. RoleThread keeps them visible so you can decide whether to adopt, rename, ignore, or remove them later."
+    "question": "Tags, characters, and metadata: Why are there archived/imported tags?",
+    "answer": "Archived/imported tags are unknown or inactive tags preserved from imported data, older metadata, or sidecars.\n\nThey are not errors. RoleThread keeps them visible so you can decide whether to adopt, rename, ignore, or remove them later.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "tags-and-tag-management",
+      "loading-and-importing-datasets"
+    ]
   },
   {
-    "question": "Tags and metadata: Are tags part of the training conversation?",
-    "answer": "No. Tags are metadata for organization, filtering, export selection, and Insights.\n\nClean export removes RoleThread metadata from the training records. The conversation text is still the `system`, `user`, and `assistant` messages."
+    "question": "Tags, characters, and metadata: Are tags part of the training conversation?",
+    "answer": "No. Tags are metadata for organization, filtering, export selection, and Insights.\n\nClean export removes RoleThread metadata from the training records. The conversation text is still the `system`, `user`, and `assistant` messages.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "tags-and-tag-management",
+      "exporting-datasets"
+    ]
   },
   {
-    "question": "Tags and metadata: Why are built-in tags locked?",
-    "answer": "Built-in tags are locked so their meaning stays consistent across datasets and workflows.\n\nUse custom tags for your own vocabulary. Custom tags can be edited, renamed, or deleted."
+    "question": "Tags, characters, and metadata: Why are built-in tags locked?",
+    "answer": "Built-in tags are locked so their meaning stays consistent across datasets and workflows.\n\nUse custom tags for your own vocabulary. Custom tags can be edited, renamed, or deleted.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "tags-and-tag-management"
+    ]
   },
   {
-    "question": "Tags and metadata: What happens when I rename a tag?",
-    "answer": "RoleThread preserves alias/lifecycle information so older references can still resolve to the current tag meaning where safe.\n\nThis helps tag cleanup without silently losing history."
+    "question": "Tags, characters, and metadata: What happens when I rename a tag?",
+    "answer": "RoleThread preserves alias/lifecycle information so older references can still resolve to the current tag meaning where safe.\n\nThis helps tag cleanup without silently losing history.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "tags-and-tag-management"
+    ]
   },
   {
-    "question": "Tags and metadata: Should I adopt every imported tag?",
-    "answer": "No. Adopt only the imported tags that support your workflow.\n\nArchived/imported tags can act like a review queue. Keep useful ones, merge or rename unclear ones, and leave noisy ones archived until you know what they mean."
+    "question": "Tags, characters, and metadata: Should I adopt every imported tag?",
+    "answer": "No. Adopt only the imported tags that support your workflow.\n\nArchived/imported tags can act like a review queue. Keep useful ones, merge or rename unclear ones, and leave noisy ones archived until you know what they mean.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "tags-and-tag-management",
+      "loading-and-importing-datasets"
+    ]
   },
   {
-    "question": "Group Chat and characters: Why are my character names not exported as roles?",
-    "answer": "Training roles stay standard: `system`, `user`, and `assistant`. Character names are stored as metadata through character mappings.\n\nThis keeps exported datasets compatible with normal training tools while still preserving who spoke in RoleThread."
+    "question": "Tags, characters, and metadata: Why are my character names not exported as roles?",
+    "answer": "Training roles stay standard: `system`, `user`, and `assistant`. Character names are stored as metadata through character mappings.\n\nThis keeps exported datasets compatible with normal training tools while still preserving who spoke in RoleThread.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "character-registry-and-character-mappings",
+      "default-mode-vs-group-chat",
+      "exporting-datasets"
+    ]
   },
   {
-    "question": "Group Chat and characters: What is a character mapping?",
-    "answer": "A character mapping connects a character to a specific message turn.\n\nIt means RoleThread knows which character a turn represents, without changing the JSONL role itself."
+    "question": "Tags, characters, and metadata: What is a character mapping?",
+    "answer": "A character mapping connects a character to a specific message turn.\n\nIt means RoleThread knows which character a turn represents, without changing the JSONL role itself.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "character-registry-and-character-mappings",
+      "default-mode-vs-group-chat"
+    ]
   },
   {
-    "question": "Group Chat and characters: When should I use Group Chat mode?",
-    "answer": "Use Group Chat mode when character identity matters: group scenes, roleplay datasets, multi-character examples, or entries where previews need to show who is speaking.\n\nUse Default mode when a normal user/assistant example is already clear."
+    "question": "Tags, characters, and metadata: When should I use Group Chat mode?",
+    "answer": "Use Group Chat mode when character identity matters: group scenes, roleplay datasets, multi-character examples, or entries where previews need to show who is speaking.\n\nUse Default mode when a normal user/assistant example is already clear.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "default-mode-vs-group-chat",
+      "character-registry-and-character-mappings"
+    ]
   },
   {
-    "question": "Group Chat and characters: What happens if I deactivate a character?",
-    "answer": "The character stops appearing as a normal active choice, but existing metadata can still be handled safely.\n\nRoleThread may warn if loaded entries still reference that character in system prompts, so you can review them rather than losing context silently."
+    "question": "Tags, characters, and metadata: What happens if I deactivate a character?",
+    "answer": "The character stops appearing as a normal active choice, but existing metadata can still be handled safely.\n\nRoleThread may warn if loaded entries still reference that character in system prompts, so you can review them rather than losing context silently.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "character-registry-and-character-mappings",
+      "default-mode-vs-group-chat"
+    ]
   },
   {
-    "question": "Group Chat and characters: Do character mappings survive split, join, and merge?",
-    "answer": "RoleThread tries to preserve mappings when it can do so safely. Split and join reindex mappings to match the new turn order.\n\nDuring merge, mappings are preserved only for entries that survive, so discarded duplicates do not create orphan metadata."
+    "question": "Tags, characters, and metadata: Do character mappings survive split, join, and merge?",
+    "answer": "RoleThread tries to preserve mappings when it can do so safely. Split and join reindex mappings to match the new turn order.\n\nDuring merge, mappings are preserved only for entries that survive, so discarded duplicates do not create orphan metadata.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "character-registry-and-character-mappings",
+      "split-and-join",
+      "merging-datasets"
+    ]
   },
   {
     "question": "Validation and Insights: Why does Validation show warnings if RoleThread validates before save?",
-    "answer": "Normal RoleThread forms guard against most structural problems before save. Validation has a broader job: imported cleanup, consistency review, merge review, quality diagnostics, and final export checks.\n\nWarnings are review prompts, not proof that normal app usage is unsafe."
+    "answer": "Normal RoleThread forms guard against most structural problems before save. Validation has a broader job: imported cleanup, consistency review, merge review, quality diagnostics, and final export checks.\n\nWarnings are review prompts, not proof that normal app usage is unsafe.",
+    "category": "Validation and Insights",
+    "related_help_ids": [
+      "validation-and-repair",
+      "why-validation-matters"
+    ]
   },
   {
     "question": "Validation and Insights: Do I need to run Validation constantly?",
-    "answer": "No. Use Validation when it helps: after loading imported data, after large cleanup passes, after merge/split/join work, or before export.\n\nFor normal RoleThread-native creation, it is more of an audit tool than an emergency repair loop."
+    "answer": "No. Use Validation when it helps: after loading imported data, after large cleanup passes, after merge/split/join work, or before export.\n\nFor normal RoleThread-native creation, it is more of an audit tool than an emergency repair loop.",
+    "category": "Validation and Insights",
+    "related_help_ids": [
+      "validation-and-repair",
+      "insights-and-dataset-quality"
+    ]
   },
   {
     "question": "Validation and Insights: Are Insights scores definitive?",
-    "answer": "No. Insights scores are deterministic guidance based on practical heuristics.\n\nA specialized dataset may score lower in one area and still be useful. Use the report to find patterns worth reviewing, not to chase a perfect number."
+    "answer": "No. Insights scores are deterministic guidance based on practical heuristics.\n\nA specialized dataset may score lower in one area and still be useful. Use the report to find patterns worth reviewing, not to chase a perfect number.",
+    "category": "Validation and Insights",
+    "related_help_ids": [
+      "insights-and-dataset-quality",
+      "why-dataset-quality-matters"
+    ]
   },
   {
     "question": "Validation and Insights: Why are my outputs too chatty or too descriptive?",
-    "answer": "Dataset style influences behavior. Dialogue-heavy datasets may encourage more conversational output. Narrative-heavy datasets may encourage more descriptive or atmospheric output.\n\nUse Insights to review narrative/dialogue balance, then adjust future entries or edit existing examples if the balance does not match your goal."
+    "answer": "Dataset style influences behavior. Dialogue-heavy datasets may encourage more conversational output. Narrative-heavy datasets may encourage more descriptive or atmospheric output.\n\nUse Insights to review narrative/dialogue balance, then adjust future entries or edit existing examples if the balance does not match your goal.",
+    "category": "Validation and Insights",
+    "related_help_ids": [
+      "insights-and-dataset-quality",
+      "dialogue-vs-narration-balance",
+      "what-makes-a-good-roleplay-dataset"
+    ]
   },
   {
     "question": "Validation and Insights: Why does formatting consistency matter?",
-    "answer": "Formatting is part of the example. Repeated quotation style, paragraph breaks, markdown, name labels, tense, and point of view can become learned habits.\n\nConsistent quoted dialogue and intentional formatting help teach cleaner patterns."
+    "answer": "Formatting is part of the example. Repeated quotation style, paragraph breaks, markdown, name labels, tense, and point of view can become learned habits.\n\nConsistent quoted dialogue and intentional formatting help teach cleaner patterns.",
+    "category": "Validation and Insights",
+    "related_help_ids": [
+      "what-makes-a-good-roleplay-dataset",
+      "insights-and-dataset-quality"
+    ]
   },
   {
     "question": "Export and training: What is clean export?",
-    "answer": "Clean export removes RoleThread metadata from training records, such as tags and identity fields.\n\nUse it when another training tool should receive only the conversation data."
+    "answer": "Clean export removes RoleThread metadata from training records, such as tags and identity fields.\n\nUse it when another training tool should receive only the conversation data.",
+    "category": "Export and Training",
+    "related_help_ids": [
+      "exporting-datasets",
+      "dataset-formats"
+    ]
   },
   {
     "question": "Export and training: Should I export ChatML or ShareGPT?",
-    "answer": "Choose the format your downstream tool expects.\n\nChatML keeps standard message roles. ShareGPT export converts entries into a ShareGPT-style conversation shape."
+    "answer": "Choose the format your downstream tool expects.\n\nChatML keeps standard message roles. ShareGPT export converts entries into a ShareGPT-style conversation shape.",
+    "category": "Export and Training",
+    "related_help_ids": [
+      "exporting-datasets",
+      "dataset-formats"
+    ]
   },
   {
     "question": "Export and training: Can I export only selected or filtered entries?",
-    "answer": "Yes. Use Manage Dataset to select entries or create a filtered view, then use Export for the selected/filtered set.\n\nThis is useful for training one slice of a larger dataset or archiving a focused subset."
+    "answer": "Yes. Use Manage Dataset to select entries or create a filtered view, then use Export for the selected/filtered set.\n\nThis is useful for training one slice of a larger dataset or archiving a focused subset.",
+    "category": "Export and Training",
+    "related_help_ids": [
+      "exporting-datasets",
+      "manage-dataset",
+      "searching-and-filtering-entries"
+    ]
   },
   {
     "question": "Export and training: Should I keep the sidecar with exported files?",
-    "answer": "Keep the sidecar if you want RoleThread project context to travel with the dataset.\n\nFor a training tool that only needs plain records, provide the clean exported JSONL. For future RoleThread work, keep the sidecar nearby."
+    "answer": "Keep the sidecar if you want RoleThread project context to travel with the dataset.\n\nFor a training tool that only needs plain records, provide the clean exported JSONL. For future RoleThread work, keep the sidecar nearby.",
+    "category": "Export and Training",
+    "related_help_ids": [
+      "exporting-datasets",
+      "sidecars-and-portable-metadata"
+    ]
   },
   {
-    "question": "Export and training: Why did merge create a new dataset UUID?",
-    "answer": "A merge output is a new dataset, even if it was built from existing sources.\n\nGiving it a fresh dataset UUID prevents the output from pretending to be one of the source datasets."
+    "question": "Datasets and files: Why did merge create a new dataset UUID?",
+    "answer": "A merge output is a new dataset, even if it was built from existing sources.\n\nGiving it a fresh dataset UUID prevents the output from pretending to be one of the source datasets.",
+    "category": "Datasets and Files",
+    "related_help_ids": [
+      "merging-datasets",
+      "sidecars-and-portable-metadata"
+    ]
   },
   {
-    "question": "Backups and recovery: Does RoleThread create backups automatically?",
-    "answer": "Yes, when automatic backups are enabled, RoleThread creates local backups before protected operations such as edits, deletes, repairs, splits, joins, merges, and tag lifecycle changes.\n\nKeeping automatic backups enabled is the safest default."
+    "question": "Settings, backups, and recovery: Does RoleThread create backups automatically?",
+    "answer": "Yes, when automatic backups are enabled, RoleThread creates local backups before protected operations such as edits, deletes, repairs, splits, joins, merges, and tag lifecycle changes.\n\nKeeping automatic backups enabled is the safest default.",
+    "category": "Settings, Backups, and Recovery",
+    "related_help_ids": [
+      "backups-cloud-sync-and-recovery",
+      "settings-and-diagnostics"
+    ]
   },
   {
-    "question": "Backups and recovery: What is the difference between dataset backups and DB backups?",
-    "answer": "Dataset backups protect JSONL training files.\n\nDB backups protect local app metadata such as tags, aliases, characters, character mappings, prompt templates, settings, and other registry context."
+    "question": "Settings, backups, and recovery: What is the difference between dataset backups and DB backups?",
+    "answer": "Dataset backups protect JSONL training files.\n\nDB backups protect local app metadata such as tags, aliases, characters, character mappings, prompt templates, settings, and other registry context.",
+    "category": "Settings, Backups, and Recovery",
+    "related_help_ids": [
+      "backups-cloud-sync-and-recovery"
+    ]
   },
   {
-    "question": "Backups and recovery: Is cloud sync real-time?",
-    "answer": "No. Cloud sync is batch backup mirroring, not live collaboration.\n\nIt can run manually from Settings or when the app closes, if configured. Do not use it as a shared live editing system."
+    "question": "Settings, backups, and recovery: Is cloud sync real-time?",
+    "answer": "No. Cloud sync is batch backup mirroring, not live collaboration.\n\nIt can run manually from Settings or when the app closes, if configured. Do not use it as a shared live editing system.",
+    "category": "Settings, Backups, and Recovery",
+    "related_help_ids": [
+      "backups-cloud-sync-and-recovery",
+      "settings-and-diagnostics"
+    ]
   },
   {
-    "question": "Backups and recovery: Can I restore backups manually?",
-    "answer": "Yes. If something goes wrong, stop editing, close RoleThread, and restore the most consistent dataset backup and DB backup pair.\n\nIf only the JSONL was affected, a dataset backup may be enough. If tags, characters, mappings, settings, or prompt templates were involved, restore the matching DB backup too."
+    "question": "Settings, backups, and recovery: Can I restore backups manually?",
+    "answer": "Yes. If something goes wrong, stop editing, close RoleThread, and restore the most consistent dataset backup and DB backup pair.\n\nIf only the JSONL was affected, a dataset backup may be enough. If tags, characters, mappings, settings, or prompt templates were involved, restore the matching DB backup too.",
+    "category": "Settings, Backups, and Recovery",
+    "related_help_ids": [
+      "backups-cloud-sync-and-recovery"
+    ]
   },
   {
-    "question": "Backups and recovery: Why should my local backup folder not be cloud-synced?",
-    "answer": "The local backup folder should be a stable local recovery point. Cloud sync tools can touch files while an app is writing, which can make sessions less predictable.\n\nUse the Cloud Backup settings for cloud destinations instead."
+    "question": "Settings, backups, and recovery: Why should my local backup folder not be cloud-synced?",
+    "answer": "The local backup folder should be a stable local recovery point. Cloud sync tools can touch files while an app is writing, which can make sessions less predictable.\n\nUse the Cloud Backup settings for cloud destinations instead.",
+    "category": "Settings, Backups, and Recovery",
+    "related_help_ids": [
+      "backups-cloud-sync-and-recovery",
+      "settings-and-diagnostics"
+    ]
   },
   {
-    "question": "V1 boundaries: Why no semantic or vector search in V1?",
-    "answer": "V1 search is deterministic and local: text queries, scopes, match modes, and tag filters.\n\nSemantic or vector search would be a larger system with different expectations. The V1 boundary keeps search predictable and easy to understand."
+    "question": "Philosophy and boundaries: Why no semantic or vector search in V1?",
+    "answer": "V1 search is deterministic and local: text queries, scopes, match modes, and tag filters.\n\nSemantic or vector search would be a larger system with different expectations. The V1 boundary keeps search predictable and easy to understand.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "v1-scope-and-intentional-boundaries",
+      "searching-and-filtering-entries"
+    ]
   },
   {
-    "question": "V1 boundaries: Does RoleThread train or host models?",
-    "answer": "No. RoleThread Lite prepares datasets. It does not host inference, train models, or run a hosted evaluation service.\n\nUse Export when the dataset is ready for another training workflow."
+    "question": "Philosophy and boundaries: Does RoleThread train or host models?",
+    "answer": "No. RoleThread Lite prepares datasets. It does not host inference, train models, or run a hosted evaluation service.\n\nUse Export when the dataset is ready for another training workflow.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "v1-scope-and-intentional-boundaries",
+      "what-rolethread-is-actually-for"
+    ]
   },
   {
     "question": "Data generation: Does RoleThread generate AI responses directly?",
     "answer": "No. Data Generation compiles structured prompts for external AI systems.\n\nYou paste the compiled prompt into ChatGPT, Claude, Gemini, a local model, or another tool, then review the generated result before using it in your dataset.",
-    "category": "Validation, Export, and Training",
+    "category": "Data Generation",
     "related_help_ids": [
       "data-generation-beta",
       "dataset-formats",
@@ -318,7 +506,7 @@
   {
     "question": "Data generation: Do I need an API key?",
     "answer": "No API key is required by RoleThread Lite because the app does not call AI providers directly.\n\nIf the external system you choose requires an account, subscription, or API key, that requirement belongs to that external tool, not RoleThread.",
-    "category": "Validation, Export, and Training",
+    "category": "Data Generation",
     "related_help_ids": [
       "data-generation-beta",
       "v1-scope-and-intentional-boundaries"
@@ -327,7 +515,7 @@
   {
     "question": "Data generation: Which AI providers work with Data Generation?",
     "answer": "Data Generation is provider-agnostic. The compiled prompts are designed for structured ChatML JSONL generation workflows and can be used with systems such as ChatGPT, Claude, Gemini, local models, or other tools that can follow detailed instructions.\n\nRoleThread does not claim official provider integrations in Lite.",
-    "category": "Validation, Export, and Training",
+    "category": "Data Generation",
     "related_help_ids": [
       "data-generation-beta",
       "dataset-formats"
@@ -336,7 +524,7 @@
   {
     "question": "Data generation: Why is Data Generation marked beta?",
     "answer": "Beta reflects ongoing prompt refinement, provider-specific behavior tuning, and generation-quality iteration.\n\nThe compiler and template flow are deterministic. The active refinement area is how well external models follow the generated prompt and produce useful dataset drafts.",
-    "category": "Validation, Export, and Training",
+    "category": "Data Generation",
     "related_help_ids": [
       "data-generation-beta",
       "lite-vs-studio-boundaries"
@@ -345,191 +533,413 @@
   {
     "question": "Data generation: Why are generated results different across providers?",
     "answer": "Different models interpret instructions, JSON formatting, safety policy, and long-output requests differently.\n\nRoleThread compiles the same prompt deterministically, but external model behavior is not identical across providers. Review generated output before importing or training with it.",
-    "category": "Validation, Export, and Training",
+    "category": "Data Generation",
     "related_help_ids": [
       "data-generation-beta",
       "validation-and-repair"
     ]
   },
   {
-    "question": "V1 boundaries: Is RoleThread Lite a multi-user collaboration tool?",
-    "answer": "No. Lite is a single-user local app.\n\nCloud backup is for recovery, not live shared editing. Avoid editing the same dataset from multiple machines through a cloud folder at the same time."
+    "question": "Philosophy and boundaries: Is RoleThread Lite a multi-user collaboration tool?",
+    "answer": "No. Lite is a single-user local app.\n\nCloud backup is for recovery, not live shared editing. Avoid editing the same dataset from multiple machines through a cloud folder at the same time.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "v1-scope-and-intentional-boundaries",
+      "backups-cloud-sync-and-recovery"
+    ]
   },
   {
-    "question": "V1 boundaries: Will RoleThread automatically build a finished dataset for me?",
-    "answer": "No. RoleThread gives you tools to create, organize, validate, analyze, and export your dataset.\n\nThe creator remains in control of the content, intent, style, and final quality."
+    "question": "Philosophy and boundaries: Will RoleThread automatically build a finished dataset for me?",
+    "answer": "No. RoleThread gives you tools to create, organize, validate, analyze, and export your dataset.\n\nThe creator remains in control of the content, intent, style, and final quality.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "v1-scope-and-intentional-boundaries",
+      "what-rolethread-is-actually-for"
+    ]
   },
   {
-    "question": "V1 boundaries: Is Lite incomplete because larger Studio ideas are not included?",
-    "answer": "No. RoleThread Lite is intentionally scoped around local-first dataset craftsmanship.\n\nLarger orchestration, advanced automation, or team-scale systems are more likely to belong in future RoleThread Studio workflows. Lite is meant to be focused, understandable, and useful on its own."
+    "question": "Philosophy and boundaries: Is Lite incomplete because larger Studio ideas are not included?",
+    "answer": "No. RoleThread Lite is intentionally scoped around local-first dataset craftsmanship.\n\nLarger orchestration, advanced automation, or team-scale systems are more likely to belong in future RoleThread Studio workflows. Lite is meant to be focused, understandable, and useful on its own.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "lite-vs-studio-boundaries",
+      "rolethread-studio-vision",
+      "v1-scope-and-intentional-boundaries"
+    ]
   },
   {
-    "question": "Workflow philosophy: Why is Manage Dataset the main workflow hub?",
-    "answer": "Manage Dataset combines the work users do most often: browsing, filtering, searching, quick editing, tagging, selecting, duplicating, joining, deleting, and preparing exports.\n\nIt is designed as the operational surface where you triage and move through batches of entries efficiently."
+    "question": "Philosophy and boundaries: Why is Manage Dataset the main workflow hub?",
+    "answer": "Manage Dataset combines the work users do most often: browsing, filtering, searching, quick editing, tagging, selecting, duplicating, joining, deleting, and preparing exports.\n\nIt is designed as the operational surface where you triage and move through batches of entries efficiently.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "manage-dataset",
+      "what-rolethread-lite-does"
+    ]
   },
   {
-    "question": "Workflow philosophy: Why isn't Deep Edit the primary editing workspace?",
-    "answer": "Deep Edit is for deeper work: Full Edit, Group Chat refinement, character mapping review, split workflows, and careful multi-turn changes.\n\nMost routine cleanup is faster in Manage Dataset. Use Deep Edit when an entry needs more focused attention."
+    "question": "Philosophy and boundaries: Why isn't Deep Edit the primary editing workspace?",
+    "answer": "Deep Edit is for deeper work: Full Edit, Group Chat refinement, character mapping review, split workflows, and careful multi-turn changes.\n\nMost routine cleanup is faster in Manage Dataset. Use Deep Edit when an entry needs more focused attention.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "deep-edit",
+      "manage-dataset"
+    ]
   },
   {
-    "question": "Workflow philosophy: Why separate quick operations from deep editing?",
-    "answer": "Different work needs different surfaces. Batch cleanup, filtering, tagging, and quick fixes should stay fast. Structural tuning and detailed character work need more room and context.\n\nThe split keeps daily workflow efficient without hiding the deeper tools."
+    "question": "Philosophy and boundaries: Why separate quick operations from deep editing?",
+    "answer": "Different work needs different surfaces. Batch cleanup, filtering, tagging, and quick fixes should stay fast. Structural tuning and detailed character work need more room and context.\n\nThe split keeps daily workflow efficient without hiding the deeper tools.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "manage-dataset",
+      "deep-edit"
+    ]
   },
   {
-    "question": "Workflow philosophy: What does guided complexity mean?",
-    "answer": "It means you can start simple and add structure only when it helps.\n\nYou can begin with Manage Dataset, Create Entry, Quick Edit, and export. Tags, Group Chat mode, Insights, prompt templates, sidecars, and split/join tools are there when your workflow asks for them."
+    "question": "Philosophy and boundaries: What does guided complexity mean?",
+    "answer": "It means you can start simple and add structure only when it helps.\n\nYou can begin with Manage Dataset, Create Entry, Quick Edit, and export. Tags, Group Chat mode, Insights, prompt templates, sidecars, and split/join tools are there when your workflow asks for them.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "what-rolethread-lite-does",
+      "getting-started"
+    ]
   },
   {
-    "question": "Dataset craftsmanship: Why do split and join operations matter?",
-    "answer": "Good training entries usually teach one coherent pattern. Split helps when one entry contains too many separate moments. Join helps when related turns are too fragmented.\n\nNeither operation is about a universal ideal length. They are tools for preserving useful context and focus."
+    "question": "Entry editing and search: Why do split and join operations matter?",
+    "answer": "Good training entries usually teach one coherent pattern. Split helps when one entry contains too many separate moments. Join helps when related turns are too fragmented.\n\nNeither operation is about a universal ideal length. They are tools for preserving useful context and focus.",
+    "category": "Entry Editing and Search",
+    "related_help_ids": [
+      "split-and-join",
+      "deep-edit",
+      "what-makes-a-good-roleplay-dataset"
+    ]
   },
   {
-    "question": "Dataset craftsmanship: Why are giant entries usually a problem?",
-    "answer": "Very large entries can mix multiple scenes, goals, or response patterns into one example. That can make the training signal less focused.\n\nIf an entry has several distinct beats, split it where the conversation naturally changes focus."
+    "question": "Entry editing and search: Why are giant entries usually a problem?",
+    "answer": "Very large entries can mix multiple scenes, goals, or response patterns into one example. That can make the training signal less focused.\n\nIf an entry has several distinct beats, split it where the conversation naturally changes focus.",
+    "category": "Entry Editing and Search",
+    "related_help_ids": [
+      "split-and-join",
+      "what-makes-a-good-roleplay-dataset"
+    ]
   },
   {
-    "question": "Dataset craftsmanship: Why should dialogue stay consistently quoted?",
-    "answer": "Consistent quoted dialogue teaches clearer conversational structure. If some entries use quotes, others use script labels, and others use loose paragraphs, the model may learn that inconsistency.\n\nThis is guidance, not a hard rule. Use the format that matches your goal, then keep it intentional."
+    "question": "Entry editing and search: Why should dialogue stay consistently quoted?",
+    "answer": "Consistent quoted dialogue teaches clearer conversational structure. If some entries use quotes, others use script labels, and others use loose paragraphs, the model may learn that inconsistency.\n\nThis is guidance, not a hard rule. Use the format that matches your goal, then keep it intentional.",
+    "category": "Entry Editing and Search",
+    "related_help_ids": [
+      "what-makes-a-good-roleplay-dataset",
+      "dialogue-vs-narration-balance"
+    ]
   },
   {
-    "question": "Dataset craftsmanship: Why are my outputs repeating character names?",
-    "answer": "Repeated name-heavy narration can teach strong associations between behaviors and specific names.\n\nNames are useful in group scenes, but pronouns often generalize better when the behavior matters more than the specific character."
+    "question": "Entry editing and search: Why are my outputs repeating character names?",
+    "answer": "Repeated name-heavy narration can teach strong associations between behaviors and specific names.\n\nNames are useful in group scenes, but pronouns often generalize better when the behavior matters more than the specific character.",
+    "category": "Entry Editing and Search",
+    "related_help_ids": [
+      "character-consistency-and-drift",
+      "what-makes-a-good-roleplay-dataset"
+    ]
   },
   {
-    "question": "Dataset craftsmanship: Why does pronoun-heavy narration sometimes generalize better?",
-    "answer": "Pronouns can help the model learn the behavior pattern without binding it as strongly to one named character.\n\nUse names when clarity matters, especially in Group Chat scenes. Use pronouns when the behavior should transfer more broadly."
+    "question": "Entry editing and search: Why does pronoun-heavy narration sometimes generalize better?",
+    "answer": "Pronouns can help the model learn the behavior pattern without binding it as strongly to one named character.\n\nUse names when clarity matters, especially in Group Chat scenes. Use pronouns when the behavior should transfer more broadly.",
+    "category": "Entry Editing and Search",
+    "related_help_ids": [
+      "character-consistency-and-drift",
+      "dialogue-vs-narration-balance"
+    ]
   },
   {
-    "question": "Dataset craftsmanship: Is there one correct writing style for training data?",
-    "answer": "No. Your dataset should match the behavior you want.\n\nRoleThread can show patterns such as length, dialogue balance, formatting, and repetition, but those are signals for review rather than strict writing rules."
+    "question": "Entry editing and search: Is there one correct writing style for training data?",
+    "answer": "No. Your dataset should match the behavior you want.\n\nRoleThread can show patterns such as length, dialogue balance, formatting, and repetition, but those are signals for review rather than strict writing rules.",
+    "category": "Entry Editing and Search",
+    "related_help_ids": [
+      "what-makes-a-good-roleplay-dataset",
+      "insights-and-dataset-quality"
+    ]
   },
   {
-    "question": "Metadata philosophy: Why keep metadata separate from training text?",
-    "answer": "Training tools usually need clean `system`, `user`, and `assistant` messages. RoleThread metadata supports organization, search, characters, tags, and portability.\n\nKeeping those separate lets you work with rich project context while still exporting clean training records."
+    "question": "Tags, characters, and metadata: Why keep metadata separate from training text?",
+    "answer": "Training tools usually need clean `system`, `user`, and `assistant` messages. RoleThread metadata supports organization, search, characters, tags, and portability.\n\nKeeping those separate lets you work with rich project context while still exporting clean training records.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "sidecars-and-portable-metadata",
+      "exporting-datasets"
+    ]
   },
   {
-    "question": "Metadata philosophy: Why are sidecars portable instead of embedding everything?",
-    "answer": "Sidecars let metadata travel with a dataset without changing the training records themselves.\n\nThat keeps clean export clean while still preserving tags, characters, prompt templates, mappings, and registry context for future RoleThread work."
+    "question": "Tags, characters, and metadata: Why are sidecars portable instead of embedding everything?",
+    "answer": "Sidecars let metadata travel with a dataset without changing the training records themselves.\n\nThat keeps clean export clean while still preserving tags, characters, prompt templates, mappings, and registry context for future RoleThread work.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "sidecars-and-portable-metadata"
+    ]
   },
   {
-    "question": "Metadata philosophy: Why preserve unknown metadata instead of deleting it?",
-    "answer": "Unknown metadata may still be meaningful. Imported tags, character hints, or sidecar information can tell you how a dataset was organized before it reached RoleThread.\n\nPreserving it gives you the choice to adopt, ignore, rename, or remove it later."
+    "question": "Tags, characters, and metadata: Why preserve unknown metadata instead of deleting it?",
+    "answer": "Unknown metadata may still be meaningful. Imported tags, character hints, or sidecar information can tell you how a dataset was organized before it reached RoleThread.\n\nPreserving it gives you the choice to adopt, ignore, rename, or remove it later.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "loading-and-importing-datasets",
+      "tags-and-tag-management"
+    ]
   },
   {
-    "question": "Metadata philosophy: Why doesn't RoleThread silently overwrite imported metadata?",
-    "answer": "Imported metadata can conflict with your local registry. Silently overwriting local tags, aliases, or characters could damage a workflow that already has meaning.\n\nRoleThread prefers to skip conflicts, preserve context, and let you decide."
+    "question": "Tags, characters, and metadata: Why doesn't RoleThread silently overwrite imported metadata?",
+    "answer": "Imported metadata can conflict with your local registry. Silently overwriting local tags, aliases, or characters could damage a workflow that already has meaning.\n\nRoleThread prefers to skip conflicts, preserve context, and let you decide.",
+    "category": "Tags, Characters, and Metadata",
+    "related_help_ids": [
+      "loading-and-importing-datasets",
+      "tags-and-tag-management"
+    ]
   },
   {
-    "question": "Safety and identity: Why are UUIDs important?",
-    "answer": "Dataset UUIDs and entry UUIDs give RoleThread stable identity across edits, saves, sidecars, merges, character mappings, and focused review links.\n\nWithout stable identity, metadata could drift or attach to the wrong entry."
+    "question": "Philosophy and boundaries: Why are UUIDs important?",
+    "answer": "Dataset UUIDs and entry UUIDs give RoleThread stable identity across edits, saves, sidecars, merges, character mappings, and focused review links.\n\nWithout stable identity, metadata could drift or attach to the wrong entry.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "sidecars-and-portable-metadata",
+      "merging-datasets"
+    ]
   },
   {
-    "question": "Safety and identity: Why doesn't RoleThread overwrite imported files directly?",
-    "answer": "Outside files may be originals, exports from another tool, or manually edited sources. RoleThread creates working copies when needed so edits happen in a safer managed location.\n\nThis protects your source material while still letting you clean and organize it."
+    "question": "Datasets and files: Why doesn't RoleThread overwrite imported files directly?",
+    "answer": "Outside files may be originals, exports from another tool, or manually edited sources. RoleThread creates working copies when needed so edits happen in a safer managed location.\n\nThis protects your source material while still letting you clean and organize it.",
+    "category": "Datasets and Files",
+    "related_help_ids": [
+      "loading-and-importing-datasets",
+      "sidecars-and-portable-metadata"
+    ]
   },
   {
-    "question": "Safety and identity: Why are backups created before edits?",
-    "answer": "Backups give you a recovery point before protected mutations change the dataset or registry metadata.\n\nThis is especially important for bulk edits, repair, split/join, merge-related saves, and tag lifecycle changes."
+    "question": "Settings, backups, and recovery: Why are backups created before edits?",
+    "answer": "Backups give you a recovery point before protected mutations change the dataset or registry metadata.\n\nThis is especially important for bulk edits, repair, split/join, merge-related saves, and tag lifecycle changes.",
+    "category": "Settings, Backups, and Recovery",
+    "related_help_ids": [
+      "backups-cloud-sync-and-recovery",
+      "validation-and-repair"
+    ]
   },
   {
-    "question": "Safety and identity: Why does RoleThread avoid one-click destructive cleanup?",
-    "answer": "Dataset cleanup often involves judgment. Removing tags, rewriting prompts, deleting entries, or resolving metadata conflicts can change meaning.\n\nRoleThread automates safe predictable fixes, then leaves creative or semantic choices to you."
+    "question": "Philosophy and boundaries: Why does RoleThread avoid one-click destructive cleanup?",
+    "answer": "Dataset cleanup often involves judgment. Removing tags, rewriting prompts, deleting entries, or resolving metadata conflicts can change meaning.\n\nRoleThread automates safe predictable fixes, then leaves creative or semantic choices to you.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "validation-and-repair",
+      "what-rolethread-is-actually-for"
+    ]
   },
   {
-    "question": "Safety and identity: Is RoleThread Lite ridiculously and unnecessarily over-engineered?",
-    "answer": "Probably. But losing training data is worse."
+    "question": "Meta: Is RoleThread Lite ridiculously and unnecessarily over-engineered?",
+    "answer": "Probably. But losing training data is worse.",
+    "category": "Meta"
   },
   {
-    "question": "Safety and identity: Is it absurd that RoleThread Lite runs Streamlit through a native-style webapp launcher with a compiled installer?",
-    "answer": "Absolutely. We did it for science reasons. We regret nothing...mostly."
+    "question": "Meta: Is it absurd that RoleThread Lite runs Streamlit through a native-style webapp launcher with a compiled installer?",
+    "answer": "Absolutely. We did it for science reasons. We regret nothing...mostly.",
+    "category": "Meta"
   },
   {
-    "question": "Operational expectations: Why does RoleThread prefer deterministic workflows?",
-    "answer": "Deterministic tools are easier to inspect, repeat, and trust. Search, validation, export, merge policy, and cleanup behavior should be predictable.\n\nThat matters when you are preparing training data and need to understand what changed."
+    "question": "Philosophy and boundaries: Why does RoleThread prefer deterministic workflows?",
+    "answer": "Deterministic tools are easier to inspect, repeat, and trust. Search, validation, export, merge policy, and cleanup behavior should be predictable.\n\nThat matters when you are preparing training data and need to understand what changed.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "what-rolethread-is-actually-for",
+      "v1-scope-and-intentional-boundaries"
+    ]
   },
   {
-    "question": "Operational expectations: Why doesn't Validation automatically rewrite everything?",
-    "answer": "Some fixes are safe and mechanical. Others require creative judgment.\n\nRoleThread can repair predictable structure issues, but it will not automatically rewrite tone, intent, character behavior, or scene content for you."
+    "question": "Validation and Insights: Why doesn't Validation automatically rewrite everything?",
+    "answer": "Some fixes are safe and mechanical. Others require creative judgment.\n\nRoleThread can repair predictable structure issues, but it will not automatically rewrite tone, intent, character behavior, or scene content for you.",
+    "category": "Validation and Insights",
+    "related_help_ids": [
+      "validation-and-repair",
+      "why-validation-matters"
+    ]
   },
   {
-    "question": "Operational expectations: Why doesn't RoleThread automatically fix all metadata conflicts?",
-    "answer": "Conflicts can represent real meaning differences. Two tags or characters with similar names might not be the same thing.\n\nRoleThread preserves and reports conflicts so you can resolve them intentionally."
+    "question": "Philosophy and boundaries: Why doesn't RoleThread automatically fix all metadata conflicts?",
+    "answer": "Conflicts can represent real meaning differences. Two tags or characters with similar names might not be the same thing.\n\nRoleThread preserves and reports conflicts so you can resolve them intentionally.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "tags-and-tag-management",
+      "loading-and-importing-datasets"
+    ]
   },
   {
-    "question": "Operational expectations: Why no AI-does-everything workflow?",
-    "answer": "RoleThread Lite is built around creator control and reviewable operations. The app helps you find, organize, repair, and understand data, but it does not replace your judgment.\n\nThat keeps the workflow transparent and local-first."
+    "question": "Philosophy and boundaries: Why no AI-does-everything workflow?",
+    "answer": "RoleThread Lite is built around creator control and reviewable operations. The app helps you find, organize, repair, and understand data, but it does not replace your judgment.\n\nThat keeps the workflow transparent and local-first.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "what-rolethread-is-actually-for",
+      "v1-scope-and-intentional-boundaries"
+    ]
   },
   {
-    "question": "Included examples: Are the included datasets safe to edit?",
-    "answer": "Yes. They are included so you can explore workflows safely.\n\nIf you want to keep an original example untouched, duplicate or export a copy before experimenting heavily."
+    "question": "Getting started: Are the included datasets safe to edit?",
+    "answer": "Yes. They are included so you can explore workflows safely.\n\nIf you want to keep an original example untouched, duplicate or export a copy before experimenting heavily.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "getting-started",
+      "manage-dataset"
+    ]
   },
   {
-    "question": "Included examples: Can I delete the included datasets?",
-    "answer": "Yes, but consider keeping or backing them up if you still want reference material.\n\nThey are practical examples for learning tags, sidecars, Validation, Insights, and Group Chat workflows."
+    "question": "Getting started: Can I delete the included datasets?",
+    "answer": "Yes, but consider keeping or backing them up if you still want reference material.\n\nThey are practical examples for learning tags, sidecars, Validation, Insights, and Group Chat workflows.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "getting-started",
+      "backups-cloud-sync-and-recovery"
+    ]
   },
   {
-    "question": "Included examples: Why ship with example datasets at all?",
-    "answer": "Example datasets let you learn by inspecting real workflows instead of starting from an empty app.\n\nThey show how organization, sidecars, tags, character mappings, Validation, and Insights look in practice."
+    "question": "Getting started: Why ship with example datasets at all?",
+    "answer": "Example datasets let you learn by inspecting real workflows instead of starting from an empty app.\n\nThey show how organization, sidecars, tags, character mappings, Validation, and Insights look in practice.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "getting-started",
+      "what-rolethread-lite-does"
+    ]
   },
   {
-    "question": "Included examples: Which example dataset should I explore first?",
-    "answer": "Start with the clean native workflow example if you are new. Then inspect the imported cleanup example to understand Validation, and the Group Chat example to understand character mappings.\n\nYou do not need to study them all before using the app."
+    "question": "Getting started: Which example dataset should I explore first?",
+    "answer": "Start with the clean native workflow example if you are new. Then inspect the imported cleanup example to understand Validation, and the Group Chat example to understand character mappings.\n\nYou do not need to study them all before using the app.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "getting-started",
+      "validation-and-repair",
+      "insights-and-dataset-quality"
+    ]
   },
   {
-    "question": "Lite boundaries: Why is Lite intentionally local-first?",
-    "answer": "Local-first keeps ownership and recovery clear. Your dataset files, sidecars, backups, and app metadata stay under your control unless you configure cloud backup.\n\nThat fits Lite's focus on careful dataset work rather than hosted orchestration."
+    "question": "Philosophy and boundaries: Why is Lite intentionally local-first?",
+    "answer": "Local-first keeps ownership and recovery clear. Your dataset files, sidecars, backups, and app metadata stay under your control unless you configure cloud backup.\n\nThat fits Lite's focus on careful dataset work rather than hosted orchestration.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "privacy-and-local-first-creative-workflows",
+      "v1-scope-and-intentional-boundaries"
+    ]
   },
   {
-    "question": "Lite boundaries: Why no hosted orchestration in Lite?",
-    "answer": "Hosted orchestration brings different concerns: accounts, queues, permissions, remote storage, and multi-user workflows.\n\nLite stays focused on local dataset craftsmanship so the V1 workflow remains understandable and dependable."
+    "question": "Philosophy and boundaries: Why no hosted orchestration in Lite?",
+    "answer": "Hosted orchestration brings different concerns: accounts, queues, permissions, remote storage, and multi-user workflows.\n\nLite stays focused on local dataset craftsmanship so the V1 workflow remains understandable and dependable.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "lite-vs-studio-boundaries",
+      "rolethread-studio-vision"
+    ]
   },
   {
-    "question": "Lite boundaries: Why separate Lite and Studio ideas?",
-    "answer": "Lite is the local-first dataset crafting surface. Future RoleThread Studio ideas may involve larger orchestration, advanced automation, runtime workflows, or power-user systems.\n\nKeeping those boundaries separate helps Lite remain useful and complete without becoming a heavier platform."
+    "question": "Philosophy and boundaries: Why separate Lite and Studio ideas?",
+    "answer": "Lite is the local-first dataset crafting surface. Future RoleThread Studio ideas may involve larger orchestration, advanced automation, runtime workflows, or power-user systems.\n\nKeeping those boundaries separate helps Lite remain useful and complete without becoming a heavier platform.",
+    "category": "Philosophy and Boundaries",
+    "related_help_ids": [
+      "lite-vs-studio-boundaries",
+      "rolethread-studio-vision",
+      "v1-scope-and-intentional-boundaries"
+    ]
   },
   {
-    "question": "Installation and platform: How do I install RoleThread Lite on Windows?",
-    "answer": "Use the Windows installer for the quickest setup. The installer configures RoleThread Lite, sets up the launcher, and places shortcuts.\n\nIf you prefer a manual install, follow the manual setup steps in the installation guide."
+    "question": "Getting started: How do I install RoleThread Lite on Windows?",
+    "answer": "Use the Windows installer for the quickest setup. The installer configures RoleThread Lite, sets up the launcher, and places shortcuts.\n\nIf you prefer a manual install, follow the manual setup steps in the installation guide.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "installing-rolethread-lite",
+      "getting-started"
+    ]
   },
   {
-    "question": "Installation and platform: Does RoleThread Lite run on Linux and macOS?",
-    "answer": "Yes. Linux is the primary non-Windows platform. macOS support is in beta.\n\nBoth use the manual install path. The installer is Windows-only."
+    "question": "Getting started: Does RoleThread Lite run on Linux and macOS?",
+    "answer": "Yes. Linux is the primary non-Windows platform. macOS support is in beta.\n\nBoth use the manual install path. The installer is Windows-only.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "installing-rolethread-lite",
+      "os-compatibility-and-storage-policy"
+    ]
   },
   {
-    "question": "Installation and platform: Where does RoleThread Lite store my files?",
-    "answer": "On Windows, app data goes to %LOCALAPPDATA%\\RoleThread. On Linux, the default path follows XDG conventions. On macOS, it uses the equivalent application support directory.\n\nDatasets go where you configure your dataset folder in Settings."
+    "question": "Getting started: Where does RoleThread Lite store my files?",
+    "answer": "On Windows, app data goes to %LOCALAPPDATA%\\RoleThread. On Linux, the default path follows XDG conventions. On macOS, it uses the equivalent application support directory.\n\nDatasets go where you configure your dataset folder in Settings.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "installing-rolethread-lite",
+      "os-compatibility-and-storage-policy",
+      "settings-and-diagnostics"
+    ]
   },
   {
     "question": "System prompts: What is the System Prompt Library?",
-    "answer": "The System Prompt Library is a collection of reusable prompt templates for entry creation.\n\nInstead of rewriting a system prompt from scratch each time, you can save templates and apply them when creating or editing entries."
+    "answer": "The System Prompt Library is a collection of reusable prompt templates for entry creation.\n\nInstead of rewriting a system prompt from scratch each time, you can save templates and apply them when creating or editing entries.",
+    "category": "System Prompts",
+    "related_help_ids": [
+      "system-prompt-library",
+      "create-entry"
+    ]
   },
   {
     "question": "System prompts: Does editing a template change entries that already used it?",
-    "answer": "No. When you apply a template, the text is copied into the entry. Later changes to the template do not update entries that already received it.\n\nEach entry owns its own system prompt text."
+    "answer": "No. When you apply a template, the text is copied into the entry. Later changes to the template do not update entries that already received it.\n\nEach entry owns its own system prompt text.",
+    "category": "System Prompts",
+    "related_help_ids": [
+      "system-prompt-library",
+      "create-entry"
+    ]
   },
   {
-    "question": "Search and filtering: What search modes are available in entry search?",
-    "answer": "Entry search supports three match modes: Contains (any query word appears), All Words (every word must appear), and Exact Phrase (the exact string must match).\n\nSearch applies to the full filtered set, not just the current page."
+    "question": "Entry editing and search: What search modes are available in entry search?",
+    "answer": "Entry search supports three match modes: Contains (any query word appears), All Words (every word must appear), and Exact Phrase (the exact string must match).\n\nSearch applies to the full filtered set, not just the current page.",
+    "category": "Entry Editing and Search",
+    "related_help_ids": [
+      "searching-and-filtering-entries",
+      "manage-dataset"
+    ]
   },
   {
-    "question": "Search and filtering: Can I search only specific parts of an entry?",
-    "answer": "Yes. Scope controls let you target the system prompt, user turns, or assistant turns independently, or search across all message parts at once.\n\nThis is useful for finding entries where a specific phrase appears only in a particular role."
+    "question": "Entry editing and search: Can I search only specific parts of an entry?",
+    "answer": "Yes. Scope controls let you target the system prompt, user turns, or assistant turns independently, or search across all message parts at once.\n\nThis is useful for finding entries where a specific phrase appears only in a particular role.",
+    "category": "Entry Editing and Search",
+    "related_help_ids": [
+      "searching-and-filtering-entries",
+      "manage-dataset"
+    ]
   },
   {
-    "question": "Merging datasets: What happens when merged datasets have duplicate entries?",
-    "answer": "RoleThread applies a first-wins policy: when two entries are identified as duplicates, the first dataset's version is kept and the second is discarded.\n\nTags from the discarded entry may be merged into the surviving one where safe."
+    "question": "Datasets and files: What happens when merged datasets have duplicate entries?",
+    "answer": "RoleThread applies a first-wins policy: when two entries are identified as duplicates, the first dataset's version is kept and the second is discarded.\n\nTags from the discarded entry may be merged into the surviving one where safe.",
+    "category": "Datasets and Files",
+    "related_help_ids": [
+      "merging-datasets",
+      "validation-and-repair"
+    ]
   },
   {
-    "question": "Merging datasets: Are sidecars and character mappings preserved during merge?",
-    "answer": "Yes, conservatively. RoleThread preserves sidecar content and character mappings for entries that survive the merge.\n\nOrphan mappings from discarded duplicates are not carried over, since there is no surviving entry to attach them to."
+    "question": "Datasets and files: Are sidecars and character mappings preserved during merge?",
+    "answer": "Yes, conservatively. RoleThread preserves sidecar content and character mappings for entries that survive the merge.\n\nOrphan mappings from discarded duplicates are not carried over, since there is no surviving entry to attach them to.",
+    "category": "Datasets and Files",
+    "related_help_ids": [
+      "merging-datasets",
+      "sidecars-and-portable-metadata",
+      "character-registry-and-character-mappings"
+    ]
   },
   {
-    "question": "Settings: What should I configure before starting?",
-    "answer": "The defaults are safe for getting started. If you want datasets stored in a specific folder, set your dataset directory in Settings.\n\nIf you want cloud backup, configure a sync folder there. Everything else can be adjusted as your workflow develops."
+    "question": "Settings, backups, and recovery: What should I configure before starting?",
+    "answer": "The defaults are safe for getting started. If you want datasets stored in a specific folder, set your dataset directory in Settings.\n\nIf you want cloud backup, configure a sync folder there. Everything else can be adjusted as your workflow develops.",
+    "category": "Settings, Backups, and Recovery",
+    "related_help_ids": [
+      "settings-and-diagnostics",
+      "backups-cloud-sync-and-recovery"
+    ]
   },
   {
-    "question": "Settings: What does the Data Normalization setting do?",
-    "answer": "Data Normalization runs broader deterministic cleanup when a dataset is loaded, such as whitespace trimming, structural repairs, and formatting consistency.\n\nA baseline level of cleanup always runs. The setting controls how much additional normalization happens on load."
+    "question": "Settings, backups, and recovery: What does the Data Normalization setting do?",
+    "answer": "Data Normalization runs broader deterministic cleanup when a dataset is loaded, such as whitespace trimming, structural repairs, and formatting consistency.\n\nA baseline level of cleanup always runs. The setting controls how much additional normalization happens on load.",
+    "category": "Settings, Backups, and Recovery",
+    "related_help_ids": [
+      "settings-and-diagnostics",
+      "validation-and-repair"
+    ]
   }
 ]
 
