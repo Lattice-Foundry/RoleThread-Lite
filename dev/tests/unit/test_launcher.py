@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from core.launch import DEV_FLAG, LaunchFlags, parse_launch_flags, should_show_dev_diagnostics
+from core.launcher import DEV_FLAG, LaunchFlags, parse_launch_flags, should_show_dev_diagnostics
 
 
 def test_parse_launch_flags_detects_dev_flag():

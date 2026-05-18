@@ -8,7 +8,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.launch import (
+from core.launcher import (
     parse_launch_flags,
     should_show_dev_diagnostics,
 )

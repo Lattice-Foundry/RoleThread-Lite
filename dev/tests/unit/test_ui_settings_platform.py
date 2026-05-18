@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from core.platform import detect_platform
-from core.launch import LaunchFlags
+from core.launcher import LaunchFlags
 from core.cloud_sync import (
     BACKUP_DESTINATION_BOX,
     BACKUP_DESTINATION_DROPBOX,
