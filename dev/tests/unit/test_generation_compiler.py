@@ -1,7 +1,11 @@
 from pathlib import Path
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+import core.generation.registry as generation_registry
+import core.generation.seed as generation_seed
 from core.generation import (
     ConversationScenarioGenerationConfig,
     ConversationStyle,
@@ -14,6 +18,8 @@ from core.generation import (
     get_generation_templates,
     validate_conversation_scenario_config,
 )
+from core.generation.compiler import render_generation_chunk_text
+from core.models import Base, GenerationTemplateChunk
 
 
 def _valid_config(**overrides):
@@ -22,6 +28,30 @@ def _valid_config(**overrides):
     }
     values.update(overrides)
     return ConversationScenarioGenerationConfig(**values)
+
+
+@pytest.fixture(autouse=True)
+def generation_compiler_db(tmp_path, monkeypatch):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'generation_compiler.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    monkeypatch.setattr(generation_seed, "SessionLocal", session_factory)
+    monkeypatch.setattr(generation_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(
+        generation_seed,
+        "init_db",
+        lambda: Base.metadata.create_all(bind=engine),
+    )
+    monkeypatch.setattr(
+        generation_registry,
+        "init_db",
+        lambda: Base.metadata.create_all(bind=engine),
+    )
+    Base.metadata.create_all(engine)
+    generation_seed.initialize_generation_registry()
+    return session_factory
 
 
 def test_default_valid_config_compiles_successfully():
@@ -193,6 +223,78 @@ def test_compiler_renders_style_tone_and_output_delivery_values():
     assert "[STYLE CHUNK]\nStyle: roleplay_immersive" in prompt
     assert "[TONE CHUNK]\nTone: playful" in prompt
     assert "[OUTPUT DELIVERY CHUNK]\nOutput delivery mode: download_file" in prompt
+
+
+def test_compiler_preserves_multiline_content_instructions():
+    prompt = compile_conversation_scenario_prompt(
+        _valid_config(content_instructions=" First line\nSecond line ")
+    )
+
+    assert (
+        "[CONTENT INSTRUCTIONS CHUNK]\n"
+        "Content instructions:\n"
+        "First line\nSecond line"
+    ) in prompt
+
+
+def test_compiler_loads_chunks_through_db_registry(monkeypatch):
+    calls = []
+    real_resolver = generation_registry.resolve_generation_template_chunks
+
+    def tracking_resolver(template_id, conditions=None):
+        calls.append((template_id, conditions))
+        return real_resolver(template_id, conditions)
+
+    monkeypatch.setattr(
+        "core.generation.compiler.resolve_generation_template_chunks",
+        tracking_resolver,
+    )
+
+    prompt = compile_conversation_scenario_prompt(_valid_config())
+
+    assert prompt.startswith("[ROLETHREAD TASK CHUNK]")
+    assert calls == [
+        (
+            "conversation_scenario",
+            {"system_prompt_mode": "auto"},
+        )
+    ]
+
+
+def test_render_generation_chunk_text_replaces_placeholders():
+    rendered = render_generation_chunk_text(
+        "Template: {{ template_id }}\nCount: {{ entry_count }}",
+        {"template_id": "conversation_scenario", "entry_count": "12"},
+    )
+
+    assert rendered == "Template: conversation_scenario\nCount: 12"
+
+
+def test_compiler_raises_when_template_mappings_missing(generation_compiler_db):
+    session = generation_compiler_db()
+    try:
+        session.query(GenerationTemplateChunk).delete()
+        session.commit()
+    finally:
+        session.close()
+
+    with pytest.raises(ValueError, match="missing mappings"):
+        compile_conversation_scenario_prompt(_valid_config())
+
+
+def test_compiler_raises_when_required_chunk_text_missing(generation_compiler_db):
+    session = generation_compiler_db()
+    try:
+        mapping = session.query(GenerationTemplateChunk).filter_by(
+            chunk_slug="rolethread_generation_task"
+        ).one()
+        mapping.chunk.chunk_text = ""
+        session.commit()
+    finally:
+        session.close()
+
+    with pytest.raises(ValueError, match="required chunks without text"):
+        compile_conversation_scenario_prompt(_valid_config())
 
 
 def test_generation_core_package_does_not_import_streamlit():

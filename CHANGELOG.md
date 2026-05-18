@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.6] - 2026-05-17
+
+### Internal
+
+- Switched generation prompt assembly to load chunks from the DB-backed generation registry.
+- Added lightweight placeholder rendering while preserving existing placeholder prompt output.
+
 ## [1.4.5] - 2026-05-17
 
 ### Internal

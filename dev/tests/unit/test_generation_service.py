@@ -1,9 +1,16 @@
 from pathlib import Path
 
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+import core.generation.registry as generation_registry
+import core.generation.seed as generation_seed
 from core.generation import (
     ConversationScenarioGenerationConfig,
     SystemPromptMode,
 )
+from core.models import Base
 from services.generation_service import compile_generation_prompt_service
 
 
@@ -13,6 +20,29 @@ def _valid_config(**overrides):
     }
     values.update(overrides)
     return ConversationScenarioGenerationConfig(**values)
+
+
+@pytest.fixture(autouse=True)
+def generation_service_db(tmp_path, monkeypatch):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'generation_service.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    monkeypatch.setattr(generation_seed, "SessionLocal", session_factory)
+    monkeypatch.setattr(generation_registry, "SessionLocal", session_factory)
+    monkeypatch.setattr(
+        generation_seed,
+        "init_db",
+        lambda: Base.metadata.create_all(bind=engine),
+    )
+    monkeypatch.setattr(
+        generation_registry,
+        "init_db",
+        lambda: Base.metadata.create_all(bind=engine),
+    )
+    Base.metadata.create_all(engine)
+    generation_seed.initialize_generation_registry()
 
 
 def test_generation_service_returns_ok_for_valid_config():

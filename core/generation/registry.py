@@ -89,7 +89,6 @@ def get_generation_prompt_chunk(
 
 def get_generation_template_chunks(template_id: str) -> list[ResolvedGenerationChunk]:
     """Return active chunks for a template in deterministic mapping order."""
-
     init_db()
     session = SessionLocal()
     try:
