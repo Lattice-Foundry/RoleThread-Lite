@@ -44,14 +44,12 @@ from core.launcher_runtime import (
     build_streamlit_command as build_shared_streamlit_command,
     build_streamlit_health_url,
     format_command,
-    MANAGED_WEBAPP_LAUNCH_ENV,
 )
 from core.shutdown_control import (
     SHUTDOWN_HEADER,
     SHUTDOWN_PORT_ENV,
     SHUTDOWN_TOKEN_ENV,
 )
-from core.webapp_browser_state import consume_pending_webapp_browser_state_reset
 
 
 APP_NAME = "RoleThread Lite"
@@ -384,8 +382,6 @@ def build_subprocess_env(
         child_env[SHUTDOWN_PORT_ENV] = str(config.shutdown_port)
         child_env[SHUTDOWN_TOKEN_ENV] = config.shutdown_token
     child_env[LAUNCHER_LOG_PATH_ENV] = str(config.log_path)
-    if config.launch_mode == LAUNCH_MODE_WEBAPP:
-        child_env[MANAGED_WEBAPP_LAUNCH_ENV] = "1"
     return child_env
 
 
@@ -713,6 +709,7 @@ def wait_for_app_window_close(
     sleep_fn: Callable[[float], None] = time.sleep,
     appear_timeout_seconds: float = DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS,
     poll_seconds: float = DEFAULT_WINDOW_POLL_SECONDS,
+    baseline_window_handles: set[str] | None = None,
 ) -> WindowCloseDetectionResult:
     """Wait until the app window closes when the launch mode supports detection."""
 
@@ -734,6 +731,7 @@ def wait_for_app_window_close(
             sleep_fn=sleep_fn,
             appear_timeout_seconds=appear_timeout_seconds,
             poll_seconds=poll_seconds,
+            baseline_window_handles=baseline_window_handles,
         )
 
     if count_windows_fn is count_rolethread_webapp_windows:
@@ -743,6 +741,7 @@ def wait_for_app_window_close(
             sleep_fn=sleep_fn,
             appear_timeout_seconds=appear_timeout_seconds,
             poll_seconds=poll_seconds,
+            baseline_window_handles=baseline_window_handles,
         )
 
     deadline = time.monotonic() + appear_timeout_seconds
@@ -811,6 +810,7 @@ def wait_for_exact_app_window_close(
     sleep_fn: Callable[[float], None] = time.sleep,
     appear_timeout_seconds: float = DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS,
     poll_seconds: float = DEFAULT_WINDOW_POLL_SECONDS,
+    baseline_window_handles: set[str] | None = None,
 ) -> WindowCloseDetectionResult:
     """Monitor one observed Edge app-window HWND until that exact handle closes."""
 
@@ -840,8 +840,13 @@ def wait_for_exact_app_window_close(
                 target_pid=target.pid if target else None,
                 target_title=target.title if target else "",
             )
-        if windows:
-            candidate = sorted(windows, key=lambda item: item.handle)[0]
+        candidate_windows = tuple(
+            window
+            for window in windows
+            if not baseline_window_handles or window.handle not in baseline_window_handles
+        )
+        if candidate_windows:
+            candidate = sorted(candidate_windows, key=_window_handle_sort_key)[-1]
             sleep_fn(poll_seconds)
             stable_windows = capture_windows_fn()
             if stable_windows is None:
@@ -903,6 +908,15 @@ def wait_for_exact_app_window_close(
                 target_title=target.title,
             )
         sleep_fn(poll_seconds)
+
+
+def _window_handle_sort_key(window: WebappWindowInfo) -> int:
+    """Return a numeric HWND sort key, falling back safely for test doubles."""
+
+    try:
+        return int(window.handle, 16)
+    except (TypeError, ValueError):
+        return 0
 
 
 def request_graceful_shutdown(
@@ -1029,17 +1043,25 @@ def run_launcher_lifecycle(
     ] = terminate_process_fallback,
     port_release_fn: Callable[[int | None], PortReleaseStatus] | None = None,
     edge_launch_fn: Callable[[], EdgeLaunchResult] = launch_edge_webapp_window,
-    pending_browser_reset_fn: Callable[[], object] | None = None,
     status_callback: LifecycleStatusCallback | None = None,
 ) -> LauncherLifecycleResult:
     """Delegate launcher-owned lifecycle orchestration to shared core code."""
 
+    baseline_window_handles: set[str] | None = None
+
+    def edge_launch_with_window_baseline() -> EdgeLaunchResult:
+        nonlocal baseline_window_handles
+        if config.launch_mode == LAUNCH_MODE_WEBAPP:
+            windows = capture_rolethread_webapp_windows()
+            if windows is not None:
+                baseline_window_handles = {window.handle for window in windows}
+        return edge_launch_fn()
+
     close_waiter = wait_for_close_fn or (
-        lambda mode, process: wait_for_app_window_close(mode, process=process)
-    )
-    reset_consumer = pending_browser_reset_fn or (
-        lambda: consume_pending_webapp_browser_state_reset(
-            app_data_root=config.preferences_path.parent,
+        lambda mode, process: wait_for_app_window_close(
+            mode,
+            process=process,
+            baseline_window_handles=baseline_window_handles,
         )
     )
     release_checker = port_release_fn or (
@@ -1057,8 +1079,7 @@ def run_launcher_lifecycle(
         shutdown_request_fn=shutdown_request_fn,
         termination_fn=termination_fn,
         port_release_fn=release_checker,
-        edge_launch_fn=edge_launch_fn,
-        pending_browser_reset_fn=reset_consumer,
+        edge_launch_fn=edge_launch_with_window_baseline,
         write_log_fn=write_launcher_log,
         format_command_fn=format_command,
         wait_for_process_exit_fn=lambda process: wait_for_process_exit(

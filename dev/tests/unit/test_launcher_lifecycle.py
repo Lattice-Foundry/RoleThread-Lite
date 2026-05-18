@@ -68,8 +68,6 @@ def test_shared_lifecycle_orchestrates_managed_webapp_steps_in_order(tmp_path):
         or PortReleaseStatus(True, None, "free", "released"),
         edge_launch_fn=lambda: calls.append("edge_launch")
         or EdgeLaunchResult(True, True, ("msedge", "--app=http://127.0.0.1:8501"), "launched"),
-        pending_browser_reset_fn=lambda: calls.append("pending_reset")
-        or type("ResetResult", (), {"attempted": True, "message": "reset ok"})(),
         write_log_fn=write_log,
         format_command_fn=lambda command: " ".join(command),
         wait_for_process_exit_fn=lambda process: calls.append("wait_for_exit") or True,
@@ -78,7 +76,6 @@ def test_shared_lifecycle_orchestrates_managed_webapp_steps_in_order(tmp_path):
 
     assert result.final_state == "graceful_shutdown"
     assert calls == [
-        "pending_reset",
         "launch_backend",
         "health",
         "edge_launch",
@@ -87,13 +84,11 @@ def test_shared_lifecycle_orchestrates_managed_webapp_steps_in_order(tmp_path):
         "wait_for_exit",
         "port_release",
     ]
-    assert any("lifecycle=webapp_browser_state_reset" in lines for _, lines in log_entries)
     assert any("lifecycle=health_check" in lines for _, lines in log_entries)
     assert any("lifecycle=edge_webapp_launch" in lines for _, lines in log_entries)
     assert any("lifecycle=shutdown_request" in lines for _, lines in log_entries)
     assert any("lifecycle=port_release" in lines for _, lines in log_entries)
     joined_status = "\n".join(status_messages)
-    assert "Checking pending webapp browser-state reset before Edge launch." in joined_status
     assert "Launching Edge app-mode window." in joined_status
     assert "App window closed; requesting graceful backend shutdown." in joined_status
     assert "Port release: released" in joined_status
@@ -131,8 +126,6 @@ def test_shared_lifecycle_terminates_owned_backend_when_health_fails(tmp_path):
         edge_launch_fn=lambda: (_ for _ in ()).throw(
             AssertionError("browser launch should not run")
         ),
-        pending_browser_reset_fn=lambda: calls.append("pending_reset")
-        or type("ResetResult", (), {"attempted": False})(),
         write_log_fn=lambda path, lines: None,
         format_command_fn=lambda command: " ".join(command),
         wait_for_process_exit_fn=lambda process: (_ for _ in ()).throw(
@@ -143,4 +136,4 @@ def test_shared_lifecycle_terminates_owned_backend_when_health_fails(tmp_path):
     assert result.final_state == "health_failed"
     assert result.shutdown_request.attempted is False
     assert result.termination.method == "terminate"
-    assert calls == ["pending_reset", "launch_backend", "health", "terminate", "port_release"]
+    assert calls == ["launch_backend", "health", "terminate", "port_release"]

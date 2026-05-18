@@ -10,8 +10,8 @@ def test_parse_launch_flags_detects_dev_flag():
     assert should_show_dev_diagnostics(flags) is True
 
 
-def test_parse_launch_flags_ignores_removed_webapp_and_edge_debug_flags():
-    flags = parse_launch_flags(["webapp", "edge-debug", "webapp-debug"])
+def test_parse_launch_flags_ignores_unknown_app_side_flags():
+    flags = parse_launch_flags(["unknown-flag", "--unused-diagnostic"])
 
     assert flags == LaunchFlags()
     assert should_show_dev_diagnostics(flags) is False

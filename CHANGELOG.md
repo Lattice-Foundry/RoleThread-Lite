@@ -16,6 +16,26 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.38] - 2026-05-18
+
+### Fixed
+
+- Made launcher-owned webapp close monitoring target the newly launched Edge app HWND instead of any pre-existing RoleThread-shaped Edge window.
+
+## [1.4.37] - 2026-05-18
+
+### Fixed
+
+- Restored the missing `pathlib.Path` import used by app startup dataset restore logic.
+
+## [1.4.36] - 2026-05-18
+
+### Changed
+
+- Removed the obsolete Reset Webapp Browser State tooling and its Edge profile cleanup code.
+- Removed pending browser-state reset handling from the managed launcher lifecycle.
+- Cleaned stale webapp-era tests and app comments now that launcher-owned webapp mode is canonical.
+
 ## [1.4.35] - 2026-05-18
 
 ### Changed

@@ -123,43 +123,6 @@ def log_port_release_status(
     )
 
 
-def log_pending_webapp_browser_state_reset(
-    log_path: Path,
-    result: object,
-    *,
-    write_log_fn: Callable[[Path, Sequence[str]], None],
-) -> None:
-    """Log a pending browser-state reset attempt without knowing its concrete type."""
-
-    reset_result = getattr(result, "reset_result", None)
-    lines = [
-        "lifecycle=webapp_browser_state_reset",
-        f"pending={getattr(result, 'pending', False)}",
-        f"attempted={getattr(result, 'attempted', False)}",
-        f"completed={getattr(result, 'completed', False)}",
-        f"marker_path={getattr(result, 'marker_path', '')}",
-        f"message={getattr(result, 'message', '')}",
-    ]
-    if reset_result is not None:
-        lines.extend(
-            [
-                f"reset_success={reset_result.success}",
-                f"profile_path={reset_result.profile_path}",
-                f"items_cleared={len(reset_result.items_cleared)}",
-                f"items_skipped={len(reset_result.items_skipped)}",
-                f"warnings={len(reset_result.warnings)}",
-                f"errors={len(reset_result.errors)}",
-            ]
-        )
-        if reset_result.items_skipped:
-            lines.append(f"first_skipped={reset_result.items_skipped[0]}")
-        if reset_result.warnings:
-            lines.append(f"first_warning={reset_result.warnings[0]}")
-        if reset_result.errors:
-            lines.append(f"first_error={reset_result.errors[0]}")
-    write_log_fn(log_path, tuple(lines))
-
-
 def _resolve_port_release_status(
     port_release_fn: Callable[[int | None], PortReleaseStatus],
     pid: int | None,
@@ -191,7 +154,6 @@ def run_launcher_lifecycle(
     termination_fn: Callable[[object], TerminationResult],
     port_release_fn: Callable[[int | None], PortReleaseStatus],
     edge_launch_fn: Callable[[], EdgeLaunchResult],
-    pending_browser_reset_fn: Callable[[], object],
     write_log_fn: Callable[[Path, Sequence[str]], None],
     format_command_fn: Callable[[Sequence[str]], str],
     wait_for_process_exit_fn: Callable[[object], bool],
@@ -199,23 +161,6 @@ def run_launcher_lifecycle(
     status_callback: LifecycleStatusCallback | None = None,
 ) -> LauncherLifecycleResult:
     """Run the shared launcher-owned backend/browser/shutdown lifecycle."""
-
-    if config.launch_mode == webapp_launch_mode:
-        report_lifecycle_status(
-            status_callback,
-            "Checking pending webapp browser-state reset before Edge launch.",
-        )
-        reset_result = pending_browser_reset_fn()
-        if getattr(reset_result, "attempted", False):
-            log_pending_webapp_browser_state_reset(
-                config.log_path,
-                reset_result,
-                write_log_fn=write_log_fn,
-            )
-            report_lifecycle_status(
-                status_callback,
-                f"Pending webapp browser-state reset: {getattr(reset_result, 'message', '')}",
-            )
 
     report_lifecycle_status(
         status_callback,

@@ -28,10 +28,6 @@ from core.platform import (
 from core.preferences import export_settings, get_all_settings, import_settings
 from core.runtime import get_python_runtime_status
 from core.version import ROLETHREAD_VERSION
-from core.webapp_browser_state import (
-    is_webapp_browser_state_reset_pending,
-    schedule_webapp_browser_state_reset,
-)
 from ui.file_dialogs import (
     browse_directory,
     browse_settings_export_file,
@@ -281,9 +277,6 @@ def render_settings_page() -> None:
                 st.rerun()
 
     st.divider()
-    _render_webapp_browser_state_reset()
-
-    st.divider()
     _render_platform_about()
 
 
@@ -440,51 +433,6 @@ def _render_platform_about() -> None:
 
     st.divider()
     st.markdown(_format_project_info_markup(), unsafe_allow_html=True)
-
-
-def _render_webapp_browser_state_reset() -> None:
-    """Render a targeted troubleshooting tool for Edge webapp localhost state."""
-
-    st.subheader("Reset Webapp Browser State")
-    st.caption(
-        "Clears targeted Microsoft Edge metadata and cached localhost webapp state "
-        "associated with RoleThread Lite. This can help troubleshoot webapp launch, "
-        "app-window, or browser closeout behavior."
-    )
-    st.info(
-        "This does not delete datasets, preferences, project data, imports, exports, "
-        "or RoleThread database files. It targets browser-side localhost/webapp state only."
-    )
-    st.caption(
-        "When scheduled from the webapp, the reset runs before the next Edge webapp "
-        "window opens. Close RoleThread Lite completely, then reopen it."
-    )
-    if is_webapp_browser_state_reset_pending():
-        st.warning(
-            "A webapp browser state reset is already scheduled. Close RoleThread Lite "
-            "completely, then reopen it. The reset will run before the next webapp "
-            "window opens."
-        )
-    if st.button("Reset Webapp Browser State", key="btn_reset_webapp_browser_state"):
-        result = schedule_webapp_browser_state_reset()
-        if result.scheduled:
-            st.success(result.message)
-        else:
-            st.warning(result.message)
-        st.caption(_format_about_row("Reset marker", f"`{result.marker_path}`"))
-        _render_webapp_browser_state_schedule_details(result)
-
-
-def _render_webapp_browser_state_schedule_details(result) -> None:
-    with st.expander("Reset details"):
-        if result.warnings:
-            st.markdown("**Warnings**")
-            for warning in result.warnings:
-                st.caption(f"- {warning}")
-        if result.errors:
-            st.markdown("**Errors**")
-            for error in result.errors:
-                st.caption(f"- {error}")
 
 
 def _format_project_info_markup() -> str:

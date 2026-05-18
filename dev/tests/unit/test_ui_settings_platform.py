@@ -118,16 +118,13 @@ def test_obsolete_edge_debug_diagnostics_are_removed_from_settings_ui():
     assert "Edge Process Debug" not in source
 
 
-def test_settings_exposes_webapp_browser_state_reset_without_session_state_label():
+def test_settings_no_longer_exposes_webapp_browser_state_reset():
     source = Path(ui_settings.__file__).read_text(encoding="utf-8")
 
-    assert "Reset Webapp Browser State" in source
+    assert "Reset Webapp Browser State" not in source
     assert "Clear Session State" not in source
-    assert "does not delete datasets" in source
-    assert "schedule_webapp_browser_state_reset" in source
-    assert "is_webapp_browser_state_reset_pending" in source
-    assert "The reset will run before the next webapp" in source
-    assert "window opens" in source
+    assert "schedule_webapp_browser_state_reset" not in source
+    assert "is_webapp_browser_state_reset_pending" not in source
 
 
 def test_project_info_markup_preserves_official_attribution_and_colors():

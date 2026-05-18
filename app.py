@@ -4,6 +4,7 @@ Owns app startup and session initialization. Navigation wiring and page-state
 compatibility live in ui.navigation.
 """
 import atexit
+from pathlib import Path
 
 import streamlit as st
 
@@ -92,7 +93,7 @@ from ui.theme import (
     COLOR_SUBTITLE,
 )
 
-# â”€â”€ Page config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Global Streamlit theme and layout CSS.
 ensure_app_directories()
 
 st.markdown(f"""
@@ -150,7 +151,7 @@ a[data-testid="stTopNavLink"][aria-current="page"],
 a[data-testid="stTopNavDropdownLink"][aria-current="page"] {{
     box-shadow: inset 0 -2px 0 {COLOR_PRIMARY} !important;
 }}
-/* Primary button â€” enabled state only (:not(:disabled) keeps disabled grey) */
+/* Primary button enabled state only (:not(:disabled) keeps disabled grey). */
 button[data-testid="baseButton-primary"]:not(:disabled),
 button[kind="primary"]:not(:disabled),
 .stButton > button[type="submit"]:not(:disabled),
@@ -218,7 +219,7 @@ div.st-key-recent_dataset_list button[kind="tertiary"] p {{
     white-space: normal !important;
     overflow-wrap: anywhere !important;
 }}
-/* Warning alerts only â€” replace Streamlit's muddy yellow-green default. */
+/* Warning alerts only: replace Streamlit's muddy yellow-green default. */
 div[data-testid="stAlert"]:has(div[data-testid="stAlertContentWarning"]) {{
     background-color: {COLOR_WARNING_BACKGROUND} !important;
     border-color: transparent !important;
@@ -303,7 +304,7 @@ div[data-baseweb="menu"] li[role="option"][aria-selected="true"] {{
 """, unsafe_allow_html=True)
 
 
-# â”€â”€ Cloud backup startup hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Cloud backup startup hooks.
 def _sync_cloud_backups_on_exit() -> None:
     """Best-effort cloud backup sync for Streamlit process shutdown."""
 
@@ -354,7 +355,7 @@ _register_cloud_sync_on_exit()
 _render_cloud_restore_prompt()
 
 
-# â”€â”€ One-time session initialisation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# One-time session initialization.
 if "prefs" not in st.session_state:
     prefs = load_preferences()
     st.session_state.prefs = prefs
@@ -438,7 +439,7 @@ if "prefs" not in st.session_state:
             st.session_state.stale_last_path = last
 
 
-# â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Navigation.
 _PAGE_RENDERERS = {
     PAGE_CREATE_ENTRY: render_create_page,
     PAGE_MANAGE_DATASET: render_manage_page,
