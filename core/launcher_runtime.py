@@ -1,4 +1,4 @@
-"""Shared launcher runtime command and URL helpers."""
+"""Shared Streamlit command and local URL helpers for launcher-owned runs."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def build_streamlit_command(
     streamlit_host: str = STREAMLIT_HOST,
     streamlit_port: str = STREAMLIT_PORT,
 ) -> tuple[str, ...]:
-    """Build a Streamlit command for launcher-owned dev or packaged runs."""
+    """Build the Streamlit backend command for source or packaged launchers."""
 
     if app_script is not None:
         if not internal_streamlit_flag:
@@ -67,7 +67,7 @@ def build_streamlit_health_url(
     host: str = STREAMLIT_HOST,
     port: str = STREAMLIT_PORT,
 ) -> str:
-    """Build the local Streamlit health endpoint URL."""
+    """Build the loopback Streamlit health endpoint URL."""
 
     return f"http://{host}:{port}{STREAMLIT_HEALTH_PATH}"
 
@@ -77,7 +77,7 @@ def build_streamlit_app_url(
     host: str = STREAMLIT_HOST,
     port: str = STREAMLIT_PORT,
 ) -> str:
-    """Build the local Streamlit app URL used by managed browser launch."""
+    """Build the loopback app URL passed to the browser adapter."""
 
     return f"http://{host}:{port}"
 
@@ -87,7 +87,7 @@ def build_launcher_shutdown_url(
     port: int,
     host: str = STREAMLIT_HOST,
 ) -> str:
-    """Build the local launcher shutdown control URL."""
+    """Build the loopback shutdown URL used by launcher-controlled exits."""
 
     return f"http://{host}:{port}/shutdown"
 

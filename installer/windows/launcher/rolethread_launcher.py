@@ -1,7 +1,7 @@
-"""Windows launcher prototype for RoleThread Lite.
+"""Windows packaged launcher adapter for RoleThread Lite.
 
-This source module is intended to be wrapped by PyInstaller. It does not
-implement final installer integration or shortcut creation.
+This module resolves Windows/install-time paths and platform primitives, then
+delegates the managed webapp sequence to ``core.launcher_lifecycle``.
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ def resolve_app_root(
     start_path: Path | None = None,
     frozen: bool | None = None,
 ) -> Path:
-    """Resolve the RoleThread app root for dev mode, with bundled mode left explicit."""
+    """Resolve the RoleThread app root for source or bundled launcher runs."""
 
     is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
     if is_frozen:
@@ -201,6 +201,8 @@ def build_launcher_config(
     shutdown_port: int | None = None,
     shutdown_token: str | None = None,
 ) -> LauncherConfig:
+    """Build the Windows adapter configuration for the managed webapp lifecycle."""
+
     is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
     resolved_root = (
         validate_app_root(app_root)
@@ -392,9 +394,8 @@ def launch_rolethread(
     port_available_fn: Callable[[], bool] = is_port_available,
     env: dict[str, str] | None = None,
 ) -> subprocess.Popen:
-    # WEBAPP_LIFECYCLE_TODO: subprocess ownership, port checks, and logging are
-    # already the right launcher-owned shape; future dev/manual launcher mode
-    # should reuse this instead of invoking raw `streamlit run`.
+    # The launcher owns the Streamlit subprocess, so port checks and startup
+    # logging stay outside the Streamlit app runtime.
     write_launcher_log(
         config.log_path,
         (
@@ -439,9 +440,8 @@ def launch_edge_webapp_window(
 ) -> EdgeLaunchResult:
     """Open the launcher-managed Edge app window through the Edge adapter."""
 
-    # WEBAPP_LIFECYCLE_TODO: this adapter call is the first browser boundary.
-    # Future Chrome/Chromium adapters should plug in here without changing
-    # launcher lifecycle orchestration.
+    # Browser selection belongs behind the adapter boundary; the lifecycle core
+    # should not need to know which browser implementation opens the app window.
     return launch_edge_app_mode(
         url=url or build_streamlit_app_url(),
         popen=popen,
@@ -459,8 +459,8 @@ def wait_for_streamlit_health(
 ) -> HealthCheckResult:
     """Wait for the local Streamlit health endpoint to respond."""
 
-    # WEBAPP_LIFECYCLE_TODO: keep readiness as an explicit launcher step. Health
-    # means the backend is listening; Edge window readiness is handled later.
+    # Streamlit readiness is a backend concern. Browser/window readiness is a
+    # later launcher step after this health endpoint responds.
     target_url = url or build_streamlit_health_url()
     deadline = time.monotonic() + timeout_seconds
     attempts = 0
@@ -504,8 +504,8 @@ def capture_rolethread_webapp_windows(
 ) -> tuple[WebappWindowInfo, ...] | None:
     """Return visible RoleThread Edge app windows with exact HWND metadata."""
 
-    # WEBAPP_LIFECYCLE_TODO: exact HWND observation should remain shared
-    # lifecycle infrastructure because Edge PID/command metadata drifts.
+    # Exact HWND observation is the stable browser-close signal. Edge process
+    # IDs and command lines can be shared across normal and app-mode windows.
     if os.name != "nt":
         return None
     if run_fn is subprocess.run:
@@ -601,7 +601,7 @@ def capture_rolethread_webapp_windows_powershell(
     *,
     run_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> tuple[WebappWindowInfo, ...] | None:
-    """Return visible RoleThread Edge app windows using the legacy PowerShell probe."""
+    """Return visible RoleThread Edge app windows using the PowerShell fallback probe."""
 
     script = """
 $ErrorActionPreference = 'Stop'
@@ -814,8 +814,8 @@ def wait_for_exact_app_window_close(
 ) -> WindowCloseDetectionResult:
     """Monitor one observed Edge app-window HWND until that exact handle closes."""
 
-    # WEBAPP_LIFECYCLE_TODO: this exact-HWND monitor is the canonical shutdown
-    # trigger for launcher-owned webapp sessions.
+    # Window close is the desktop lifecycle signal. Backend shutdown happens
+    # only after the launcher observes this exact app-window handle disappear.
     deadline = time.monotonic() + appear_timeout_seconds
     target: WebappWindowInfo | None = None
     while time.monotonic() <= deadline:
@@ -927,9 +927,8 @@ def request_graceful_shutdown(
 ) -> ShutdownRequestResult:
     """Request local launcher-controlled app shutdown."""
 
-    # WEBAPP_LIFECYCLE_TODO: keep graceful shutdown scoped to the local tokened
-    # control channel; fallback termination must target only this launcher-owned
-    # subprocess.
+    # The shutdown endpoint is local and tokened. If it fails, fallback
+    # termination must still target only this launcher-owned subprocess.
     if not config.shutdown_port or not config.shutdown_token:
         return ShutdownRequestResult(
             attempted=False,
@@ -988,8 +987,8 @@ def terminate_process_fallback(
 ) -> TerminationResult:
     """Terminate the Streamlit subprocess, escalating to kill only if needed."""
 
-    # WEBAPP_LIFECYCLE_TODO: this fallback is intentionally process-object
-    # scoped. It must not become port-owner, Edge, or arbitrary Python cleanup.
+    # Fallback termination is intentionally process-object scoped. It must not
+    # become port-owner, Edge, or arbitrary Python cleanup.
     if process.poll() is not None:
         return TerminationResult(
             attempted=False,

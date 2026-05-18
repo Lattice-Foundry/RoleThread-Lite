@@ -1,4 +1,9 @@
-"""Shared lifecycle orchestration for RoleThread launcher-owned runs."""
+"""Shared launcher-owned lifecycle orchestration.
+
+Streamlit owns the app runtime. This module owns the ordered desktop/webapp
+sequence around it: start backend, wait for health, launch browser, monitor the
+app window, request shutdown, and verify port release.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +22,7 @@ DEFAULT_WEBAPP_LAUNCH_MODE = LAUNCH_MODE_WEBAPP
 
 @dataclass(frozen=True)
 class LauncherConfig:
-    """Shared launcher runtime configuration."""
+    """Runtime configuration shared by source and packaged launchers."""
 
     app_root: Path
     python_path: Path
@@ -160,7 +165,7 @@ def run_launcher_lifecycle(
     webapp_launch_mode: str = DEFAULT_WEBAPP_LAUNCH_MODE,
     status_callback: LifecycleStatusCallback | None = None,
 ) -> LauncherLifecycleResult:
-    """Run the shared launcher-owned backend/browser/shutdown lifecycle."""
+    """Run the managed backend, browser-window, shutdown, and port lifecycle."""
 
     report_lifecycle_status(
         status_callback,

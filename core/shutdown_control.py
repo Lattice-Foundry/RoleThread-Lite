@@ -1,4 +1,4 @@
-"""Local launcher shutdown control for bundled RoleThread sessions."""
+"""Local launcher shutdown control for managed RoleThread sessions."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ _server_started = False
 
 @dataclass(frozen=True)
 class LauncherShutdownControl:
-    """Local shutdown control information provided by the Windows launcher."""
+    """Local shutdown control information provided by a RoleThread launcher."""
 
     port: int
     token: str
@@ -65,11 +65,10 @@ def start_launcher_shutdown_server(
     *,
     shutdown_fn: Callable[[], None] = run_graceful_process_exit,
 ) -> bool:
-    """Start a local-only shutdown endpoint when launched by the Windows launcher."""
+    """Start the local-only shutdown endpoint for launcher-owned sessions."""
 
-    # WEBAPP_LIFECYCLE_TODO: Streamlit does not expose a public HTTP shutdown
-    # hook for this desktop lifecycle, so RoleThread keeps this local tokened
-    # control channel for launcher-owned sessions only.
+    # Streamlit does not expose a public HTTP shutdown hook for this desktop
+    # lifecycle, so RoleThread keeps a loopback-only tokened control channel.
     global _server_started
 
     resolved = control or resolve_launcher_shutdown_control()

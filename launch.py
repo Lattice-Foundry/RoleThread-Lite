@@ -1,7 +1,7 @@
 """Canonical source/dev launcher for RoleThread Lite.
 
-This entrypoint starts RoleThread through the same launcher-owned lifecycle
-shape used by the packaged Windows launcher.
+This entrypoint builds a source checkout configuration and delegates to the
+same launcher-owned lifecycle used by the packaged Windows adapter.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ def build_manual_launcher_config(
     shutdown_port: int | None = None,
     shutdown_token: str | None = None,
 ) -> launcher.LauncherConfig:
-    """Build a launcher config for source/dev runs without reading install mode prefs."""
+    """Build a launcher config for source runs without installer preferences."""
 
     resolved_root = launcher.validate_app_root(app_root or resolve_source_app_root())
     python_path = launcher.resolve_python_runtime(

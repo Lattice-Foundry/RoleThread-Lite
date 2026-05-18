@@ -1,4 +1,8 @@
-"""Browser adapter boundary for launcher-owned webapp windows."""
+"""Browser adapter boundary for launcher-owned webapp windows.
+
+The lifecycle core asks an adapter to open a managed app window; browser
+discovery, launch flags, and version diagnostics stay inside the adapter.
+"""
 
 from __future__ import annotations
 
@@ -27,9 +31,8 @@ class BrowserLaunchResult:
 def get_default_browser_adapter_id() -> str:
     """Return the default managed-webapp browser adapter id."""
 
-    # WEBAPP_LIFECYCLE_TODO: Edge is the only implemented adapter for now.
-    # Future passes can add Chrome/Chromium/macOS/Linux adapters behind this
-    # boundary without changing launcher lifecycle orchestration.
+    # Edge is the only implemented adapter today. Chrome/Chromium and non-
+    # Windows adapters can be added here without changing lifecycle ordering.
     return DEFAULT_BROWSER_ADAPTER_ID
 
 

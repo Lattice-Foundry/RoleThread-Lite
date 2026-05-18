@@ -1,3 +1,3 @@
-"""Windows launcher prototype package for RoleThread Lite."""
+"""Windows packaged launcher adapter package for RoleThread Lite."""
 
 
