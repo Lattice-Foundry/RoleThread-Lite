@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.5] - 2026-05-17
+
+### Internal
+
+- Added read-only DB-backed generation registry query helpers.
+- Added deterministic conditional chunk resolution support for future DB-backed generation compilation.
+
 ## [1.4.4] - 2026-05-17
 
 ### Internal
