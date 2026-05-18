@@ -99,7 +99,7 @@
   },
   {
     "question": "AI training fundamentals: Why do characters drift during roleplay?",
-    "answer": "Characters drift when examples reinforce inconsistent personality, tone, pacing, boundaries, or emotional reactions.\n\nModels reinforce repeated behavioral patterns. That is dataset behavior shaping: repeated continuity teaches continuity, while repeated instability teaches instability.",
+    "answer": "Characters drift when examples reinforce inconsistent personality, tone, pacing, boundaries, or emotional reactions.",
     "category": "Metadata and Characters",
     "related_help_ids": [
       "character-consistency-and-drift",
@@ -139,7 +139,7 @@
   },
   {
     "question": "AI training fundamentals: How should datasets grow over time?",
-    "answer": "Grow incrementally. Add focused batches, validate them, check for style drift, review merges, and keep behavior consistent over time.\n\nLong-term training work is iterative dataset engineering, not one giant generation run.",
+    "answer": "Grow incrementally. Add focused batches, validate them, check for style drift, review merges, and keep behavior consistent over time.",
     "category": "Validation, Export, and Training",
     "related_help_ids": [
       "dataset-scaling-and-maintenance",
@@ -149,7 +149,7 @@
   },
   {
     "question": "AI training fundamentals: What are behavioral blind spots?",
-    "answer": "Behavioral blind spots are patterns the dataset underrepresents or distorts. A model may inherit weak initiative, unrealistic emotion, repetitive pacing, excessive verbosity, or shallow conflict handling if that is what the examples reinforce.\n\nDatasets reinforce tendencies whether those tendencies are intentional or accidental.",
+    "answer": "Behavioral blind spots are patterns the dataset underrepresents or distorts. A model may inherit weak initiative, unrealistic emotion, repetitive pacing, excessive verbosity, or shallow conflict handling if that is what the examples reinforce.",
     "category": "Validation, Export, and Training",
     "related_help_ids": [
       "roleplay-archetypes-and-behavioral-bias",
@@ -169,7 +169,7 @@
   },
   {
     "question": "AI training fundamentals: Why does creator ownership matter long term?",
-    "answer": "Long-term dataset work needs control: local files, portable metadata, backups, exports, and the ability to return later and understand what changed.\n\nRoleThread is designed as a local dataset workshop so creators can direct their own workflows instead of losing control of the training material.",
+    "answer": "Long-term dataset work needs control: local files, portable metadata, backups, exports, and the ability to return later and understand what changed.",
     "category": "Safety, Backups, and Boundaries",
     "related_help_ids": [
       "creator-ownership-and-long-term-workflow-philosophy",
@@ -321,7 +321,7 @@
     "category": "Validation, Export, and Training",
     "related_help_ids": [
       "data-generation-beta",
-      "v1-limitations-and-future-boundaries"
+      "v1-scope-and-intentional-boundaries"
     ]
   },
   {
