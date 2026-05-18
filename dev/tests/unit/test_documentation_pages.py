@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 52
+    assert len(registry) == 58
     assert get_default_help_article_id() == "installing-rolethread-lite"
     assert registry["installing-rolethread-lite"].file_name == (
         "00_installing_rolethread_lite.md"
@@ -147,6 +147,25 @@ def test_help_article_registry_has_expected_articles():
     )
     assert registry["why-validation-matters"].file_name == (
         "51_why_validation_matters.md"
+    )
+    assert registry["preparing-datasets-for-lora-and-fine-tuning"].file_name == (
+        "52_preparing_datasets_for_lora_and_fine_tuning.md"
+    )
+    assert registry["synthetic-data-vs-human-written-data"].file_name == (
+        "53_synthetic_data_vs_human_written_data.md"
+    )
+    assert registry["dataset-scaling-and-maintenance"].file_name == (
+        "54_dataset_scaling_and_maintenance.md"
+    )
+    assert registry["roleplay-archetypes-and-behavioral-bias"].file_name == (
+        "55_roleplay_archetypes_and_behavioral_bias.md"
+    )
+    assert registry["realistic-expectations-for-fine-tuning"].file_name == (
+        "56_realistic_expectations_for_fine_tuning.md"
+    )
+    assert (
+        registry["creator-ownership-and-long-term-workflow-philosophy"].file_name
+        == "57_creator_ownership_and_long_term_workflow_philosophy.md"
     )
     assert registry["data-generation-beta"].file_name == "40_data_generation_beta.md"
     assert registry["data-generation-beta"].category == "Data Generation"
@@ -383,6 +402,61 @@ def test_ai_training_fundamentals_articles_document_roleplay_dataset_craft():
     assert "Editing raw JSONL by hand is possible" in validation.content
 
 
+def test_ai_training_fundamentals_articles_document_training_readiness():
+    preparation = load_help_document("preparing-datasets-for-lora-and-fine-tuning")
+    synthetic = load_help_document("synthetic-data-vs-human-written-data")
+    scaling = load_help_document("dataset-scaling-and-maintenance")
+    bias = load_help_document("roleplay-archetypes-and-behavioral-bias")
+    expectations = load_help_document("realistic-expectations-for-fine-tuning")
+    ownership = load_help_document(
+        "creator-ownership-and-long-term-workflow-philosophy"
+    )
+
+    assert preparation.article.category == "AI Training Fundamentals"
+    assert "Training quality matters more than raw dataset size" in preparation.content
+    assert "small high-quality dataset" in preparation.content
+    assert "iterative dataset engineering" in preparation.content
+    assert "Avoid Garbage Amplification" in preparation.content
+
+    assert synthetic.article.category == "AI Training Fundamentals"
+    assert "It is a force multiplier, not a replacement for curation" in (
+        synthetic.content
+    )
+    assert "flattened emotional nuance" in synthetic.content
+    assert "synthetic flaws" in synthetic.content
+    assert "Human editing is often where conversational quality emerges" in (
+        synthetic.content
+    )
+
+    assert scaling.article.category == "AI Training Fundamentals"
+    assert "iterative dataset engineering" in scaling.content
+    assert "style drift" in scaling.content
+    assert "Merge validation matters" in scaling.content
+    assert "Range is intentional variation" in scaling.content
+
+    assert bias.article.category == "AI Training Fundamentals"
+    assert "Models inherit dataset blind spots" in bias.content
+    assert "excessive verbosity" in bias.content
+    assert "weak conversational initiative" in bias.content
+    assert "Datasets reinforce behavioral tendencies" in bias.content
+
+    assert expectations.article.category == "AI Training Fundamentals"
+    assert "Fine-tuning is powerful, but it is not magic" in expectations.content
+    assert "LoRAs are lightweight adaptation layers" in expectations.content
+    assert "Tuning rarely succeeds perfectly on the first attempt" in (
+        expectations.content
+    )
+    assert "Behavior shaping is usually gradual" in expectations.content
+
+    assert ownership.article.category == "AI Training Fundamentals"
+    assert "creators should control their own datasets" in ownership.content
+    assert "Local-first infrastructure exists because ownership and privacy" in (
+        ownership.content
+    )
+    assert "Portability keeps the creator in control" in ownership.content
+    assert "Creator autonomy is not an extra feature" in ownership.content
+
+
 def test_developer_architecture_help_articles_document_layer_boundaries():
     architecture = load_help_document("codebase-architecture")
     boundaries = load_help_document("layer-boundaries-and-responsibilities")
@@ -570,7 +644,7 @@ def test_help_article_order_is_global_reader_order():
     assert ordered_ids.index("privacy-and-local-first-creative-workflows") < (
         ordered_ids.index("what-makes-a-good-roleplay-dataset")
     )
-    assert ordered_ids.index("why-validation-matters") < (
+    assert ordered_ids.index("creator-ownership-and-long-term-workflow-philosophy") < (
         ordered_ids.index("understanding-the-main-workspaces")
     )
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
@@ -618,6 +692,12 @@ def test_help_article_category_order_and_grouping():
         "character-consistency-and-drift",
         "ai-assisted-dataset-creation-workflow",
         "why-validation-matters",
+        "preparing-datasets-for-lora-and-fine-tuning",
+        "synthetic-data-vs-human-written-data",
+        "dataset-scaling-and-maintenance",
+        "roleplay-archetypes-and-behavioral-bias",
+        "realistic-expectations-for-fine-tuning",
+        "creator-ownership-and-long-term-workflow-philosophy",
     ]
     assert [article.article_id for article in grouped["Data Generation"]] == [
         "data-generation-beta",
@@ -1241,6 +1321,28 @@ def test_faq_entries_group_into_clean_sidebar_categories():
         entry.display_question == "Why do characters drift during roleplay?"
         and entry.category == "Metadata and Characters"
         and "character-consistency-and-drift" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "How do I prepare a dataset for LoRA or fine-tuning?"
+        and "preparing-datasets-for-lora-and-fine-tuning" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Is synthetic data worse than human-written data?"
+        and "force multiplier" in entry.answer
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "What are behavioral blind spots?"
+        and "roleplay-archetypes-and-behavioral-bias" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Why does creator ownership matter long term?"
+        and entry.category == "Safety, Backups, and Boundaries"
+        and "creator-ownership-and-long-term-workflow-philosophy"
+        in entry.related_help_ids
         for entry in entries
     )
 

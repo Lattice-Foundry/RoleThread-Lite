@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.16] - 2026-05-17
+
+### Added
+
+- Completed the AI Training Fundamentals educational arc with articles on LoRA/fine-tuning readiness, synthetic data, dataset scaling, behavioral bias, realistic tuning expectations, and creator ownership.
+- Added FAQ entries for training preparation, synthetic data tradeoffs, dataset maintenance, behavioral blind spots, tuning expectations, and long-term creator control.
+
 ## [1.4.15] - 2026-05-17
 
 ### Added
