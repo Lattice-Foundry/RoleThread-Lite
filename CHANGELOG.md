@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.14] - 2026-05-17
+
+### Added
+
+- Added the AI Training Fundamentals Help category covering RoleThread's purpose, fine-tuning basics, LoRAs, prompting, dataset quality, and privacy-conscious local creative workflows.
+- Added FAQ entries explaining the 80/20 workflow, conversational training data, prompting limits, and local-first dataset ownership.
+
 ## [1.4.13] - 2026-05-17
 
 ### Changed

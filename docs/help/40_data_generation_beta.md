@@ -21,6 +21,8 @@ It provides:
 
 The goal is workflow acceleration, not hidden automation. RoleThread gives the external model a clearer task shape, then you review and import or edit the result through normal dataset workflows.
 
+This fits the broader RoleThread pattern: external AI can help scaffold the first 80%, while RoleThread helps you curate and control the final 20%.
+
 ## What Data Generation Is Not
 
 Data Generation is not:

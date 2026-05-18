@@ -54,6 +54,7 @@ class DocSection:
 
 HELP_CATEGORY_ORDER = (
     "Getting Started",
+    "AI Training Fundamentals",
     "Core Workflows",
     "Data Generation",
     "Metadata and Organization",
@@ -99,10 +100,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         20,
         "The app's purpose, file-owned workflow, and practical boundaries.",
         (
+            "what-rolethread-is-actually-for",
             "getting-started",
             "dataset-formats",
             "v1-limitations-and-future-boundaries",
-            "rolethread-studio-vision",
         ),
     ),
     HelpArticle(
@@ -142,6 +143,72 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
             "getting-started",
             "loading-datasets-and-working-copies",
             "creating-entries",
+        ),
+    ),
+    HelpArticle(
+        "what-rolethread-is-actually-for",
+        "41_what_rolethread_is_actually_for.md",
+        "What RoleThread Is Actually For",
+        "AI Training Fundamentals",
+        52,
+        "The real workflow RoleThread supports between AI drafting and external training.",
+        (
+            "what-fine-tuning-actually-is",
+            "privacy-and-local-first-creative-workflows",
+            "data-generation-beta",
+            "what-rolethread-lite-does",
+        ),
+    ),
+    HelpArticle(
+        "what-fine-tuning-actually-is",
+        "42_what_fine_tuning_actually_is.md",
+        "What Fine-Tuning Actually Is",
+        "AI Training Fundamentals",
+        54,
+        "A practical explanation of model adaptation and behavioral pattern learning.",
+        (
+            "lora-vs-prompting-vs-fine-tuning",
+            "why-dataset-quality-matters",
+            "dataset-formats",
+        ),
+    ),
+    HelpArticle(
+        "lora-vs-prompting-vs-fine-tuning",
+        "43_lora_vs_prompting_vs_fine_tuning.md",
+        "LoRA vs Prompting vs Fine-Tuning",
+        "AI Training Fundamentals",
+        56,
+        "How prompting, character cards, RAG, LoRAs, and fine-tuning differ.",
+        (
+            "what-fine-tuning-actually-is",
+            "what-rolethread-is-actually-for",
+            "data-generation-beta",
+        ),
+    ),
+    HelpArticle(
+        "why-dataset-quality-matters",
+        "44_why_dataset_quality_matters.md",
+        "Why Dataset Quality Matters",
+        "AI Training Fundamentals",
+        58,
+        "Why structure, validation, balance, and consistency affect training usefulness.",
+        (
+            "validation-and-repair",
+            "insights-and-dataset-quality",
+            "tags-categories-and-tag-lifecycle",
+        ),
+    ),
+    HelpArticle(
+        "privacy-and-local-first-creative-workflows",
+        "45_privacy_and_local_first_creative_workflows.md",
+        "Privacy and Local-First Creative Workflows",
+        "AI Training Fundamentals",
+        59,
+        "Why private creative datasets need ownership, offline capability, and local control.",
+        (
+            "what-rolethread-is-actually-for",
+            "backups-cloud-sync-and-recovery",
+            "v1-limitations-and-future-boundaries",
         ),
     ),
     HelpArticle(

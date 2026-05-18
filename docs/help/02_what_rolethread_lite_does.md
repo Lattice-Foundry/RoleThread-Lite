@@ -19,6 +19,8 @@ A training dataset is more than a pile of messages. Over time, it also needs:
 
 RoleThread Lite provides those tools while keeping the actual dataset files local and inspectable.
 
+RoleThread also fits a practical AI-assisted workflow: use powerful models to scaffold the first 80%, then use RoleThread to refine, structure, validate, organize, and privately control the final 20%.
+
 ## Local-First Dataset Crafting
 
 Local-first means the app is designed around your machine and your files.

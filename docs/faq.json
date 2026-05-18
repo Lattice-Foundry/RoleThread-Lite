@@ -20,6 +20,55 @@
     "answer": "Not usually. If RoleThread loads an untrusted outside dataset, it may create a protected working copy and edit that copy instead of the original.\n\nUse the current loaded dataset path in Manage Dataset to confirm which file you are editing."
   },
   {
+    "question": "AI training fundamentals: Is RoleThread a model trainer?",
+    "answer": "No. RoleThread Lite does not train models, host inference, or run a chatbot service.\n\nIt is dataset infrastructure: a local workspace for shaping, validating, organizing, and exporting conversational training data before you use another tool for LoRA or fine-tuning workflows.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "what-rolethread-is-actually-for",
+      "what-fine-tuning-actually-is",
+      "lora-vs-prompting-vs-fine-tuning"
+    ]
+  },
+  {
+    "question": "AI training fundamentals: What is the 80/20 workflow?",
+    "answer": "Use powerful AI models to scaffold the first 80% of structure, examples, or draft material. Then use RoleThread to refine, structure, validate, organize, and privately control the final 20%.\n\nThat final pass is where the dataset becomes intentional rather than just generated.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "what-rolethread-is-actually-for",
+      "data-generation-beta",
+      "why-dataset-quality-matters"
+    ]
+  },
+  {
+    "question": "AI training fundamentals: Why not just prompt a model?",
+    "answer": "Prompting is temporary runtime guidance. It can work well, but it does not create durable training examples by itself.\n\nRoleThread helps when you need repeated conversational patterns, formatting, role consistency, style, or behavior captured as reviewable dataset entries.",
+    "category": "Getting Started",
+    "related_help_ids": [
+      "lora-vs-prompting-vs-fine-tuning",
+      "why-dataset-quality-matters"
+    ]
+  },
+  {
+    "question": "AI training fundamentals: Why does conversational data matter?",
+    "answer": "Conversational data teaches patterns: role order, user intent, assistant response shape, formatting, pacing, system prompt behavior, and continuity.\n\nFor roleplay datasets, structure matters even more because narration, dialogue, character behavior, and scene continuity can all become part of the training signal.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "what-fine-tuning-actually-is",
+      "why-dataset-quality-matters",
+      "dataset-formats"
+    ]
+  },
+  {
+    "question": "AI training fundamentals: Why keep creative training datasets local?",
+    "answer": "Many creative AI workflows are personal, sensitive, intimate, adult, niche, experimental, or simply private.\n\nRoleThread is local-first so creators can organize and refine datasets without uploading them to a hosted system. You control your files, exports, backups, and downstream training path.",
+    "category": "Safety, Backups, and Boundaries",
+    "related_help_ids": [
+      "privacy-and-local-first-creative-workflows",
+      "what-rolethread-is-actually-for",
+      "backups-cloud-sync-and-recovery"
+    ]
+  },
+  {
     "question": "Working copies and sidecars: Why did RoleThread create a working copy?",
     "answer": "A working copy protects source files that did not clearly come from RoleThread Lite. This is common with ShareGPT files, manually edited JSONL, older files, or datasets from another tool.\n\nThe working copy is intentional. It lets you safely edit without accidentally mutating the original source."
   },

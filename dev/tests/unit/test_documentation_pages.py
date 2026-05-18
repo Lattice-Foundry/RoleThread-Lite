@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 41
+    assert len(registry) == 46
     assert get_default_help_article_id() == "installing-rolethread-lite"
     assert registry["installing-rolethread-lite"].file_name == (
         "00_installing_rolethread_lite.md"
@@ -111,6 +111,25 @@ def test_help_article_registry_has_expected_articles():
     assert registry["understanding-default-tags"].category == "Metadata and Organization"
     assert registry["developer-launch-flags"].file_name == "26_developer_launch_flags.md"
     assert registry["developer-launch-flags"].category == "For Developers"
+    assert registry["what-rolethread-is-actually-for"].file_name == (
+        "41_what_rolethread_is_actually_for.md"
+    )
+    assert (
+        registry["what-rolethread-is-actually-for"].category
+        == "AI Training Fundamentals"
+    )
+    assert registry["what-fine-tuning-actually-is"].file_name == (
+        "42_what_fine_tuning_actually_is.md"
+    )
+    assert registry["lora-vs-prompting-vs-fine-tuning"].file_name == (
+        "43_lora_vs_prompting_vs_fine_tuning.md"
+    )
+    assert registry["why-dataset-quality-matters"].file_name == (
+        "44_why_dataset_quality_matters.md"
+    )
+    assert registry["privacy-and-local-first-creative-workflows"].file_name == (
+        "45_privacy_and_local_first_creative_workflows.md"
+    )
     assert registry["data-generation-beta"].file_name == "40_data_generation_beta.md"
     assert registry["data-generation-beta"].category == "Data Generation"
     assert registry["rolethread-studio-vision"].file_name == "28_rolethread_studio_vision.md"
@@ -258,6 +277,47 @@ def test_data_generation_beta_help_article_documents_public_positioning():
     assert "The beta label reflects" in document.content
     assert "not mean the application architecture is unstable" in document.content
     assert "Future RoleThread Studio work" in document.content
+
+
+def test_ai_training_fundamentals_articles_document_rolethread_purpose():
+    purpose = load_help_document("what-rolethread-is-actually-for")
+    fine_tuning = load_help_document("what-fine-tuning-actually-is")
+    comparison = load_help_document("lora-vs-prompting-vs-fine-tuning")
+    quality = load_help_document("why-dataset-quality-matters")
+    privacy = load_help_document("privacy-and-local-first-creative-workflows")
+
+    assert purpose.article.category == "AI Training Fundamentals"
+    assert "Use powerful AI models to scaffold the first 80%" in purpose.content
+    assert "RoleThread Lite is dataset infrastructure" in purpose.content
+    assert "not a hosted AI platform" in purpose.content
+    assert "external LoRA or fine-tuning workflows" in purpose.content
+
+    assert fine_tuning.article.category == "AI Training Fundamentals"
+    assert "base model" in fine_tuning.content
+    assert "not about making a model memorize exact scripts" in fine_tuning.content
+    assert "shape tendencies" in fine_tuning.content
+    assert "conversational structure" in fine_tuning.content
+
+    assert comparison.article.category == "AI Training Fundamentals"
+    assert "Prompting is temporary runtime guidance" in comparison.content
+    assert "Character cards are structured runtime steering" in comparison.content
+    assert "RAG means retrieval-augmented generation" in comparison.content
+    assert "LoRA stands for low-rank adaptation" in comparison.content
+    assert "Fine-tuning is deeper model adaptation" in comparison.content
+
+    assert quality.article.category == "AI Training Fundamentals"
+    assert "Training data is instruction by example" in quality.content
+    assert "malformed JSONL" in quality.content
+    assert "duplicated entries" in quality.content
+    assert "Roleplay and narrative datasets" in quality.content
+    assert "Validation is not there to scold the dataset" in quality.content
+
+    assert privacy.article.category == "AI Training Fundamentals"
+    assert "Creative AI workflows are often deeply personal" in privacy.content
+    assert "adult fictional themes" in privacy.content
+    assert "some work belongs on the creator's machine" in privacy.content
+    assert "There is no hosted inference requirement" in privacy.content
+    assert "creator ownership, privacy, autonomy, and local control" in privacy.content
 
 
 def test_developer_architecture_help_articles_document_layer_boundaries():
@@ -441,6 +501,12 @@ def test_help_article_order_is_global_reader_order():
     assert ordered_ids[0] == "installing-rolethread-lite"
     assert ordered_ids[1] == "getting-started"
     assert ordered_ids[-1] == "lite-vs-studio-boundaries"
+    assert ordered_ids.index("creating-a-new-dataset") < ordered_ids.index(
+        "what-rolethread-is-actually-for"
+    )
+    assert ordered_ids.index("privacy-and-local-first-creative-workflows") < (
+        ordered_ids.index("understanding-the-main-workspaces")
+    )
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
     assert ordered_ids.index("splitting-and-joining-entries") < ordered_ids.index(
         "data-generation-beta"
@@ -470,6 +536,16 @@ def test_help_article_category_order_and_grouping():
         "dataset-formats",
         "loading-datasets-and-working-copies",
         "creating-a-new-dataset",
+    ]
+    assert [
+        article.article_id
+        for article in grouped["AI Training Fundamentals"]
+    ] == [
+        "what-rolethread-is-actually-for",
+        "what-fine-tuning-actually-is",
+        "lora-vs-prompting-vs-fine-tuning",
+        "why-dataset-quality-matters",
+        "privacy-and-local-first-creative-workflows",
     ]
     assert [article.article_id for article in grouped["Data Generation"]] == [
         "data-generation-beta",
@@ -1065,6 +1141,18 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert any(
         entry.display_question == "Why is Data Generation marked beta?"
         and "prompt refinement" in entry.answer
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "What is the 80/20 workflow?"
+        and "first 80%" in entry.answer
+        and "what-rolethread-is-actually-for" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Why keep creative training datasets local?"
+        and entry.category == "Safety, Backups, and Boundaries"
+        and "privacy-and-local-first-creative-workflows" in entry.related_help_ids
         for entry in entries
     )
 

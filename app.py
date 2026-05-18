@@ -276,6 +276,7 @@ section[data-testid="stSidebar"] > div {{
 .rolethread-sidebar-logo {{
     flex: 0 0 auto;
     height: 4.55rem;
+    object-fit: contain;
     width: 4.55rem;
 }}
 .rolethread-sidebar-copy {{
