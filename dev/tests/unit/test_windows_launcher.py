@@ -154,6 +154,8 @@ def test_command_construction_for_webapp_launch(tmp_path):
 
     assert command[-2:] == ("--", "webapp")
     assert command[:4] == (str(python_path), "-m", "streamlit", "run")
+    assert "--server.headless" in command
+    assert command[command.index("--server.headless") + 1] == "true"
 
 
 def test_bundled_command_uses_internal_streamlit_mode(tmp_path):
@@ -322,6 +324,7 @@ def test_build_launcher_config_reads_preference_and_builds_webapp_command(tmp_pa
     assert config.launch_mode == launcher.LAUNCH_MODE_WEBAPP
     assert config.preferences_path == preferences_path
     assert config.log_path == local_app_data / "RoleThread" / "logs" / "launcher.log"
+    assert "--server.headless" in config.command
     assert config.command[-2:] == ("--", "webapp")
 
 

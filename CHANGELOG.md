@@ -16,6 +16,17 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.23] - 2026-05-18
+
+### Added
+
+- Added root-level `launch.py` as the canonical source/dev launcher entrypoint.
+- Added `python launch.py --webapp` support for launcher-owned headless Streamlit startup, pending browser-state reset consumption, Edge app-mode launch, HWND monitoring, and owned-backend shutdown through the existing lifecycle.
+
+### Changed
+
+- Updated shared non-frozen webapp command construction to start Streamlit with `--server.headless true`.
+
 ## [1.4.22] - 2026-05-18
 
 ### Fixed
