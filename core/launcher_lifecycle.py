@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+from core.browser_adapter import BrowserLaunchResult
 from core.launcher_runtime import LAUNCH_MODE_WEBAPP
 
 
@@ -64,12 +65,7 @@ class TerminationResult:
     message: str
 
 
-@dataclass(frozen=True)
-class EdgeLaunchResult:
-    attempted: bool
-    launched: bool
-    command: tuple[str, ...]
-    message: str
+EdgeLaunchResult = BrowserLaunchResult
 
 
 @dataclass(frozen=True)

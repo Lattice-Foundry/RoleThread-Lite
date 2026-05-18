@@ -22,6 +22,7 @@ from typing import Callable, Sequence
 from urllib import request
 from urllib.error import URLError
 
+from core.browser_adapter import launch_edge_app_mode
 from core.launcher_lifecycle import (
     EdgeLaunchResult,
     HealthCheckResult,
@@ -51,8 +52,6 @@ from core.shutdown_control import (
     SHUTDOWN_TOKEN_ENV,
 )
 from core.launch import EXTERNAL_WEBAPP_LAUNCH_ENV
-from core.edge_version_history import record_installed_edge_version
-from core.platform import detect_browser_capabilities
 from core.webapp_browser_state import consume_pending_webapp_browser_state_reset
 
 
@@ -582,38 +581,15 @@ def launch_edge_webapp_window(
     url: str | None = None,
     popen: Callable[..., subprocess.Popen] = subprocess.Popen,
 ) -> EdgeLaunchResult:
-    """Open the launcher-managed Edge app window after Streamlit is healthy."""
+    """Open the launcher-managed Edge app window through the Edge adapter."""
 
-    # WEBAPP_LIFECYCLE_TODO: this is the canonical owner for Edge app-mode
-    # startup; app.py should eventually stop launching Edge directly.
-    detection = detect_browser_capabilities()
-    edge_path = detection.browser.edge_path
-    if detection.platform.os_name != "windows" or edge_path is None:
-        return EdgeLaunchResult(
-            attempted=False,
-            launched=False,
-            command=(),
-            message="Windows Microsoft Edge webapp launch is unavailable.",
-        )
-    record_installed_edge_version(edge_path, source="launcher")
-
-    target_url = url or build_streamlit_app_url()
-    command = (str(edge_path), f"--app={target_url}")
-    try:
-        popen(command)
-    except Exception as exc:
-        return EdgeLaunchResult(
-            attempted=True,
-            launched=False,
-            command=command,
-            message=f"Edge webapp launch failed: {exc}",
-        )
-
-    return EdgeLaunchResult(
-        attempted=True,
-        launched=True,
-        command=command,
-        message="Edge webapp launch command was started.",
+    # WEBAPP_LIFECYCLE_TODO: this adapter call is the first browser boundary.
+    # Future Chrome/Chromium adapters should plug in here without changing
+    # launcher lifecycle orchestration.
+    return launch_edge_app_mode(
+        url=url or build_streamlit_app_url(),
+        popen=popen,
+        source="launcher",
     )
 
 

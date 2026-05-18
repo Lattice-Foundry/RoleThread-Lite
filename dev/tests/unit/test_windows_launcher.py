@@ -600,6 +600,16 @@ def test_pyinstaller_spec_uses_windowed_no_console_mode():
     assert "console=True" not in spec_text
 
 
+def test_pyinstaller_spec_packages_shared_launcher_lifecycle_modules():
+    spec_path = Path(__file__).parents[3] / "installer" / "windows" / "rolethread_launcher.spec"
+    spec_text = spec_path.read_text(encoding="utf-8")
+
+    assert "rolethread_launcher.py" in spec_text
+    assert 'collect_project_data("core", "core")' in spec_text
+    assert 'collect_submodules(package_name)' in spec_text
+    assert 'for package_name in ("core", "services", "ui")' in spec_text
+
+
 def test_inno_installer_script_packages_launcher_bundle():
     inno_path = (
         Path(__file__).parents[3]
@@ -745,47 +755,46 @@ def test_build_subprocess_env_does_not_mark_normal_launch_as_external_webapp(tmp
     assert launcher.EXTERNAL_WEBAPP_LAUNCH_ENV not in env
 
 
-def test_launch_edge_webapp_window_uses_detected_edge_path(monkeypatch):
-    edge_path = Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe")
-    monkeypatch.setattr(
-        launcher,
-        "detect_browser_capabilities",
-        lambda: SimpleNamespace(
-            platform=SimpleNamespace(os_name="windows"),
-            browser=SimpleNamespace(edge_path=edge_path),
-        ),
-    )
-    commands = []
+def test_launch_edge_webapp_window_delegates_to_edge_adapter(monkeypatch):
+    calls = []
 
-    result = launcher.launch_edge_webapp_window(
-        url="http://127.0.0.1:8501",
-        popen=lambda command: commands.append(tuple(command)),
-    )
+    def fake_launch_edge_app_mode(*, url, popen, source):
+        calls.append((url, popen, source))
+        return launcher.EdgeLaunchResult(
+            attempted=True,
+            launched=True,
+            command=("msedge", f"--app={url}"),
+            message="launched",
+        )
+
+    monkeypatch.setattr(launcher, "launch_edge_app_mode", fake_launch_edge_app_mode)
+    popen = lambda command: None
+
+    result = launcher.launch_edge_webapp_window(url="http://127.0.0.1:8501", popen=popen)
 
     assert result.attempted is True
     assert result.launched is True
-    assert result.command == (str(edge_path), "--app=http://127.0.0.1:8501")
-    assert commands == [result.command]
+    assert result.command == ("msedge", "--app=http://127.0.0.1:8501")
+    assert calls == [("http://127.0.0.1:8501", popen, "launcher")]
 
 
-def test_launch_edge_webapp_window_skips_without_edge(monkeypatch):
-    monkeypatch.setattr(
-        launcher,
-        "detect_browser_capabilities",
-        lambda: SimpleNamespace(
-            platform=SimpleNamespace(os_name="windows"),
-            browser=SimpleNamespace(edge_path=None),
-        ),
-    )
+def test_launch_edge_webapp_window_uses_default_loopback_app_url(monkeypatch):
+    calls = []
 
-    result = launcher.launch_edge_webapp_window(
-        popen=lambda command: (_ for _ in ()).throw(
-            AssertionError("should not launch without Edge")
-        ),
-    )
+    def fake_launch_edge_app_mode(*, url, popen, source):
+        calls.append(url)
+        return launcher.EdgeLaunchResult(
+            attempted=True,
+            launched=True,
+            command=("msedge", f"--app={url}"),
+            message="launched",
+        )
 
-    assert result.attempted is False
-    assert result.launched is False
+    monkeypatch.setattr(launcher, "launch_edge_app_mode", fake_launch_edge_app_mode)
+    result = launcher.launch_edge_webapp_window(popen=lambda command: None)
+
+    assert result.launched is True
+    assert calls == ["http://127.0.0.1:8501"]
 
 
 def test_request_graceful_shutdown_builds_tokenized_local_request(tmp_path):

@@ -16,6 +16,21 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.33] - 2026-05-18
+
+### Changed
+
+- Prepared the Windows installer/package launch path for beta testing on the shared launcher lifecycle, runtime helper, and Edge browser-adapter architecture.
+- Added packaging coverage to ensure the PyInstaller spec bundles the shared core launcher modules used by `RoleThreadLauncher.exe`.
+
+## [1.4.32] - 2026-05-18
+
+### Changed
+
+- Introduced the first browser adapter boundary with Microsoft Edge as the initial managed-webapp adapter.
+- Moved Edge app-mode command construction, availability checks, launch execution, and Edge version recording out of the Windows packaged launcher adapter.
+- Kept HWND monitoring, pending browser-state reset handling, and Windows packaged launcher lifecycle wiring unchanged.
+
 ## [1.4.31] - 2026-05-18
 
 ### Changed
