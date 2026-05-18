@@ -2,7 +2,7 @@
 
 Validation protects conversational structure and behavioral consistency.
 
-It is not an arbitrary rule system. It is a way to catch problems before they become training signal.
+It is a way to catch problems before they become training signal.
 
 ## Structure Is Part Of The Lesson
 

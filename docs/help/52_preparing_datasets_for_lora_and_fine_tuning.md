@@ -4,23 +4,6 @@ Training readiness is a workflow, not a button.
 
 Before a dataset leaves RoleThread for an external LoRA or fine-tuning tool, it should be cleaned, reviewed, balanced, and exported with intention. The goal is not to make the dataset perfect. The goal is to avoid training on avoidable noise.
 
-## Quality Beats Raw Size
-
-Training quality matters more than raw dataset size.
-
-A small high-quality dataset can outperform a large low-quality dataset when the smaller dataset has:
-
-- clean structure
-- consistent role order
-- strong assistant responses
-- intentional formatting
-- varied but coherent examples
-- useful system prompts
-- minimal duplication
-- clear behavioral targets
-
-Large noisy datasets can amplify the wrong things faster.
-
 ## Clean Before Export
 
 Before exporting, review for:
@@ -85,5 +68,3 @@ Training can amplify flaws.
 Repeated filler becomes a habit. Repeated verbosity becomes a habit. Repeated emotional flatness becomes a habit. Repeated formatting mistakes become a habit.
 
 RoleThread's value is in slowing the process down enough to inspect what you are about to reinforce.
-
-Use AI for the first 80% when it helps. Use RoleThread for the final 20%: cleanup, structure, validation, organization, and export preparation.

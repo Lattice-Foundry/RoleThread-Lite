@@ -55,7 +55,7 @@ That structure is why RoleThread focuses on ChatML-style entries, working copies
 
 RoleThread is local-first because many real creative training workflows are private.
 
-Users may work with fictional material that is personal, intimate, emotionally heavy, adult, niche, experimental, or simply not meant for a hosted service. Some creators also work in areas where hosted platforms restrict fictional or adult content entirely.
+Users may work with fictional material that is personal, intimate, emotionally heavy, adult, niche, experimental, or simply not meant for a hosted service.
 
 RoleThread does not require you to upload datasets to a cloud system to organize them.
 

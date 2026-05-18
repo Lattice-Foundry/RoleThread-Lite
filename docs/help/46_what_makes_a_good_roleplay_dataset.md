@@ -99,5 +99,3 @@ The assistant message is usually the behavior you are training hardest. Treat it
 A good roleplay dataset is not just large.
 
 It is shaped. It has variety without chaos, consistency without stiffness, and enough structure for the model to learn the behavior you actually want.
-
-Use AI for the first 80% when it helps. Use RoleThread for the final 20%: review, cleanup, validation, organization, and creator-controlled refinement.
