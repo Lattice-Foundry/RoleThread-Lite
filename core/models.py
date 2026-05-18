@@ -186,6 +186,78 @@ class SystemPromptTemplate(Base):
         return f"<SystemPromptTemplate id={self.id} slug={self.slug!r}>"
 
 
+class GenerationPromptChunk(Base):
+    """Reusable prompt chunk text for future generation templates."""
+    __tablename__ = "generation_prompt_chunks"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_generation_prompt_chunk_slug"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_datetime
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utc_datetime,
+        onupdate=_utc_datetime,
+    )
+
+    template_mappings: Mapped[list["GenerationTemplateChunk"]] = relationship(
+        "GenerationTemplateChunk",
+        back_populates="chunk",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self) -> str:
+        return f"<GenerationPromptChunk id={self.id} slug={self.slug!r}>"
+
+
+class GenerationTemplateChunk(Base):
+    """Ordered mapping from a generation template to one prompt chunk."""
+    __tablename__ = "generation_template_chunks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    template_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    chunk_slug: Mapped[str] = mapped_column(
+        String(160),
+        ForeignKey("generation_prompt_chunks.slug", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    condition_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    condition_value: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_datetime
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utc_datetime,
+        onupdate=_utc_datetime,
+    )
+
+    chunk: Mapped["GenerationPromptChunk"] = relationship(
+        "GenerationPromptChunk",
+        back_populates="template_mappings",
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<GenerationTemplateChunk template_id={self.template_id!r} "
+            f"chunk_slug={self.chunk_slug!r} sort_order={self.sort_order}>"
+        )
+
+
 class TagLifecycleMetadata(Base):
     """Current lifecycle metadata and resolver intelligence for one tag slug."""
     __tablename__ = "tag_lifecycle_metadata"

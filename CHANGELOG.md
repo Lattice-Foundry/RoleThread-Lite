@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.3] - 2026-05-17
+
+### Internal
+
+- Added SQLAlchemy foundation models for future generation prompt chunk storage.
+- Prepared database-backed generation template/chunk ordering and conditional mapping architecture.
+
 ## [1.4.2] - 2026-05-17
 
 ### Changed
