@@ -89,10 +89,4 @@ Use RoleThread to:
 
 RoleThread is refinement infrastructure, validation infrastructure, organizational infrastructure, and creator-controlled workflow tooling.
 
-## Synthetic Data Still Needs Judgment
-
-AI generation can amplify flaws.
-
-Repetition compounds quickly. Weak emotional loops become common. Formatting quirks spread. Assistant responses can become generic or overly long. Contradictory behavior can slip in because each generated entry looks acceptable in isolation.
-
-Human refinement is the part that decides what the dataset is actually teaching.
+For a deeper look at the tradeoffs between synthetic and human-written data — including where synthetic generation gets weak and why human refinement adds signal — see Synthetic Data vs Human-Written Data.

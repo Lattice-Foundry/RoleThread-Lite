@@ -8,7 +8,7 @@ That means controlling the files, the workflow, the metadata, the backups, the e
 
 Conversational and roleplay datasets can be personal.
 
-They may contain private fictional scenarios, experimental concepts, sensitive emotional material, specialized character work, or niche creative patterns. Creators should not need to upload that material to a hosted system just to organize and refine it.
+For a full look at why sensitive, private, and creative material benefits from local control, see Privacy and Local-First Creative Workflows.
 
 Local-first infrastructure exists because ownership and privacy are part of the workflow.
 

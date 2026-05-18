@@ -82,4 +82,6 @@ RoleThread's job is not to judge every fictional workflow. Its job is to give cr
 
 RoleThread respects that creative datasets can be personal.
 
-The app is built around creator ownership, privacy, autonomy, and local control because those things are not optional details for this kind of work. They are part of the workflow.
+The app is built around privacy, autonomy, and local control because those things are not optional details for this kind of work. They are part of the workflow.
+
+For the broader case for creator ownership, portability, and long-term dataset control, see Creator Ownership and Long-Term Workflow Philosophy.
