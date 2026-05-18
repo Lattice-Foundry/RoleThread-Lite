@@ -30,7 +30,7 @@ Hosted AI services often restrict certain fictional, adult, sensitive, or experi
 
 Those restrictions may make sense for the provider's platform, risk model, or business requirements. They can still make hosted systems a poor fit for some private creative dataset workflows.
 
-RoleThread does not need to turn that into a culture war. The practical point is simpler: some work belongs on the creator's machine.
+RoleThread does not need to frame that as a broader argument. The practical point is simpler: some work belongs on the creator's machine.
 
 ## What RoleThread Does Locally
 

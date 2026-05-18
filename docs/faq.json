@@ -69,6 +69,55 @@
     ]
   },
   {
+    "question": "AI training fundamentals: What makes a good roleplay dataset?",
+    "answer": "A good roleplay dataset teaches consistent roles, believable pacing, emotional continuity, conversational realism, and intentional narration/dialogue balance.\n\nIt is curated, not blindly generated. Repetitive structures, excessive verbosity, weak assistant turns, and robotic phrasing can all become learned habits.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "what-makes-a-good-roleplay-dataset",
+      "dialogue-vs-narration-balance",
+      "character-consistency-and-drift"
+    ]
+  },
+  {
+    "question": "AI training fundamentals: Why not keep every synthetic generation?",
+    "answer": "Synthetic data can be useful, but weak generations compound quickly. Repetition, shallow emotional loops, formatting drift, and generic assistant replies can contaminate the dataset signal.\n\nUse AI for draft momentum, then use RoleThread to review, remove, edit, validate, and organize what is actually worth training on.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "ai-assisted-dataset-creation-workflow",
+      "common-dataset-mistakes",
+      "why-validation-matters"
+    ]
+  },
+  {
+    "question": "AI training fundamentals: Is dialogue-heavy or narration-heavy roleplay better?",
+    "answer": "Neither is universally better. Dialogue-heavy datasets teach faster chat-style exchange. Narration-heavy datasets teach more immersive scene detail, action, and emotional context.\n\nThe important question is what behavior you want the model to learn. Shape the balance intentionally.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "dialogue-vs-narration-balance",
+      "what-makes-a-good-roleplay-dataset"
+    ]
+  },
+  {
+    "question": "AI training fundamentals: Why do characters drift during roleplay?",
+    "answer": "Characters drift when examples reinforce inconsistent personality, tone, pacing, boundaries, or emotional reactions.\n\nModels reinforce repeated behavioral patterns. That is dataset behavior shaping: repeated continuity teaches continuity, while repeated instability teaches instability.",
+    "category": "Metadata and Characters",
+    "related_help_ids": [
+      "character-consistency-and-drift",
+      "character-registry-and-character-mappings",
+      "default-mode-vs-group-chat"
+    ]
+  },
+  {
+    "question": "AI training fundamentals: Why does validation matter for roleplay datasets?",
+    "answer": "Validation protects conversational structure and behavioral consistency. It helps catch malformed exchanges, invalid role order, duplicate conversations, broken formatting, tag inconsistency, and structural problems that are easy to miss in raw JSONL.\n\nIt is not about arbitrary restrictions. It is about keeping the training signal coherent.",
+    "category": "Validation, Export, and Training",
+    "related_help_ids": [
+      "why-validation-matters",
+      "validation-and-repair",
+      "why-dataset-quality-matters"
+    ]
+  },
+  {
     "question": "Working copies and sidecars: Why did RoleThread create a working copy?",
     "answer": "A working copy protects source files that did not clearly come from RoleThread Lite. This is common with ShareGPT files, manually edited JSONL, older files, or datasets from another tool.\n\nThe working copy is intentional. It lets you safely edit without accidentally mutating the original source."
   },

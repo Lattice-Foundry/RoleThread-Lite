@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.15] - 2026-05-17
+
+### Added
+
+- Expanded AI Training Fundamentals with practical roleplay dataset craftsmanship articles covering dataset mistakes, dialogue/narration balance, character drift, AI-assisted creation workflows, and validation.
+- Added FAQ entries for roleplay dataset quality, synthetic data review, narration balance, character drift, and validation.
+
 ## [1.4.14] - 2026-05-17
 
 ### Added

@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 46
+    assert len(registry) == 52
     assert get_default_help_article_id() == "installing-rolethread-lite"
     assert registry["installing-rolethread-lite"].file_name == (
         "00_installing_rolethread_lite.md"
@@ -129,6 +129,24 @@ def test_help_article_registry_has_expected_articles():
     )
     assert registry["privacy-and-local-first-creative-workflows"].file_name == (
         "45_privacy_and_local_first_creative_workflows.md"
+    )
+    assert registry["what-makes-a-good-roleplay-dataset"].file_name == (
+        "46_what_makes_a_good_roleplay_dataset.md"
+    )
+    assert registry["common-dataset-mistakes"].file_name == (
+        "47_common_dataset_mistakes.md"
+    )
+    assert registry["dialogue-vs-narration-balance"].file_name == (
+        "48_dialogue_vs_narration_balance.md"
+    )
+    assert registry["character-consistency-and-drift"].file_name == (
+        "49_character_consistency_and_drift.md"
+    )
+    assert registry["ai-assisted-dataset-creation-workflow"].file_name == (
+        "50_ai_assisted_dataset_creation_workflow.md"
+    )
+    assert registry["why-validation-matters"].file_name == (
+        "51_why_validation_matters.md"
     )
     assert registry["data-generation-beta"].file_name == "40_data_generation_beta.md"
     assert registry["data-generation-beta"].category == "Data Generation"
@@ -320,6 +338,51 @@ def test_ai_training_fundamentals_articles_document_rolethread_purpose():
     assert "creator ownership, privacy, autonomy, and local control" in privacy.content
 
 
+def test_ai_training_fundamentals_articles_document_roleplay_dataset_craft():
+    roleplay = load_help_document("what-makes-a-good-roleplay-dataset")
+    mistakes = load_help_document("common-dataset-mistakes")
+    balance = load_help_document("dialogue-vs-narration-balance")
+    consistency = load_help_document("character-consistency-and-drift")
+    workflow = load_help_document("ai-assisted-dataset-creation-workflow")
+    validation = load_help_document("why-validation-matters")
+
+    assert roleplay.article.category == "AI Training Fundamentals"
+    assert "Repetition Becomes Behavior" in roleplay.content
+    assert "Conversational rhythm matters" in roleplay.content
+    assert "Weak assistant responses reduce output quality" in roleplay.content
+    assert "Use AI for the first 80%" in roleplay.content
+
+    assert mistakes.article.category == "AI Training Fundamentals"
+    assert "More data does not automatically mean better data" in mistakes.content
+    assert "malformed role order" in mistakes.content
+    assert "Excessive Greeting Data" in mistakes.content
+    assert "AI-generated examples can be useful scaffolding" in mistakes.content
+
+    assert balance.article.category == "AI Training Fundamentals"
+    assert "There is no single correct style" in balance.content
+    assert "Dialogue-heavy datasets" in balance.content
+    assert "Prose-heavy datasets" in balance.content
+    assert "Emotionally dense conversational roleplay" in balance.content
+
+    assert consistency.article.category == "AI Training Fundamentals"
+    assert "dataset behavior shaping" in consistency.content
+    assert "Models reinforce repeated behavioral patterns" in consistency.content
+    assert "Tone drift is common in generated data" in consistency.content
+    assert "Quirks are easy to overtrain" in consistency.content
+
+    assert workflow.article.category == "AI Training Fundamentals"
+    assert "Generate baseline examples with powerful AI models" in workflow.content
+    assert "Remove repetitive or weak generations" in workflow.content
+    assert "RoleThread is refinement infrastructure" in workflow.content
+    assert "Synthetic Data Still Needs Judgment" in workflow.content
+
+    assert validation.article.category == "AI Training Fundamentals"
+    assert "Validation protects conversational structure" in validation.content
+    assert "malformed exchanges" in validation.content
+    assert "Conversational integrity" in validation.content
+    assert "Editing raw JSONL by hand is possible" in validation.content
+
+
 def test_developer_architecture_help_articles_document_layer_boundaries():
     architecture = load_help_document("codebase-architecture")
     boundaries = load_help_document("layer-boundaries-and-responsibilities")
@@ -505,6 +568,9 @@ def test_help_article_order_is_global_reader_order():
         "what-rolethread-is-actually-for"
     )
     assert ordered_ids.index("privacy-and-local-first-creative-workflows") < (
+        ordered_ids.index("what-makes-a-good-roleplay-dataset")
+    )
+    assert ordered_ids.index("why-validation-matters") < (
         ordered_ids.index("understanding-the-main-workspaces")
     )
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
@@ -546,6 +612,12 @@ def test_help_article_category_order_and_grouping():
         "lora-vs-prompting-vs-fine-tuning",
         "why-dataset-quality-matters",
         "privacy-and-local-first-creative-workflows",
+        "what-makes-a-good-roleplay-dataset",
+        "common-dataset-mistakes",
+        "dialogue-vs-narration-balance",
+        "character-consistency-and-drift",
+        "ai-assisted-dataset-creation-workflow",
+        "why-validation-matters",
     ]
     assert [article.article_id for article in grouped["Data Generation"]] == [
         "data-generation-beta",
@@ -1153,6 +1225,22 @@ def test_faq_entries_group_into_clean_sidebar_categories():
         entry.display_question == "Why keep creative training datasets local?"
         and entry.category == "Safety, Backups, and Boundaries"
         and "privacy-and-local-first-creative-workflows" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "What makes a good roleplay dataset?"
+        and "what-makes-a-good-roleplay-dataset" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Why not keep every synthetic generation?"
+        and "ai-assisted-dataset-creation-workflow" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Why do characters drift during roleplay?"
+        and entry.category == "Metadata and Characters"
+        and "character-consistency-and-drift" in entry.related_help_ids
         for entry in entries
     )
 
