@@ -68,3 +68,9 @@ RoleThread repair workflows are designed for safe, predictable fixes.
 They should not rewrite the creative meaning of an entry. They should help with mechanical or structural cleanup, then leave semantic judgment to the creator.
 
 That boundary matters. Validation is there to make problems visible and protect the dataset, not to take creative control away from you.
+
+## Related Articles
+
+- **Validation and Repair**
+- **Preparing Datasets for LoRA and Fine-Tuning**
+- **Common Dataset Mistakes**

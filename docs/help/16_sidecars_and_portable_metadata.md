@@ -139,4 +139,10 @@ If you need to change tags, characters, prompts, or mappings, use the app pages 
 
 **Better mental model:** The JSONL is the training data. The sidecar is the portable RoleThread context. If you want to keep tags, characters, prompt templates, and mappings, keep both files together.
 
+## Related Articles
+
+- **Loading Datasets and Working Copies**
+- **Exporting Datasets**
+- **Backups, Cloud Sync, and Recovery**
+
 

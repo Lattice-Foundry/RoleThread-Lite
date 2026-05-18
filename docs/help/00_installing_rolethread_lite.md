@@ -126,9 +126,7 @@ Close RoleThread Lite before uninstalling. The uninstaller checks for
 `RoleThreadLauncher.exe` and asks you to close the app instead of broadly
 terminating Python, Edge, Streamlit, or browser processes.
 
-## Where To Go Next
-
-After installation, read:
+## Related Articles
 
 - **Getting Started**
 - **What RoleThread Lite Does**

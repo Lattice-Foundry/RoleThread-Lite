@@ -112,3 +112,9 @@ Templates do not replace review, validation, or good writing judgment.
 
 Keep templates focused. If a prompt contains too many unrelated instructions, create a few smaller templates instead of one giant one.
 
+## Related Articles
+
+- **Creating Entries**
+- **Character Registry and Character Mappings**
+- **Default Mode vs Group Chat**
+

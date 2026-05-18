@@ -107,3 +107,9 @@ AI-generated examples can be useful scaffolding.
 They can also amplify flaws fast. If the prompt produces repetitive, shallow, overlong, or contradictory data, generating more of it usually makes the problem worse.
 
 Use AI for draft volume. Use RoleThread to decide what is worth keeping.
+
+## Related Articles
+
+- **Why Dataset Quality Matters**
+- **What Makes a Good Roleplay Dataset**
+- **Dataset Scaling and Maintenance**

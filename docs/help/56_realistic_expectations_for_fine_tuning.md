@@ -73,3 +73,9 @@ The test results tell you what the next dataset pass should fix.
 The point is not to make fine-tuning sound fragile.
 
 The point is to make it understandable. Good training workflows are iterative, testable, and guided by evidence. RoleThread gives you a place to refine the dataset between those cycles.
+
+## Related Articles
+
+- **What Fine-Tuning Actually Is**
+- **Preparing Datasets for LoRA and Fine-Tuning**
+- **Why Dataset Quality Matters**

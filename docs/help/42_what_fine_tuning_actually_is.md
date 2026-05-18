@@ -76,3 +76,9 @@ Fine-tuning can amplify whatever is in the dataset.
 If the dataset is inconsistent, repetitive, malformed, or poorly balanced, the trained behavior may reflect that. If the dataset is careful, varied, and structurally clean, the model has a better signal to learn from.
 
 RoleThread helps you inspect and improve that signal before export.
+
+## Related Articles
+
+- **LoRA vs Prompting vs Fine-Tuning**
+- **Realistic Expectations for Fine-Tuning**
+- **Why Dataset Quality Matters**

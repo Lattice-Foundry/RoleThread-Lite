@@ -194,3 +194,9 @@ In normal mode, that section shows:
 Developer diagnostics are shown only when the app is launched with developer
 flags.
 
+## Related Articles
+
+- **Installing RoleThread Lite**
+- **Settings and Preferences**
+- **Backups, Cloud Sync, and Recovery**
+

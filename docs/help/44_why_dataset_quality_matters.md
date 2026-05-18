@@ -94,3 +94,9 @@ More data is not automatically better.
 A smaller dataset with clean structure, varied examples, intentional style, and coherent metadata can be more useful than a larger pile of noisy entries.
 
 RoleThread exists to make that cleanup work practical.
+
+## Related Articles
+
+- **What Makes a Good Roleplay Dataset**
+- **Common Dataset Mistakes**
+- **Preparing Datasets for LoRA and Fine-Tuning**

@@ -68,3 +68,10 @@ Training can amplify flaws.
 Repeated filler becomes a habit. Repeated verbosity becomes a habit. Repeated emotional flatness becomes a habit. Repeated formatting mistakes become a habit.
 
 RoleThread's value is in slowing the process down enough to inspect what you are about to reinforce.
+
+## Related Articles
+
+- **What Fine-Tuning Actually Is**
+- **LoRA vs Prompting vs Fine-Tuning**
+- **Realistic Expectations for Fine-Tuning**
+- **Why Dataset Quality Matters**

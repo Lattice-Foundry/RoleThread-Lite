@@ -97,3 +97,10 @@ That split does not make Lite incomplete. Lite provides the deterministic toolin
 Treat generated results as a draft source, not finished training data.
 
 Run Validation, inspect the content, check formatting, and edit anything that does not match your dataset goals. Data Generation can speed up structured drafting, but dataset quality still comes from review and intentional curation.
+
+## Related Articles
+
+- **What RoleThread Is Actually For**
+- **AI-Assisted Dataset Creation Workflow**
+- **Synthetic Data vs Human-Written Data**
+- **Validation and Repair**

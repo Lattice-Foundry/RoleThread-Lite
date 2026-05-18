@@ -120,4 +120,10 @@ Use clean export when the target system should only receive conversation records
 - Use clean export for final training files when you do not want RoleThread metadata included.
 - Keep sidecar files with datasets when you want tags, characters, and prompt metadata to travel with them.
 
+## Related Articles
+
+- **Loading Datasets and Working Copies**
+- **Exporting Datasets**
+- **Sidecars and Portable Metadata**
+
 

@@ -127,13 +127,10 @@ Optional cloud backup can mirror the latest backup material to a configured sync
 - Run clean export only when you want training records without RoleThread metadata.
 - Do not manually edit sidecar files unless you know exactly why.
 
-## Where to Go Next
-
-If you are brand new, read these next:
+## Related Articles
 
 - **What RoleThread Lite Does**
 - **Dataset Formats**
 - **Loading Datasets and Working Copies**
-- **Creating a New Dataset**
 - **Understanding the Main Workspaces**
 

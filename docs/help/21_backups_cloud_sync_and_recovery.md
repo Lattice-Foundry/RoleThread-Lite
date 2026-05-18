@@ -156,4 +156,10 @@ If cloud backup finds usable material during startup, RoleThread may offer resto
 - Export settings when moving machines.
 - Run Validation after restoring from backup.
 
+## Related Articles
+
+- **Sidecars and Portable Metadata**
+- **Settings and Preferences**
+- **OS Compatibility and Storage Policy**
+
 

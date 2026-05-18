@@ -116,6 +116,12 @@ Use **Split** when an entry contains too much.
 
 Use **Join** when related entries are too fragmented.
 
+## Related Articles
+
+- **Creating Entries**
+- **Splitting and Joining Entries**
+- **Validation and Repair**
+
 ## Practical Tip
 
 If you are cleaning a dataset, work in passes:
