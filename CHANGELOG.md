@@ -16,6 +16,14 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.31] - 2026-05-18
+
+### Changed
+
+- Moved shared launcher runtime command, URL, launch-mode, and command-formatting helpers out of the Windows packaged launcher adapter.
+- Kept the Windows launcher focused on packaged path resolution, Edge launch, HWND monitoring, process ownership, and installer-specific behavior.
+- Added launcher runtime tests covering loopback webapp commands, normal browser commands, bundled adapter commands, and local lifecycle URLs.
+
 ## [1.4.30] - 2026-05-18
 
 ### Changed

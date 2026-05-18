@@ -34,6 +34,17 @@ from core.launcher_lifecycle import (
     WindowCloseDetectionResult,
     run_launcher_lifecycle as run_shared_launcher_lifecycle,
 )
+from core.launcher_runtime import (
+    LAUNCH_MODE_NORMAL,
+    LAUNCH_MODE_WEBAPP,
+    STREAMLIT_HOST,
+    STREAMLIT_PORT,
+    build_launcher_shutdown_url,
+    build_streamlit_app_url,
+    build_streamlit_command as build_shared_streamlit_command,
+    build_streamlit_health_url,
+    format_command,
+)
 from core.shutdown_control import (
     SHUTDOWN_HEADER,
     SHUTDOWN_PORT_ENV,
@@ -51,21 +62,8 @@ PREFERENCES_FILE_NAME = "preferences.json"
 INSTALLER_SEED_FILE_NAME = "installer_seed.json"
 LAUNCHER_LOG_FILE_NAME = "launcher.log"
 DATABASE_FILE_NAME = "rolethread.db"
-STREAMLIT_PORT = "8501"
-STREAMLIT_HOST = "127.0.0.1"
-STREAMLIT_HEALTH_PATH = "/_stcore/health"
-STREAMLIT_ARGS = (
-    "-m",
-    "streamlit",
-    "run",
-    "app.py",
-    "--server.port",
-    STREAMLIT_PORT,
-)
 INTERNAL_STREAMLIT_FLAG = "--rolethread-run-streamlit"
 LAUNCHER_LOG_PATH_ENV = "ROLETHREAD_LAUNCHER_LOG_PATH"
-LAUNCH_MODE_NORMAL = "normal"
-LAUNCH_MODE_WEBAPP = "webapp"
 WEBAPP_PREFERENCE_KEY = "enable_webapp_launch_mode"
 DEFAULT_HEALTH_TIMEOUT_SECONDS = 30.0
 DEFAULT_SHUTDOWN_TIMEOUT_SECONDS = 15.0
@@ -302,47 +300,24 @@ def build_streamlit_command(
     app_root: Path | None = None,
     frozen: bool = False,
 ) -> tuple[str, ...]:
-    # WEBAPP_LIFECYCLE_TODO: extract command construction into the shared
-    # lifecycle layer so dev/manual and packaged webapp launcher modes both
-    # start Streamlit headless before RoleThread opens Edge.
+    """Build the Streamlit command after resolving adapter-specific app paths."""
+
     if frozen:
         if app_root is None:
             raise LauncherConfigurationError("Bundled launch requires an app root.")
         app_script = validate_app_root(app_root) / "app.py"
-        command_parts: tuple[str, ...] = (
-            str(python_path),
-            INTERNAL_STREAMLIT_FLAG,
-            str(app_script),
-            "--global.developmentMode=false",
-            "--server.port",
-            STREAMLIT_PORT,
-        )
-        if launch_mode == LAUNCH_MODE_WEBAPP:
-            command_parts = (
-                *command_parts,
-                "--server.address",
-                STREAMLIT_HOST,
-                "--server.headless",
-                "true",
-            )
-        command = command_parts
     else:
-        command_parts = (str(python_path), *STREAMLIT_ARGS)
-        if launch_mode == LAUNCH_MODE_WEBAPP:
-            command_parts = (
-                *command_parts,
-                "--server.address",
-                STREAMLIT_HOST,
-                "--server.headless",
-                "true",
-            )
-        command = command_parts
+        app_script = None
 
-    if launch_mode == LAUNCH_MODE_WEBAPP:
-        return (*command, "--", "webapp")
-    if launch_mode == LAUNCH_MODE_NORMAL:
-        return command
-    raise LauncherConfigurationError(f"Unknown launch mode: {launch_mode}")
+    try:
+        return build_shared_streamlit_command(
+            python_path,
+            launch_mode=launch_mode,
+            app_script=app_script,
+            internal_streamlit_flag=INTERNAL_STREAMLIT_FLAG if frozen else None,
+        )
+    except ValueError as exc:
+        raise LauncherConfigurationError(str(exc)) from exc
 
 
 def build_launcher_config(
@@ -399,7 +374,7 @@ def build_launcher_config(
     )
 
 
-def is_port_available(host: str = "127.0.0.1", port: int = int(STREAMLIT_PORT)) -> bool:
+def is_port_available(host: str = STREAMLIT_HOST, port: int = int(STREAMLIT_PORT)) -> bool:
     """Return False when something is already listening on the Streamlit port."""
 
     try:
@@ -536,10 +511,6 @@ def show_failure_message(message: str, *, title: str = APP_NAME) -> None:
         return
 
 
-def format_command(command: Sequence[str]) -> str:
-    return " ".join(f'"{part}"' if " " in part else part for part in command)
-
-
 def build_subprocess_env(
     config: LauncherConfig,
     env: dict[str, str] | None = None,
@@ -604,22 +575,6 @@ def launch_rolethread(
         (f"started_pid={getattr(process, 'pid', 'unknown')}",),
     )
     return process
-
-
-def build_streamlit_health_url(
-    *,
-    host: str = STREAMLIT_HOST,
-    port: str = STREAMLIT_PORT,
-) -> str:
-    return f"http://{host}:{port}{STREAMLIT_HEALTH_PATH}"
-
-
-def build_streamlit_app_url(
-    *,
-    host: str = STREAMLIT_HOST,
-    port: str = STREAMLIT_PORT,
-) -> str:
-    return f"http://{host}:{port}"
 
 
 def launch_edge_webapp_window(
@@ -1132,7 +1087,7 @@ def request_graceful_shutdown(
             status_code=None,
             message="No shutdown control channel was configured.",
         )
-    url = f"http://{STREAMLIT_HOST}:{config.shutdown_port}/shutdown"
+    url = build_launcher_shutdown_url(port=config.shutdown_port)
     shutdown_request = request.Request(
         url,
         data=b"",

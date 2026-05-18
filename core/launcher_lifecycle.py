@@ -7,9 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+from core.launcher_runtime import LAUNCH_MODE_WEBAPP
+
 
 LifecycleStatusCallback = Callable[[str], None]
-DEFAULT_WEBAPP_LAUNCH_MODE = "webapp"
+DEFAULT_WEBAPP_LAUNCH_MODE = LAUNCH_MODE_WEBAPP
 
 
 @dataclass(frozen=True)
