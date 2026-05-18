@@ -33,6 +33,7 @@ class LauncherConfig:
     bundled_mode: bool = False
     shutdown_port: int = 0
     shutdown_token: str = ""
+    shutdown_diagnostics: bool = False
 
 
 @dataclass(frozen=True)
@@ -343,6 +344,11 @@ def run_launcher_lifecycle(
         final_state = "graceful_shutdown"
         report_lifecycle_status(status_callback, "Backend exited after graceful shutdown.")
     else:
+        if shutdown_result.ok:
+            report_lifecycle_status(
+                status_callback,
+                "Cloud sync warning: Graceful closeout did not complete before shutdown timeout.",
+            )
         report_lifecycle_status(
             status_callback,
             "Graceful shutdown did not complete; terminating owned backend.",

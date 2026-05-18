@@ -13,6 +13,7 @@ LAUNCHER_STATUS_PREFIX = "[RoleThread Launcher]"
 ANSI_RESET = "\033[0m"
 ANSI_MINT = "\033[38;2;79;198;154m"
 ANSI_STREAMLIT_BLUE = "\033[38;2;28;131;225m"
+ANSI_CLOUD_GOLD = "\033[38;2;214;169;71m"
 ANSI_PATTERN = re.compile(r"\033\[[0-9;]*m")
 
 
@@ -57,6 +58,11 @@ def format_launcher_status(
     styled_prefix = f"{ANSI_MINT}{prefix}{ANSI_RESET}"
     label, separator, remainder = message.partition(":")
     if separator and label.strip() and "\n" not in label:
-        styled_label = f"{ANSI_STREAMLIT_BLUE}{label}:{ANSI_RESET}"
+        label_color = (
+            ANSI_CLOUD_GOLD
+            if label.strip().casefold().startswith("cloud sync")
+            else ANSI_STREAMLIT_BLUE
+        )
+        styled_label = f"{label_color}{label}:{ANSI_RESET}"
         return f"{styled_prefix} {styled_label}{remainder}"
     return f"{styled_prefix} {message}"

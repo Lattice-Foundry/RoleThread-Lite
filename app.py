@@ -33,11 +33,16 @@ st.session_state["_dev_mode"] = should_show_dev_diagnostics(_launch_flags)
 from core.cloud_sync import (
     get_cloud_restore_candidate,
     restore_cloud_backup,
-    sync_configured_backups_to_cloud,
 )
+from core.cloud_sync_shutdown import run_cloud_sync_shutdown
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset_with_summary
 from core.generation.seed import initialize_generation_registry
+from core.launcher_console import format_launcher_status
 from core.preferences import load_preferences
+from core.shutdown_control import (
+    launcher_shutdown_diagnostics_enabled,
+    resolve_launcher_shutdown_control,
+)
 from ui.session_state import (
     persist_loaded_normalization,
     set_loaded_entries,
@@ -308,9 +313,22 @@ div[data-baseweb="menu"] li[role="option"][aria-selected="true"] {{
 def _sync_cloud_backups_on_exit() -> None:
     """Best-effort cloud backup sync for Streamlit process shutdown."""
 
-    result = sync_configured_backups_to_cloud()
-    if not result.ok:
-        print(result.message)
+    run_cloud_sync_shutdown(
+        diagnostics_enabled=launcher_shutdown_diagnostics_enabled(),
+        status_callback=(
+            _print_launcher_cloud_sync_status
+            if resolve_launcher_shutdown_control()
+            else _print_cloud_sync_status
+        ),
+    )
+
+
+def _print_cloud_sync_status(message: str) -> None:
+    print(message, flush=True)
+
+
+def _print_launcher_cloud_sync_status(message: str) -> None:
+    print(format_launcher_status(message), flush=True)
 
 
 def _register_cloud_sync_on_exit() -> None:

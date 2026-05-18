@@ -137,3 +137,59 @@ def test_shared_lifecycle_terminates_owned_backend_when_health_fails(tmp_path):
     assert result.shutdown_request.attempted is False
     assert result.termination.method == "terminate"
     assert calls == ["launch_backend", "health", "terminate", "port_release"]
+
+
+def test_shared_lifecycle_reports_cloud_sync_warning_before_fallback_termination(tmp_path):
+    calls = []
+    status_messages = []
+    config = LauncherConfig(
+        app_root=tmp_path,
+        python_path=tmp_path / "python.exe",
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "launcher.log",
+        launch_mode="webapp",
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+
+    class FakeProcess:
+        pid = 2468
+
+    result = run_launcher_lifecycle(
+        config,
+        launch_backend_fn=lambda cfg: calls.append("launch_backend") or FakeProcess(),
+        health_check_fn=lambda: calls.append("health")
+        or HealthCheckResult(True, "health-url", 1, "healthy"),
+        wait_for_close_fn=lambda mode, process: calls.append("wait_for_close")
+        or WindowCloseDetectionResult(True, True, True, "closed"),
+        shutdown_request_fn=lambda cfg: calls.append("shutdown")
+        or ShutdownRequestResult(True, True, 200, "shutdown ok"),
+        termination_fn=lambda process: calls.append("terminate")
+        or TerminationResult(True, "terminate", True, "terminated"),
+        port_release_fn=lambda pid: calls.append("port_release")
+        or PortReleaseStatus(True, None, "free", "released"),
+        edge_launch_fn=lambda: calls.append("edge_launch")
+        or EdgeLaunchResult(True, True, ("msedge", "--app=http://127.0.0.1:8501"), "launched"),
+        write_log_fn=lambda path, lines: None,
+        format_command_fn=lambda command: " ".join(command),
+        wait_for_process_exit_fn=lambda process: calls.append("wait_for_exit") or False,
+        status_callback=status_messages.append,
+    )
+
+    assert result.final_state == "terminated"
+    assert calls == [
+        "launch_backend",
+        "health",
+        "edge_launch",
+        "wait_for_close",
+        "shutdown",
+        "wait_for_exit",
+        "terminate",
+        "port_release",
+    ]
+    assert status_messages.index(
+        "Cloud sync warning: Graceful closeout did not complete before shutdown timeout."
+    ) < status_messages.index(
+        "Graceful shutdown did not complete; terminating owned backend."
+    )

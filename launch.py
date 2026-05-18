@@ -98,6 +98,7 @@ def build_manual_launcher_config(
         bundled_mode=False,
         shutdown_port=shutdown_port or launcher.find_available_local_port(),
         shutdown_token=shutdown_token or launcher.generate_shutdown_token(),
+        shutdown_diagnostics=options.debug,
     )
 
 

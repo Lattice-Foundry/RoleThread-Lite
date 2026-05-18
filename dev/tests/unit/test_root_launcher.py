@@ -2,6 +2,7 @@ from pathlib import Path
 
 import launch as root_launcher
 from core.launcher_console import (
+    ANSI_CLOUD_GOLD,
     ANSI_MINT,
     ANSI_STREAMLIT_BLUE,
     format_launcher_status,
@@ -58,6 +59,7 @@ def test_manual_webapp_config_starts_streamlit_headless(tmp_path):
     assert config.bundled_mode is False
     assert config.shutdown_port == 54321
     assert config.shutdown_token == "token"
+    assert config.shutdown_diagnostics is False
     assert config.command[:4] == (str(python_path), "-m", "streamlit", "run")
     assert "--server.port" in config.command
     assert config.command[config.command.index("--server.port") + 1] == "8501"
@@ -66,6 +68,26 @@ def test_manual_webapp_config_starts_streamlit_headless(tmp_path):
     assert "--server.headless" in config.command
     assert config.command[config.command.index("--server.headless") + 1] == "true"
     assert "--" not in config.command
+
+
+def test_manual_webapp_debug_config_enables_shutdown_diagnostics(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    python_path = tmp_path / "python.exe"
+    python_path.write_text("", encoding="utf-8")
+
+    config = root_launcher.build_manual_launcher_config(
+        root_launcher.LaunchOptions(
+            launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+            debug=True,
+        ),
+        app_root=app_root,
+        env={"LOCALAPPDATA": str(tmp_path / "local")},
+        current_executable=str(python_path),
+        shutdown_port=54321,
+        shutdown_token="token",
+    )
+
+    assert config.shutdown_diagnostics is True
 
 
 def test_manual_browser_config_keeps_normal_streamlit_browser_flow(tmp_path):
@@ -246,6 +268,20 @@ def test_launcher_status_formatting_colors_prefix_and_lifecycle_label():
     assert ANSI_MINT in formatted
     assert ANSI_STREAMLIT_BLUE in formatted
     assert strip_ansi(formatted) == "[RoleThread Launcher] Streamlit health: endpoint responded."
+
+
+def test_launcher_status_formatting_colors_cloud_sync_labels_gold():
+    formatted = format_launcher_status(
+        "Cloud sync warning: staged sync timeout.",
+        color=True,
+    )
+
+    assert ANSI_MINT in formatted
+    assert ANSI_CLOUD_GOLD in formatted
+    assert ANSI_STREAMLIT_BLUE not in formatted
+    assert strip_ansi(formatted) == (
+        "[RoleThread Launcher] Cloud sync warning: staged sync timeout."
+    )
 
 
 def test_launcher_status_formatting_does_not_color_non_label_message_body():

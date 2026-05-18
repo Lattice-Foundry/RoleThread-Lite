@@ -6,10 +6,12 @@ from types import SimpleNamespace
 import pytest
 
 from core.shutdown_control import (
+    SHUTDOWN_DIAGNOSTICS_ENV,
     SHUTDOWN_HEADER,
     SHUTDOWN_PORT_ENV,
     SHUTDOWN_TOKEN_ENV,
     LauncherShutdownControl,
+    launcher_shutdown_diagnostics_enabled,
     resolve_launcher_shutdown_control,
     start_launcher_shutdown_server,
 )
@@ -698,6 +700,13 @@ def test_shutdown_control_resolves_only_when_launcher_env_is_complete():
     assert control == LauncherShutdownControl(port=54321, token="token")
 
 
+def test_shutdown_diagnostics_env_parses_truthy_values():
+    assert launcher_shutdown_diagnostics_enabled({}) is False
+    assert launcher_shutdown_diagnostics_enabled({SHUTDOWN_DIAGNOSTICS_ENV: "1"}) is True
+    assert launcher_shutdown_diagnostics_enabled({SHUTDOWN_DIAGNOSTICS_ENV: "true"}) is True
+    assert launcher_shutdown_diagnostics_enabled({SHUTDOWN_DIAGNOSTICS_ENV: "off"}) is False
+
+
 def test_start_launcher_shutdown_server_ignores_missing_control():
     assert start_launcher_shutdown_server(None, shutdown_fn=lambda: None) is False
 
@@ -721,6 +730,26 @@ def test_build_subprocess_env_includes_shutdown_control(tmp_path):
     assert env[SHUTDOWN_PORT_ENV] == "54321"
     assert env[SHUTDOWN_TOKEN_ENV] == "secret"
     assert env[launcher.LAUNCHER_LOG_PATH_ENV] == str(config.log_path)
+    assert SHUTDOWN_DIAGNOSTICS_ENV not in env
+
+
+def test_build_subprocess_env_includes_shutdown_diagnostics_when_enabled(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+        shutdown_diagnostics=True,
+    )
+
+    env = launcher.build_subprocess_env(config, {})
+
+    assert env[SHUTDOWN_DIAGNOSTICS_ENV] == "1"
 
 
 def test_build_subprocess_env_does_not_mark_launch_mode_in_child_env(tmp_path):

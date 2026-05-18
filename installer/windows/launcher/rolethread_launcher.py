@@ -46,6 +46,7 @@ from core.launcher_runtime import (
     format_command,
 )
 from core.shutdown_control import (
+    SHUTDOWN_DIAGNOSTICS_ENV,
     SHUTDOWN_HEADER,
     SHUTDOWN_PORT_ENV,
     SHUTDOWN_TOKEN_ENV,
@@ -383,6 +384,8 @@ def build_subprocess_env(
     if config.shutdown_port and config.shutdown_token:
         child_env[SHUTDOWN_PORT_ENV] = str(config.shutdown_port)
         child_env[SHUTDOWN_TOKEN_ENV] = config.shutdown_token
+    if config.shutdown_diagnostics:
+        child_env[SHUTDOWN_DIAGNOSTICS_ENV] = "1"
     child_env[LAUNCHER_LOG_PATH_ENV] = str(config.log_path)
     return child_env
 

@@ -13,6 +13,7 @@ from typing import Callable, Mapping
 
 SHUTDOWN_PORT_ENV = "ROLETHREAD_LAUNCHER_SHUTDOWN_PORT"
 SHUTDOWN_TOKEN_ENV = "ROLETHREAD_LAUNCHER_SHUTDOWN_TOKEN"
+SHUTDOWN_DIAGNOSTICS_ENV = "ROLETHREAD_LAUNCHER_SHUTDOWN_DIAGNOSTICS"
 SHUTDOWN_HEADER = "X-RoleThread-Launcher-Token"
 
 _server_started = False
@@ -43,6 +44,20 @@ def resolve_launcher_shutdown_control(
     if port <= 0 or port > 65535:
         return None
     return LauncherShutdownControl(port=port, token=token)
+
+
+def launcher_shutdown_diagnostics_enabled(
+    env: Mapping[str, str] | None = None,
+) -> bool:
+    """Return whether launcher-triggered app shutdown should print diagnostics."""
+
+    env_map = os.environ if env is None else env
+    return env_map.get(SHUTDOWN_DIAGNOSTICS_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def run_graceful_process_exit() -> None:

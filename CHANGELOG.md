@@ -16,6 +16,14 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.42] - 2026-05-18
+
+### Changed
+
+- Added explicit staged cloud backup sync closeout during launcher-triggered graceful shutdown.
+- Added cloud-sync shutdown status messages and restrained gold launcher-console styling for cloud sync labels.
+- Propagated launcher diagnostic mode into app shutdown closeout so debug runs can report cloud sync skip/success/failure details.
+
 ## [1.4.41] - 2026-05-18
 
 ### Changed
