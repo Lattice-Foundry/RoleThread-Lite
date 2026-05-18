@@ -14,10 +14,8 @@ from pathlib import Path
 import sys
 from typing import Callable, Sequence
 
+from core.launcher_console import format_launcher_status
 from installer.windows.launcher import rolethread_launcher as launcher
-
-
-DEBUG_PREFIX = "[RoleThread Launcher]"
 
 
 @dataclass(frozen=True)
@@ -114,18 +112,22 @@ def run(
 
     options = parse_launch_args(argv)
     try:
-        debug_status = _print_debug_status if options.debug else None
-        if debug_status:
-            debug_status("Building launcher configuration.")
+        status_callback = (
+            _print_launcher_status
+            if options.debug or options.launch_mode == launcher.LAUNCH_MODE_WEBAPP
+            else None
+        )
+        if options.debug:
+            _print_launcher_status("Building launcher configuration.")
         builder = config_builder or build_manual_launcher_config
         config = builder(options)
-        if debug_status:
-            debug_status(f"Launch mode: {config.launch_mode}")
+        if options.debug:
+            _print_launcher_status(f"Launch mode: {config.launch_mode}")
             if config.launch_mode == launcher.LAUNCH_MODE_WEBAPP:
-                debug_status("Managed webapp mode: Streamlit will start headless.")
-            debug_status(f"Command: {launcher.format_command(config.command)}")
-        if debug_status:
-            lifecycle_fn(config, status_callback=debug_status)
+                _print_launcher_status("Managed webapp mode: Streamlit will start headless.")
+            _print_launcher_status(f"Command: {launcher.format_command(config.command)}")
+        if status_callback:
+            lifecycle_fn(config, status_callback=status_callback)
         else:
             lifecycle_fn(config)
         return 0
@@ -134,8 +136,8 @@ def run(
         return 1
 
 
-def _print_debug_status(message: str) -> None:
-    print(f"{DEBUG_PREFIX} {message}")
+def _print_launcher_status(message: str) -> None:
+    print(format_launcher_status(message))
 
 
 def main(argv: Sequence[str] | None = None) -> int:

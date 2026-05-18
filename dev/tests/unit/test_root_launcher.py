@@ -1,6 +1,13 @@
 from pathlib import Path
 
 import launch as root_launcher
+from core.launcher_console import (
+    ANSI_MINT,
+    ANSI_STREAMLIT_BLUE,
+    format_launcher_status,
+    strip_ansi,
+    terminal_supports_ansi,
+)
 from installer.windows.launcher import rolethread_launcher as launcher
 
 
@@ -77,7 +84,7 @@ def test_manual_browser_config_keeps_normal_streamlit_browser_flow(tmp_path):
     )
 
 
-def test_run_delegates_to_lifecycle():
+def test_webapp_run_delegates_to_lifecycle_with_status_callback():
     calls = []
 
     config = launcher.LauncherConfig(
@@ -93,8 +100,9 @@ def test_run_delegates_to_lifecycle():
         calls.append(("config", options.launch_mode))
         return config
 
-    def run_lifecycle(config_arg):
+    def run_lifecycle(config_arg, *, status_callback=None):
         calls.append(("lifecycle", config_arg.launch_mode))
+        calls.append(("status_callback", callable(status_callback)))
 
     exit_code = root_launcher.run(
         ["--webapp"],
@@ -106,10 +114,73 @@ def test_run_delegates_to_lifecycle():
     assert calls == [
         ("config", launcher.LAUNCH_MODE_WEBAPP),
         ("lifecycle", launcher.LAUNCH_MODE_WEBAPP),
+        ("status_callback", True),
     ]
 
 
-def test_debug_run_prints_lifecycle_status(capsys):
+def test_browser_run_without_debug_keeps_quiet_lifecycle_callback():
+    calls = []
+    config = launcher.LauncherConfig(
+        app_root=Path("X:/rolethread"),
+        python_path=Path("python.exe"),
+        preferences_path=Path("preferences.json"),
+        log_path=Path("launcher.log"),
+        launch_mode=launcher.LAUNCH_MODE_NORMAL,
+        command=("python.exe", "-m", "streamlit", "run", "app.py"),
+    )
+
+    def build_config(options):
+        calls.append(("config", options.launch_mode))
+        return config
+
+    def run_lifecycle(config_arg):
+        calls.append(("lifecycle", config_arg.launch_mode))
+
+    exit_code = root_launcher.run(
+        ["--browser"],
+        config_builder=build_config,
+        lifecycle_fn=run_lifecycle,
+    )
+
+    assert exit_code == 0
+    assert calls == [
+        ("config", launcher.LAUNCH_MODE_NORMAL),
+        ("lifecycle", launcher.LAUNCH_MODE_NORMAL),
+    ]
+
+
+def test_webapp_run_prints_lifecycle_status_without_debug(capsys):
+    config = launcher.LauncherConfig(
+        app_root=Path("X:/rolethread"),
+        python_path=Path("python.exe"),
+        preferences_path=Path("preferences.json"),
+        log_path=Path("launcher.log"),
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=("python.exe", "-m", "streamlit", "run", "app.py"),
+    )
+
+    def build_config(options):
+        return config
+
+    def run_lifecycle(config_arg, *, status_callback=None):
+        status_callback("Waiting for Streamlit health endpoint.")
+        status_callback("Launching Edge app-mode window.")
+
+    exit_code = root_launcher.run(
+        ["--webapp"],
+        config_builder=build_config,
+        lifecycle_fn=run_lifecycle,
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "[RoleThread Launcher] Building launcher configuration." not in output
+    assert "[RoleThread Launcher] Command:" not in output
+    assert "[RoleThread Launcher] Waiting for Streamlit health endpoint." in output
+    assert "[RoleThread Launcher] Launching Edge app-mode window." in output
+
+
+def test_debug_run_prints_lifecycle_status_and_configuration(capsys):
     config = launcher.LauncherConfig(
         app_root=Path("X:/rolethread"),
         python_path=Path("python.exe"),
@@ -151,3 +222,35 @@ def test_debug_run_prints_lifecycle_status(capsys):
     assert "[RoleThread Launcher] Waiting for Streamlit health endpoint." in output
     assert "[RoleThread Launcher] Launching Edge app-mode window." in output
     assert "[RoleThread Launcher] Backend exited after graceful shutdown." in output
+
+
+def test_launcher_status_formatting_keeps_plain_text_without_color():
+    formatted = format_launcher_status("Streamlit health: endpoint responded.", color=False)
+
+    assert formatted == "[RoleThread Launcher] Streamlit health: endpoint responded."
+
+
+def test_launcher_status_formatting_colors_prefix_and_lifecycle_label():
+    formatted = format_launcher_status("Streamlit health: endpoint responded.", color=True)
+
+    assert ANSI_MINT in formatted
+    assert ANSI_STREAMLIT_BLUE in formatted
+    assert strip_ansi(formatted) == "[RoleThread Launcher] Streamlit health: endpoint responded."
+
+
+def test_launcher_status_formatting_does_not_color_non_label_message_body():
+    formatted = format_launcher_status("Monitoring app window for close.", color=True)
+
+    assert ANSI_MINT in formatted
+    assert ANSI_STREAMLIT_BLUE not in formatted
+    assert strip_ansi(formatted) == "[RoleThread Launcher] Monitoring app window for close."
+
+
+def test_terminal_supports_ansi_honors_no_color_and_force_color():
+    class NonTty:
+        def isatty(self):
+            return False
+
+    assert terminal_supports_ansi(stream=NonTty(), env={"FORCE_COLOR": "1"}) is True
+    assert terminal_supports_ansi(stream=NonTty(), env={"NO_COLOR": "1"}) is False
+    assert terminal_supports_ansi(stream=NonTty(), env={}) is False

@@ -16,6 +16,25 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.29] - 2026-05-18
+
+### Changed
+
+- Tuned launcher console ANSI colors to use a darker Streamlit-blue lifecycle label and a slightly darker, greener mint launcher prefix.
+
+## [1.4.28] - 2026-05-18
+
+### Changed
+
+- Restored visible launcher lifecycle console status output for managed `launch.py --webapp` runs while keeping extra command/config details behind `--debug`.
+
+## [1.4.27] - 2026-05-18
+
+### Changed
+
+- Added restrained ANSI styling for launcher debug/status console output, with mint launcher prefixes and Streamlit-blue lifecycle labels.
+- Kept launcher status text plain on non-ANSI terminals and preserved unstyled lifecycle wording for tests and diagnostics.
+
 ## [1.4.26] - 2026-05-18
 
 ### Changed
