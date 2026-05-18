@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.7] - 2026-05-17
+
+### Changed
+
+- Replaced Data Generation placeholder chunks with Template 01 production prompt content.
+- Updated the Conversation Scenario Generator to compile real ChatML JSONL generation instructions.
+
 ## [1.4.6] - 2026-05-17
 
 ### Internal

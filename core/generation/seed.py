@@ -5,26 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.db import SessionLocal, init_db
-from core.generation.chunks import (
-    render_additional_instructions_chunk,
-    render_chatml_format_chunk,
-    render_content_instructions_chunk,
-    render_custom_system_prompt_chunk,
-    render_entry_count_chunk,
-    render_exchange_count_chunk,
-    render_output_delivery_chunk,
-    render_style_chunk,
-    render_system_prompt_mode_chunk,
-    render_task_chunk,
-    render_tone_chunk,
-)
 from core.generation.models import GenerationTemplateId
 from core.models import GenerationPromptChunk, GenerationTemplateChunk
 
 
 @dataclass(frozen=True)
 class GenerationPromptChunkSeed:
-    """Built-in placeholder chunk seed data."""
+    """Built-in generation prompt chunk seed data."""
 
     slug: str
     title: str
@@ -49,69 +36,167 @@ DEFAULT_GENERATION_PROMPT_CHUNKS: tuple[GenerationPromptChunkSeed, ...] = (
     GenerationPromptChunkSeed(
         slug="rolethread_generation_task",
         title="RoleThread generation task",
-        chunk_text=render_task_chunk("{{ template_id }}"),
+        chunk_text="""You are generating structured conversational training data for LLM fine-tuning.
+
+Your task is to generate high-quality ChatML JSONL dataset entries that can be imported directly into a conversational training dataset.
+
+You are generating training data, not interacting with the user directly.
+
+All output must follow the required formatting and structural rules exactly.
+
+Do not generate explanations, commentary, analysis, summaries, conversational framing, or metadata outside the requested dataset output.
+
+Prioritize:
+- structural correctness
+- conversational realism
+- coherent multi-turn continuity
+- consistent behavior within each dataset entry
+- import-safe JSONL formatting""",
         category="task",
     ),
     GenerationPromptChunkSeed(
         slug="chatml_format",
         title="ChatML format",
-        chunk_text=render_chatml_format_chunk(),
+        chunk_text="""Output valid ChatML JSONL only.
+
+Each dataset entry must be a single valid JSON object written on a single line.
+
+Do not wrap dataset entries in a JSON array.
+
+Each dataset entry must contain a top-level "messages" array.
+
+Each "messages" array must begin with exactly one system message.
+
+After the system message, messages must alternate in this exact order:
+user → assistant → user → assistant
+
+Do not break message ordering.
+
+Each message object must contain:
+- "role"
+- "content"
+
+Valid roles are:
+- "system"
+- "user"
+- "assistant"
+
+All JSON output must be syntactically valid.
+
+Correctly escape:
+- quotation marks
+- newline characters
+- special characters inside JSON strings
+
+Do not include:
+- comments
+- trailing commas
+- markdown explanations
+- metadata fields
+- tags
+- analysis text
+- conversational framing outside the dataset output""",
         category="format",
     ),
     GenerationPromptChunkSeed(
         slug="entry_count",
         title="Entry count",
-        chunk_text=render_entry_count_chunk("{{ entry_count }}"),
+        chunk_text="""Generate exactly {{ entry_count }} complete dataset entries.
+
+Each dataset entry must be:
+- structurally complete
+- independently valid
+- formatted as valid ChatML JSONL
+- written as a separate single-line JSON object
+
+Do not generate fewer than {{ entry_count }} dataset entries.
+
+Do not generate more than {{ entry_count }} dataset entries.
+
+Do not stop generation before all requested dataset entries are completed.
+
+Every generated dataset entry must fully comply with all formatting and structural requirements.""",
         category="quantity",
     ),
     GenerationPromptChunkSeed(
         slug="exchange_count",
         title="Exchange count",
-        chunk_text=render_exchange_count_chunk("{{ exchange_count }}"),
+        chunk_text="""Each dataset entry must contain exactly {{ exchange_count }} user/assistant exchanges after the system message.
+
+One exchange means:
+- one user message
+- followed by one assistant message
+
+The required message order is:
+system → user → assistant → user → assistant
+
+Do not generate fewer than {{ exchange_count }} exchanges per dataset entry.
+
+Do not generate more than {{ exchange_count }} exchanges per dataset entry.
+
+Maintain correct role alternation throughout every dataset entry.
+
+Do not break message ordering or exchange structure.""",
         category="quantity",
     ),
     GenerationPromptChunkSeed(
         slug="content_instructions",
         title="Content instructions",
-        chunk_text=render_content_instructions_chunk("{{ content_instructions }}"),
+        chunk_text="""Generate dataset entries using the following scenario and behavioral requirements:
+
+{{ content_instructions }}""",
         category="instructions",
     ),
     GenerationPromptChunkSeed(
         slug="system_prompt_mode",
         title="System prompt mode",
-        chunk_text=render_system_prompt_mode_chunk("{{ system_prompt_mode }}"),
+        chunk_text="Generate an appropriate system prompt for each dataset entry unless a custom system prompt is provided.",
         category="system_prompt",
     ),
     GenerationPromptChunkSeed(
         slug="custom_system_prompt",
         title="Custom system prompt",
-        chunk_text=render_custom_system_prompt_chunk("{{ custom_system_prompt }}"),
+        chunk_text="""Use the following system prompt exactly:
+
+{{ custom_system_prompt }}""",
         category="system_prompt",
     ),
     GenerationPromptChunkSeed(
         slug="style",
         title="Style",
-        chunk_text=render_style_chunk("{{ style }}"),
+        chunk_text="""Conversation style requirements:
+
+{{ style }}""",
         category="style",
     ),
     GenerationPromptChunkSeed(
         slug="tone",
         title="Tone",
-        chunk_text=render_tone_chunk("{{ tone }}"),
+        chunk_text="""Conversation tone requirements:
+
+{{ tone }}""",
         category="style",
     ),
     GenerationPromptChunkSeed(
         slug="output_delivery",
         title="Output delivery",
-        chunk_text=render_output_delivery_chunk("{{ output_delivery_mode }}"),
+        chunk_text="""If output_delivery_mode is "paste_jsonl":
+
+- Return the generated dataset directly in a single fenced code block.
+- Do not include explanation before or after the dataset output.
+
+If output_delivery_mode is "download_file":
+
+- If supported, provide the generated dataset as a downloadable `.jsonl` file.
+- If downloadable file output is unavailable, return the dataset directly in a single fenced code block.""",
         category="output",
     ),
     GenerationPromptChunkSeed(
         slug="additional_instructions",
         title="Additional instructions",
-        chunk_text=render_additional_instructions_chunk(
-            "{{ additional_instructions }}"
-        ),
+        chunk_text="""Additional instructions:
+
+{{ additional_instructions }}""",
         category="instructions",
     ),
 )
@@ -164,7 +249,7 @@ DEFAULT_GENERATION_TEMPLATE_CHUNKS: tuple[GenerationTemplateChunkSeed, ...] = (
 
 
 def seed_generation_prompt_chunks() -> None:
-    """Idempotently seed built-in placeholder generation prompt chunks."""
+    """Idempotently seed built-in generation prompt chunks."""
 
     init_db()
     session = SessionLocal()

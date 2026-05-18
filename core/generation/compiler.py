@@ -74,7 +74,7 @@ def _validate_resolved_chunks(chunks: list[ResolvedGenerationChunk]) -> None:
 def compile_conversation_scenario_prompt(
     config: ConversationScenarioGenerationConfig,
 ) -> str:
-    """Compile a deterministic placeholder prompt for conversation scenarios."""
+    """Compile a deterministic prompt for conversation scenarios."""
 
     errors = validate_conversation_scenario_config(config)
     if errors:

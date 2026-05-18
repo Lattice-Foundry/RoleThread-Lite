@@ -53,12 +53,16 @@ def test_generation_service_returns_ok_for_valid_config():
     assert result.compiled_prompt is not None
 
 
-def test_generation_service_returns_compiled_placeholder_prompt():
+def test_generation_service_returns_compiled_production_prompt():
     result = compile_generation_prompt_service(_valid_config(entry_count=12))
 
     assert result.compiled_prompt is not None
-    assert "[ROLETHREAD TASK CHUNK]" in result.compiled_prompt
-    assert "[ENTRY COUNT CHUNK]\nEntry count: 12" in result.compiled_prompt
+    assert (
+        "You are generating structured conversational training data for LLM fine-tuning."
+        in result.compiled_prompt
+    )
+    assert "Generate exactly 12 complete dataset entries." in result.compiled_prompt
+    assert "[ROLETHREAD TASK CHUNK]" not in result.compiled_prompt
 
 
 def test_generation_service_returns_error_for_blank_content_instructions():

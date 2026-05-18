@@ -58,14 +58,33 @@ def test_default_valid_config_compiles_successfully():
     prompt = compile_conversation_scenario_prompt(_valid_config())
 
     assert isinstance(prompt, str)
-    assert prompt.startswith("[ROLETHREAD TASK CHUNK]")
-    assert "Template: conversation_scenario" in prompt
+    assert prompt.startswith(
+        "You are generating structured conversational training data for LLM fine-tuning."
+    )
+    assert "high-quality ChatML JSONL dataset entries" in prompt
 
 
-def test_compiled_prompt_includes_placeholder_chunk_labels():
+def test_compiled_prompt_includes_production_generation_instructions():
     prompt = compile_conversation_scenario_prompt(_valid_config())
 
-    expected_labels = (
+    expected_phrases = (
+        "Output valid ChatML JSONL only.",
+        "Generate exactly 10 complete dataset entries.",
+        "Each dataset entry must contain exactly 3 user/assistant exchanges",
+        "Generate dataset entries using the following scenario and behavioral requirements:",
+        "Generate an appropriate system prompt for each dataset entry unless a custom system prompt is provided.",
+        "Conversation style requirements:",
+        "Conversation tone requirements:",
+        "If output_delivery_mode is \"paste_jsonl\":",
+    )
+    for phrase in expected_phrases:
+        assert phrase in prompt
+
+
+def test_old_placeholder_chunk_labels_are_not_present():
+    prompt = compile_conversation_scenario_prompt(_valid_config())
+
+    old_labels = (
         "[ROLETHREAD TASK CHUNK]",
         "[CHATML FORMAT CHUNK]",
         "[ENTRY COUNT CHUNK]",
@@ -76,27 +95,34 @@ def test_compiled_prompt_includes_placeholder_chunk_labels():
         "[TONE CHUNK]",
         "[OUTPUT DELIVERY CHUNK]",
     )
-    for label in expected_labels:
-        assert label in prompt
+    for label in old_labels:
+        assert label not in prompt
 
 
 def test_compiled_prompt_uses_blank_lines_between_chunks():
     prompt = compile_conversation_scenario_prompt(_valid_config())
 
-    assert "\n\n[CHATML FORMAT CHUNK]" in prompt
-    assert "\n\n[ENTRY COUNT CHUNK]" in prompt
+    assert "\n\nOutput valid ChatML JSONL only." in prompt
+    assert "\n\nGenerate exactly 10 complete dataset entries." in prompt
 
 
 def test_entry_count_appears_correctly():
     prompt = compile_conversation_scenario_prompt(_valid_config(entry_count=17))
 
-    assert "[ENTRY COUNT CHUNK]\nEntry count: 17" in prompt
+    assert "Generate exactly 17 complete dataset entries." in prompt
+    assert "Do not generate fewer than 17 dataset entries." in prompt
+    assert "Do not generate more than 17 dataset entries." in prompt
 
 
 def test_exchange_count_appears_correctly():
     prompt = compile_conversation_scenario_prompt(_valid_config(exchange_count=5))
 
-    assert "[EXCHANGE COUNT CHUNK]\nExchange count per entry: 5" in prompt
+    assert (
+        "Each dataset entry must contain exactly 5 user/assistant exchanges after the system message."
+        in prompt
+    )
+    assert "Do not generate fewer than 5 exchanges per dataset entry." in prompt
+    assert "Do not generate more than 5 exchanges per dataset entry." in prompt
 
 
 def test_content_instructions_appears_correctly():
@@ -105,8 +131,7 @@ def test_content_instructions_appears_correctly():
     )
 
     assert (
-        "[CONTENT INSTRUCTIONS CHUNK]\n"
-        "Content instructions:\n"
+        "Generate dataset entries using the following scenario and behavioral requirements:\n\n"
         "Generate customer handoff examples."
     ) in prompt
 
@@ -119,8 +144,8 @@ def test_auto_system_prompt_mode_skips_custom_system_prompt_chunk():
         )
     )
 
-    assert "[SYSTEM PROMPT MODE CHUNK]\nSystem prompt mode: auto" in prompt
-    assert "[CUSTOM SYSTEM PROMPT CHUNK]" not in prompt
+    assert "Generate an appropriate system prompt for each dataset entry" in prompt
+    assert "Use the following system prompt exactly:" not in prompt
     assert "Ignored for auto mode." not in prompt
 
 
@@ -132,10 +157,9 @@ def test_custom_system_prompt_mode_includes_custom_chunk_and_text():
         )
     )
 
-    assert "[SYSTEM PROMPT MODE CHUNK]\nSystem prompt mode: custom" in prompt
+    assert "Generate an appropriate system prompt for each dataset entry" in prompt
     assert (
-        "[CUSTOM SYSTEM PROMPT CHUNK]\n"
-        "Custom system prompt:\n"
+        "Use the following system prompt exactly:\n\n"
         "Stay concise and grounded."
     ) in prompt
 
@@ -146,7 +170,7 @@ def test_additional_instructions_chunk_is_skipped_when_blank(additional_instruct
         _valid_config(additional_instructions=additional_instructions)
     )
 
-    assert "[ADDITIONAL INSTRUCTIONS CHUNK]" not in prompt
+    assert "Additional instructions:" not in prompt
 
 
 def test_additional_instructions_chunk_is_included_when_provided():
@@ -155,8 +179,7 @@ def test_additional_instructions_chunk_is_included_when_provided():
     )
 
     assert (
-        "[ADDITIONAL INSTRUCTIONS CHUNK]\n"
-        "Additional instructions:\n"
+        "Additional instructions:\n\n"
         "Avoid duplicate setups."
     ) in prompt
 
@@ -220,9 +243,9 @@ def test_compiler_renders_style_tone_and_output_delivery_values():
         )
     )
 
-    assert "[STYLE CHUNK]\nStyle: roleplay_immersive" in prompt
-    assert "[TONE CHUNK]\nTone: playful" in prompt
-    assert "[OUTPUT DELIVERY CHUNK]\nOutput delivery mode: download_file" in prompt
+    assert "Conversation style requirements:\n\nroleplay_immersive" in prompt
+    assert "Conversation tone requirements:\n\nplayful" in prompt
+    assert "If output_delivery_mode is \"download_file\":" in prompt
 
 
 def test_compiler_preserves_multiline_content_instructions():
@@ -231,8 +254,7 @@ def test_compiler_preserves_multiline_content_instructions():
     )
 
     assert (
-        "[CONTENT INSTRUCTIONS CHUNK]\n"
-        "Content instructions:\n"
+        "Generate dataset entries using the following scenario and behavioral requirements:\n\n"
         "First line\nSecond line"
     ) in prompt
 
@@ -252,7 +274,9 @@ def test_compiler_loads_chunks_through_db_registry(monkeypatch):
 
     prompt = compile_conversation_scenario_prompt(_valid_config())
 
-    assert prompt.startswith("[ROLETHREAD TASK CHUNK]")
+    assert prompt.startswith(
+        "You are generating structured conversational training data"
+    )
     assert calls == [
         (
             "conversation_scenario",
