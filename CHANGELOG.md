@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.17] - 2026-05-18
+
+### Fixed
+
+- Restored manual Edge webapp duplicate-browser cleanup when Edge reports the app-looking window with normal `--single-argument` process metadata.
+- Kept duplicate browser cleanup HWND-only and guarded by separate normal-browser evidence before closing any Edge window.
+
 ## [1.4.16] - 2026-05-17
 
 ### Added

@@ -1042,6 +1042,107 @@ def test_edge_cleanup_closes_browser_hwnd_when_edge_reuses_app_process_command()
     assert "Stop-Process" not in script
 
 
+def test_edge_cleanup_treats_new_exact_title_window_as_app_when_edge_hides_app_command():
+    diff = _edge_diff_with_new_processes(_uncertain_process(pid=9340))
+    before = EdgeWindowSnapshot(
+        windows=(
+            EdgeWindowInfo(
+                handle="0xBEEF",
+                pid=30896,
+                process_name="msedge.exe",
+                title="RoleThread Lite - Personal - Microsoft Edge",
+                class_name="Chrome_WidgetWin_1",
+                command_line=(
+                    '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" '
+                    "--single-argument http://localhost:8501/"
+                ),
+            ),
+        )
+    )
+    after = EdgeWindowSnapshot(
+        windows=(
+            before.windows[0],
+            EdgeWindowInfo(
+                handle="0xCAFE",
+                pid=30896,
+                process_name="msedge.exe",
+                title="RoleThread Lite",
+                class_name="Chrome_WidgetWin_1",
+                command_line=(
+                    '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" '
+                    "--single-argument http://localhost:8501/"
+                ),
+            ),
+        )
+    )
+    window_diff = diff_edge_window_snapshots(before, after)
+    commands = []
+
+    def run_fn(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="wm_close_sent",
+            stderr="",
+        )
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        window_diff=window_diff,
+        system_name="Windows",
+        run_fn=run_fn,
+    )
+
+    assert status.attempted is True
+    assert status.target_pid == 30896
+    assert status.target_title == "RoleThread Lite - Personal - Microsoft Edge"
+    assert any("0xBEEF: browser_window_candidate" in detail for detail in status.decision_details)
+    assert any("0xCAFE: app_window_candidate" in detail for detail in status.decision_details)
+    assert any("exact-title RoleThread window" in detail for detail in status.decision_details)
+    script = commands[0][-1]
+    assert "0xBEEF" in script
+    assert "0xCAFE" not in script
+    assert "PostMessage" in script
+    assert "Stop-Process" not in script
+    assert "taskkill" not in script.lower()
+
+
+def test_edge_cleanup_does_not_treat_title_only_window_as_app_without_browser_evidence():
+    diff = _edge_diff_with_new_processes(_uncertain_process(pid=9340))
+    before = EdgeWindowSnapshot(windows=())
+    after = EdgeWindowSnapshot(
+        windows=(
+            EdgeWindowInfo(
+                handle="0xCAFE",
+                pid=30896,
+                process_name="msedge.exe",
+                title="RoleThread Lite",
+                class_name="Chrome_WidgetWin_1",
+                command_line=(
+                    '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" '
+                    "--single-argument http://localhost:8501/"
+                ),
+            ),
+        )
+    )
+    window_diff = diff_edge_window_snapshots(before, after)
+
+    status = close_duplicate_edge_browser_window(
+        LaunchFlags(webapp=True),
+        diff,
+        window_diff=window_diff,
+        system_name="Windows",
+        run_fn=lambda command, **kwargs: (_ for _ in ()).throw(
+            AssertionError("should not close without separate browser evidence")
+        ),
+    )
+
+    assert status.skipped is True
+    assert "no confirmed app-window candidate" in status.message
+
+
 def test_edge_cleanup_reports_window_candidate_skip_reason():
     diff = _edge_diff_with_new_processes(_uncertain_process(pid=9340))
     window_diff = _window_diff_with_new_browser_and_new_app(browser_title="Unrelated")

@@ -846,12 +846,12 @@ def _close_duplicate_edge_browser_window_by_handle(
     if not flags.webapp or window_diff is None:
         return None
 
-    decision_details = _describe_window_cleanup_candidates(window_diff)
-    app_candidates = [
-        window
-        for window in window_diff.after_windows
-        if _is_rolethread_app_window_candidate(window)
-    ]
+    app_candidates = _get_confirmed_rolethread_app_window_candidates(window_diff)
+    app_candidate_handles = {window.handle for window in app_candidates}
+    decision_details = _describe_window_cleanup_candidates(
+        window_diff,
+        app_candidate_handles=app_candidate_handles,
+    )
     if not app_candidates:
         return _skip_edge_cleanup(
             "Window cleanup found no confirmed app-window candidate.",
@@ -861,7 +861,8 @@ def _close_duplicate_edge_browser_window_by_handle(
     browser_candidates = [
         window
         for window in window_diff.after_windows
-        if _is_streamlit_browser_window_candidate(window)
+        if window.handle not in app_candidate_handles
+        and _is_streamlit_browser_window_candidate(window)
     ]
 
     if len(browser_candidates) != 1:
@@ -976,6 +977,44 @@ def _is_streamlit_browser_window_candidate(window: EdgeWindowInfo) -> bool:
     )
 
 
+def _get_confirmed_rolethread_app_window_candidates(
+    window_diff: EdgeWindowDiff,
+) -> tuple[EdgeWindowInfo, ...]:
+    """Return app-window evidence without relying only on Edge process metadata."""
+
+    strict_candidates = [
+        window
+        for window in window_diff.after_windows
+        if _is_rolethread_app_window_candidate(window)
+    ]
+    if strict_candidates:
+        return tuple(strict_candidates)
+
+    if not any(
+        _window_title_identifies_normal_edge_browser(window.title.lower())
+        and window.process_name.lower() == "msedge.exe"
+        for window in window_diff.after_windows
+    ):
+        return ()
+
+    return tuple(
+        window
+        for window in window_diff.new_windows
+        if _is_rolethread_title_only_app_window_candidate(window)
+    )
+
+
+def _is_rolethread_title_only_app_window_candidate(window: EdgeWindowInfo) -> bool:
+    """Return whether Edge exposed an app-like HWND without app-mode command metadata."""
+
+    return (
+        window.process_name.lower() == "msedge.exe"
+        and window.class_name.startswith("Chrome_WidgetWin")
+        and window.title.strip().lower() == "rolethread lite"
+        and _window_command_references_streamlit_browser(window.command_line.lower())
+    )
+
+
 def _window_command_references_streamlit_browser(command: str) -> bool:
     return (
         DEFAULT_STREAMLIT_LOCAL_URL.lower() in command
@@ -1016,16 +1055,27 @@ def _window_command_references_app_mode(command: str) -> bool:
     )
 
 
-def _describe_window_cleanup_candidates(window_diff: EdgeWindowDiff) -> tuple[str, ...]:
+def _describe_window_cleanup_candidates(
+    window_diff: EdgeWindowDiff,
+    *,
+    app_candidate_handles: set[str] | None = None,
+) -> tuple[str, ...]:
+    app_handles = app_candidate_handles or set()
     details = [
         f"window observation: {window_diff.note}",
         f"after windows: {len(window_diff.after_windows)}",
         f"new windows: {len(window_diff.new_windows)}",
     ]
     for window in window_diff.after_windows:
-        if _is_rolethread_app_window_candidate(window):
+        if window.handle in app_handles or _is_rolethread_app_window_candidate(window):
             classification = "app_window_candidate"
-            reason = "title looks app-mode without normal Edge browser branding"
+            if _is_rolethread_app_window_candidate(window):
+                reason = "title looks app-mode without normal Edge browser branding"
+            else:
+                reason = (
+                    "new exact-title RoleThread window paired with a normal "
+                    "Edge-branded browser window"
+                )
         elif _is_streamlit_browser_window_candidate(window):
             classification = "browser_window_candidate"
             reason = "top-level Edge window title identifies the normal browser window"
