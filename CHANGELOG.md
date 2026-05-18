@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.4] - 2026-05-17
+
+### Internal
+
+- Seeded DB-backed generation placeholder chunks and deterministic template chunk mappings.
+- Prepared future DB-backed generation compiler integration without changing current compiler behavior.
+
 ## [1.4.3] - 2026-05-17
 
 ### Internal

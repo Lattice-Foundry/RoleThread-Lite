@@ -223,6 +223,13 @@ class GenerationPromptChunk(Base):
 class GenerationTemplateChunk(Base):
     """Ordered mapping from a generation template to one prompt chunk."""
     __tablename__ = "generation_template_chunks"
+    __table_args__ = (
+        UniqueConstraint(
+            "template_id",
+            "chunk_slug",
+            name="uq_generation_template_chunk_mapping",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     template_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)

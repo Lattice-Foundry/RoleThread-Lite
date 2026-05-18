@@ -197,6 +197,7 @@ from core.cloud_sync import (
     sync_configured_backups_to_cloud,
 )
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset_with_summary
+from core.generation.seed import initialize_generation_registry
 from core.preferences import load_preferences
 from ui.session_state import (
     persist_loaded_normalization,
@@ -547,6 +548,10 @@ if "prefs" not in st.session_state:
         seed_default_tags()
     except Exception as _seed_exc:
         st.warning(f"Tag database initialisation failed: {_seed_exc}")
+    try:
+        initialize_generation_registry()
+    except Exception as _seed_exc:
+        st.warning(f"Generation registry initialisation failed: {_seed_exc}")
 
     st.session_state.system_prompt = prefs.get("last_system_prompt") or DEFAULT_SYSTEM_PROMPT
     set_loaded_entries([])
