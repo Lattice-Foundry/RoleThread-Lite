@@ -103,17 +103,7 @@ This is a style signal, not a score gate. Different datasets should land in diff
 
 Narrative-heavy datasets may produce more descriptive, atmospheric behavior. Dialogue-heavy datasets may produce more conversational or chat-like behavior. A balanced dataset can support both, but only if the examples are consistent enough to teach the intended style.
 
-Watch for repeated formatting patterns too. Quoted dialogue, paragraph style, name labels, tense, and point of view can all become learned habits.
-
-For example:
-
-```text
-"I don't think this is a good idea," she says quietly.
-```
-
-Consistent quoted dialogue helps teach clear conversational structure. Inconsistent formatting can teach inconsistency.
-
-Name usage also matters. Repeating specific character names can be useful in character-bound scenes, but heavy name repetition can make behavior feel tied to those names. Pronoun-based narration often generalizes better when the behavior matters more than the specific character.
+For guidance on how formatting patterns and name usage become learned habits in your entries, see What Makes a Good Roleplay Dataset.
 
 ## Exchange Depth
 

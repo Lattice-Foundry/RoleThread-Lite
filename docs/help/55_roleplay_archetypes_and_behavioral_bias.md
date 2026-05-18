@@ -1,8 +1,6 @@
 # Roleplay Archetypes and Behavioral Bias
 
-Datasets reinforce behavioral tendencies whether you intend them to or not.
-
-Every repeated pattern is a vote. The model learns not only what characters say, but how they tend to respond, how much they write, how much initiative they take, how emotional they become, and what kinds of interaction patterns are normal.
+Datasets reinforce behavioral tendencies whether you intend them to or not. At scale, repeated patterns define a model's behavioral baseline.
 
 ## Models Inherit Dataset Blind Spots
 
