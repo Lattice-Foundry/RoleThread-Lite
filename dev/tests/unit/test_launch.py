@@ -5,6 +5,9 @@ from types import SimpleNamespace
 from core.launch import (
     EdgeProcessInfo,
     EdgeProcessSnapshot,
+    EdgeDuplicateCleanupStatus,
+    EdgeSnapshotPollResult,
+    EdgeWebappLaunchStatus,
     EdgeWindowInfo,
     EdgeWindowSnapshot,
     EDGE_CLASSIFICATION_APP,
@@ -45,6 +48,7 @@ from core.launch import (
     get_webapp_launch_status,
     is_external_webapp_launcher,
     parse_launch_flags,
+    run_legacy_app_owned_webapp_launch,
     reset_webapp_launch_guard_for_tests,
     should_attempt_webapp_launch,
     should_show_dev_diagnostics,
@@ -207,6 +211,104 @@ def test_legacy_webapp_warning_is_suppressed_for_canonical_launcher_path():
         is None
     )
     assert get_legacy_webapp_launch_warning(LaunchFlags(webapp=False)) is None
+
+
+def test_legacy_app_owned_webapp_helper_skips_edge_when_external_launcher_owns_it(monkeypatch):
+    monkeypatch.setenv(EXTERNAL_WEBAPP_LAUNCH_ENV, "1")
+    session_state = {}
+    log_lines = []
+    detection = detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/Scott",
+        env={},
+        which_fn=lambda name: "C:/Edge/msedge.exe",
+    )
+
+    run_legacy_app_owned_webapp_launch(
+        LaunchFlags(webapp=True),
+        session_state=session_state,
+        startup_log_fn=lambda *lines: log_lines.extend(lines),
+        streamlit_headless_fn=lambda: True,
+        browser_detection_fn=lambda: detection,
+        edge_version_recorder=lambda *args, **kwargs: None,
+        attempt_launch_fn=lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("external launcher should suppress app-owned launch")
+        ),
+    )
+
+    assert "_legacy_webapp_launch_warning" not in session_state
+    assert session_state["_dev_webapp_launch_status"].status_code == "external_orchestrated"
+    assert "event=webapp_launch_skipped_by_guard" in log_lines
+
+
+def test_legacy_app_owned_webapp_helper_keeps_raw_compatibility_path(monkeypatch):
+    monkeypatch.delenv(EXTERNAL_WEBAPP_LAUNCH_ENV, raising=False)
+    session_state = {}
+    log_lines = []
+    calls = []
+    detection = detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/Scott",
+        env={},
+        which_fn=lambda name: "C:/Edge/msedge.exe",
+    )
+
+    def attempt_launch(*args, **kwargs):
+        calls.append("attempt_launch")
+        return EdgeWebappLaunchStatus(
+            webapp_requested=True,
+            edge_available=True,
+            attempted=True,
+            launched=True,
+            fallback_used=False,
+            url="http://localhost:8501",
+            edge_path=Path("C:/Edge/msedge.exe"),
+            command=("msedge", "--app=http://localhost:8501"),
+            message="launched",
+            status_code="launched",
+        )
+
+    def cleanup(*args, **kwargs):
+        calls.append("cleanup")
+        return EdgeDuplicateCleanupStatus(
+            cleanup_requested=False,
+            attempted=False,
+            skipped=True,
+            target_pid=None,
+            target_title="",
+            method="none",
+            result="skipped",
+            message="test cleanup",
+            status_code=EDGE_CLEANUP_STATUS_SKIPPED,
+        )
+
+    run_legacy_app_owned_webapp_launch(
+        LaunchFlags(webapp=True, edge_debug=True),
+        session_state=session_state,
+        startup_log_fn=lambda *lines: log_lines.extend(lines),
+        streamlit_headless_fn=lambda: False,
+        sleep_fn=lambda seconds: calls.append(f"sleep:{seconds}"),
+        browser_detection_fn=lambda: detection,
+        edge_version_recorder=lambda *args, **kwargs: calls.append("edge_version"),
+        process_snapshot_fn=lambda: EdgeProcessSnapshot(processes=()),
+        process_snapshot_poll_fn=lambda: EdgeSnapshotPollResult(
+            snapshot=EdgeProcessSnapshot(processes=()),
+            attempts=1,
+            delay_seconds=0.0,
+        ),
+        window_snapshot_fn=lambda: EdgeWindowSnapshot(windows=()),
+        attempt_launch_fn=attempt_launch,
+        cleanup_fn=cleanup,
+    )
+
+    assert "python launch.py --webapp" in session_state["_legacy_webapp_launch_warning"]
+    assert session_state["_dev_webapp_launch_attempted"] is True
+    assert session_state["_dev_webapp_launch_status"].launched is True
+    assert "_dev_edge_debug_report" in session_state
+    assert "_dev_edge_window_debug_report" in session_state
+    assert session_state["_dev_edge_cleanup_status"].message == "test cleanup"
+    assert calls == ["edge_version", "attempt_launch", "sleep:0.4", "cleanup"]
+    assert "event=duplicate_browser_cleanup_result" in log_lines
 
 
 def test_external_launch_status_records_app_skip():

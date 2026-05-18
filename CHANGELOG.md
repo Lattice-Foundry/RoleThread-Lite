@@ -16,6 +16,14 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.25] - 2026-05-18
+
+### Changed
+
+- Moved legacy app-owned webapp orchestration out of `app.py` into an explicitly marked compatibility helper.
+- Extracted shared launcher lifecycle status helpers for dev/manual and packaged lifecycle convergence.
+- Kept the canonical `launch.py --webapp` path and packaged launcher behavior on the same lifecycle orchestration path.
+
 ## [1.4.24] - 2026-05-18
 
 ### Changed

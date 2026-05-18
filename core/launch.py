@@ -1,14 +1,17 @@
 """Development launch helpers for optional browser shell modes."""
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
 import json
 import os
 import subprocess
 import sys
+import time
 from typing import Callable, Sequence
 
+from core.edge_version_history import record_installed_edge_version
 from core.platform import (
     BrowserDetectionResult,
     OS_WINDOWS,
@@ -1481,3 +1484,147 @@ def attempt_webapp_launch(
         status_code=WEBAPP_LAUNCH_STATUS_LAUNCHED,
     )
     return _webapp_launch_status
+
+
+def run_legacy_app_owned_webapp_launch(
+    flags: LaunchFlags,
+    *,
+    session_state: MutableMapping[str, object],
+    startup_log_fn: Callable[..., None],
+    streamlit_headless_fn: Callable[[], bool | None],
+    dev_print_fn: Callable[[str], None] = print,
+    sleep_fn: Callable[[float], None] = time.sleep,
+    browser_detection_fn: Callable[[], BrowserDetectionResult] = detect_browser_capabilities,
+    edge_version_recorder: Callable[..., object] = record_installed_edge_version,
+    process_snapshot_fn: Callable[[], EdgeProcessSnapshot] = capture_edge_process_snapshot,
+    process_snapshot_poll_fn: Callable[[], EdgeSnapshotPollResult] = (
+        capture_edge_process_snapshot_poll
+    ),
+    window_snapshot_fn: Callable[[], EdgeWindowSnapshot] = capture_edge_window_snapshot,
+    attempt_launch_fn: Callable[..., EdgeWebappLaunchStatus] = attempt_webapp_launch,
+    cleanup_fn: Callable[..., EdgeDuplicateCleanupStatus] = close_duplicate_edge_browser_window,
+) -> None:
+    """Run the legacy app-owned webapp path used by raw Streamlit launches.
+
+    LEGACY_WEBAPP_LIFECYCLE: this keeps `streamlit run app.py -- webapp`
+    compatible while the canonical launcher-owned lifecycle becomes the default
+    manual/dev path.
+    """
+
+    external_launcher = is_external_webapp_launcher()
+    legacy_warning = get_legacy_webapp_launch_warning(
+        flags,
+        external_launcher=external_launcher,
+    )
+    if legacy_warning:
+        session_state["_legacy_webapp_launch_warning"] = legacy_warning
+    else:
+        session_state.pop("_legacy_webapp_launch_warning", None)
+    startup_log_fn(
+        "event=webapp_flag_detected",
+        f"session_guard={bool(session_state.get('_dev_webapp_launch_attempted'))}",
+        f"env_guard={os.environ.get('ROLETHREAD_WEBAPP_LAUNCH_ATTEMPTED', '')}",
+        f"external_launcher={external_launcher}",
+    )
+    browser_detection = browser_detection_fn()
+    if browser_detection.browser.edge_path is not None:
+        edge_version_recorder(
+            browser_detection.browser.edge_path,
+            source="webapp_diag" if flags.edge_debug else "webapp",
+        )
+    if flags.dev:
+        session_state["_dev_webapp_launch_guidance"] = get_webapp_launch_guidance(
+            flags,
+            streamlit_headless=streamlit_headless_fn(),
+            external_launcher=external_launcher,
+        )
+    should_attempt = should_attempt_webapp_launch(
+        flags,
+        already_attempted=bool(session_state.get("_dev_webapp_launch_attempted")),
+        external_launcher=external_launcher,
+    )
+    if not should_attempt:
+        if flags.webapp and external_launcher:
+            session_state["_dev_webapp_launch_status"] = build_external_webapp_launch_status(
+                flags,
+            )
+        startup_log_fn("event=webapp_launch_skipped_by_guard")
+        return
+
+    session_state["_dev_webapp_launch_attempted"] = True
+    managed_webapp_supported = supports_managed_webapp_launch(browser_detection)
+    startup_log_fn(
+        "event=webapp_launch_precheck",
+        f"managed_supported={managed_webapp_supported}",
+        f"platform={browser_detection.platform.os_name}",
+        f"edge_path={browser_detection.browser.edge_path}",
+    )
+    if managed_webapp_supported:
+        # LEGACY_WEBAPP_LIFECYCLE: before/after snapshots exist to clean up the
+        # duplicate normal browser window created by non-headless Streamlit
+        # manual launches. Headless launcher-owned flows should not need this.
+        edge_before = process_snapshot_fn()
+        edge_windows_before = window_snapshot_fn()
+    # WEBAPP_LIFECYCLE_TODO: dev/manual and packaged webapp modes should
+    # converge on a launcher-owned Edge launch before this app-owned branch is
+    # retired.
+    session_state["_dev_webapp_launch_status"] = attempt_launch_fn(
+        flags,
+        browser_detection=browser_detection,
+    )
+    launch_status = session_state["_dev_webapp_launch_status"]
+    startup_log_fn(
+        "event=edge_launch_attempt_result",
+        f"status={launch_status.status_code}",
+        f"attempted={launch_status.attempted}",
+        f"launched={launch_status.launched}",
+        f"message={launch_status.message}",
+    )
+    if not managed_webapp_supported:
+        session_state["_webapp_unsupported_notice"] = (
+            session_state["_dev_webapp_launch_status"].message
+            + " See documentation for manual configuration options."
+        )
+        return
+    if not session_state["_dev_webapp_launch_status"].launched:
+        return
+
+    sleep_fn(0.4)
+    edge_poll = process_snapshot_poll_fn()
+    edge_after = edge_poll.snapshot
+    edge_windows_after = window_snapshot_fn()
+    edge_diff = diff_edge_process_snapshots(edge_before, edge_after)
+    edge_window_diff = diff_edge_window_snapshots(
+        edge_windows_before,
+        edge_windows_after,
+    )
+    session_state["_dev_edge_snapshot_poll"] = edge_poll
+    if flags.edge_debug:
+        session_state["_dev_edge_debug_report"] = edge_diff
+        session_state["_dev_edge_window_debug_report"] = edge_window_diff
+    session_state["_dev_edge_cleanup_status"] = cleanup_fn(
+        flags,
+        edge_diff,
+        window_diff=edge_window_diff,
+    )
+    cleanup_status = session_state["_dev_edge_cleanup_status"]
+    startup_log_fn(
+        "event=duplicate_browser_cleanup_result",
+        f"status={cleanup_status.status_code}",
+        f"attempted={cleanup_status.attempted}",
+        f"method={cleanup_status.method}",
+        f"target={cleanup_status.target_pid}",
+        f"result={cleanup_status.result}",
+        f"message={cleanup_status.message}",
+        f"decision={' | '.join(cleanup_status.decision_details)}",
+    )
+    if flags.dev:
+        dev_print_fn(
+            "RoleThread Edge cleanup: "
+            f"status={cleanup_status.status_code}; "
+            f"attempted={cleanup_status.attempted}; "
+            f"method={cleanup_status.method}; "
+            f"target={cleanup_status.target_pid}; "
+            f"result={cleanup_status.result}; "
+            f"message={cleanup_status.message}"
+        )
