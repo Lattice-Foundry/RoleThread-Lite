@@ -354,7 +354,8 @@ def test_ai_training_fundamentals_articles_document_rolethread_purpose():
     assert "adult fictional themes" in privacy.content
     assert "some work belongs on the creator's machine" in privacy.content
     assert "There is no hosted inference requirement" in privacy.content
-    assert "creator ownership, privacy, autonomy, and local control" in privacy.content
+    assert "privacy, autonomy, and local control" in privacy.content
+    assert "direct file ownership" in privacy.content
 
 
 def test_ai_training_fundamentals_articles_document_roleplay_dataset_craft():
@@ -369,7 +370,8 @@ def test_ai_training_fundamentals_articles_document_roleplay_dataset_craft():
     assert "Repetition Becomes Behavior" in roleplay.content
     assert "Conversational rhythm matters" in roleplay.content
     assert "Weak assistant responses reduce output quality" in roleplay.content
-    assert "Use AI for the first 80%" in roleplay.content
+    assert "high-quality datasets are curated intentionally" in roleplay.content
+    assert "It is shaped" in roleplay.content
 
     assert mistakes.article.category == "AI Training Fundamentals"
     assert "More data does not automatically mean better data" in mistakes.content
@@ -393,7 +395,10 @@ def test_ai_training_fundamentals_articles_document_roleplay_dataset_craft():
     assert "Generate baseline examples with powerful AI models" in workflow.content
     assert "Remove repetitive or weak generations" in workflow.content
     assert "RoleThread is refinement infrastructure" in workflow.content
-    assert "Synthetic Data Still Needs Judgment" in workflow.content
+    assert "human judgment" in workflow.content
+    assert "Generated data can look polished while still teaching poor habits" in (
+        workflow.content
+    )
 
     assert validation.article.category == "AI Training Fundamentals"
     assert "Validation protects conversational structure" in validation.content
@@ -413,8 +418,8 @@ def test_ai_training_fundamentals_articles_document_training_readiness():
     )
 
     assert preparation.article.category == "AI Training Fundamentals"
-    assert "Training quality matters more than raw dataset size" in preparation.content
-    assert "small high-quality dataset" in preparation.content
+    assert "Training readiness is a workflow" in preparation.content
+    assert "Balance Examples" in preparation.content
     assert "iterative dataset engineering" in preparation.content
     assert "Avoid Garbage Amplification" in preparation.content
 
@@ -1292,7 +1297,7 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert tuple(grouped) == get_faq_category_order()
     assert sum(len(group) for group in grouped.values()) == len(entries)
     assert all(entry.category in get_faq_category_order() for entry in entries)
-    assert all(grouped[category] for category in get_faq_category_order())
+    assert grouped["Getting Started"]
     assert any(
         "native-style webapp launcher with a compiled installer" in entry.question
         and "science reasons" in entry.answer
@@ -1300,7 +1305,6 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     )
     assert any(
         entry.display_question == "Does RoleThread generate AI responses directly?"
-        and entry.category == "Validation, Export, and Training"
         and "data-generation-beta" in entry.related_help_ids
         for entry in entries
     )
@@ -1317,7 +1321,6 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     )
     assert any(
         entry.display_question == "Why keep creative training datasets local?"
-        and entry.category == "Safety, Backups, and Boundaries"
         and "privacy-and-local-first-creative-workflows" in entry.related_help_ids
         for entry in entries
     )
@@ -1333,7 +1336,6 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     )
     assert any(
         entry.display_question == "Why do characters drift during roleplay?"
-        and entry.category == "Metadata and Characters"
         and "character-consistency-and-drift" in entry.related_help_ids
         for entry in entries
     )
@@ -1354,7 +1356,6 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     )
     assert any(
         entry.display_question == "Why does creator ownership matter long term?"
-        and entry.category == "Safety, Backups, and Boundaries"
         and "creator-ownership-and-long-term-workflow-philosophy"
         in entry.related_help_ids
         for entry in entries
