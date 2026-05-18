@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.2] - 2026-05-17
+
+### Changed
+
+- Polished the Data Generation prompt preview with reusable JSON-preview-inspired code styling.
+- Added one-click copy support for compiled generation prompts without changing prompt compiler output.
+
 ## [1.4.1] - 2026-05-17
 
 ### Added

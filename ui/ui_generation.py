@@ -14,6 +14,7 @@ from core.generation import (
     get_generation_templates,
 )
 from services.generation_service import compile_generation_prompt_service
+from ui.ui_components import render_copyable_text_preview
 
 
 GENERATION_COMPILED_PROMPT_KEY = "generation_compiled_prompt"
@@ -129,13 +130,12 @@ def _render_prompt_preview() -> None:
     if not compiled_prompt:
         return
 
-    st.subheader("Generated Prompt Preview")
-    st.text_area(
-        "Compiled prompt",
-        value=compiled_prompt,
-        height=440,
+    render_copyable_text_preview(
+        "Generated Prompt Preview",
+        compiled_prompt,
+        copy_button_label="Copy Prompt",
+        copied_label="Prompt copied.",
     )
-    st.caption("Copy the compiled prompt and paste it into your external AI.")
 
 
 def render_generation_page() -> None:

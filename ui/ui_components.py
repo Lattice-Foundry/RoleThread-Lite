@@ -15,6 +15,11 @@ from ui.theme import COLOR_ASSISTANT, COLOR_USER
 
 _NON_STANDARD_ROLE_COLOR = "#c2185b"
 _ROLE_COLOR = {"user": COLOR_USER, "assistant": COLOR_ASSISTANT}
+_CODE_PREVIEW_BACKGROUND = "#0E1117"
+_CODE_PREVIEW_BORDER = "rgba(232, 232, 232, 0.18)"
+_CODE_PREVIEW_HEADING = COLOR_USER
+_CODE_PREVIEW_BODY = COLOR_ASSISTANT
+_PROMPT_CHUNK_HEADING_RE = re.compile(r"^\[[A-Z0-9 _-]+]$")
 
 
 def _format_preview_content(text: str) -> str:
@@ -43,6 +48,174 @@ def render_json_preview(entry: dict, expanded: bool = False) -> None:
     """Render a collapsible JSON preview for a dataset entry."""
     with st.expander("Preview JSON", expanded=expanded):
         st.code(json.dumps(entry, ensure_ascii=False, indent=2), language="json")
+
+
+def is_prompt_chunk_heading(line: str) -> bool:
+    """Return True when a prompt preview line is a placeholder chunk heading."""
+
+    return bool(_PROMPT_CHUNK_HEADING_RE.fullmatch(line.strip()))
+
+
+def render_prompt_preview_html(prompt_text: str) -> str:
+    """Return syntax-styled HTML for a compiled generation prompt preview."""
+
+    rendered_lines: list[str] = []
+    for line in prompt_text.splitlines():
+        css_class = (
+            "rolethread-preview-heading"
+            if is_prompt_chunk_heading(line)
+            else "rolethread-preview-body"
+        )
+        rendered_lines.append(
+            f'<span class="{css_class}">{escape_html(line)}</span>'
+        )
+    return "\n".join(rendered_lines)
+
+
+def _script_json_string(value: str) -> str:
+    """Return JSON text safe to embed in an inline script block."""
+
+    return (
+        json.dumps(value)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
+
+
+def build_copyable_text_preview_document(
+    title: str,
+    text: str,
+    *,
+    copy_button_label: str = "Copy",
+    copied_label: str = "Copied.",
+) -> tuple[str, int]:
+    """Return the HTML document and height for a copyable prompt preview."""
+
+    escaped_title = escape_html(title)
+    escaped_copy_label = escape_html(copy_button_label)
+    escaped_copied_label = escape_html(copied_label)
+    prompt_json = _script_json_string(text)
+    preview_html = render_prompt_preview_html(text)
+    line_count = max(1, text.count("\n") + 1)
+    height = min(620, max(220, line_count * 22 + 92))
+    document = f"""
+        <div class="rolethread-copyable-preview">
+          <div class="rolethread-copyable-preview-toolbar">
+            <span>{escaped_title}</span>
+            <button
+              class="rolethread-copyable-preview-copy"
+              type="button"
+              onclick="copyRoleThreadPreviewText()"
+            >
+              {escaped_copy_label}
+            </button>
+            <span
+              id="rolethread-copyable-preview-status"
+              class="rolethread-copyable-preview-status"
+              aria-live="polite"
+            ></span>
+          </div>
+          <pre class="rolethread-copyable-preview-body"><code>{preview_html}</code></pre>
+        </div>
+        <script>
+        const roleThreadPreviewText = {prompt_json};
+        async function copyRoleThreadPreviewText() {{
+          const status = document.getElementById("rolethread-copyable-preview-status");
+          try {{
+            await navigator.clipboard.writeText(roleThreadPreviewText);
+            status.textContent = "{escaped_copied_label}";
+          }} catch (error) {{
+            status.textContent = "Copy failed.";
+          }}
+          window.setTimeout(() => {{
+            status.textContent = "";
+          }}, 2400);
+        }}
+        </script>
+        <style>
+        .rolethread-copyable-preview {{
+          background: {_CODE_PREVIEW_BACKGROUND};
+          border: 1px solid {_CODE_PREVIEW_BORDER};
+          border-radius: 0.45rem;
+          color: {_CODE_PREVIEW_BODY};
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+            "Liberation Mono", "Courier New", monospace;
+          overflow: hidden;
+        }}
+        .rolethread-copyable-preview-toolbar {{
+          align-items: center;
+          border-bottom: 1px solid {_CODE_PREVIEW_BORDER};
+          color: {_CODE_PREVIEW_HEADING};
+          display: flex;
+          font-size: 0.86rem;
+          font-weight: 650;
+          gap: 0.65rem;
+          justify-content: flex-start;
+          padding: 0.55rem 0.75rem;
+        }}
+        .rolethread-copyable-preview-copy {{
+          background: transparent;
+          border: 1px solid {_CODE_PREVIEW_BORDER};
+          border-radius: 0.35rem;
+          color: #E8E8E8;
+          cursor: pointer;
+          font: inherit;
+          font-weight: 600;
+          margin-left: auto;
+          padding: 0.25rem 0.7rem;
+        }}
+        .rolethread-copyable-preview-copy:hover {{
+          border-color: {_CODE_PREVIEW_HEADING};
+          color: {_CODE_PREVIEW_HEADING};
+        }}
+        .rolethread-copyable-preview-status {{
+          color: {_CODE_PREVIEW_BODY};
+          min-width: 4.5rem;
+        }}
+        .rolethread-copyable-preview-body {{
+          background: {_CODE_PREVIEW_BACKGROUND};
+          box-sizing: border-box;
+          line-height: 1.48;
+          margin: 0;
+          max-height: 520px;
+          overflow: auto;
+          padding: 0.8rem 0.9rem;
+          white-space: pre-wrap;
+        }}
+        .rolethread-preview-heading {{
+          color: {_CODE_PREVIEW_HEADING};
+          font-weight: 700;
+        }}
+        .rolethread-preview-body {{
+          color: {_CODE_PREVIEW_BODY};
+        }}
+        </style>
+        """
+    return document, height
+
+
+def render_copyable_text_preview(
+    title: str,
+    text: str,
+    *,
+    expanded: bool = True,
+    copy_button_label: str = "Copy",
+    copied_label: str = "Copied.",
+) -> None:
+    """Render a themed, copyable non-JSON text preview."""
+
+    with st.expander(title, expanded=expanded):
+        document, height = build_copyable_text_preview_document(
+            title,
+            text,
+            copy_button_label=copy_button_label,
+            copied_label=copied_label,
+        )
+        st.iframe(
+            document,
+            height=height,
+        )
 
 
 def render_message_preview(
