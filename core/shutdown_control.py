@@ -67,6 +67,9 @@ def start_launcher_shutdown_server(
 ) -> bool:
     """Start a local-only shutdown endpoint when launched by the Windows launcher."""
 
+    # WEBAPP_LIFECYCLE_TODO: Streamlit does not expose a public HTTP shutdown
+    # hook for this desktop lifecycle, so RoleThread keeps this local tokened
+    # control channel for launcher-owned sessions only.
     global _server_started
 
     resolved = control or resolve_launcher_shutdown_control()

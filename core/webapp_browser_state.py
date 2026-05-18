@@ -77,6 +77,8 @@ def reset_rolethread_webapp_browser_state(
     than editing an active Chromium profile.
     """
 
+    # WEBAPP_LIFECYCLE_TODO: reset execution belongs immediately before the
+    # launcher-owned Edge app window opens, when Edge should be closed.
     resolved_profile = profile_path or get_default_edge_profile_path(env=env)
     cleared: list[str] = []
     skipped: list[str] = []
@@ -214,6 +216,8 @@ def consume_pending_webapp_browser_state_reset(
 ) -> PendingWebappBrowserStateResetResult:
     """Run a pending reset request and clear it only after successful cleanup."""
 
+    # WEBAPP_LIFECYCLE_TODO: future shared dev/manual and packaged launchers
+    # should both consume this marker before opening Edge app-mode.
     path = marker_path or resolve_webapp_browser_state_reset_marker_path(
         app_data_root=app_data_root,
         env=env,

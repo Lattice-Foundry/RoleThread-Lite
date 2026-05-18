@@ -25,6 +25,10 @@ EXTERNAL_WEBAPP_LAUNCH_ENV = "ROLETHREAD_EXTERNAL_WEBAPP_LAUNCH"
 WEBAPP_LAUNCH_ATTEMPTED_ENV = "ROLETHREAD_WEBAPP_LAUNCH_ATTEMPTED"
 DEFAULT_STREAMLIT_LOCAL_URL = "http://localhost:8501"
 RECOMMENDED_V1_LAUNCH_COMMAND = "streamlit run app.py"
+# LEGACY_WEBAPP_LIFECYCLE: this guidance describes the raw Streamlit-owned
+# browser launch path. The target lifecycle is headless Streamlit plus a
+# RoleThread launcher-owned Edge app window for both packaged and dev/manual
+# modes.
 WEBAPP_EXPERIMENTAL_MESSAGE = (
     "The webapp flag opens Microsoft Edge app mode when available. Streamlit "
     "may still open its normal browser window before app.py runs; RoleThread "
@@ -47,6 +51,8 @@ EDGE_CONFIDENCE_LIKELY = "likely_distinguishable"
 EDGE_CONFIDENCE_PARTIAL = "partially_distinguishable"
 EDGE_CONFIDENCE_UNRELIABLE = "unreliable"
 EDGE_CLEANUP_METHOD_CLOSE_MAIN_WINDOW = "close_main_window"
+# LEGACY_WEBAPP_LIFECYCLE: retained only as an old diagnostic/test constant;
+# duplicate-browser cleanup should not use PID/process termination.
 EDGE_CLEANUP_METHOD_STOP_PROCESS_EXACT_PID = "stop_process_exact_pid"
 EDGE_CLEANUP_METHOD_CLOSE_WINDOW_HANDLE = "close_window_handle"
 EDGE_CLEANUP_STATUS_ATTEMPTED = "attempted"
@@ -701,6 +707,9 @@ def close_duplicate_edge_browser_window(
 ) -> EdgeDuplicateCleanupStatus:
     """Experimentally close only a newly observed duplicate Edge browser window."""
 
+    # LEGACY_WEBAPP_LIFECYCLE: this cleanup exists because raw
+    # `streamlit run app.py -- webapp` can create a normal browser window
+    # before the app-owned Edge app-mode launch runs.
     if not flags.webapp:
         return _skip_edge_cleanup("Web-app flag is not active.")
 
@@ -844,6 +853,9 @@ def _close_duplicate_edge_browser_window_by_handle(
 ) -> EdgeDuplicateCleanupStatus | None:
     """Close one normal browser HWND only when app-window evidence is present."""
 
+    # WEBAPP_LIFECYCLE_TODO: keep exact HWND targeting while the legacy manual
+    # path exists; once all webapp entry points are launcher-owned and
+    # headless, this should become diagnostics-only or be removed.
     if not flags.webapp or window_diff is None:
         return None
 
@@ -1310,6 +1322,9 @@ def attempt_webapp_launch(
 ) -> EdgeWebappLaunchStatus:
     """Attempt the dev-only Edge web-app launch, returning a nonfatal status."""
 
+    # LEGACY_WEBAPP_LIFECYCLE: this is the app-owned Edge launcher for manual
+    # `streamlit run app.py -- webapp`. The future shared launcher path should
+    # own pending browser resets, Edge startup, HWND monitoring, and shutdown.
     global _webapp_launch_attempted, _webapp_launch_status
 
     target_url = url or get_streamlit_local_url()

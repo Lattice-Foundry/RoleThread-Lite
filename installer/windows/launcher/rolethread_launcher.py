@@ -365,6 +365,9 @@ def build_streamlit_command(
     app_root: Path | None = None,
     frozen: bool = False,
 ) -> tuple[str, ...]:
+    # WEBAPP_LIFECYCLE_TODO: extract command construction into the shared
+    # lifecycle layer so dev/manual and packaged webapp launcher modes both
+    # start Streamlit headless before RoleThread opens Edge.
     if frozen:
         if app_root is None:
             raise LauncherConfigurationError("Bundled launch requires an app root.")
@@ -591,6 +594,9 @@ def build_subprocess_env(
 ) -> dict[str, str]:
     """Build the child-process environment with launcher shutdown controls."""
 
+    # WEBAPP_LIFECYCLE_TODO: these environment boundaries should remain the
+    # shared contract between the launcher-owned lifecycle and app-side
+    # compatibility/diagnostic code.
     child_env = dict(os.environ if env is None else env)
     if config.shutdown_port and config.shutdown_token:
         child_env[SHUTDOWN_PORT_ENV] = str(config.shutdown_port)
@@ -608,6 +614,9 @@ def launch_rolethread(
     port_available_fn: Callable[[], bool] = is_port_available,
     env: dict[str, str] | None = None,
 ) -> subprocess.Popen:
+    # WEBAPP_LIFECYCLE_TODO: subprocess ownership, port checks, and logging are
+    # already the right launcher-owned shape; future dev/manual launcher mode
+    # should reuse this instead of invoking raw `streamlit run`.
     write_launcher_log(
         config.log_path,
         (
@@ -668,6 +677,8 @@ def launch_edge_webapp_window(
 ) -> EdgeLaunchResult:
     """Open the launcher-managed Edge app window after Streamlit is healthy."""
 
+    # WEBAPP_LIFECYCLE_TODO: this is the canonical owner for Edge app-mode
+    # startup; app.py should eventually stop launching Edge directly.
     detection = detect_browser_capabilities()
     edge_path = detection.browser.edge_path
     if detection.platform.os_name != "windows" or edge_path is None:
@@ -709,6 +720,8 @@ def wait_for_streamlit_health(
 ) -> HealthCheckResult:
     """Wait for the local Streamlit health endpoint to respond."""
 
+    # WEBAPP_LIFECYCLE_TODO: keep readiness as an explicit launcher step. Health
+    # means the backend is listening; Edge window readiness is handled later.
     target_url = url or build_streamlit_health_url()
     deadline = time.monotonic() + timeout_seconds
     attempts = 0
@@ -752,6 +765,8 @@ def capture_rolethread_webapp_windows(
 ) -> tuple[WebappWindowInfo, ...] | None:
     """Return visible RoleThread Edge app windows with exact HWND metadata."""
 
+    # WEBAPP_LIFECYCLE_TODO: exact HWND observation should remain shared
+    # lifecycle infrastructure because Edge PID/command metadata drifts.
     if os.name != "nt":
         return None
     if run_fn is subprocess.run:
@@ -1056,6 +1071,8 @@ def wait_for_exact_app_window_close(
 ) -> WindowCloseDetectionResult:
     """Monitor one observed Edge app-window HWND until that exact handle closes."""
 
+    # WEBAPP_LIFECYCLE_TODO: this exact-HWND monitor is the canonical shutdown
+    # trigger for launcher-owned webapp sessions.
     deadline = time.monotonic() + appear_timeout_seconds
     target: WebappWindowInfo | None = None
     while time.monotonic() <= deadline:
@@ -1153,6 +1170,9 @@ def request_graceful_shutdown(
 ) -> ShutdownRequestResult:
     """Request local launcher-controlled app shutdown."""
 
+    # WEBAPP_LIFECYCLE_TODO: keep graceful shutdown scoped to the local tokened
+    # control channel; fallback termination must target only this launcher-owned
+    # subprocess.
     if not config.shutdown_port or not config.shutdown_token:
         return ShutdownRequestResult(
             attempted=False,
@@ -1211,6 +1231,8 @@ def terminate_process_fallback(
 ) -> TerminationResult:
     """Terminate the Streamlit subprocess, escalating to kill only if needed."""
 
+    # WEBAPP_LIFECYCLE_TODO: this fallback is intentionally process-object
+    # scoped. It must not become port-owner, Edge, or arbitrary Python cleanup.
     if process.poll() is not None:
         return TerminationResult(
             attempted=False,
@@ -1311,6 +1333,9 @@ def run_launcher_lifecycle(
 ) -> LauncherLifecycleResult:
     """Start RoleThread and manage the first launcher-owned shutdown lifecycle."""
 
+    # WEBAPP_LIFECYCLE_TODO: this is the shape the overhaul should converge on:
+    # pending reset, owned backend, health, launcher-owned Edge app window,
+    # exact HWND close detection, graceful shutdown, and port-release logging.
     if config.launch_mode == LAUNCH_MODE_WEBAPP:
         reset_result = (
             pending_browser_reset_fn()

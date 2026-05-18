@@ -62,6 +62,11 @@ def _get_streamlit_headless_config() -> bool | None:
         return None
 
 
+# LEGACY_WEBAPP_LIFECYCLE: this app-owned path keeps raw
+# `streamlit run app.py -- webapp` working while Streamlit may still open its
+# normal browser before RoleThread can coordinate Edge app-mode. The canonical
+# future model should move browser orchestration into the launcher/shared
+# lifecycle layer and leave app.py with diagnostics/compatibility only.
 def _handle_webapp_launch(flags) -> None:
     """Run managed webapp launch work only when the webapp flag is active."""
 
@@ -124,8 +129,14 @@ def _handle_webapp_launch(flags) -> None:
         f"edge_path={browser_detection.browser.edge_path}",
     )
     if managed_webapp_supported:
+        # LEGACY_WEBAPP_LIFECYCLE: before/after snapshots exist to clean up the
+        # duplicate normal browser window created by non-headless Streamlit
+        # manual launches. Headless launcher-owned flows should not need this.
         edge_before = capture_edge_process_snapshot()
         edge_windows_before = capture_edge_window_snapshot()
+    # WEBAPP_LIFECYCLE_TODO: dev/manual and packaged webapp modes should
+    # converge on a launcher-owned Edge launch before this app-owned branch is
+    # retired.
     st.session_state["_dev_webapp_launch_status"] = attempt_webapp_launch(
         flags,
         browser_detection=browser_detection,
