@@ -58,8 +58,8 @@ from the Streamlit app because it owns startup orchestration, bundled runtime
 selection, installed Edge webapp startup, HWND monitoring, and backend shutdown
 lifecycle.
 
-Installer code should not duplicate dataset, UI, or app-owned browser cleanup
-logic. Its boundary is runtime packaging and process lifecycle.
+Installer code should not duplicate dataset, UI, or browser adapter logic. Its
+boundary is runtime packaging and process lifecycle.
 
 ### `docs/`
 

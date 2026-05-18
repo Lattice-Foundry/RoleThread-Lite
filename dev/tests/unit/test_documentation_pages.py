@@ -232,9 +232,15 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
 
     assert document.article.title == "Developer Launch Flags"
     assert document.article.category == "For Developers"
+    assert "python launch.py --webapp" in document.content
+    assert "python launch.py --webapp --debug" in document.content
+    assert "python launch.py --webapp --diag" in document.content
+    assert "streamlit run app.py" in document.content
+    assert "There is no place like `http://127.0.0.1`." in document.content
     assert "`dev`" in document.content
     assert "Launch Flags Detected" in document.content
-    assert "Diagnostics are gated behind `dev`" in document.content
+    assert "Diagnostics are gated behind `dev`" not in document.content
+    assert "custom `webapp` argument" in document.content
 
 
 def test_public_help_docs_do_not_reference_removed_webapp_flows():
@@ -560,8 +566,8 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "bundled Streamlit runtime" in packaging.content
     assert "Inno Setup" in packaging.content
     assert "Inno Setup installer prototype" in packaging.content
-    assert "managed Edge webapp launch mode" in packaging.content
-    assert "clearing the installer option during setup" in packaging.content
+    assert "managed launcher-owned webapp lifecycle" in packaging.content
+    assert "There is no installer runtime-mode selector" in packaging.content
     assert "check the taskbar for the RoleThread Lite installer" in packaging.content
     assert "through Settings" not in packaging.content
     assert "Normal uninstall preserves RoleThread user data by default" in (
@@ -585,17 +591,21 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "lifecycle-sensitive code" in packaging.content
 
     assert launcher.article.category == "For Developers"
-    assert "startup orchestrator" in launcher.content
-    assert "launcher owns backend process lifecycle" in launcher.content
-    assert "installer prototype installs bundled app files" in launcher.content
-    assert "Use Windows Edge webapp mode by default (recommended)" in launcher.content
-    assert "`enable_webapp_launch_mode`" in launcher.content
-    assert "DB-backed setting" in launcher.content
-    assert "Default uninstall removes installed app files and shortcuts" in (
-        launcher.content
-    )
+    assert "packaged adapter" in launcher.content
+    assert "Streamlit owns the app runtime" in launcher.content
+    assert "RoleThread owns the desktop/webapp lifecycle" in launcher.content
+    assert "shared launcher lifecycle" in launcher.content
+    assert "browser adapter launch" in launcher.content
+    assert "Edge browser adapter" in launcher.content
+    assert "The installer no longer offers a runtime-mode selector" in launcher.content
+    assert "Use Windows Edge webapp mode by default (recommended)" not in launcher.content
+    assert "`enable_webapp_launch_mode`" not in launcher.content
+    assert "DB-backed setting" not in launcher.content
+    assert "Default uninstall" in launcher.content
+    assert "installed app files and shortcuts" in launcher.content
     assert "Start Menu **RoleThread\nUninstaller** shortcut" in launcher.content
-    assert "not expected to show the uninstall data-removal prompts" in launcher.content
+    assert "not expected to show the uninstall data-removal" in launcher.content
+    assert "prompts" in launcher.content
     assert "rebuild the PyInstaller bundle by default" in launcher.content
     assert "prevents a setup executable from accidentally shipping stale" in launcher.content
     assert "Developer clean uninstall" not in launcher.content
@@ -603,19 +613,41 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
         launcher.content
     )
     assert "`RoleThreadLauncher.exe` is still running" in launcher.content
-    assert "selected launch mode" in launcher.content
     assert "windowed/no-console" in launcher.content
-    assert "local-only shutdown endpoint" in launcher.content
+    assert "shutdown endpoint" in launcher.content
     assert "`/_stcore/health`" in launcher.content
     assert "`terminate()`" in launcher.content
     assert "`kill()` only as a last resort" in launcher.content
-    assert "Managed webapp mode is Windows/Microsoft Edge only" in launcher.content
-    assert "launcher-managed environment marker" in launcher.content
-    assert "Edge process IDs are not a reliable abstraction" in launcher.content
+    assert "Edge is the current supported browser adapter" in launcher.content
+    assert "launcher-managed environment marker" not in launcher.content
+    assert "Edge process IDs are not a reliable app-window abstraction" in launcher.content
     assert "There is no PID/process-kill fallback" in launcher.content
-    assert "Streamlit health checks can succeed before" in launcher.content
+    assert "Health means the backend is ready to accept traffic" in launcher.content
     assert "Successful relaunch is also a practical validation signal" in launcher.content
     assert "Settings > Experimental Features" not in launcher.content
+
+
+def test_developer_docs_do_not_reference_removed_launcher_flows():
+    contribution = load_help_document("contribution-guidelines")
+    boundaries = load_help_document("lite-vs-studio-boundaries")
+    obsolete_terms = (
+        "streamlit run app.py -- webapp",
+        "edge-debug",
+        "webapp-debug",
+        "Reset Webapp Browser State",
+        "Use Windows Edge webapp mode by default",
+        "`enable_webapp_launch_mode`",
+        "app-owned browser",
+        "duplicate browser cleanup",
+        "installer option during setup",
+    )
+
+    for article in get_help_article_registry().values():
+        if article.category != "For Developers":
+            continue
+        document = load_help_document(article.article_id)
+        for term in obsolete_terms:
+            assert term not in document.content, article.article_id
 
     assert contribution.article.category == "For Developers"
     assert "small, testable" in contribution.content

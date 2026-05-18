@@ -805,7 +805,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Windows Installer and Launcher Architecture",
         "For Developers",
         340,
-        "How the Windows launcher starts RoleThread and delegates app-owned behavior.",
+        "How the Windows launcher delegates into the managed webapp lifecycle.",
         (
             "build-and-packaging-overview",
             "developer-launch-flags",

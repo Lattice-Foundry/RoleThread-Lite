@@ -1,100 +1,95 @@
 # Developer Launch Flags
 
-RoleThread accepts runtime flags after Streamlit's `--` separator. These flags are for development diagnostics, launcher integration, and webapp-mode testing.
+RoleThread has two source launch paths:
 
-Launch flags are deliberately centralized. They should not be checked with scattered `sys.argv` parsing throughout the app.
+- `python launch.py --webapp` for the managed app-window lifecycle
+- `streamlit run app.py` for plain Streamlit browser development
 
-## Normal Launch
+Use the launcher path when testing the installed-runtime shape. Use plain
+Streamlit when working on app UI behavior and you do not need app-window
+closeout, browser adapter launch, or launcher diagnostics.
 
-Use the standard Streamlit launch for the regular browser workflow:
+## Managed Webapp Launch
+
+```bat
+python launch.py --webapp
+```
+
+This is the canonical source/dev path for the managed webapp lifecycle. It
+matches the installed runtime model:
+
+1. build launcher configuration
+2. start Streamlit headless
+3. bind Streamlit to `127.0.0.1`
+4. wait for `/_stcore/health`
+5. launch the browser adapter
+6. monitor the owned app window
+7. request graceful shutdown when the window closes
+8. verify port release
+
+There is no place like `http://127.0.0.1`.
+
+## Launcher Diagnostics
+
+Use `--debug` for verbose lifecycle logging:
+
+```bat
+python launch.py --webapp --debug
+```
+
+Use `--diag` when you want the same diagnostic intent without changing the
+primary launch mode:
+
+```bat
+python launch.py --webapp --diag
+```
+
+Diagnostics report the launcher sequence: command construction, backend start,
+health wait, browser adapter launch, window monitoring, shutdown request,
+backend exit, and port release status.
+
+The old app-side Edge debug flags were removed. Launcher and browser diagnostics
+belong behind `launch.py`.
+
+## Plain Streamlit Browser Mode
 
 ```bat
 streamlit run app.py
 ```
 
-## Dev Diagnostics
+Use this when you want Streamlit's normal development loop. Streamlit owns the
+browser in this mode, and RoleThread does not attempt app-window monitoring or
+managed backend shutdown.
 
-Use `dev` to expose internal diagnostics in **Settings > About This Installation**:
+Do not use a custom `webapp` argument with `streamlit run`. Managed webapp
+behavior is launcher-owned.
+
+## App Developer Diagnostics
+
+Use the app-level `dev` flag to expose internal diagnostics inside
+**Settings > About This Installation**:
 
 ```bat
 streamlit run app.py -- dev
 ```
 
-Dev mode exposes platform detection, runtime details, browser availability, launch behavior, path resolution, and support diagnostics.
+Dev mode keeps raw platform, path, browser, and runtime metadata out of the
+default About view while keeping those details available to contributors.
 
-Diagnostics are gated behind `dev` so raw platform, path, browser, and window metadata stay out of the default About view.
-
-In dev mode, **Settings > About This Installation** adds a diagnostics stack:
+The normal About view stays support-oriented. The dev view adds diagnostic
+sections such as:
 
 - Launch Flags Detected
 - Platform Capabilities
 - Browser Support
-- Platform Path Defaults with source/provenance
+- Platform Path Defaults
 - Raw Platform Diagnostics
-- Webapp Launch Diagnostics
 
-The normal About view keeps only the support-oriented summary, runtime compatibility, launch behavior, and storage locations.
+## Installed Runtime
 
-## Webapp Mode
+Installed Windows builds always use the managed launcher-owned webapp lifecycle.
+The installer no longer exposes a runtime-mode selector.
 
-Use `webapp` to start RoleThread through the Edge webapp launch path:
-
-```bat
-streamlit run app.py -- webapp
-```
-
-This path is Windows/Microsoft Edge only. It is the shared webapp launch flag
-used by manual Windows testing and by the Windows launcher/installer pipeline
-when webapp mode is selected during setup. Launch mode is evaluated during
-startup.
-
-When Edge is available, RoleThread attempts to open the app in Microsoft Edge app mode. If Streamlit opens a normal browser window first, RoleThread may close only that duplicate browser window after the Edge app window is identified.
-
-Manual `streamlit run app.py -- webapp` uses the app-owned Edge launch and
-duplicate-window cleanup path. Installed bundled runs use the same flag for
-compatibility and diagnostics, but the launcher opens the initial Edge app
-window after the Streamlit health endpoint responds so it can own backend
-lifecycle and port release.
-
-On Linux, macOS, or unknown platforms, `webapp` does not attempt Edge launch, Windows window inspection, or duplicate-browser cleanup. RoleThread shows a controlled note and continues in normal browser mode. Use your browser's manual install-as-app or create-shortcut feature if you want an app-like shell on those platforms.
-
-## Webapp Mode With Diagnostics
-
-Use `webapp dev` when testing webapp launch behavior and you want Settings diagnostics visible:
-
-```bat
-streamlit run app.py -- webapp dev
-```
-
-## Edge Debug Diagnostics
-
-Use `edge-debug` when investigating Microsoft Edge process/window behavior:
-
-```bat
-streamlit run app.py -- webapp edge-debug
-```
-
-`edge-debug` exposes a single **Edge Launch Debug Diagnostics** section in
-**Settings > About This Installation**. It records Edge process IDs,
-HWND/window handles, candidate classifications, and cleanup decisions where
-Windows exposes that metadata.
-
-The window-handle section is usually the most useful diagnostic for duplicate
-browser cleanup because the normal browser window may already exist before
-`app.py` runs. Process-level evidence remains in the same expander as secondary
-context.
-
-## Webapp Debug Alias
-
-`webapp-debug` is also recognized as a debug flag for webapp launch investigation:
-
-```bat
-streamlit run app.py -- webapp webapp-debug
-```
-
-It enables the same Edge launch debug diagnostics as `edge-debug`.
-
-## Installer Launch Preference
-
-The Windows installer can seed the internal `enable_webapp_launch_mode` preference during setup. The launcher reads that preference on startup to choose normal browser mode or webapp mode. This is installer/launcher plumbing, not a normal Settings control.
-
+`RoleThreadLauncher.exe` is the packaged adapter. Shared lifecycle code owns the
+runtime sequence; the Windows adapter supplies bundled paths, subprocess flags,
+Edge adapter wiring, HWND monitoring, and logging.

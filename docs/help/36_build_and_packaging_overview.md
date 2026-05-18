@@ -50,6 +50,7 @@ Runtime dependencies live in `requirements.txt`. Developer/build dependencies be
 Development launch workflows may use:
 
 - `streamlit run app.py`
+- `python launch.py --webapp`
 - `.venv\Scripts\python.exe installer\windows\launcher\rolethread_launcher.py`
 - scripts under `installer/windows/scripts/`
 
@@ -128,9 +129,8 @@ bundle into a newer setup executable. The stale backend looked healthy on port
 checking source/bundle versions prevents updates from silently shipping stale
 runtime behavior.
 
-The Windows installer defaults to the managed Edge webapp launch mode because
-that path has the strongest launcher-owned lifecycle behavior. Normal browser
-mode remains available by clearing the installer option during setup.
+The Windows installer always uses the managed launcher-owned webapp lifecycle.
+There is no installer runtime-mode selector.
 
 On some Windows systems, the setup wizard may appear behind other windows after
 the UAC prompt. If setup does not appear immediately, minimize other windows or
@@ -156,5 +156,6 @@ Packaging is still evolving before V1. The architecture is fixed around a
 bundled Windows app plus a source-based contributor workflow. Installer UX may
 continue to improve across Windows and Edge machine differences, but the
 runtime boundary is stable: installer builds package release snapshots, while
-manual users run from source.
+source users run either plain Streamlit or the managed `launch.py --webapp`
+lifecycle.
 

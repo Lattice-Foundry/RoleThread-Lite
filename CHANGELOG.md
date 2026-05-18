@@ -16,6 +16,14 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.41] - 2026-05-18
+
+### Changed
+
+- Updated For Developers launch and packaging docs for the launcher-owned managed webapp architecture.
+- Removed stale developer references to raw Streamlit webapp flags, old Edge debug flags, installer runtime selection, and browser cleanup flows.
+- Clarified the Windows packaged launcher, shared lifecycle, browser adapter, shutdown, and port-release boundaries.
+
 ## [1.4.40] - 2026-05-18
 
 ### Changed
