@@ -1283,7 +1283,7 @@ def test_load_faq_entries_reads_json(tmp_path):
         FAQEntry(
             question="Tags and metadata: What is this?",
             answer="A FAQ.",
-            category="Metadata and Characters",
+            category="Tags and Validation",
             source_prefix="Tags and metadata",
             related_help_ids=("tags-categories-and-tag-lifecycle",),
         ),
@@ -1294,16 +1294,19 @@ def test_load_faq_entries_reads_json(tmp_path):
 def test_faq_category_derivation_maps_legacy_prefixes_to_browser_categories():
     assert derive_faq_category("Getting started: What is Lite?") == "Getting Started"
     assert derive_faq_category("Dataset craftsmanship: Why split?") == (
-        "Workflow and Editing"
+        "AI Training Fundamentals"
     )
     assert derive_faq_category("Group Chat and characters: Why mappings?") == (
-        "Metadata and Characters"
+        "Tags and Validation"
     )
     assert derive_faq_category("Export and training: What is clean export?") == (
-        "Validation, Export, and Training"
+        "Import, Export, and Training Files"
     )
     assert derive_faq_category("Lite boundaries: Why local-first?") == (
-        "Safety, Backups, and Boundaries"
+        "Privacy and Local Workflows"
+    )
+    assert derive_faq_category("Installation and launching: How do I launch?") == (
+        "Installation and Launching"
     )
 
 
@@ -1314,7 +1317,26 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert tuple(grouped) == get_faq_category_order()
     assert sum(len(group) for group in grouped.values()) == len(entries)
     assert all(entry.category in get_faq_category_order() for entry in entries)
-    assert grouped["Getting Started"]
+    assert all(grouped[category] for category in get_faq_category_order())
+    assert max(len(group) for group in grouped.values()) < len(entries) * 0.25
+    assert any(
+        entry.display_question == "How do I launch RoleThread Lite from source?"
+        and "python launch.py --webapp" in entry.answer
+        and "installing-rolethread-lite" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Is RoleThread Lite exposed to my network?"
+        and "`127.0.0.1`" in entry.answer
+        and "os-compatibility-and-storage-policy" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "How do I run launcher diagnostics?"
+        and "--diag" in entry.answer
+        and "--debug" in entry.answer
+        for entry in entries
+    )
     assert any(
         "native-style webapp launcher with a compiled installer" in entry.question
         and "science reasons" in entry.answer
@@ -1387,8 +1409,13 @@ def test_faq_category_descriptions_are_available_for_reader_polish():
 def test_faq_related_help_ids_are_known_and_lightweight():
     entries = load_faq_entries()
     help_article_ids = set(get_help_article_registry())
+    raw_entries = json.loads(ui_faq.FAQ_JSON.read_text(encoding="utf-8"))
 
     assert all(set(entry.related_help_ids) <= help_article_ids for entry in entries)
+    assert all(
+        set(raw_entry.get("related_help_ids", ())) <= help_article_ids
+        for raw_entry in raw_entries
+    )
     assert all(len(entry.related_help_ids) <= 3 for entry in entries)
     assert derive_related_help_ids(
         "Working copies and sidecars: Why did RoleThread create a working copy?"
@@ -1410,13 +1437,35 @@ def test_faq_related_help_ids_are_known_and_lightweight():
     )
 
 
+def test_faq_removes_stale_launcher_and_browser_state_references():
+    entries = load_faq_entries()
+    stale_terms = (
+        "streamlit run app.py -- webapp",
+        "edge-debug",
+        "webapp-debug",
+        "Use Webapp Mode",
+        "Reset Webapp Browser State",
+        "Clear Webapp Browser State",
+        "browser-state reset",
+        "app-owned browser",
+        "duplicate browser cleanup",
+    )
+    faq_text = "\n".join(
+        f"{entry.question}\n{entry.answer}"
+        for entry in entries
+    )
+
+    for stale_term in stale_terms:
+        assert stale_term not in faq_text
+
+
 def test_filter_faq_entries_matches_question_and_answer():
     entries = (
         FAQEntry(question="What is Lite?", answer="A local-first app."),
         FAQEntry(
             question="How do I export?",
             answer="Use the Export page.",
-            category="Validation, Export, and Training",
+            category="Import, Export, and Training Files",
         ),
     )
 
@@ -1442,13 +1491,13 @@ def test_select_faq_category_hides_search_results_and_reruns(monkeypatch):
     monkeypatch.setattr(ui_faq, "st", fake)
 
     category = ui_faq.select_faq_category(
-        "Metadata and Characters",
+        "Tags and Validation",
         rerun=False,
     )
 
-    assert category == "Metadata and Characters"
+    assert category == "Tags and Validation"
     assert fake.session_state[ui_faq.FAQ_ACTIVE_CATEGORY_KEY] == (
-        "Metadata and Characters"
+        "Tags and Validation"
     )
     assert fake.session_state[ui_faq.FAQ_SEARCH_QUERY_KEY] == "tag"
     assert fake.session_state[ui_faq.FAQ_SEARCH_RESULTS_VISIBLE_KEY] is False
@@ -1485,12 +1534,12 @@ def test_faq_sidebar_category_and_search_controls_render_browser_state():
     assert app.session_state[ui_faq.FAQ_ACTIVE_CATEGORY_KEY] == "Getting Started"
     assert any(value == "### Getting Started" for value in _markdown_values(app))
 
-    app.button(key="_faq_category_Metadata and Characters").click().run()
+    app.button(key="_faq_category_Tags and Validation").click().run()
 
     assert app.session_state[ui_faq.FAQ_ACTIVE_CATEGORY_KEY] == (
-        "Metadata and Characters"
+        "Tags and Validation"
     )
-    assert any(value == "### Metadata and Characters" for value in _markdown_values(app))
+    assert any(value == "### Tags and Validation" for value in _markdown_values(app))
 
     app.text_input[0].input("sidecar").run()
     app.button(key="_faq_search_submit").click().run()

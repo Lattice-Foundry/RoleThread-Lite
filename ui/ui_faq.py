@@ -25,36 +25,52 @@ FAQ_SEARCH_RESULTS_VISIBLE_KEY = "faq_search_results_visible"
 
 FAQ_CATEGORY_ORDER = (
     "Getting Started",
-    "Workflow and Editing",
-    "Metadata and Characters",
-    "Validation, Export, and Training",
-    "Safety, Backups, and Boundaries",
+    "Installation and Launching",
+    "Datasets and Editing",
+    "Tags and Validation",
+    "Import, Export, and Training Files",
+    "Data Generation",
+    "AI Training Fundamentals",
+    "Privacy and Local Workflows",
+    "Troubleshooting",
 )
 
 FAQ_CATEGORY_DESCRIPTIONS = {
     "Getting Started": "First-run questions, examples, and the basic app rhythm.",
-    "Workflow and Editing": "Daily workflow, Deep Edit, split/join, and dataset craft.",
-    "Metadata and Characters": "Tags, sidecars, character identity, and portable context.",
-    "Validation, Export, and Training": "Quality review, clean export, and downstream use.",
-    "Safety, Backups, and Boundaries": "Recovery, trust, local-first scope, and Lite limits.",
+    "Installation and Launching": "Install, source launch, managed webapp, and diagnostics.",
+    "Datasets and Editing": "Daily editing, search, split/join, prompts, and dataset craft.",
+    "Tags and Validation": "Tags, characters, metadata, validation, and quality review.",
+    "Import, Export, and Training Files": "Working copies, sidecars, merge, export, and training files.",
+    "Data Generation": "Prompt compilation, provider-agnostic generation, and beta behavior.",
+    "AI Training Fundamentals": "Fine-tuning concepts and conversational dataset craftsmanship.",
+    "Privacy and Local Workflows": "Local storage, backups, ownership, and workflow boundaries.",
+    "Troubleshooting": "Diagnostics, edge cases, and recovery-oriented questions.",
 }
 
 _FAQ_PREFIX_CATEGORY_MAP = {
     "getting started": "Getting Started",
     "included examples": "Getting Started",
-    "workflow philosophy": "Workflow and Editing",
-    "dataset craftsmanship": "Workflow and Editing",
-    "working copies and sidecars": "Metadata and Characters",
-    "tags and metadata": "Metadata and Characters",
-    "group chat and characters": "Metadata and Characters",
-    "metadata philosophy": "Metadata and Characters",
-    "validation and insights": "Validation, Export, and Training",
-    "export and training": "Validation, Export, and Training",
-    "backups and recovery": "Safety, Backups, and Boundaries",
-    "v1 boundaries": "Safety, Backups, and Boundaries",
-    "safety and identity": "Safety, Backups, and Boundaries",
-    "operational expectations": "Safety, Backups, and Boundaries",
-    "lite boundaries": "Safety, Backups, and Boundaries",
+    "installation and launching": "Installation and Launching",
+    "workflow philosophy": "Datasets and Editing",
+    "dataset craftsmanship": "AI Training Fundamentals",
+    "entry editing and search": "Datasets and Editing",
+    "system prompts": "Datasets and Editing",
+    "working copies and sidecars": "Import, Export, and Training Files",
+    "datasets and files": "Import, Export, and Training Files",
+    "tags and metadata": "Tags and Validation",
+    "group chat and characters": "Tags and Validation",
+    "metadata philosophy": "Tags and Validation",
+    "validation and insights": "Tags and Validation",
+    "export and training": "Import, Export, and Training Files",
+    "data generation": "Data Generation",
+    "ai training fundamentals": "AI Training Fundamentals",
+    "backups and recovery": "Privacy and Local Workflows",
+    "philosophy and boundaries": "Privacy and Local Workflows",
+    "v1 boundaries": "Privacy and Local Workflows",
+    "safety and identity": "Privacy and Local Workflows",
+    "operational expectations": "Privacy and Local Workflows",
+    "lite boundaries": "Privacy and Local Workflows",
+    "meta": "Troubleshooting",
 }
 
 _FAQ_PREFIX_HELP_RELATED = {
@@ -75,8 +91,8 @@ _FAQ_PREFIX_HELP_RELATED = {
     "backups and recovery": ("backups-cloud-sync-and-recovery",),
     "workflow philosophy": ("understanding-the-main-workspaces", "editing-entries"),
     "dataset craftsmanship": (
-        "splitting-and-joining-entries",
-        "insights-and-dataset-quality",
+        "what-makes-a-good-roleplay-dataset",
+        "why-dataset-quality-matters",
     ),
     "metadata philosophy": ("sidecars-and-portable-metadata",),
     "v1 boundaries": (
@@ -90,6 +106,15 @@ _FAQ_PREFIX_HELP_RELATED = {
     "safety and identity": (
         "loading-datasets-and-working-copies",
         "backups-cloud-sync-and-recovery",
+    ),
+    "installation and launching": (
+        "installing-rolethread-lite",
+        "os-compatibility-and-storage-policy",
+    ),
+    "data generation": ("data-generation-beta",),
+    "ai training fundamentals": (
+        "what-rolethread-is-actually-for",
+        "what-fine-tuning-actually-is",
     ),
 }
 
@@ -114,6 +139,29 @@ _FAQ_QUESTION_HELP_RELATED = {
     "Why isn't Deep Edit the primary editing workspace?": (
         "understanding-the-main-workspaces",
         "editing-entries",
+    ),
+    "How do I launch RoleThread Lite from source?": (
+        "installing-rolethread-lite",
+        "os-compatibility-and-storage-policy",
+    ),
+    "Why does the installed Windows app open in an app-style Edge window?": (
+        "installing-rolethread-lite",
+        "os-compatibility-and-storage-policy",
+    ),
+    "Is RoleThread Lite exposed to my network?": (
+        "os-compatibility-and-storage-policy",
+        "privacy-and-local-first-creative-workflows",
+    ),
+    "What does 127.0.0.1 mean?": (
+        "os-compatibility-and-storage-policy",
+    ),
+    "How do I run launcher diagnostics?": (
+        "os-compatibility-and-storage-policy",
+        "installing-rolethread-lite",
+    ),
+    "Can I still use normal Streamlit browser mode from source?": (
+        "installing-rolethread-lite",
+        "os-compatibility-and-storage-policy",
     ),
 }
 

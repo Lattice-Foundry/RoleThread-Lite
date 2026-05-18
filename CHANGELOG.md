@@ -16,6 +16,14 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.40] - 2026-05-18
+
+### Changed
+
+- Reorganized FAQ entries into clearer topic categories for launching, datasets, Data Generation, AI training, privacy, and troubleshooting.
+- Added concise FAQ guidance for the managed launcher-owned webapp path and source diagnostics.
+- Refreshed FAQ related Help links and removed stale launcher/debug/reset references.
+
 ## [1.4.39] - 2026-05-18
 
 ### Changed
