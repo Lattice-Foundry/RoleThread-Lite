@@ -486,6 +486,50 @@
   {
     "question": "Lite boundaries: Why separate Lite and Studio ideas?",
     "answer": "Lite is the local-first dataset crafting surface. Future RoleThread Studio ideas may involve larger orchestration, advanced automation, runtime workflows, or power-user systems.\n\nKeeping those boundaries separate helps Lite remain useful and complete without becoming a heavier platform."
+  },
+  {
+    "question": "Installation and platform: How do I install RoleThread Lite on Windows?",
+    "answer": "Use the Windows installer for the quickest setup. The installer configures RoleThread Lite, sets up the launcher, and places shortcuts.\n\nIf you prefer a manual install, follow the manual setup steps in the installation guide."
+  },
+  {
+    "question": "Installation and platform: Does RoleThread Lite run on Linux and macOS?",
+    "answer": "Yes. Linux is the primary non-Windows platform. macOS support is in beta.\n\nBoth use the manual install path. The installer is Windows-only."
+  },
+  {
+    "question": "Installation and platform: Where does RoleThread Lite store my files?",
+    "answer": "On Windows, app data goes to %LOCALAPPDATA%\\RoleThread. On Linux, the default path follows XDG conventions. On macOS, it uses the equivalent application support directory.\n\nDatasets go where you configure your dataset folder in Settings."
+  },
+  {
+    "question": "System prompts: What is the System Prompt Library?",
+    "answer": "The System Prompt Library is a collection of reusable prompt templates for entry creation.\n\nInstead of rewriting a system prompt from scratch each time, you can save templates and apply them when creating or editing entries."
+  },
+  {
+    "question": "System prompts: Does editing a template change entries that already used it?",
+    "answer": "No. When you apply a template, the text is copied into the entry. Later changes to the template do not update entries that already received it.\n\nEach entry owns its own system prompt text."
+  },
+  {
+    "question": "Search and filtering: What search modes are available in entry search?",
+    "answer": "Entry search supports three match modes: Contains (any query word appears), All Words (every word must appear), and Exact Phrase (the exact string must match).\n\nSearch applies to the full filtered set, not just the current page."
+  },
+  {
+    "question": "Search and filtering: Can I search only specific parts of an entry?",
+    "answer": "Yes. Scope controls let you target the system prompt, user turns, or assistant turns independently, or search across all message parts at once.\n\nThis is useful for finding entries where a specific phrase appears only in a particular role."
+  },
+  {
+    "question": "Merging datasets: What happens when merged datasets have duplicate entries?",
+    "answer": "RoleThread applies a first-wins policy: when two entries are identified as duplicates, the first dataset's version is kept and the second is discarded.\n\nTags from the discarded entry may be merged into the surviving one where safe."
+  },
+  {
+    "question": "Merging datasets: Are sidecars and character mappings preserved during merge?",
+    "answer": "Yes, conservatively. RoleThread preserves sidecar content and character mappings for entries that survive the merge.\n\nOrphan mappings from discarded duplicates are not carried over, since there is no surviving entry to attach them to."
+  },
+  {
+    "question": "Settings: What should I configure before starting?",
+    "answer": "The defaults are safe for getting started. If you want datasets stored in a specific folder, set your dataset directory in Settings.\n\nIf you want cloud backup, configure a sync folder there. Everything else can be adjusted as your workflow develops."
+  },
+  {
+    "question": "Settings: What does the Data Normalization setting do?",
+    "answer": "Data Normalization runs broader deterministic cleanup when a dataset is loaded, such as whitespace trimming, structural repairs, and formatting consistency.\n\nA baseline level of cleanup always runs. The setting controls how much additional normalization happens on load."
   }
 ]
 
