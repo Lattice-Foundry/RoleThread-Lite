@@ -121,6 +121,15 @@ def test_edge_launch_debug_diagnostics_are_consolidated_under_edge_debug():
     assert "Edge Process Debug" not in source
 
 
+def test_settings_exposes_webapp_browser_state_reset_without_session_state_label():
+    source = Path(ui_settings.__file__).read_text(encoding="utf-8")
+
+    assert "Reset Webapp Browser State" in source
+    assert "Clear Session State" not in source
+    assert "does not delete datasets" in source
+    assert "reset_rolethread_webapp_browser_state" in source
+
+
 def test_project_info_markup_preserves_official_attribution_and_colors():
     markup = ui_settings._format_project_info_markup()
 

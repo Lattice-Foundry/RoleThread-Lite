@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.18] - 2026-05-18
+
+### Added
+
+- Added a Settings troubleshooting tool to reset targeted Microsoft Edge webapp browser state for RoleThread localhost workflows.
+- Added browser-state reset utilities that preserve datasets, preferences, cookies, passwords, global Edge cache, and unrelated browser data.
+
 ## [1.4.17] - 2026-05-18
 
 ### Fixed

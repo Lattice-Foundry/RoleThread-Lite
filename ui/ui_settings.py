@@ -28,6 +28,7 @@ from core.platform import (
 from core.preferences import export_settings, get_all_settings, import_settings
 from core.runtime import get_python_runtime_status
 from core.version import ROLETHREAD_VERSION
+from core.webapp_browser_state import reset_rolethread_webapp_browser_state
 from ui.file_dialogs import (
     browse_directory,
     browse_settings_export_file,
@@ -277,6 +278,9 @@ def render_settings_page() -> None:
                 st.rerun()
 
     st.divider()
+    _render_webapp_browser_state_reset()
+
+    st.divider()
     _render_platform_about()
 
 
@@ -445,6 +449,54 @@ def _render_platform_about() -> None:
 
     st.divider()
     st.markdown(_format_project_info_markup(), unsafe_allow_html=True)
+
+
+def _render_webapp_browser_state_reset() -> None:
+    """Render a targeted troubleshooting tool for Edge webapp localhost state."""
+
+    st.subheader("Reset Webapp Browser State")
+    st.caption(
+        "Clears targeted Microsoft Edge metadata and cached localhost webapp state "
+        "associated with RoleThread Lite. This can help troubleshoot webapp launch, "
+        "app-window, or browser closeout behavior."
+    )
+    st.info(
+        "This does not delete datasets, preferences, project data, imports, exports, "
+        "or RoleThread database files. It targets browser-side localhost/webapp state only."
+    )
+    st.caption(
+        "For the safest reset, close Edge and RoleThread webapp windows first. "
+        "If Edge is running, browser profile files are left untouched."
+    )
+    if st.button("Reset Webapp Browser State", key="btn_reset_webapp_browser_state"):
+        result = reset_rolethread_webapp_browser_state()
+        if result.success:
+            st.success("Webapp browser state reset completed.")
+        else:
+            st.warning("Webapp browser state reset did not complete.")
+        if result.profile_path is not None:
+            st.caption(_format_about_row("Edge profile", f"`{result.profile_path}`"))
+        _render_webapp_browser_state_reset_details(result)
+
+
+def _render_webapp_browser_state_reset_details(result) -> None:
+    with st.expander("Reset details"):
+        if result.items_cleared:
+            st.markdown("**Cleared**")
+            for item in result.items_cleared:
+                st.caption(f"- {item}")
+        if result.items_skipped:
+            st.markdown("**Skipped**")
+            for item in result.items_skipped:
+                st.caption(f"- {item}")
+        if result.warnings:
+            st.markdown("**Warnings**")
+            for warning in result.warnings:
+                st.caption(f"- {warning}")
+        if result.errors:
+            st.markdown("**Errors**")
+            for error in result.errors:
+                st.caption(f"- {error}")
 
 
 def _format_project_info_markup() -> str:
