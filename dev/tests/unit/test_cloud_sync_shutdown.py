@@ -35,6 +35,26 @@ def test_cloud_sync_shutdown_reports_skip_in_diagnostics():
     ]
 
 
+def test_cloud_sync_shutdown_logs_skip_without_console_diagnostics():
+    messages = []
+    diagnostics = []
+
+    run_cloud_sync_shutdown(
+        sync_fn=lambda: CloudSyncResult(
+            ok=True,
+            message="Cloud backup sync is not configured.",
+        ),
+        status_callback=messages.append,
+        diagnostic_callback=diagnostics.append,
+    )
+
+    assert messages == []
+    assert diagnostics == [
+        "Cloud sync: Checking staged cloud sync queue.",
+        "Cloud sync: No staged cloud sync work configured.",
+    ]
+
+
 def test_cloud_sync_shutdown_reports_success_when_sync_runs():
     messages = []
 
@@ -50,6 +70,29 @@ def test_cloud_sync_shutdown_reports_success_when_sync_runs():
 
     assert result.ok is True
     assert messages == ["Cloud sync: Staged cloud sync completed."]
+
+
+def test_cloud_sync_shutdown_logs_success_details_without_console_diagnostics():
+    messages = []
+    diagnostics = []
+
+    run_cloud_sync_shutdown(
+        sync_fn=lambda: CloudSyncResult(
+            ok=True,
+            message="Cloud backup sync complete. Copied 2 sidecars.",
+            destination_path="X:/Backups/RoleThread Lite/backups",
+            sidecars_copied=2,
+        ),
+        status_callback=messages.append,
+        diagnostic_callback=diagnostics.append,
+    )
+
+    assert messages == ["Cloud sync: Staged cloud sync completed."]
+    assert diagnostics == [
+        "Cloud sync: Checking staged cloud sync queue.",
+        "Cloud sync: Destination X:/Backups/RoleThread Lite/backups.",
+        "Cloud sync: Copied 2 sidecars.",
+    ]
 
 
 def test_cloud_sync_shutdown_reports_diagnostic_details_for_success():
@@ -94,6 +137,30 @@ def test_cloud_sync_shutdown_reports_failure_without_discarding_pending_work():
     assert messages == [
         "Cloud sync: Checking staged cloud sync queue.",
         "Cloud sync warning: Staged cloud sync did not complete; pending work was preserved.",
+        "Cloud sync warning: Cloud backup sync failed: disk full",
+        "Cloud sync warning: disk full",
+    ]
+
+
+def test_cloud_sync_shutdown_logs_failure_details_without_console_diagnostics():
+    messages = []
+    diagnostics = []
+
+    run_cloud_sync_shutdown(
+        sync_fn=lambda: CloudSyncResult(
+            ok=False,
+            message="Cloud backup sync failed: disk full",
+            errors=("disk full",),
+        ),
+        status_callback=messages.append,
+        diagnostic_callback=diagnostics.append,
+    )
+
+    assert messages == [
+        "Cloud sync warning: Staged cloud sync did not complete; pending work was preserved.",
+    ]
+    assert diagnostics == [
+        "Cloud sync: Checking staged cloud sync queue.",
         "Cloud sync warning: Cloud backup sync failed: disk full",
         "Cloud sync warning: disk full",
     ]

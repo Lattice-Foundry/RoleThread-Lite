@@ -15,6 +15,7 @@ from core.shutdown_control import (
     resolve_launcher_shutdown_control,
     start_launcher_shutdown_server,
 )
+from core.launcher_log import write_launcher_log
 from installer.windows.launcher import rolethread_launcher as launcher
 
 
@@ -302,6 +303,23 @@ def test_launch_rolethread_logs_and_invokes_subprocess(tmp_path):
     assert "bundled_mode=False" in log_text
     assert "command=python.exe -m streamlit run app.py" in log_text
     assert "started_pid=1234" in log_text
+
+
+def test_shared_launcher_log_writer_strips_ansi_for_backend_closeout(tmp_path):
+    log_path = tmp_path / "logs" / "launcher.log"
+
+    write_launcher_log(
+        log_path,
+        (
+            "lifecycle=cloud_sync_shutdown",
+            "message=\033[38;2;214;169;71mCloud sync:\033[0m Staged cloud sync completed.",
+        ),
+    )
+
+    log_text = log_path.read_text(encoding="utf-8")
+    assert "lifecycle=cloud_sync_shutdown" in log_text
+    assert "message=Cloud sync: Staged cloud sync completed." in log_text
+    assert "\033[" not in log_text
 
 
 def test_launch_rolethread_reports_port_in_use_without_starting_subprocess(tmp_path):

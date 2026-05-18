@@ -345,6 +345,13 @@ def run_launcher_lifecycle(
         report_lifecycle_status(status_callback, "Backend exited after graceful shutdown.")
     else:
         if shutdown_result.ok:
+            write_log_fn(
+                config.log_path,
+                (
+                    "lifecycle=cloud_sync_shutdown_timeout",
+                    "message=Graceful closeout did not complete before shutdown timeout.",
+                ),
+            )
             report_lifecycle_status(
                 status_callback,
                 "Cloud sync warning: Graceful closeout did not complete before shutdown timeout.",

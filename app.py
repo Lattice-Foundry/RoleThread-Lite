@@ -38,6 +38,7 @@ from core.cloud_sync_shutdown import run_cloud_sync_shutdown
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset_with_summary
 from core.generation.seed import initialize_generation_registry
 from core.launcher_console import format_launcher_status
+from core.launcher_log import resolve_launcher_log_path_from_env, write_launcher_log
 from core.preferences import load_preferences
 from core.shutdown_control import (
     launcher_shutdown_diagnostics_enabled,
@@ -313,12 +314,22 @@ div[data-baseweb="menu"] li[role="option"][aria-selected="true"] {{
 def _sync_cloud_backups_on_exit() -> None:
     """Best-effort cloud backup sync for Streamlit process shutdown."""
 
+    launcher_control = resolve_launcher_shutdown_control()
+    log_path = resolve_launcher_log_path_from_env() if launcher_control else None
+    diagnostics_enabled = launcher_shutdown_diagnostics_enabled()
+    status_callback = (
+        _print_launcher_cloud_sync_status
+        if launcher_control
+        else _print_cloud_sync_status
+    )
+
     run_cloud_sync_shutdown(
-        diagnostics_enabled=launcher_shutdown_diagnostics_enabled(),
-        status_callback=(
-            _print_launcher_cloud_sync_status
-            if resolve_launcher_shutdown_control()
-            else _print_cloud_sync_status
+        diagnostics_enabled=diagnostics_enabled,
+        status_callback=status_callback,
+        diagnostic_callback=(
+            (lambda message: _write_launcher_cloud_sync_log(log_path, message))
+            if log_path
+            else None
         ),
     )
 
@@ -329,6 +340,16 @@ def _print_cloud_sync_status(message: str) -> None:
 
 def _print_launcher_cloud_sync_status(message: str) -> None:
     print(format_launcher_status(message), flush=True)
+
+
+def _write_launcher_cloud_sync_log(log_path: Path, message: str) -> None:
+    write_launcher_log(
+        log_path,
+        (
+            "lifecycle=cloud_sync_shutdown",
+            f"message={message}",
+        ),
+    )
 
 
 def _register_cloud_sync_on_exit() -> None:

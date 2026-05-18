@@ -142,6 +142,7 @@ def test_shared_lifecycle_terminates_owned_backend_when_health_fails(tmp_path):
 def test_shared_lifecycle_reports_cloud_sync_warning_before_fallback_termination(tmp_path):
     calls = []
     status_messages = []
+    log_entries = []
     config = LauncherConfig(
         app_root=tmp_path,
         python_path=tmp_path / "python.exe",
@@ -171,7 +172,7 @@ def test_shared_lifecycle_reports_cloud_sync_warning_before_fallback_termination
         or PortReleaseStatus(True, None, "free", "released"),
         edge_launch_fn=lambda: calls.append("edge_launch")
         or EdgeLaunchResult(True, True, ("msedge", "--app=http://127.0.0.1:8501"), "launched"),
-        write_log_fn=lambda path, lines: None,
+        write_log_fn=lambda path, lines: log_entries.append(tuple(lines)),
         format_command_fn=lambda command: " ".join(command),
         wait_for_process_exit_fn=lambda process: calls.append("wait_for_exit") or False,
         status_callback=status_messages.append,
@@ -193,3 +194,4 @@ def test_shared_lifecycle_reports_cloud_sync_warning_before_fallback_termination
     ) < status_messages.index(
         "Graceful shutdown did not complete; terminating owned backend."
     )
+    assert any("lifecycle=cloud_sync_shutdown_timeout" in lines for lines in log_entries)

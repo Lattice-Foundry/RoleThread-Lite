@@ -16,6 +16,14 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.43] - 2026-05-18
+
+### Changed
+
+- Added a backend-to-launcher log bridge for cloud-sync shutdown diagnostics in packaged/no-console runs.
+- Moved launcher log path handling into shared core helpers so app closeout hooks can append plain-text diagnostics safely.
+- Logged cloud-sync closeout timeout warnings before launcher fallback termination.
+
 ## [1.4.42] - 2026-05-18
 
 ### Changed

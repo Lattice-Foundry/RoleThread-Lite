@@ -12,7 +12,6 @@ import os
 import secrets
 import socket
 import ctypes
-from datetime import datetime
 from pathlib import Path
 import subprocess
 import sys
@@ -33,6 +32,11 @@ from core.launcher_lifecycle import (
     TerminationResult,
     WindowCloseDetectionResult,
     run_launcher_lifecycle as run_shared_launcher_lifecycle,
+)
+from core.launcher_log import (
+    LAUNCHER_LOG_FILE_NAME,
+    LAUNCHER_LOG_PATH_ENV,
+    write_launcher_log,
 )
 from core.launcher_runtime import (
     LAUNCH_MODE_NORMAL,
@@ -56,9 +60,7 @@ from core.shutdown_control import (
 APP_NAME = "RoleThread Lite"
 APP_DATA_DIR_NAME = "RoleThread"
 PREFERENCES_FILE_NAME = "preferences.json"
-LAUNCHER_LOG_FILE_NAME = "launcher.log"
 INTERNAL_STREAMLIT_FLAG = "--rolethread-run-streamlit"
-LAUNCHER_LOG_PATH_ENV = "ROLETHREAD_LAUNCHER_LOG_PATH"
 DEFAULT_HEALTH_TIMEOUT_SECONDS = 30.0
 DEFAULT_SHUTDOWN_TIMEOUT_SECONDS = 15.0
 DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS = 60.0
@@ -345,16 +347,6 @@ def ensure_streamlit_port_available(
             f"Port {STREAMLIT_PORT} is already in use. Close the existing RoleThread "
             "session or choose a future launcher port before starting another copy."
         )
-
-
-def write_launcher_log(log_path: Path, lines: Sequence[str]) -> None:
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().isoformat(timespec="seconds")
-    with log_path.open("a", encoding="utf-8") as handle:
-        handle.write(f"[{timestamp}] {APP_NAME} launcher\n")
-        for line in lines:
-            handle.write(f"{line}\n")
-        handle.write("\n")
 
 
 def get_app_version() -> str:
