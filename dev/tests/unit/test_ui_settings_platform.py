@@ -115,6 +115,8 @@ def test_edge_launch_debug_diagnostics_are_consolidated_under_edge_debug():
     source = Path(ui_settings.__file__).read_text(encoding="utf-8")
 
     assert "Edge Launch Debug Diagnostics" in source
+    assert "Edge Version History" in source
+    assert "get_edge_version_history" in source
     assert "edge_debug_mode" in source
     assert "Duplicate Browser Cleanup Diagnostics" not in source
     assert "Edge Window Debug" not in source

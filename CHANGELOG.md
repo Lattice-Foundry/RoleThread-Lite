@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.19] - 2026-05-18
+
+### Added
+
+- Added persistent local Microsoft Edge version history for launcher and webapp diagnostics.
+- Added Edge version history reporting inside edge-debug/webapp-debug Settings diagnostics.
+
 ## [1.4.18] - 2026-05-18
 
 ### Added

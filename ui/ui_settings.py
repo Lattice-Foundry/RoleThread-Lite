@@ -4,6 +4,7 @@ from pathlib import Path
 import streamlit as st
 
 from core.dataset import DEFAULT_SYSTEM_PROMPT
+from core.edge_version_history import get_edge_version_history
 from core.cloud_sync import (
     BACKUP_DESTINATION_BOX,
     BACKUP_DESTINATION_CUSTOM,
@@ -618,13 +619,46 @@ def _render_edge_launch_debug_diagnostics() -> None:
     process_report = st.session_state.get("_dev_edge_debug_report")
     window_report = st.session_state.get("_dev_edge_window_debug_report")
     if cleanup is None and process_report is None and window_report is None:
-        return
+        try:
+            if not get_edge_version_history():
+                return
+        except Exception:
+            return
 
     with st.expander("Edge Launch Debug Diagnostics"):
         st.caption("Detailed diagnostics captured by the `edge-debug` / `webapp-debug` launch flag.")
+        _render_edge_version_history()
         _render_edge_cleanup_debug_details(cleanup)
         _render_edge_window_debug_details(window_report)
         _render_edge_process_debug_details(process_report)
+
+
+def _render_edge_version_history() -> None:
+    """Render local Edge version history inside edge-debug diagnostics."""
+
+    st.markdown("**Edge Version History**")
+    try:
+        records = get_edge_version_history()
+    except Exception as exc:
+        st.caption(_format_about_row("History", f"`Unavailable: {exc}`"))
+        return
+    if not records:
+        st.caption(_format_about_row("History", "`No Edge versions recorded yet`"))
+        return
+    for record in records:
+        source = record.source or "unknown"
+        st.caption(
+            _format_about_row(
+                record.version,
+                (
+                    f"`{record.browser_name}`; seen `{record.encounter_count}` time"
+                    f"{'' if record.encounter_count == 1 else 's'}; "
+                    f"first `{record.first_seen.isoformat()}`; "
+                    f"last `{record.last_seen.isoformat()}`; "
+                    f"source `{source}`"
+                ),
+            )
+        )
 
 
 def _render_edge_cleanup_debug_details(cleanup) -> None:

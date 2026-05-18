@@ -42,6 +42,32 @@ class AppSetting(Base):
 
 
 # â”€â”€ TagCategory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+class EdgeVersionHistory(Base):
+    """Local diagnostic history for Microsoft Edge versions observed by RoleThread."""
+    __tablename__ = "edge_version_history"
+    __table_args__ = (
+        UniqueConstraint("browser_name", "version", name="uq_edge_version_history"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    browser_name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    version: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    first_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_datetime
+    )
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utc_datetime
+    )
+    encounter_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    source: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    def __repr__(self) -> str:
+        return (
+            f"<EdgeVersionHistory browser_name={self.browser_name!r} "
+            f"version={self.version!r} count={self.encounter_count}>"
+        )
+
+
 class TagCategory(Base):
     """A named category that groups related tags."""
     __tablename__ = "tag_categories"

@@ -28,6 +28,7 @@ from core.shutdown_control import (
     SHUTDOWN_TOKEN_ENV,
 )
 from core.launch import EXTERNAL_WEBAPP_LAUNCH_ENV
+from core.edge_version_history import record_installed_edge_version
 from core.platform import detect_browser_capabilities
 
 
@@ -675,6 +676,7 @@ def launch_edge_webapp_window(
             command=(),
             message="Windows Microsoft Edge webapp launch is unavailable.",
         )
+    record_installed_edge_version(edge_path, source="launcher")
 
     target_url = url or build_streamlit_app_url()
     command = (str(edge_path), f"--app={target_url}")

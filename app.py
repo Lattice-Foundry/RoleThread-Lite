@@ -80,6 +80,7 @@ def _handle_webapp_launch(flags) -> None:
         should_attempt_webapp_launch,
         supports_managed_webapp_launch,
     )
+    from core.edge_version_history import record_installed_edge_version
     from core.platform import detect_browser_capabilities
 
     external_launcher = is_external_webapp_launcher()
@@ -90,6 +91,11 @@ def _handle_webapp_launch(flags) -> None:
         f"external_launcher={external_launcher}",
     )
     browser_detection = detect_browser_capabilities()
+    if browser_detection.browser.edge_path is not None:
+        record_installed_edge_version(
+            browser_detection.browser.edge_path,
+            source="webapp_diag" if flags.edge_debug else "webapp",
+        )
     if flags.dev:
         st.session_state["_dev_webapp_launch_guidance"] = get_webapp_launch_guidance(
             flags,
