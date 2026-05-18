@@ -17,6 +17,9 @@ from typing import Callable, Sequence
 from installer.windows.launcher import rolethread_launcher as launcher
 
 
+DEBUG_PREFIX = "[RoleThread Launcher]"
+
+
 @dataclass(frozen=True)
 class LaunchOptions:
     """Command-line options for the canonical source launcher."""
@@ -105,22 +108,34 @@ def run(
     *,
     config_builder: Callable[[LaunchOptions], launcher.LauncherConfig]
     | None = None,
-    lifecycle_fn: Callable[[launcher.LauncherConfig], object] = launcher.run_launcher_lifecycle,
+    lifecycle_fn: Callable[..., object] = launcher.run_launcher_lifecycle,
 ) -> int:
     """Run RoleThread through the canonical source launcher."""
 
     options = parse_launch_args(argv)
     try:
+        debug_status = _print_debug_status if options.debug else None
+        if debug_status:
+            debug_status("Building launcher configuration.")
         builder = config_builder or build_manual_launcher_config
         config = builder(options)
-        if options.debug:
-            print(f"Starting {launcher.APP_NAME} in {config.launch_mode} mode...")
-            print(launcher.format_command(config.command))
-        lifecycle_fn(config)
+        if debug_status:
+            debug_status(f"Launch mode: {config.launch_mode}")
+            if config.launch_mode == launcher.LAUNCH_MODE_WEBAPP:
+                debug_status("Managed webapp mode: Streamlit will start headless.")
+            debug_status(f"Command: {launcher.format_command(config.command)}")
+        if debug_status:
+            lifecycle_fn(config, status_callback=debug_status)
+        else:
+            lifecycle_fn(config)
         return 0
     except Exception as exc:
         print(f"RoleThread launch failed: {exc}", file=sys.stderr)
         return 1
+
+
+def _print_debug_status(message: str) -> None:
+    print(f"{DEBUG_PREFIX} {message}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

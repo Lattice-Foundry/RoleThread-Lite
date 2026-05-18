@@ -39,6 +39,12 @@ WEBAPP_AUTOMATION_DEFERRED_MESSAGE = (
     "Future installer and shortcut workflows will call this internal launch "
     "method. Manual browser install-as-app remains the reliable fallback."
 )
+LEGACY_WEBAPP_LAUNCH_WARNING = (
+    "Legacy webapp compatibility mode is active. For the managed beta webapp "
+    "launch, use `python launch.py --webapp`. Raw Streamlit webapp mode may "
+    "open a normal browser before RoleThread can manage Edge app-mode; this "
+    "path remains available temporarily."
+)
 RECOMMENDED_WEBAPP_STREAMLIT_COMMAND = (
     ".venv\\Scripts\\python.exe -m streamlit run app.py "
     "--server.headless true --server.port 8501 -- webapp"
@@ -363,6 +369,18 @@ def get_webapp_launch_guidance(
             f"{WEBAPP_AUTOMATION_DEFERRED_MESSAGE}"
         ),
     )
+
+
+def get_legacy_webapp_launch_warning(
+    flags: LaunchFlags,
+    *,
+    external_launcher: bool = False,
+) -> str | None:
+    """Return the warning for raw Streamlit-owned webapp compatibility mode."""
+
+    if flags.webapp and not external_launcher:
+        return LEGACY_WEBAPP_LAUNCH_WARNING
+    return None
 
 
 def capture_edge_process_snapshot(

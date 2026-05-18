@@ -20,6 +20,7 @@ from core.launch import (
     DEFAULT_STREAMLIT_LOCAL_URL,
     EDGE_DEBUG_FLAG,
     EXTERNAL_WEBAPP_LAUNCH_ENV,
+    LEGACY_WEBAPP_LAUNCH_WARNING,
     LaunchFlags,
     RECOMMENDED_V1_LAUNCH_COMMAND,
     RECOMMENDED_WEBAPP_STREAMLIT_COMMAND,
@@ -39,6 +40,7 @@ from core.launch import (
     diff_edge_process_snapshots,
     diff_edge_window_snapshots,
     get_streamlit_local_url,
+    get_legacy_webapp_launch_warning,
     get_webapp_launch_guidance,
     get_webapp_launch_status,
     is_external_webapp_launcher,
@@ -183,6 +185,28 @@ def test_webapp_guidance_is_quiet_when_flag_is_missing():
     assert guidance.external_launcher is False
     assert guidance.warning is False
     assert guidance.message == "Web-app launch mode is not active."
+
+
+def test_legacy_webapp_warning_only_applies_to_raw_streamlit_path():
+    warning = get_legacy_webapp_launch_warning(
+        LaunchFlags(webapp=True),
+        external_launcher=False,
+    )
+
+    assert warning == LEGACY_WEBAPP_LAUNCH_WARNING
+    assert "python launch.py --webapp" in warning
+    assert "Raw Streamlit webapp mode" in warning
+
+
+def test_legacy_webapp_warning_is_suppressed_for_canonical_launcher_path():
+    assert (
+        get_legacy_webapp_launch_warning(
+            LaunchFlags(webapp=True),
+            external_launcher=True,
+        )
+        is None
+    )
+    assert get_legacy_webapp_launch_warning(LaunchFlags(webapp=False)) is None
 
 
 def test_external_launch_status_records_app_skip():

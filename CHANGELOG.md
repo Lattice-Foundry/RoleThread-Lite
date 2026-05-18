@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.24] - 2026-05-18
+
+### Changed
+
+- Strengthened canonical `python launch.py --webapp` debug diagnostics around launcher-owned startup, health readiness, Edge app launch, HWND monitoring, shutdown, and port release.
+- Added a concise legacy warning for raw `streamlit run app.py -- webapp` compatibility mode that points beta testers to `python launch.py --webapp`.
+
 ## [1.4.23] - 2026-05-18
 
 ### Added

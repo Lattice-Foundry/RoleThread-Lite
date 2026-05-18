@@ -107,3 +107,47 @@ def test_run_delegates_to_lifecycle():
         ("config", launcher.LAUNCH_MODE_WEBAPP),
         ("lifecycle", launcher.LAUNCH_MODE_WEBAPP),
     ]
+
+
+def test_debug_run_prints_lifecycle_status(capsys):
+    config = launcher.LauncherConfig(
+        app_root=Path("X:/rolethread"),
+        python_path=Path("python.exe"),
+        preferences_path=Path("preferences.json"),
+        log_path=Path("launcher.log"),
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=(
+            "python.exe",
+            "-m",
+            "streamlit",
+            "run",
+            "app.py",
+            "--server.headless",
+            "true",
+            "--",
+            "webapp",
+        ),
+    )
+
+    def build_config(options):
+        return config
+
+    def run_lifecycle(config_arg, *, status_callback=None):
+        status_callback("Waiting for Streamlit health endpoint.")
+        status_callback("Launching Edge app-mode window.")
+        status_callback("Backend exited after graceful shutdown.")
+
+    exit_code = root_launcher.run(
+        ["--webapp", "--debug"],
+        config_builder=build_config,
+        lifecycle_fn=run_lifecycle,
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "[RoleThread Launcher] Building launcher configuration." in output
+    assert "[RoleThread Launcher] Managed webapp mode: Streamlit will start headless." in output
+    assert "--server.headless true" in output
+    assert "[RoleThread Launcher] Waiting for Streamlit health endpoint." in output
+    assert "[RoleThread Launcher] Launching Edge app-mode window." in output
+    assert "[RoleThread Launcher] Backend exited after graceful shutdown." in output

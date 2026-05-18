@@ -59,6 +59,7 @@ DEFAULT_HEALTH_TIMEOUT_SECONDS = 30.0
 DEFAULT_SHUTDOWN_TIMEOUT_SECONDS = 15.0
 DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS = 60.0
 DEFAULT_WINDOW_POLL_SECONDS = 2.0
+LifecycleStatusCallback = Callable[[str], None]
 
 
 @dataclass(frozen=True)
@@ -1313,6 +1314,32 @@ def log_pending_webapp_browser_state_reset(log_path: Path, result) -> None:
     write_launcher_log(log_path, tuple(lines))
 
 
+def _report_lifecycle_status(
+    status_callback: LifecycleStatusCallback | None,
+    message: str,
+) -> None:
+    if status_callback is not None:
+        status_callback(message)
+
+
+def _resolve_port_release_status(
+    port_release_fn: Callable[[int | None], PortReleaseStatus] | None,
+    pid: int | None,
+) -> PortReleaseStatus:
+    if port_release_fn is not None:
+        return port_release_fn(pid)
+    return check_port_release_status(owned_pid=pid)
+
+
+def _log_and_report_port_release_status(
+    log_path: Path,
+    status: PortReleaseStatus,
+    status_callback: LifecycleStatusCallback | None,
+) -> None:
+    log_port_release_status(log_path, status)
+    _report_lifecycle_status(status_callback, f"Port release: {status.message}")
+
+
 def run_launcher_lifecycle(
     config: LauncherConfig,
     *,
@@ -1333,6 +1360,7 @@ def run_launcher_lifecycle(
     port_release_fn: Callable[[int | None], PortReleaseStatus] | None = None,
     edge_launch_fn: Callable[[], EdgeLaunchResult] = launch_edge_webapp_window,
     pending_browser_reset_fn: Callable[[], object] | None = None,
+    status_callback: LifecycleStatusCallback | None = None,
 ) -> LauncherLifecycleResult:
     """Start RoleThread and manage the first launcher-owned shutdown lifecycle."""
 
@@ -1340,6 +1368,10 @@ def run_launcher_lifecycle(
     # pending reset, owned backend, health, launcher-owned Edge app window,
     # exact HWND close detection, graceful shutdown, and port-release logging.
     if config.launch_mode == LAUNCH_MODE_WEBAPP:
+        _report_lifecycle_status(
+            status_callback,
+            "Checking pending webapp browser-state reset before Edge launch.",
+        )
         reset_result = (
             pending_browser_reset_fn()
             if pending_browser_reset_fn is not None
@@ -1349,13 +1381,23 @@ def run_launcher_lifecycle(
         )
         if getattr(reset_result, "attempted", False):
             log_pending_webapp_browser_state_reset(config.log_path, reset_result)
+            _report_lifecycle_status(
+                status_callback,
+                f"Pending webapp browser-state reset: {getattr(reset_result, 'message', '')}",
+            )
 
+    _report_lifecycle_status(
+        status_callback,
+        f"Starting Streamlit backend: {format_command(config.command)}",
+    )
     process = launch_rolethread(
         config,
         popen=popen,
         port_available_fn=port_available_fn,
     )
     pid = getattr(process, "pid", None)
+    _report_lifecycle_status(status_callback, f"Streamlit backend started with PID {pid}.")
+    _report_lifecycle_status(status_callback, "Waiting for Streamlit health endpoint.")
     health = health_check_fn()
     write_launcher_log(
         config.log_path,
@@ -1366,8 +1408,13 @@ def run_launcher_lifecycle(
             f"health_message={health.message}",
         ),
     )
+    _report_lifecycle_status(status_callback, f"Streamlit health: {health.message}")
 
     if not health.ok:
+        _report_lifecycle_status(
+            status_callback,
+            "Health check failed; terminating owned backend.",
+        )
         termination = termination_fn(process)
         shutdown_result = ShutdownRequestResult(
             attempted=False,
@@ -1389,11 +1436,10 @@ def run_launcher_lifecycle(
                 f"termination_completed={termination.completed}",
             ),
         )
-        log_port_release_status(
+        _log_and_report_port_release_status(
             config.log_path,
-            (port_release_fn or (lambda owner_pid: check_port_release_status(owned_pid=owner_pid)))(
-                pid
-            ),
+            _resolve_port_release_status(port_release_fn, pid),
+            status_callback,
         )
         return LauncherLifecycleResult(
             process_pid=pid,
@@ -1406,6 +1452,7 @@ def run_launcher_lifecycle(
         )
 
     if config.launch_mode == LAUNCH_MODE_WEBAPP:
+        _report_lifecycle_status(status_callback, "Launching Edge app-mode window.")
         edge_launch = edge_launch_fn()
         write_launcher_log(
             config.log_path,
@@ -1417,10 +1464,12 @@ def run_launcher_lifecycle(
                 f"message={edge_launch.message}",
             ),
         )
+        _report_lifecycle_status(status_callback, f"Edge app-mode launch: {edge_launch.message}")
 
     close_waiter = wait_for_close_fn or (
         lambda mode, proc: wait_for_app_window_close(mode, process=proc)
     )
+    _report_lifecycle_status(status_callback, "Monitoring app window for close.")
     close_detection = close_waiter(config.launch_mode, process)
     write_launcher_log(
         config.log_path,
@@ -1435,6 +1484,7 @@ def run_launcher_lifecycle(
             f"message={close_detection.message}",
         ),
     )
+    _report_lifecycle_status(status_callback, f"Window monitor: {close_detection.message}")
 
     if not close_detection.supported or not close_detection.closed:
         shutdown_result = ShutdownRequestResult(
@@ -1444,6 +1494,10 @@ def run_launcher_lifecycle(
             message="Skipped shutdown request because app-window close was not detected.",
         )
         if config.launch_mode == LAUNCH_MODE_WEBAPP:
+            _report_lifecycle_status(
+                status_callback,
+                "App-window close was not detected; terminating owned backend.",
+            )
             termination = termination_fn(process)
             final_state = (
                 "window_monitor_failed_terminated"
@@ -1468,11 +1522,10 @@ def run_launcher_lifecycle(
                 message="Lifecycle monitor did not own shutdown for this launch mode.",
             )
             final_state = "monitoring_unavailable"
-        log_port_release_status(
+        _log_and_report_port_release_status(
             config.log_path,
-            (port_release_fn or (lambda owner_pid: check_port_release_status(owned_pid=owner_pid)))(
-                pid
-            ),
+            _resolve_port_release_status(port_release_fn, pid),
+            status_callback,
         )
         return LauncherLifecycleResult(
             process_pid=pid,
@@ -1484,6 +1537,10 @@ def run_launcher_lifecycle(
             final_state=final_state,
         )
 
+    _report_lifecycle_status(
+        status_callback,
+        "App window closed; requesting graceful backend shutdown.",
+    )
     shutdown_result = shutdown_request_fn(config)
     write_launcher_log(
         config.log_path,
@@ -1494,6 +1551,10 @@ def run_launcher_lifecycle(
             f"status_code={shutdown_result.status_code}",
             f"message={shutdown_result.message}",
         ),
+    )
+    _report_lifecycle_status(
+        status_callback,
+        f"Graceful shutdown request: {shutdown_result.message}",
     )
 
     if shutdown_result.ok and wait_for_process_exit(
@@ -1507,7 +1568,12 @@ def run_launcher_lifecycle(
             message="Process exited after graceful shutdown request.",
         )
         final_state = "graceful_shutdown"
+        _report_lifecycle_status(status_callback, "Backend exited after graceful shutdown.")
     else:
+        _report_lifecycle_status(
+            status_callback,
+            "Graceful shutdown did not complete; terminating owned backend.",
+        )
         termination = termination_fn(process)
         final_state = "terminated" if termination.completed else "termination_failed"
 
@@ -1521,11 +1587,10 @@ def run_launcher_lifecycle(
             f"termination_message={termination.message}",
         ),
     )
-    log_port_release_status(
+    _log_and_report_port_release_status(
         config.log_path,
-        (port_release_fn or (lambda owner_pid: check_port_release_status(owned_pid=owner_pid)))(
-            pid
-        ),
+        _resolve_port_release_status(port_release_fn, pid),
+        status_callback,
     )
     return LauncherLifecycleResult(
         process_pid=pid,

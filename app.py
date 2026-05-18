@@ -12,6 +12,7 @@ import streamlit as st
 
 from core.launch import (
     build_external_webapp_launch_status,
+    get_legacy_webapp_launch_warning,
     is_external_webapp_launcher,
     should_show_dev_diagnostics,
     parse_launch_flags,
@@ -89,6 +90,14 @@ def _handle_webapp_launch(flags) -> None:
     from core.platform import detect_browser_capabilities
 
     external_launcher = is_external_webapp_launcher()
+    legacy_warning = get_legacy_webapp_launch_warning(
+        flags,
+        external_launcher=external_launcher,
+    )
+    if legacy_warning:
+        st.session_state["_legacy_webapp_launch_warning"] = legacy_warning
+    else:
+        st.session_state.pop("_legacy_webapp_launch_warning", None)
     _write_webapp_startup_log(
         "event=webapp_flag_detected",
         f"session_guard={bool(st.session_state.get('_dev_webapp_launch_attempted'))}",
@@ -204,6 +213,9 @@ st.session_state["_runtime_launch_flags"] = _launch_flags
 st.session_state["_dev_mode"] = should_show_dev_diagnostics(_launch_flags)
 if _launch_flags.webapp:
     _handle_webapp_launch(_launch_flags)
+
+if st.session_state.get("_legacy_webapp_launch_warning"):
+    st.warning(st.session_state["_legacy_webapp_launch_warning"])
 
 if st.session_state.get("_webapp_unsupported_notice"):
     st.info(st.session_state["_webapp_unsupported_notice"])

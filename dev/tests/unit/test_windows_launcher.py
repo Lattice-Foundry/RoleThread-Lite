@@ -1043,6 +1043,107 @@ def test_run_launcher_lifecycle_consumes_pending_webapp_reset_before_startup(tmp
     assert "completed=True" in log_text
 
 
+def test_run_launcher_lifecycle_orders_managed_webapp_steps_and_reports_status(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "logs" / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=(
+            "python.exe",
+            "-m",
+            "streamlit",
+            "run",
+            "app.py",
+            "--server.headless",
+            "true",
+            "--",
+            "webapp",
+        ),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+    calls = []
+    statuses = []
+
+    class FakeProcess:
+        pid = 779
+
+        def wait(self, timeout):
+            calls.append("wait_for_exit")
+            return 0
+
+    def pending_reset():
+        calls.append("pending_reset")
+        return PendingWebappBrowserStateResetResult(
+            pending=False,
+            attempted=True,
+            completed=True,
+            marker_path=tmp_path / "webapp_browser_state_reset.json",
+            reset_result=WebappBrowserStateResetResult(success=True),
+            message="completed",
+        )
+
+    def popen(*args, **kwargs):
+        calls.append("popen")
+        return FakeProcess()
+
+    def health():
+        calls.append("health")
+        return launcher.HealthCheckResult(True, "url", 1, "ok")
+
+    def edge_launch():
+        calls.append("edge_launch")
+        return launcher.EdgeLaunchResult(True, True, ("msedge",), "launched")
+
+    def wait_for_close(mode, process):
+        calls.append("wait_for_close")
+        return launcher.WindowCloseDetectionResult(True, True, True, "closed")
+
+    def shutdown(config_arg):
+        calls.append("shutdown")
+        return launcher.ShutdownRequestResult(True, True, 200, "ok")
+
+    result = launcher.run_launcher_lifecycle(
+        config,
+        popen=popen,
+        port_available_fn=lambda: True,
+        health_check_fn=health,
+        wait_for_close_fn=wait_for_close,
+        shutdown_request_fn=shutdown,
+        port_release_fn=lambda pid: launcher.PortReleaseStatus(
+            True,
+            None,
+            "free",
+            "released",
+        ),
+        edge_launch_fn=edge_launch,
+        pending_browser_reset_fn=pending_reset,
+        status_callback=statuses.append,
+    )
+
+    assert result.final_state == "graceful_shutdown"
+    assert calls == [
+        "pending_reset",
+        "popen",
+        "health",
+        "edge_launch",
+        "wait_for_close",
+        "shutdown",
+        "wait_for_exit",
+    ]
+    joined_statuses = "\n".join(statuses)
+    assert "Checking pending webapp browser-state reset before Edge launch." in joined_statuses
+    assert "Starting Streamlit backend:" in joined_statuses
+    assert "Waiting for Streamlit health endpoint." in joined_statuses
+    assert "Launching Edge app-mode window." in joined_statuses
+    assert "Monitoring app window for close." in joined_statuses
+    assert "App window closed; requesting graceful backend shutdown." in joined_statuses
+    assert "Port release: released" in joined_statuses
+
+
 def test_run_launcher_lifecycle_logs_preserved_pending_webapp_reset(tmp_path):
     app_root = _make_app_root(tmp_path)
     log_path = tmp_path / "logs" / "launcher.log"
