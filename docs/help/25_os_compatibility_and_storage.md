@@ -12,8 +12,8 @@ Lite**.
 **Windows is a primary V1 support platform.**
 
 Windows is the main maintainer-tested desktop target. RoleThread Lite has a
-beta setup installer for Windows and a managed Microsoft Edge webapp workflow
-when Edge is available. Manual source installs remain supported.
+beta setup installer for Windows and a managed Microsoft Edge app-window
+workflow when Edge is available. Manual source installs remain supported.
 
 **Linux is a primary V1 support platform.**
 
@@ -123,12 +123,15 @@ The safest pattern is:
 
 RoleThread V1 defines platform-aware launch policy and diagnostics.
 
-The Windows installer defaults to Microsoft Edge webapp mode because that path
-has the strongest launcher-owned app-window lifecycle. Manual Windows users can
-use:
+The Windows installer always uses the managed launcher-owned webapp lifecycle.
+RoleThread starts the local Streamlit backend headless, binds it to
+`127.0.0.1`, and opens a Microsoft Edge app-style window when Edge is
+available.
+
+Source Windows users can launch the same managed app-window workflow with:
 
 ```bat
-streamlit run app.py -- webapp
+python launch.py --webapp
 ```
 
 Normal browser mode remains available through:
@@ -137,30 +140,21 @@ Normal browser mode remains available through:
 streamlit run app.py
 ```
 
+Launcher diagnostics for the managed webapp workflow use:
+
+```bat
+python launch.py --webapp --diag
+```
+
 Linux and macOS use normal browser mode. If you want an app-style window on
 those platforms, use your browser's built-in install or shortcut option
 manually.
 
-The `webapp` flag is RoleThread's Windows webapp launch method for manual
-testing and installed launcher workflows. It opens Microsoft Edge app mode when
-Edge is available. If Streamlit opens a normal browser window first, RoleThread
-attempts to close only that duplicate browser window after the Edge app window
-is observed. On Linux, macOS, or unknown platforms, the flag does not attempt
-Windows-specific launch or cleanup work; RoleThread continues in normal browser
-mode.
-
-Developer diagnostics are hidden unless RoleThread is started with the `dev`
-flag. `edge-debug` and `webapp-debug` are developer-only investigation flags and
-should be combined with `dev` when detailed process/window metadata is needed.
-Cleanup uses a polite window-close request against an exact Windows window
-handle or a tightly classified candidate; it does not use `taskkill` or close
-app-window candidates.
-
 Windows:
 
-- preferred installed workflow: Microsoft Edge webapp when Edge is detected
-- fallback: normal browser mode when webapp mode is unavailable or disabled
-- manual workflow: `streamlit run app.py` or `streamlit run app.py -- webapp`
+- installed workflow: managed Microsoft Edge app window
+- source managed workflow: `python launch.py --webapp`
+- source browser workflow: `streamlit run app.py`
 
 Linux:
 

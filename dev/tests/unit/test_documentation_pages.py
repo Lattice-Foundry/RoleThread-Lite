@@ -231,15 +231,28 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     document = load_help_document("developer-launch-flags")
 
     assert document.article.title == "Developer Launch Flags"
+    assert document.article.category == "For Developers"
     assert "`dev`" in document.content
-    assert "`webapp`" in document.content
-    assert "`edge-debug`" in document.content
-    assert "`webapp-debug`" in document.content
-    assert "streamlit run app.py -- webapp edge-debug" in document.content
     assert "Launch Flags Detected" in document.content
-    assert "Edge Launch Debug Diagnostics" in document.content
-    assert "shared webapp launch flag" in document.content
     assert "Diagnostics are gated behind `dev`" in document.content
+
+
+def test_public_help_docs_do_not_reference_removed_webapp_flows():
+    obsolete_terms = (
+        "streamlit run app.py -- webapp",
+        "edge-debug",
+        "webapp-debug",
+        "Reset Webapp Browser State",
+        "Use Windows Edge webapp mode by default",
+        "app-owned",
+    )
+
+    for article in get_help_article_registry().values():
+        if article.category == "For Developers":
+            continue
+        document = load_help_document(article.article_id)
+        for term in obsolete_terms:
+            assert term not in document.content, article.article_id
 
 
 def test_installing_rolethread_lite_help_article_documents_install_and_uninstall():
@@ -247,7 +260,9 @@ def test_installing_rolethread_lite_help_article_documents_install_and_uninstall
 
     assert document.article.title == "Installing RoleThread Lite"
     assert "Windows setup executable is a beta convenience path" in document.content
-    assert "streamlit run app.py -- webapp" in document.content
+    assert "python launch.py --webapp" in document.content
+    assert "Users do not choose a runtime mode during setup" in document.content
+    assert "Use Windows Edge webapp mode" not in document.content
     assert "Linux uses the source/manual workflow" in document.content
     assert "macOS is beta/manual for V1" in document.content
     assert "Start Menu > RoleThread Lite > **RoleThread Uninstaller**" in (
@@ -270,7 +285,9 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "%LOCALAPPDATA%\\RoleThread" in document.content
     assert "~/.local/share/rolethread" in document.content
     assert "~/Library/Application Support/RoleThread" in document.content
-    assert "Edge webapp" in document.content
+    assert "managed Microsoft Edge app window" in document.content
+    assert "python launch.py --webapp --diag" in document.content
+    assert "streamlit run app.py -- webapp" not in document.content
     assert "For setup commands and uninstall instructions" in document.content
     assert "Cloud sync folders are optional backup or sync targets" in document.content
 

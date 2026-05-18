@@ -8,8 +8,8 @@ and macOS.
 ## Choose An Install Method
 
 Use the Windows setup installer if you want RoleThread Lite to behave like a
-normal desktop app with a Start Menu shortcut, bundled runtime, and Windows Edge
-webapp launch mode.
+normal desktop app with a Start Menu shortcut, bundled runtime, and managed
+Windows Edge app window.
 
 Use the manual source workflow if you want full visibility into the Python
 environment, dependency installation, launch command, and repository files.
@@ -22,11 +22,13 @@ It is expected to keep improving as installer testing continues.
 
 1. Download the latest RoleThread Lite setup executable from GitHub Releases.
 2. Run the setup executable and accept the Windows UAC prompt.
-3. Keep **Use Windows Edge webapp mode by default (recommended)** selected if
-   Microsoft Edge is installed.
-4. Choose whether to create a Desktop shortcut.
-5. Finish setup and launch RoleThread Lite from the installer, Start Menu, or
+3. Choose whether to create a Desktop shortcut.
+4. Finish setup and launch RoleThread Lite from the installer, Start Menu, or
    Desktop shortcut.
+
+Installed RoleThread Lite uses the managed launcher automatically. It starts the
+local Streamlit backend headless, binds it to `127.0.0.1`, and opens the app in
+a local Edge app-style window. Users do not choose a runtime mode during setup.
 
 On some Windows systems, the installer may appear behind other windows after
 the UAC prompt. If setup does not appear immediately, minimize other windows or
@@ -56,16 +58,15 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-For the Windows Edge webapp launch path:
+For the managed Windows Edge app-window launch path:
 
 ```bat
-streamlit run app.py -- webapp
+python launch.py --webapp
 ```
 
-This opens RoleThread Lite through Microsoft Edge app mode when Edge is
-available. If Streamlit opens a normal browser window first, RoleThread attempts
-to close only that duplicate browser window after the Edge app window is safely
-identified.
+This uses the same launcher-owned webapp lifecycle as the installed app.
+Streamlit runs headless, binds to `127.0.0.1`, and the launcher opens the
+managed Edge app window.
 
 ## Linux Manual Install
 
@@ -78,7 +79,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Managed Windows Edge webapp mode is not available on Linux. Use normal browser
+Managed Windows Edge app-window mode is not available on Linux. Use normal browser
 mode, or create a browser app shortcut manually if your browser supports it.
 
 ## macOS Manual Install
@@ -92,7 +93,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Managed Windows Edge webapp mode is not available on macOS. Use normal browser
+Managed Windows Edge app-window mode is not available on macOS. Use normal browser
 mode, or create a browser app shortcut manually if your browser supports it.
 
 ## Uninstalling On Windows

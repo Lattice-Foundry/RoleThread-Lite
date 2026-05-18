@@ -130,27 +130,22 @@ Download the latest `RoleThreadLiteSetup-v<version>.exe` from GitHub Releases.
 The installer is a beta convenience path, not the only supported way to run
 RoleThread Lite. It is expected to improve as installer testing continues.
 
-`streamlit run app.py -- webapp` is the internal Windows web-app launch method
-used by manual Windows testing and the installed launcher when webapp mode is
-selected. It opens the local app in Microsoft Edge app mode when Edge is
-available. If Streamlit opens a normal browser window first, RoleThread attempts
-to close only that duplicate browser window by targeting the exact Windows
-window handle after the Edge app window is observed. On Linux, macOS, or unknown
-platforms, the flag is a safe no-op:
-RoleThread continues in normal browser mode.
-
-Developer diagnostics are hidden by default. Add `dev` to expose launch and
-platform internals in Settings. Add `edge-debug` or `webapp-debug` only when
-investigating Edge launch behavior:
+Installed Windows builds always use the managed launcher-owned webapp lifecycle:
+Streamlit starts headless on `127.0.0.1`, and the launcher opens a local
+Microsoft Edge app-style window. Source users can run the same managed Windows
+workflow with:
 
 ```bat
-streamlit run app.py -- webapp dev edge-debug
+python launch.py --webapp
 ```
 
-The debug mode records Edge process IDs and visible window metadata where
-Windows exposes it. Cleanup uses a polite window-close request against an exact
-window handle or a tightly classified candidate; it does not use `taskkill` or
-close app-window candidates.
+Launcher diagnostics are available through:
+
+```bat
+python launch.py --webapp --diag
+```
+
+Normal source/browser development can still use `streamlit run app.py`.
 
 ## Windows Installer Status
 

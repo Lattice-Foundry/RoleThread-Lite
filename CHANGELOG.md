@@ -16,6 +16,13 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.39] - 2026-05-18
+
+### Changed
+
+- Updated public Help launch/install guidance for the managed launcher-owned webapp architecture.
+- Removed stale public Help references to raw Streamlit webapp flags and old Edge debug flows.
+
 ## [1.4.38] - 2026-05-18
 
 ### Fixed

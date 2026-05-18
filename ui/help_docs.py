@@ -72,7 +72,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Installing RoleThread Lite",
         "Getting Started",
         5,
-        "Windows installer, manual setup, launch modes, and uninstall behavior.",
+        "Windows installer, manual setup, managed launch, and uninstall behavior.",
         (
             "getting-started",
             "what-rolethread-lite-does",
