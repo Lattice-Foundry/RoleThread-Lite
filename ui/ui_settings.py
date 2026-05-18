@@ -29,7 +29,10 @@ from core.platform import (
 from core.preferences import export_settings, get_all_settings, import_settings
 from core.runtime import get_python_runtime_status
 from core.version import ROLETHREAD_VERSION
-from core.webapp_browser_state import reset_rolethread_webapp_browser_state
+from core.webapp_browser_state import (
+    is_webapp_browser_state_reset_pending,
+    schedule_webapp_browser_state_reset,
+)
 from ui.file_dialogs import (
     browse_directory,
     browse_settings_export_file,
@@ -466,30 +469,27 @@ def _render_webapp_browser_state_reset() -> None:
         "or RoleThread database files. It targets browser-side localhost/webapp state only."
     )
     st.caption(
-        "For the safest reset, close Edge and RoleThread webapp windows first. "
-        "If Edge is running, browser profile files are left untouched."
+        "When scheduled from the webapp, the reset runs before the next Edge webapp "
+        "window opens. Close RoleThread Lite completely, then reopen it."
     )
+    if is_webapp_browser_state_reset_pending():
+        st.warning(
+            "A webapp browser state reset is already scheduled. Close RoleThread Lite "
+            "completely, then reopen it. The reset will run before the next webapp "
+            "window opens."
+        )
     if st.button("Reset Webapp Browser State", key="btn_reset_webapp_browser_state"):
-        result = reset_rolethread_webapp_browser_state()
-        if result.success:
-            st.success("Webapp browser state reset completed.")
+        result = schedule_webapp_browser_state_reset()
+        if result.scheduled:
+            st.success(result.message)
         else:
-            st.warning("Webapp browser state reset did not complete.")
-        if result.profile_path is not None:
-            st.caption(_format_about_row("Edge profile", f"`{result.profile_path}`"))
-        _render_webapp_browser_state_reset_details(result)
+            st.warning(result.message)
+        st.caption(_format_about_row("Reset marker", f"`{result.marker_path}`"))
+        _render_webapp_browser_state_schedule_details(result)
 
 
-def _render_webapp_browser_state_reset_details(result) -> None:
+def _render_webapp_browser_state_schedule_details(result) -> None:
     with st.expander("Reset details"):
-        if result.items_cleared:
-            st.markdown("**Cleared**")
-            for item in result.items_cleared:
-                st.caption(f"- {item}")
-        if result.items_skipped:
-            st.markdown("**Skipped**")
-            for item in result.items_skipped:
-                st.caption(f"- {item}")
         if result.warnings:
             st.markdown("**Warnings**")
             for warning in result.warnings:

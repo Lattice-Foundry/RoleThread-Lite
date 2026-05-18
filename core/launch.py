@@ -14,6 +14,7 @@ from core.platform import (
     OS_WINDOWS,
     detect_browser_capabilities,
 )
+from core.webapp_browser_state import consume_pending_webapp_browser_state_reset
 
 
 WEBAPP_FLAG = "webapp"
@@ -1305,6 +1306,7 @@ def attempt_webapp_launch(
     url: str | None = None,
     browser_detection: BrowserDetectionResult | None = None,
     popen_fn: Callable[..., object] = subprocess.Popen,
+    pending_browser_reset_fn: Callable[..., object] = consume_pending_webapp_browser_state_reset,
 ) -> EdgeWebappLaunchStatus:
     """Attempt the dev-only Edge web-app launch, returning a nonfatal status."""
 
@@ -1403,6 +1405,11 @@ def attempt_webapp_launch(
         )
         return _webapp_launch_status
 
+    pending_reset = pending_browser_reset_fn()
+    pending_reset_message = ""
+    if getattr(pending_reset, "attempted", False):
+        pending_reset_message = f" Pending webapp browser state reset: {pending_reset.message}"
+
     command = build_edge_webapp_command(edge_path, target_url)
     try:
         popen_fn(command)
@@ -1419,6 +1426,7 @@ def attempt_webapp_launch(
             message=(
                 "Dev web-app mode was requested, but Edge launch failed. "
                 f"RoleThread will continue normally. Error: {exc}"
+                f"{pending_reset_message}"
             ),
             status_code=WEBAPP_LAUNCH_STATUS_FAILED,
         )
@@ -1433,7 +1441,10 @@ def attempt_webapp_launch(
         url=target_url,
         edge_path=edge_path,
         command=command,
-        message="Dev web-app mode requested; Microsoft Edge app window launch was attempted.",
+        message=(
+            "Dev web-app mode requested; Microsoft Edge app window launch was attempted."
+            f"{pending_reset_message}"
+        ),
         status_code=WEBAPP_LAUNCH_STATUS_LAUNCHED,
     )
     return _webapp_launch_status

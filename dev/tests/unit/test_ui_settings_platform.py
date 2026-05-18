@@ -129,7 +129,10 @@ def test_settings_exposes_webapp_browser_state_reset_without_session_state_label
     assert "Reset Webapp Browser State" in source
     assert "Clear Session State" not in source
     assert "does not delete datasets" in source
-    assert "reset_rolethread_webapp_browser_state" in source
+    assert "schedule_webapp_browser_state_reset" in source
+    assert "is_webapp_browser_state_reset_pending" in source
+    assert "The reset will run before the next webapp" in source
+    assert "window opens" in source
 
 
 def test_project_info_markup_preserves_official_attribution_and_colors():

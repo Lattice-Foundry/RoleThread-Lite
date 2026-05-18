@@ -2,8 +2,10 @@ import json
 import sqlite3
 
 from core.webapp_browser_state import (
+    consume_pending_webapp_browser_state_reset,
     get_default_edge_profile_path,
     reset_rolethread_webapp_browser_state,
+    schedule_webapp_browser_state_reset,
 )
 
 
@@ -124,3 +126,78 @@ def test_reset_reports_missing_profile_gracefully(tmp_path):
     assert result.success is False
     assert result.items_cleared == []
     assert any("not found" in item for item in result.items_skipped)
+
+
+def test_schedule_webapp_browser_state_reset_writes_pending_marker(tmp_path):
+    marker = tmp_path / "webapp_browser_state_reset.json"
+
+    result = schedule_webapp_browser_state_reset(marker_path=marker)
+
+    assert result.scheduled is True
+    assert marker.exists()
+    data = json.loads(marker.read_text(encoding="utf-8"))
+    assert data["status"] == "pending"
+    assert "requested_at" in data
+    assert "reopen" in result.message
+
+
+def test_consume_pending_reset_clears_marker_after_success(tmp_path):
+    marker = tmp_path / "webapp_browser_state_reset.json"
+    profile = tmp_path / "Default"
+    profile.mkdir()
+    preferences = profile / "Preferences"
+    preferences.write_text(
+        json.dumps({"browser": {"app_window_placement": {"localhost_/": {}}}}),
+        encoding="utf-8",
+    )
+    schedule_webapp_browser_state_reset(marker_path=marker)
+
+    result = consume_pending_webapp_browser_state_reset(
+        marker_path=marker,
+        profile_path=profile,
+        running_process_names=[],
+    )
+
+    assert result.pending is False
+    assert result.attempted is True
+    assert result.completed is True
+    assert not marker.exists()
+
+
+def test_consume_pending_reset_preserves_marker_when_edge_is_running(tmp_path):
+    marker = tmp_path / "webapp_browser_state_reset.json"
+    profile = tmp_path / "Default"
+    profile.mkdir()
+    schedule_webapp_browser_state_reset(marker_path=marker)
+
+    result = consume_pending_webapp_browser_state_reset(
+        marker_path=marker,
+        profile_path=profile,
+        running_process_names=["msedge.exe"],
+    )
+
+    assert result.pending is True
+    assert result.attempted is True
+    assert result.completed is False
+    assert marker.exists()
+    data = json.loads(marker.read_text(encoding="utf-8"))
+    assert data["status"] == "pending_after_failed_attempt"
+    assert any("Edge appears to be running" in item for item in data["items_skipped"])
+
+
+def test_consume_pending_reset_preserves_marker_when_cleanup_fails(tmp_path):
+    marker = tmp_path / "webapp_browser_state_reset.json"
+    schedule_webapp_browser_state_reset(marker_path=marker)
+
+    result = consume_pending_webapp_browser_state_reset(
+        marker_path=marker,
+        profile_path=tmp_path / "missing",
+        running_process_names=[],
+    )
+
+    assert result.pending is True
+    assert result.completed is False
+    assert marker.exists()
+    data = json.loads(marker.read_text(encoding="utf-8"))
+    assert data["status"] == "pending_after_failed_attempt"
+    assert any("not found" in item for item in data["items_skipped"])

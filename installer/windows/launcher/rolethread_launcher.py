@@ -30,6 +30,7 @@ from core.shutdown_control import (
 from core.launch import EXTERNAL_WEBAPP_LAUNCH_ENV
 from core.edge_version_history import record_installed_edge_version
 from core.platform import detect_browser_capabilities
+from core.webapp_browser_state import consume_pending_webapp_browser_state_reset
 
 
 APP_NAME = "RoleThread Lite"
@@ -1257,6 +1258,36 @@ def log_port_release_status(log_path: Path, status: PortReleaseStatus) -> None:
     )
 
 
+def log_pending_webapp_browser_state_reset(log_path: Path, result) -> None:
+    reset_result = getattr(result, "reset_result", None)
+    lines = [
+        "lifecycle=webapp_browser_state_reset",
+        f"pending={getattr(result, 'pending', False)}",
+        f"attempted={getattr(result, 'attempted', False)}",
+        f"completed={getattr(result, 'completed', False)}",
+        f"marker_path={getattr(result, 'marker_path', '')}",
+        f"message={getattr(result, 'message', '')}",
+    ]
+    if reset_result is not None:
+        lines.extend(
+            [
+                f"reset_success={reset_result.success}",
+                f"profile_path={reset_result.profile_path}",
+                f"items_cleared={len(reset_result.items_cleared)}",
+                f"items_skipped={len(reset_result.items_skipped)}",
+                f"warnings={len(reset_result.warnings)}",
+                f"errors={len(reset_result.errors)}",
+            ]
+        )
+        if reset_result.items_skipped:
+            lines.append(f"first_skipped={reset_result.items_skipped[0]}")
+        if reset_result.warnings:
+            lines.append(f"first_warning={reset_result.warnings[0]}")
+        if reset_result.errors:
+            lines.append(f"first_error={reset_result.errors[0]}")
+    write_launcher_log(log_path, tuple(lines))
+
+
 def run_launcher_lifecycle(
     config: LauncherConfig,
     *,
@@ -1276,8 +1307,20 @@ def run_launcher_lifecycle(
     ] = terminate_process_fallback,
     port_release_fn: Callable[[int | None], PortReleaseStatus] | None = None,
     edge_launch_fn: Callable[[], EdgeLaunchResult] = launch_edge_webapp_window,
+    pending_browser_reset_fn: Callable[[], object] | None = None,
 ) -> LauncherLifecycleResult:
     """Start RoleThread and manage the first launcher-owned shutdown lifecycle."""
+
+    if config.launch_mode == LAUNCH_MODE_WEBAPP:
+        reset_result = (
+            pending_browser_reset_fn()
+            if pending_browser_reset_fn is not None
+            else consume_pending_webapp_browser_state_reset(
+                app_data_root=config.preferences_path.parent,
+            )
+        )
+        if getattr(reset_result, "attempted", False):
+            log_pending_webapp_browser_state_reset(config.log_path, reset_result)
 
     process = launch_rolethread(
         config,

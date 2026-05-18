@@ -16,6 +16,19 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.22] - 2026-05-18
+
+### Fixed
+
+- Extended pending Reset Webapp Browser State handling to the manual app-owned `streamlit run app.py -- webapp` startup path before Edge app launch.
+
+## [1.4.21] - 2026-05-18
+
+### Fixed
+
+- Changed Reset Webapp Browser State to schedule a safe pending reset from Settings and run it before the next launcher-managed Edge webapp window opens.
+- Preserved the live Edge-profile safety guard while making the reset workflow usable from inside the Edge webapp session.
+
 ## [1.4.20] - 2026-05-18
 
 ### Changed

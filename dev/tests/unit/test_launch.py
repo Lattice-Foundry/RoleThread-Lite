@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+from types import SimpleNamespace
 
 from core.launch import (
     EdgeProcessInfo,
@@ -52,6 +53,10 @@ from core.platform import detect_browser_capabilities
 
 def setup_function():
     reset_webapp_launch_guard_for_tests()
+
+
+def _no_pending_browser_reset():
+    return SimpleNamespace(attempted=False, message="No reset pending.")
 
 
 def test_parse_launch_flags_detects_webapp_flag():
@@ -236,6 +241,7 @@ def test_attempt_webapp_launch_uses_edge_when_available_on_windows():
         url="http://localhost:8501",
         browser_detection=detection,
         popen_fn=lambda command: commands.append(tuple(command)),
+        pending_browser_reset_fn=_no_pending_browser_reset,
     )
 
     assert status.webapp_requested is True
@@ -246,6 +252,63 @@ def test_attempt_webapp_launch_uses_edge_when_available_on_windows():
     assert status.command == (str(Path(edge_path)), "--app=http://localhost:8501")
     assert commands == [status.command]
     assert get_webapp_launch_status() == status
+
+
+def test_attempt_webapp_launch_consumes_pending_browser_reset_before_edge_launch():
+    edge_path = "C:/Program Files/Microsoft/Edge/Application/msedge.exe"
+    detection = detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/Scott",
+        env={},
+        which_fn=lambda name: edge_path,
+    )
+    calls: list[str] = []
+
+    def pending_reset():
+        calls.append("pending_reset")
+        return SimpleNamespace(
+            attempted=True,
+            message="Pending webapp browser state reset completed.",
+        )
+
+    def popen(command):
+        calls.append("popen")
+
+    status = attempt_webapp_launch(
+        LaunchFlags(webapp=True),
+        url="http://localhost:8501",
+        browser_detection=detection,
+        popen_fn=popen,
+        pending_browser_reset_fn=pending_reset,
+    )
+
+    assert status.launched is True
+    assert calls == ["pending_reset", "popen"]
+    assert "Pending webapp browser state reset completed" in status.message
+
+
+def test_attempt_webapp_launch_preserves_pending_reset_message_when_reset_cannot_run():
+    edge_path = "C:/Program Files/Microsoft/Edge/Application/msedge.exe"
+    detection = detect_browser_capabilities(
+        "Windows",
+        home="C:/Users/Scott",
+        env={},
+        which_fn=lambda name: edge_path,
+    )
+
+    status = attempt_webapp_launch(
+        LaunchFlags(webapp=True),
+        url="http://localhost:8501",
+        browser_detection=detection,
+        popen_fn=lambda command: None,
+        pending_browser_reset_fn=lambda: SimpleNamespace(
+            attempted=True,
+            message="Pending webapp browser state reset could not run and remains scheduled.",
+        ),
+    )
+
+    assert status.launched is True
+    assert "remains scheduled" in status.message
 
 
 def test_attempt_webapp_launch_falls_back_when_edge_missing_on_windows():
@@ -348,6 +411,7 @@ def test_attempt_webapp_launch_reports_nonfatal_launch_failure():
         url="http://localhost:8501",
         browser_detection=detection,
         popen_fn=fail_launch,
+        pending_browser_reset_fn=_no_pending_browser_reset,
     )
 
     assert status.edge_available is True
@@ -372,12 +436,14 @@ def test_attempt_webapp_launch_is_process_idempotent():
         url="http://localhost:8501",
         browser_detection=detection,
         popen_fn=lambda command: commands.append(tuple(command)),
+        pending_browser_reset_fn=_no_pending_browser_reset,
     )
     second = attempt_webapp_launch(
         LaunchFlags(webapp=True),
         url="http://localhost:8501",
         browser_detection=detection,
         popen_fn=lambda command: commands.append(tuple(command)),
+        pending_browser_reset_fn=_no_pending_browser_reset,
     )
 
     assert first.launched is True
