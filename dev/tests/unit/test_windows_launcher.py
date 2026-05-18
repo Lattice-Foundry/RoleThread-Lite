@@ -969,6 +969,68 @@ def test_run_launcher_lifecycle_graceful_shutdown_path(tmp_path):
     assert "lifecycle=port_release" in log_text
 
 
+def test_run_launcher_lifecycle_delegates_to_shared_core_orchestrator(tmp_path, monkeypatch):
+    app_root = _make_app_root(tmp_path)
+    config = launcher.LauncherConfig(
+        app_root=app_root,
+        python_path=Path("python.exe"),
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "logs" / "launcher.log",
+        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
+        command=("python.exe", "-m", "streamlit"),
+        shutdown_port=54321,
+        shutdown_token="secret",
+    )
+    received = {}
+
+    def shared_orchestrator(config_arg, **kwargs):
+        received["config"] = config_arg
+        received["kwargs"] = kwargs
+        return launcher.LauncherLifecycleResult(
+            process_pid=123,
+            launch_mode=config_arg.launch_mode,
+            health=launcher.HealthCheckResult(True, "url", 1, "ok"),
+            close_detection=launcher.WindowCloseDetectionResult(True, True, True, "closed"),
+            shutdown_request=launcher.ShutdownRequestResult(True, True, 200, "ok"),
+            termination=launcher.TerminationResult(False, "none", True, "done"),
+            final_state="graceful_shutdown",
+        )
+
+    monkeypatch.setattr(launcher, "run_shared_launcher_lifecycle", shared_orchestrator)
+
+    result = launcher.run_launcher_lifecycle(
+        config,
+        popen=lambda *args, **kwargs: object(),
+        port_available_fn=lambda: True,
+        health_check_fn=lambda: launcher.HealthCheckResult(True, "url", 1, "ok"),
+        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
+            True,
+            True,
+            True,
+            "closed",
+        ),
+        shutdown_request_fn=lambda cfg: launcher.ShutdownRequestResult(
+            True,
+            True,
+            200,
+            "ok",
+        ),
+        termination_fn=lambda process: launcher.TerminationResult(False, "none", True, "done"),
+        port_release_fn=lambda pid: launcher.PortReleaseStatus(True, None, "free", "released"),
+        edge_launch_fn=lambda: launcher.EdgeLaunchResult(True, True, ("msedge",), "launched"),
+        pending_browser_reset_fn=lambda: object(),
+        status_callback=lambda message: None,
+    )
+
+    assert result.final_state == "graceful_shutdown"
+    assert received["config"] == config
+    assert received["kwargs"]["write_log_fn"] is launcher.write_launcher_log
+    assert received["kwargs"]["format_command_fn"] is launcher.format_command
+    assert received["kwargs"]["webapp_launch_mode"] == launcher.LAUNCH_MODE_WEBAPP
+    assert callable(received["kwargs"]["launch_backend_fn"])
+    assert callable(received["kwargs"]["wait_for_process_exit_fn"])
+
+
 def test_run_launcher_lifecycle_consumes_pending_webapp_reset_before_startup(tmp_path):
     app_root = _make_app_root(tmp_path)
     log_path = tmp_path / "logs" / "launcher.log"

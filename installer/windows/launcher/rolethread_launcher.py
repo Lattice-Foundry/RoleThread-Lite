@@ -23,9 +23,16 @@ from urllib import request
 from urllib.error import URLError
 
 from core.launcher_lifecycle import (
+    EdgeLaunchResult,
+    HealthCheckResult,
+    LauncherConfig,
+    LauncherLifecycleResult,
     LifecycleStatusCallback,
-    format_port_release_lifecycle_status,
-    report_lifecycle_status,
+    PortReleaseStatus,
+    ShutdownRequestResult,
+    TerminationResult,
+    WindowCloseDetectionResult,
+    run_launcher_lifecycle as run_shared_launcher_lifecycle,
 )
 from core.shutdown_control import (
     SHUTDOWN_HEADER,
@@ -67,87 +74,12 @@ DEFAULT_WINDOW_POLL_SECONDS = 2.0
 
 
 @dataclass(frozen=True)
-class LauncherConfig:
-    app_root: Path
-    python_path: Path
-    preferences_path: Path
-    log_path: Path
-    launch_mode: str
-    command: tuple[str, ...]
-    bundled_mode: bool = False
-    shutdown_port: int = 0
-    shutdown_token: str = ""
-
-
-@dataclass(frozen=True)
-class HealthCheckResult:
-    ok: bool
-    url: str
-    attempts: int
-    message: str
-
-
-@dataclass(frozen=True)
-class WindowCloseDetectionResult:
-    supported: bool
-    closed: bool
-    observed: bool
-    message: str
-    target_handle: str = ""
-    target_pid: int | None = None
-    target_title: str = ""
-
-
-@dataclass(frozen=True)
-class ShutdownRequestResult:
-    attempted: bool
-    ok: bool
-    status_code: int | None
-    message: str
-
-
-@dataclass(frozen=True)
-class TerminationResult:
-    attempted: bool
-    method: str
-    completed: bool
-    message: str
-
-
-@dataclass(frozen=True)
-class EdgeLaunchResult:
-    attempted: bool
-    launched: bool
-    command: tuple[str, ...]
-    message: str
-
-
-@dataclass(frozen=True)
-class LauncherLifecycleResult:
-    process_pid: int | None
-    launch_mode: str
-    health: HealthCheckResult
-    close_detection: WindowCloseDetectionResult
-    shutdown_request: ShutdownRequestResult
-    termination: TerminationResult
-    final_state: str
-
-
-@dataclass(frozen=True)
 class WebappWindowInfo:
     handle: str
     pid: int
     title: str
     class_name: str
     process_name: str
-
-
-@dataclass(frozen=True)
-class PortReleaseStatus:
-    released: bool
-    owner_pid: int | None
-    owner_kind: str
-    message: str
 
 
 class LauncherConfigurationError(RuntimeError):
@@ -1275,70 +1207,6 @@ def terminate_process_fallback(
     )
 
 
-def log_port_release_status(log_path: Path, status: PortReleaseStatus) -> None:
-    write_launcher_log(
-        log_path,
-        (
-            "lifecycle=port_release",
-            f"released={status.released}",
-            f"owner_pid={status.owner_pid}",
-            f"owner_kind={status.owner_kind}",
-            f"message={status.message}",
-        ),
-    )
-
-
-def log_pending_webapp_browser_state_reset(log_path: Path, result) -> None:
-    reset_result = getattr(result, "reset_result", None)
-    lines = [
-        "lifecycle=webapp_browser_state_reset",
-        f"pending={getattr(result, 'pending', False)}",
-        f"attempted={getattr(result, 'attempted', False)}",
-        f"completed={getattr(result, 'completed', False)}",
-        f"marker_path={getattr(result, 'marker_path', '')}",
-        f"message={getattr(result, 'message', '')}",
-    ]
-    if reset_result is not None:
-        lines.extend(
-            [
-                f"reset_success={reset_result.success}",
-                f"profile_path={reset_result.profile_path}",
-                f"items_cleared={len(reset_result.items_cleared)}",
-                f"items_skipped={len(reset_result.items_skipped)}",
-                f"warnings={len(reset_result.warnings)}",
-                f"errors={len(reset_result.errors)}",
-            ]
-        )
-        if reset_result.items_skipped:
-            lines.append(f"first_skipped={reset_result.items_skipped[0]}")
-        if reset_result.warnings:
-            lines.append(f"first_warning={reset_result.warnings[0]}")
-        if reset_result.errors:
-            lines.append(f"first_error={reset_result.errors[0]}")
-    write_launcher_log(log_path, tuple(lines))
-
-
-def _resolve_port_release_status(
-    port_release_fn: Callable[[int | None], PortReleaseStatus] | None,
-    pid: int | None,
-) -> PortReleaseStatus:
-    if port_release_fn is not None:
-        return port_release_fn(pid)
-    return check_port_release_status(owned_pid=pid)
-
-
-def _log_and_report_port_release_status(
-    log_path: Path,
-    status: PortReleaseStatus,
-    status_callback: LifecycleStatusCallback | None,
-) -> None:
-    log_port_release_status(log_path, status)
-    report_lifecycle_status(
-        status_callback,
-        format_port_release_lifecycle_status(status.message),
-    )
-
-
 def run_launcher_lifecycle(
     config: LauncherConfig,
     *,
@@ -1361,244 +1229,41 @@ def run_launcher_lifecycle(
     pending_browser_reset_fn: Callable[[], object] | None = None,
     status_callback: LifecycleStatusCallback | None = None,
 ) -> LauncherLifecycleResult:
-    """Start RoleThread and manage the first launcher-owned shutdown lifecycle."""
-
-    # WEBAPP_LIFECYCLE_TODO: this is the shape the overhaul should converge on:
-    # pending reset, owned backend, health, launcher-owned Edge app window,
-    # exact HWND close detection, graceful shutdown, and port-release logging.
-    if config.launch_mode == LAUNCH_MODE_WEBAPP:
-        report_lifecycle_status(
-            status_callback,
-            "Checking pending webapp browser-state reset before Edge launch.",
-        )
-        reset_result = (
-            pending_browser_reset_fn()
-            if pending_browser_reset_fn is not None
-            else consume_pending_webapp_browser_state_reset(
-                app_data_root=config.preferences_path.parent,
-            )
-        )
-        if getattr(reset_result, "attempted", False):
-            log_pending_webapp_browser_state_reset(config.log_path, reset_result)
-            report_lifecycle_status(
-                status_callback,
-                f"Pending webapp browser-state reset: {getattr(reset_result, 'message', '')}",
-            )
-
-    report_lifecycle_status(
-        status_callback,
-        f"Starting Streamlit backend: {format_command(config.command)}",
-    )
-    process = launch_rolethread(
-        config,
-        popen=popen,
-        port_available_fn=port_available_fn,
-    )
-    pid = getattr(process, "pid", None)
-    report_lifecycle_status(status_callback, f"Streamlit backend started with PID {pid}.")
-    report_lifecycle_status(status_callback, "Waiting for Streamlit health endpoint.")
-    health = health_check_fn()
-    write_launcher_log(
-        config.log_path,
-        (
-            f"lifecycle=health_check",
-            f"pid={pid}",
-            f"health_ok={health.ok}",
-            f"health_message={health.message}",
-        ),
-    )
-    report_lifecycle_status(status_callback, f"Streamlit health: {health.message}")
-
-    if not health.ok:
-        report_lifecycle_status(
-            status_callback,
-            "Health check failed; terminating owned backend.",
-        )
-        termination = termination_fn(process)
-        shutdown_result = ShutdownRequestResult(
-            attempted=False,
-            ok=False,
-            status_code=None,
-            message="Skipped graceful shutdown because health check failed.",
-        )
-        close_detection = WindowCloseDetectionResult(
-            supported=False,
-            closed=False,
-            observed=False,
-            message="Skipped window monitoring because health check failed.",
-        )
-        write_launcher_log(
-            config.log_path,
-            (
-                "lifecycle=health_failed",
-                f"termination_method={termination.method}",
-                f"termination_completed={termination.completed}",
-            ),
-        )
-        _log_and_report_port_release_status(
-            config.log_path,
-            _resolve_port_release_status(port_release_fn, pid),
-            status_callback,
-        )
-        return LauncherLifecycleResult(
-            process_pid=pid,
-            launch_mode=config.launch_mode,
-            health=health,
-            close_detection=close_detection,
-            shutdown_request=shutdown_result,
-            termination=termination,
-            final_state="health_failed",
-        )
-
-    if config.launch_mode == LAUNCH_MODE_WEBAPP:
-        report_lifecycle_status(status_callback, "Launching Edge app-mode window.")
-        edge_launch = edge_launch_fn()
-        write_launcher_log(
-            config.log_path,
-            (
-                "lifecycle=edge_webapp_launch",
-                f"attempted={edge_launch.attempted}",
-                f"launched={edge_launch.launched}",
-                f"command={format_command(edge_launch.command)}",
-                f"message={edge_launch.message}",
-            ),
-        )
-        report_lifecycle_status(status_callback, f"Edge app-mode launch: {edge_launch.message}")
+    """Delegate launcher-owned lifecycle orchestration to shared core code."""
 
     close_waiter = wait_for_close_fn or (
-        lambda mode, proc: wait_for_app_window_close(mode, process=proc)
+        lambda mode, process: wait_for_app_window_close(mode, process=process)
     )
-    report_lifecycle_status(status_callback, "Monitoring app window for close.")
-    close_detection = close_waiter(config.launch_mode, process)
-    write_launcher_log(
-        config.log_path,
-        (
-            "lifecycle=window_monitor",
-            f"supported={close_detection.supported}",
-            f"observed={close_detection.observed}",
-            f"closed={close_detection.closed}",
-            f"target_handle={close_detection.target_handle}",
-            f"target_pid={close_detection.target_pid}",
-            f"target_title={close_detection.target_title}",
-            f"message={close_detection.message}",
+    reset_consumer = pending_browser_reset_fn or (
+        lambda: consume_pending_webapp_browser_state_reset(
+            app_data_root=config.preferences_path.parent,
+        )
+    )
+    release_checker = port_release_fn or (
+        lambda owner_pid: check_port_release_status(owned_pid=owner_pid)
+    )
+    return run_shared_launcher_lifecycle(
+        config,
+        launch_backend_fn=lambda lifecycle_config: launch_rolethread(
+            lifecycle_config,
+            popen=popen,
+            port_available_fn=port_available_fn,
         ),
-    )
-    report_lifecycle_status(status_callback, f"Window monitor: {close_detection.message}")
-
-    if not close_detection.supported or not close_detection.closed:
-        shutdown_result = ShutdownRequestResult(
-            attempted=False,
-            ok=False,
-            status_code=None,
-            message="Skipped shutdown request because app-window close was not detected.",
-        )
-        if config.launch_mode == LAUNCH_MODE_WEBAPP:
-            report_lifecycle_status(
-                status_callback,
-                "App-window close was not detected; terminating owned backend.",
-            )
-            termination = termination_fn(process)
-            final_state = (
-                "window_monitor_failed_terminated"
-                if termination.completed
-                else "window_monitor_failed_termination_failed"
-            )
-            write_launcher_log(
-                config.log_path,
-                (
-                    "lifecycle=window_monitor_failed",
-                    "reason=webapp window was not observed or did not close",
-                    f"termination_method={termination.method}",
-                    f"termination_completed={termination.completed}",
-                    f"termination_message={termination.message}",
-                ),
-            )
-        else:
-            termination = TerminationResult(
-                attempted=False,
-                method="none",
-                completed=False,
-                message="Lifecycle monitor did not own shutdown for this launch mode.",
-            )
-            final_state = "monitoring_unavailable"
-        _log_and_report_port_release_status(
-            config.log_path,
-            _resolve_port_release_status(port_release_fn, pid),
-            status_callback,
-        )
-        return LauncherLifecycleResult(
-            process_pid=pid,
-            launch_mode=config.launch_mode,
-            health=health,
-            close_detection=close_detection,
-            shutdown_request=shutdown_result,
-            termination=termination,
-            final_state=final_state,
-        )
-
-    report_lifecycle_status(
-        status_callback,
-        "App window closed; requesting graceful backend shutdown.",
-    )
-    shutdown_result = shutdown_request_fn(config)
-    write_launcher_log(
-        config.log_path,
-        (
-            "lifecycle=shutdown_request",
-            f"attempted={shutdown_result.attempted}",
-            f"ok={shutdown_result.ok}",
-            f"status_code={shutdown_result.status_code}",
-            f"message={shutdown_result.message}",
+        health_check_fn=health_check_fn,
+        wait_for_close_fn=close_waiter,
+        shutdown_request_fn=shutdown_request_fn,
+        termination_fn=termination_fn,
+        port_release_fn=release_checker,
+        edge_launch_fn=edge_launch_fn,
+        pending_browser_reset_fn=reset_consumer,
+        write_log_fn=write_launcher_log,
+        format_command_fn=format_command,
+        wait_for_process_exit_fn=lambda process: wait_for_process_exit(
+            process,
+            timeout_seconds=DEFAULT_SHUTDOWN_TIMEOUT_SECONDS,
         ),
-    )
-    report_lifecycle_status(
-        status_callback,
-        f"Graceful shutdown request: {shutdown_result.message}",
-    )
-
-    if shutdown_result.ok and wait_for_process_exit(
-        process,
-        timeout_seconds=DEFAULT_SHUTDOWN_TIMEOUT_SECONDS,
-    ):
-        termination = TerminationResult(
-            attempted=False,
-            method="none",
-            completed=True,
-            message="Process exited after graceful shutdown request.",
-        )
-        final_state = "graceful_shutdown"
-        report_lifecycle_status(status_callback, "Backend exited after graceful shutdown.")
-    else:
-        report_lifecycle_status(
-            status_callback,
-            "Graceful shutdown did not complete; terminating owned backend.",
-        )
-        termination = termination_fn(process)
-        final_state = "terminated" if termination.completed else "termination_failed"
-
-    write_launcher_log(
-        config.log_path,
-        (
-            "lifecycle=final",
-            f"final_state={final_state}",
-            f"termination_method={termination.method}",
-            f"termination_completed={termination.completed}",
-            f"termination_message={termination.message}",
-        ),
-    )
-    _log_and_report_port_release_status(
-        config.log_path,
-        _resolve_port_release_status(port_release_fn, pid),
-        status_callback,
-    )
-    return LauncherLifecycleResult(
-        process_pid=pid,
-        launch_mode=config.launch_mode,
-        health=health,
-        close_detection=close_detection,
-        shutdown_request=shutdown_result,
-        termination=termination,
-        final_state=final_state,
+        webapp_launch_mode=LAUNCH_MODE_WEBAPP,
+        status_callback=status_callback,
     )
 
 

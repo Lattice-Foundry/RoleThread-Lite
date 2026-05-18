@@ -16,6 +16,14 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.26] - 2026-05-18
+
+### Changed
+
+- Moved launcher-owned backend/browser/shutdown orchestration into shared core lifecycle code.
+- Reduced the Windows packaged launcher to an adapter that supplies platform-specific process, Edge, HWND, shutdown, and logging callables.
+- Added shared lifecycle tests covering orchestration ordering and failure handling.
+
 ## [1.4.25] - 2026-05-18
 
 ### Changed
