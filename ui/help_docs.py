@@ -661,8 +661,23 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "What Lite intentionally does and does not try to be.",
         (
             "rolethread-studio-vision",
+            "planned-for-version-2",
             "lite-vs-studio-boundaries",
             "what-rolethread-lite-does",
+        ),
+    ),
+    HelpArticle(
+        "planned-for-version-2",
+        "58_planned_for_version_2.md",
+        "Planned for Version 2",
+        "Reference",
+        245,
+        "High-level Lite V2 roadmap direction without release promises.",
+        (
+            "v1-limitations-and-future-boundaries",
+            "os-compatibility-and-storage-policy",
+            "data-generation-beta",
+            "validation-and-repair",
         ),
     ),
     HelpArticle(

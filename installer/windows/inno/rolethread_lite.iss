@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "1.4.43"
+#define AppVersion "1.4.45"
 #endif
 
 #define AppName "RoleThread Lite"

@@ -16,6 +16,18 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Internal
 
+## [1.4.45] - 2026-05-18
+
+### Added
+
+- Expanded the Planned for Version 2 reference article with backup recovery and lightweight dataset history direction.
+
+## [1.4.44] - 2026-05-18
+
+### Added
+
+- Added a public Planned for Version 2 reference article covering Lite roadmap direction, runtime goals, validation/data generation focus areas, and product boundaries.
+
 ## [1.4.43] - 2026-05-18
 
 ### Changed

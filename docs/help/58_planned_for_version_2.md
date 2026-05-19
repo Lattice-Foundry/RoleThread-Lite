@@ -1,0 +1,176 @@
+# Planned for Version 2
+
+RoleThread Lite V2 is planned as an evolution of the current local dataset
+workflow, not a change in product identity.
+
+This page describes intended direction. It is not a release commitment, feature
+guarantee, or date promise.
+
+## Direction
+
+Lite V2 is expected to continue focusing on deterministic, local, creator-owned
+dataset work:
+
+- structured dataset editing
+- validation and repair
+- Data Generation prompt compilation
+- metadata organization
+- import, merge, backup, and export workflows
+- reliable managed runtime behavior
+
+The goal is to make the existing workflow stronger, broader, and easier to
+trust.
+
+## Runtime and Launcher Improvements
+
+The managed launcher-owned webapp lifecycle is now the expected runtime model
+for installed Windows builds.
+
+V2 direction includes:
+
+- additional browser adapters
+- Edge to Chrome to Chromium fallback behavior
+- improved browser detection
+- platform-aware launcher behavior
+- clearer launcher diagnostics
+- lifecycle hardening
+- runtime reliability improvements
+- packaged runtime refinement
+
+The intended boundary remains the same: Streamlit owns the app runtime;
+RoleThread owns desktop/webapp lifecycle.
+
+## macOS and Linux Expansion
+
+V2 may improve non-Windows workflows through:
+
+- improved Linux compatibility
+- macOS beta refinement
+- Chrome and Chromium app-mode testing
+- community-driven macOS validation
+- clearer platform-specific setup and diagnostics
+
+The current Windows launcher work creates a stronger model for future platform
+support, but it does not imply all platforms will receive identical integration
+at once.
+
+## Data Generation Improvements
+
+Data Generation is expected to keep moving from plumbing toward deeper workflow
+usefulness.
+
+Planned areas include:
+
+- additional generation templates
+- improved template modifiers
+- model-tailored generation guidance
+- conversational style presets
+- better generation workflow ergonomics
+- tighter preview and export preparation flows
+
+Lite should remain provider-agnostic. It compiles structured prompts and
+workflows; it does not become a hosted inference service.
+
+## Validation and Heuristics
+
+V2 validation direction includes stronger dataset-quality assistance:
+
+- improved validation coverage
+- conversational consistency checks
+- pacing and repetition heuristics
+- duplicate detection
+- structure analysis
+- better repair workflows
+- clearer quality feedback
+
+Validation should remain guidance-oriented. Lite should help creators see
+problems and apply safe deterministic fixes, not enforce a single creative
+style.
+
+## Workflow and UX Improvements
+
+Expected V2 work includes quality-of-life improvements across daily workflows:
+
+- smoother editing flows
+- faster review and correction paths
+- community-requested workflow refinements
+- launcher and runtime polish
+- clearer diagnostics and logs
+- more predictable recovery paths
+
+Small workflow improvements matter when users spend long sessions curating
+conversation data.
+
+## Backup and Recovery
+
+Backup and recovery workflows are expected to become more visible and easier to
+trust.
+
+Planned areas include:
+
+- in-app backup browsing
+- dataset restore workflows
+- lightweight dataset history visibility
+- backup metadata visibility
+- safer restore paths
+- optional cloud-backup recovery
+- restoring local datasets from cloud backups when local copies are lost
+
+This direction is intended to support creator-controlled recovery, not full
+Git-like version control, collaborative cloud editing, or mandatory hosted
+storage. Cloud backup and recovery should remain optional; Lite should continue
+to treat local datasets as the primary source of control.
+
+## Reliability, Security, and Hardening
+
+V2 should continue hardening the local runtime:
+
+- shutdown reliability
+- crash recovery
+- deterministic runtime behavior
+- loopback-only managed runtime posture
+- local security improvements
+- packaged startup and update safety
+- clearer failure reporting
+
+The app should stay understandable when something goes wrong.
+
+## Optional Future Update System
+
+A future launcher-managed update workflow is possible, but not guaranteed.
+
+If it happens, it should be:
+
+- optional or clearly user-controlled
+- visible rather than silent
+- compatible with graceful shutdown
+- careful around local data
+- easy to diagnose
+
+Lite should not become an account-gated or cloud-controlled update surface.
+
+## Long-Term Runtime Architecture
+
+Some launcher/runtime lifecycle work may eventually be extracted into reusable
+LatticeFoundry infrastructure.
+
+That is exploratory and long-term. It should only happen if it makes the
+runtime cleaner, more reusable, and easier to maintain without complicating
+Lite.
+
+## What Lite V2 Is Not Intended To Become
+
+Lite V2 is not intended to become:
+
+- hosted inference
+- mandatory cloud workflow
+- enterprise SaaS platform
+- account-gated ecosystem
+- telemetry-heavy product
+- collaborative cloud editor
+- Electron rewrite
+- plugin marketplace
+- cloud-dependent AI operating system
+
+Lite should remain a focused local tool for dataset engineering and creator
+workflow control.

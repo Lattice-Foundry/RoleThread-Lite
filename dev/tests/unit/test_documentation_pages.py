@@ -95,7 +95,7 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 58
+    assert len(registry) == 59
     assert get_default_help_article_id() == "installing-rolethread-lite"
     assert registry["installing-rolethread-lite"].file_name == (
         "00_installing_rolethread_lite.md"
@@ -167,6 +167,10 @@ def test_help_article_registry_has_expected_articles():
         registry["creator-ownership-and-long-term-workflow-philosophy"].file_name
         == "57_creator_ownership_and_long_term_workflow_philosophy.md"
     )
+    assert registry["planned-for-version-2"].file_name == (
+        "58_planned_for_version_2.md"
+    )
+    assert registry["planned-for-version-2"].category == "Reference"
     assert registry["data-generation-beta"].file_name == "40_data_generation_beta.md"
     assert registry["data-generation-beta"].category == "Data Generation"
     assert registry["rolethread-studio-vision"].file_name == "28_rolethread_studio_vision.md"
@@ -319,6 +323,35 @@ def test_rolethread_studio_vision_documents_lite_and_studio_split():
     assert "Lite owns deterministic dataset creation" in document.content
     assert "architectural boundary, not a public roadmap" in document.content
     assert "dataset crafting, validation, repair, organization, and export" in document.content
+
+
+def test_planned_for_version_2_documents_roadmap_direction_without_promises():
+    document = load_help_document("planned-for-version-2")
+
+    assert document.article.category == "Reference"
+    assert "not a release commitment, feature\nguarantee, or date promise" in (
+        document.content
+    )
+    assert "additional browser adapters" in document.content
+    assert "Edge to Chrome to Chromium fallback behavior" in document.content
+    assert "improved Linux compatibility" in document.content
+    assert "macOS beta refinement" in document.content
+    assert "additional generation templates" in document.content
+    assert "model-tailored generation guidance" in document.content
+    assert "pacing and repetition heuristics" in document.content
+    assert "in-app backup browsing" in document.content
+    assert "dataset restore workflows" in document.content
+    assert "optional cloud-backup recovery" in document.content
+    assert "full\nGit-like version control" in document.content
+    assert "Validation should remain guidance-oriented" in document.content
+    assert "loopback-only managed runtime posture" in document.content
+    assert "future launcher-managed update workflow is possible" in document.content
+    assert "LatticeFoundry infrastructure" in document.content
+    assert "hosted inference" in document.content
+    assert "mandatory cloud workflow" in document.content
+    assert "telemetry-heavy product" in document.content
+    assert "Electron rewrite" in document.content
+    assert "cloud-dependent AI operating system" in document.content
 
 
 def test_data_generation_beta_help_article_documents_public_positioning():
@@ -768,6 +801,7 @@ def test_help_article_category_order_and_grouping():
         "glossary",
         "os-compatibility-and-storage-policy",
         "v1-limitations-and-future-boundaries",
+        "planned-for-version-2",
     ]
     assert [article.article_id for article in grouped["For Developers"]] == [
         "developer-launch-flags",
@@ -945,9 +979,14 @@ def test_adjacent_help_articles_follow_global_order():
         "v1-limitations-and-future-boundaries"
     )
     assert previous_article.article_id == "os-compatibility-and-storage-policy"
+    assert next_article.article_id == "planned-for-version-2"
+    previous_article, next_article = get_adjacent_help_articles(
+        "planned-for-version-2"
+    )
+    assert previous_article.article_id == "v1-limitations-and-future-boundaries"
     assert next_article.article_id == "developer-launch-flags"
     previous_article, next_article = get_adjacent_help_articles("developer-launch-flags")
-    assert previous_article.article_id == "v1-limitations-and-future-boundaries"
+    assert previous_article.article_id == "planned-for-version-2"
     assert next_article.article_id == "codebase-architecture"
     previous_article, next_article = get_adjacent_help_articles(
         "platform-support-philosophy"
