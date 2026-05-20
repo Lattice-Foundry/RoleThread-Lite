@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 import sys
-from typing import Callable, Mapping, Sequence
+from typing import Callable, Mapping, Sequence, TextIO
 
 from litlaunch import (
     BackendCommand,
@@ -337,7 +337,11 @@ def run_packaged_litlaunch(
 
 
 def _build_console_renderer() -> ConsoleRenderer:
-    return ConsoleRenderer(mode=ConsoleMode.NORMAL, theme=ConsoleTheme())
+    return ConsoleRenderer(
+        mode=ConsoleMode.NORMAL,
+        theme=ConsoleTheme(),
+        stream=_safe_output_stream(),
+    )
 
 
 def _prepare_window_monitor(
@@ -395,9 +399,9 @@ def main() -> int:
 
     try:
         config = build_launcher_config()
-        print(f"Starting {APP_NAME} through LitLaunch...")
+        _safe_print(f"Starting {APP_NAME} through LitLaunch...")
         plan = build_launch_plan(config)
-        print(format_command_preview(plan.command))
+        _safe_print(format_command_preview(plan.command))
         return run_packaged_litlaunch(config)
     except Exception as exc:
         try:
@@ -406,12 +410,33 @@ def main() -> int:
             show_failure_message(
                 f"RoleThread could not start.\n\n{exc}\n\nDetails were written to:\n{log_path}"
             )
-            print(f"Launcher error: {exc}")
-            print(f"Details written to {log_path}")
+            _safe_print(f"Launcher error: {exc}")
+            _safe_print(f"Details written to {log_path}")
         except Exception:
             show_failure_message(f"RoleThread could not start.\n\n{exc}")
-            print(f"Launcher error: {exc}")
+            _safe_print(f"Launcher error: {exc}")
         return 1
+
+
+class _NullTextStream:
+    def write(self, text: str) -> int:
+        return len(str(text))
+
+    def flush(self) -> None:
+        return None
+
+
+def _safe_output_stream() -> TextIO:
+    stream = sys.stdout
+    if stream is not None and callable(getattr(stream, "write", None)):
+        return stream
+    return _NullTextStream()  # type: ignore[return-value]
+
+
+def _safe_print(message: object) -> None:
+    stream = _safe_output_stream()
+    stream.write(f"{message}\n")
+    stream.flush()
 
 
 if __name__ == "__main__":

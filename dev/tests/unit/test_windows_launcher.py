@@ -211,6 +211,14 @@ def test_run_bundled_streamlit_rewrites_argv(monkeypatch, tmp_path):
     ]
 
 
+def test_windowed_launcher_handles_missing_stdout(monkeypatch):
+    monkeypatch.setattr(launcher.sys, "stdout", None)
+
+    launcher._safe_print("hello")
+    renderer = launcher._build_console_renderer()
+    renderer.info("hello")
+
+
 def test_pyinstaller_spec_uses_windowed_no_console_mode():
     spec_path = Path(__file__).parents[3] / "installer" / "windows" / "rolethread_launcher.spec"
     spec_text = spec_path.read_text(encoding="utf-8")
