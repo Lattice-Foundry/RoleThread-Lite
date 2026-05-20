@@ -108,6 +108,11 @@ def test_launch_flags_detected_summary_is_compact():
 def test_obsolete_edge_debug_diagnostics_are_removed_from_settings_ui():
     source = Path(ui_settings.__file__).read_text(encoding="utf-8")
 
+    assert "detect_browser_capabilities" not in source
+    assert "get_platform_launch_plan" not in source
+    assert "Browser Support" not in source
+    assert "Fallback behavior" not in source
+    assert "Webapp support" not in source
     assert "Edge Launch Debug Diagnostics" not in source
     assert "edge-debug" not in source
     assert "webapp-debug" not in source

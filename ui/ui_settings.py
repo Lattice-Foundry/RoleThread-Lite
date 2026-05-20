@@ -19,11 +19,9 @@ from core.cloud_sync import (
 )
 from core.platform import (
     PATH_SOURCE_PLATFORM_DEFAULT,
-    detect_browser_capabilities,
     detect_onedrive_path,
     detect_platform,
     get_platform_path_resolutions,
-    get_platform_launch_plan,
 )
 from core.preferences import export_settings, get_all_settings, import_settings
 from core.runtime import get_python_runtime_status
@@ -318,8 +316,6 @@ def _render_platform_about() -> None:
     runtime_status = get_python_runtime_status()
     preferences = get_all_settings()
     platform_paths = get_platform_path_resolutions(preferences=preferences)
-    browser_detection = detect_browser_capabilities(platform_info=platform_info)
-    launch_plan = get_platform_launch_plan(browser_detection)
 
     st.subheader("About This Installation")
     version_col, platform_col, support_col, python_col = st.columns(4)
@@ -349,22 +345,30 @@ def _render_platform_about() -> None:
                 _format_public_launch_mode(flags, preferences),
             )
         )
-        st.caption(_format_about_row("Fallback behavior", f"`{launch_plan.fallback_label}`"))
         st.caption(
             _format_about_row(
-                "Webapp support",
-                f"`{'Available' if launch_plan.edge_webapp_ready else 'Unavailable'}`",
+                "Runtime owner",
+                "`LitLaunch`",
             )
         )
-        if capabilities.supports_edge_webapp:
-            st.caption(
-                _format_about_row(
-                    "Note",
-                    "Local app-window launch is owned by LitLaunch profiles or the installed app.",
-                )
+        st.caption(
+            _format_about_row(
+                "Source app-window profile",
+                "`python -m litlaunch.cli run --profile rolethread-webapp`",
             )
-        for note in launch_plan.notes:
-            st.caption(_format_about_row("Note", note))
+        )
+        st.caption(
+            _format_about_row(
+                "Diagnostics",
+                "`python -m litlaunch.cli inspect --profile rolethread-webapp`",
+            )
+        )
+        st.caption(
+            _format_about_row(
+                "Note",
+                "Local app-window launch is handled by LitLaunch profiles or the installed app.",
+            )
+        )
 
     if dev_mode:
         with st.expander("Launch Flags Detected"):
@@ -373,31 +377,6 @@ def _render_platform_about() -> None:
         with st.expander("Platform Capabilities"):
             for label, enabled in _platform_capability_labels(capabilities):
                 st.caption(_format_about_row(label, f"`{'Yes' if enabled else 'No'}`"))
-
-        with st.expander("Browser Support"):
-            st.caption(
-                _format_about_row(
-                    "Edge detected",
-                    f"`{'Yes' if browser_detection.browser.edge_detected else 'No'}`",
-                )
-            )
-            if browser_detection.browser.edge_path is not None:
-                st.caption(
-                    _format_about_row("Edge path", f"`{browser_detection.browser.edge_path}`")
-                )
-            st.caption(
-                _format_about_row(
-                    "Default browser fallback",
-                    f"`{'Yes' if browser_detection.capabilities.fallback_to_default_browser else 'No'}`",
-                )
-            )
-            st.caption(
-                _format_about_row(
-                    "Edge web app available",
-                    f"`{'Yes' if browser_detection.capabilities.edge_webapp_available else 'No'}`",
-                )
-            )
-            st.caption(_format_about_row("Browser mode", browser_detection.message))
 
         with st.expander("Platform Path Defaults"):
             _render_platform_paths(platform_paths, include_source=True, include_advanced=True)
@@ -462,8 +441,6 @@ def _format_project_info_markup() -> str:
 def _platform_capability_labels(capabilities) -> tuple[tuple[str, bool], ...]:
     return (
         ("Installer support", capabilities.supports_installer),
-        ("Edge web app support", capabilities.supports_edge_webapp),
-        ("Default browser support", capabilities.supports_default_browser),
         ("OneDrive detection", capabilities.supports_onedrive),
         ("Safe cloud sync support", capabilities.supports_safe_cloud_sync),
         ("Linux manual run support", capabilities.supports_linux_manual_run),

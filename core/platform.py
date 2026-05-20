@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import os
 import platform as _platform
 from pathlib import Path
-import shutil
 
 
 OS_WINDOWS = "windows"
@@ -18,10 +17,6 @@ SUPPORT_BETA = "beta"
 SUPPORT_UNSUPPORTED = "unsupported"
 PATH_SOURCE_PLATFORM_DEFAULT = "platform_default"
 PATH_SOURCE_USER_OVERRIDE = "user_override"
-LAUNCH_MODE_EDGE_WEBAPP = "edge_webapp"
-LAUNCH_MODE_DEFAULT_BROWSER = "default_browser"
-LAUNCH_MODE_MANUAL = "manual"
-LAUNCH_MODE_UNSUPPORTED = "unsupported"
 
 
 @dataclass(frozen=True)
@@ -29,8 +24,6 @@ class PlatformCapabilities:
     """Feature availability flags for the detected platform."""
 
     supports_installer: bool
-    supports_edge_webapp: bool
-    supports_default_browser: bool
     supports_onedrive: bool
     supports_safe_cloud_sync: bool
     supports_linux_manual_run: bool
@@ -118,49 +111,6 @@ class PlatformSupportMessage:
 
 
 @dataclass(frozen=True)
-class BrowserInfo:
-    """Detected local browser availability details."""
-
-    edge_detected: bool
-    edge_path: Path | None
-    edge_detection_method: str
-
-
-@dataclass(frozen=True)
-class BrowserCapabilities:
-    """Browser workflow capability metadata for the current platform."""
-
-    supports_default_browser: bool
-    supports_edge_webapp: bool
-    edge_available: bool
-    edge_webapp_available: bool
-    fallback_to_default_browser: bool
-
-
-@dataclass(frozen=True)
-class BrowserDetectionResult:
-    """Combined platform browser capability and availability result."""
-
-    platform: PlatformInfo
-    browser: BrowserInfo
-    capabilities: BrowserCapabilities
-    message: str
-
-
-@dataclass(frozen=True)
-class LaunchPlan:
-    """Declarative launch recommendation for the current platform."""
-
-    preferred_mode: str
-    preferred_label: str
-    fallback_mode: str | None
-    fallback_label: str
-    is_preferred_available: bool
-    edge_webapp_ready: bool
-    notes: tuple[str, ...]
-
-
-@dataclass(frozen=True)
 class _PlatformProfile:
     os_name: str
     display_name: str
@@ -175,8 +125,6 @@ _PLATFORM_BY_SYSTEM_NAME = {
         SUPPORT_PRIMARY,
         PlatformCapabilities(
             supports_installer=True,
-            supports_edge_webapp=True,
-            supports_default_browser=True,
             supports_onedrive=True,
             supports_safe_cloud_sync=True,
             supports_linux_manual_run=False,
@@ -189,8 +137,6 @@ _PLATFORM_BY_SYSTEM_NAME = {
         SUPPORT_PRIMARY,
         PlatformCapabilities(
             supports_installer=False,
-            supports_edge_webapp=False,
-            supports_default_browser=True,
             supports_onedrive=False,
             supports_safe_cloud_sync=True,
             supports_linux_manual_run=True,
@@ -203,8 +149,6 @@ _PLATFORM_BY_SYSTEM_NAME = {
         SUPPORT_BETA,
         PlatformCapabilities(
             supports_installer=False,
-            supports_edge_webapp=False,
-            supports_default_browser=True,
             supports_onedrive=False,
             supports_safe_cloud_sync=True,
             supports_linux_manual_run=False,
@@ -219,8 +163,6 @@ UNKNOWN_PLATFORM_PROFILE = _PlatformProfile(
     SUPPORT_UNSUPPORTED,
     PlatformCapabilities(
         supports_installer=False,
-        supports_edge_webapp=False,
-        supports_default_browser=False,
         supports_onedrive=False,
         supports_safe_cloud_sync=False,
         supports_linux_manual_run=False,
@@ -323,213 +265,14 @@ def get_platform_support_messages(
                 "Installer support is planned for V1 distribution.",
             )
         )
-    if capabilities.supports_edge_webapp:
+    if info.os_name == OS_WINDOWS:
         messages.append(
             PlatformSupportMessage(
-                "Web app",
-                "Edge web app support is planned for a later launcher pass.",
+                "Runtime",
+                "Installed app-window launch is handled through LitLaunch.",
             )
         )
     return tuple(messages)
-
-
-def detect_browser_capabilities(
-    system_name: str | None = None,
-    *,
-    platform_info: PlatformInfo | None = None,
-    home: Path | str | None = None,
-    env: dict[str, str] | None = None,
-    which_fn=None,
-    path_exists_fn=None,
-) -> BrowserDetectionResult:
-    """Detect browser workflow availability without launching anything."""
-
-    info = platform_info or detect_platform(system_name)
-    env_values = os.environ if env is None else env
-    home_path = Path(home).expanduser() if home is not None else Path.home()
-    edge_info = _detect_edge_browser(
-        info,
-        home=home_path,
-        env=env_values,
-        which_fn=which_fn or shutil.which,
-        path_exists_fn=path_exists_fn or _path_exists,
-    )
-    edge_webapp_available = (
-        info.capabilities.supports_edge_webapp
-        and edge_info.edge_detected
-    )
-    fallback_to_default_browser = (
-        info.capabilities.supports_default_browser
-        and not edge_webapp_available
-    )
-    capabilities = BrowserCapabilities(
-        supports_default_browser=info.capabilities.supports_default_browser,
-        supports_edge_webapp=info.capabilities.supports_edge_webapp,
-        edge_available=edge_info.edge_detected,
-        edge_webapp_available=edge_webapp_available,
-        fallback_to_default_browser=fallback_to_default_browser,
-    )
-    return BrowserDetectionResult(
-        platform=info,
-        browser=edge_info,
-        capabilities=capabilities,
-        message=_browser_detection_message(info, capabilities),
-    )
-
-
-def get_platform_launch_plan(
-    browser_detection: BrowserDetectionResult | None = None,
-    **browser_detection_kwargs,
-) -> LaunchPlan:
-    """Return a platform-aware launch recommendation without launching anything."""
-
-    detection = browser_detection or detect_browser_capabilities(
-        **browser_detection_kwargs
-    )
-    platform_info = detection.platform
-    browser_capabilities = detection.capabilities
-
-    if browser_capabilities.edge_webapp_available:
-        return LaunchPlan(
-            preferred_mode=LAUNCH_MODE_EDGE_WEBAPP,
-            preferred_label="Microsoft Edge web app",
-            fallback_mode=LAUNCH_MODE_DEFAULT_BROWSER,
-            fallback_label="Default browser",
-            is_preferred_available=True,
-            edge_webapp_ready=True,
-            notes=(
-                "Edge is available for the Windows app-window launch flow.",
-                "Installed RoleThread uses LitLaunch for local runtime startup and shutdown.",
-            ),
-        )
-
-    if platform_info.capabilities.supports_edge_webapp:
-        return LaunchPlan(
-            preferred_mode=LAUNCH_MODE_DEFAULT_BROWSER,
-            preferred_label="Default browser",
-            fallback_mode=None,
-            fallback_label="None",
-            is_preferred_available=browser_capabilities.supports_default_browser,
-            edge_webapp_ready=False,
-            notes=(
-                "Microsoft Edge was not detected.",
-                "The Windows app-window profile requires Microsoft Edge.",
-                "Source workflows can still use the normal Streamlit browser path.",
-            ),
-        )
-
-    if platform_info.capabilities.supports_linux_manual_run:
-        return LaunchPlan(
-            preferred_mode=LAUNCH_MODE_DEFAULT_BROWSER,
-            preferred_label="Default browser",
-            fallback_mode=LAUNCH_MODE_MANUAL,
-            fallback_label="Manual Streamlit URL",
-            is_preferred_available=browser_capabilities.supports_default_browser,
-            edge_webapp_ready=False,
-            notes=(
-                "Manual or git-clone setup is the expected Linux workflow for V1.",
-                "No Edge web-app workflow is planned for Linux V1.",
-            ),
-        )
-
-    if platform_info.capabilities.supports_macos_beta:
-        return LaunchPlan(
-            preferred_mode=LAUNCH_MODE_DEFAULT_BROWSER,
-            preferred_label="Default browser",
-            fallback_mode=LAUNCH_MODE_MANUAL,
-            fallback_label="Manual Streamlit URL",
-            is_preferred_available=browser_capabilities.supports_default_browser,
-            edge_webapp_ready=False,
-            notes=(
-                "macOS is beta-supported for V1.",
-                "Safari web-app style workflows are user-managed and outside V1 automation.",
-                "A macOS installer is not planned for V1.",
-            ),
-        )
-
-    if browser_capabilities.supports_default_browser:
-        return LaunchPlan(
-            preferred_mode=LAUNCH_MODE_DEFAULT_BROWSER,
-            preferred_label="Default browser",
-            fallback_mode=LAUNCH_MODE_MANUAL,
-            fallback_label="Manual Streamlit URL",
-            is_preferred_available=True,
-            edge_webapp_ready=False,
-            notes=("Default browser workflow is the safest available option.",),
-        )
-
-    return LaunchPlan(
-        preferred_mode=LAUNCH_MODE_UNSUPPORTED,
-        preferred_label="Unsupported",
-        fallback_mode=LAUNCH_MODE_MANUAL,
-        fallback_label="Manual Streamlit URL",
-        is_preferred_available=False,
-        edge_webapp_ready=False,
-        notes=(
-            "This platform is not officially supported for V1.",
-            "Browser launch automation should degrade gracefully.",
-        ),
-    )
-
-
-def _detect_edge_browser(
-    platform_info: PlatformInfo,
-    *,
-    home: Path,
-    env: dict[str, str],
-    which_fn,
-    path_exists_fn,
-) -> BrowserInfo:
-    if not platform_info.capabilities.supports_edge_webapp:
-        return BrowserInfo(False, None, "not_applicable")
-
-    which_path = which_fn("msedge")
-    if which_path:
-        return BrowserInfo(True, Path(which_path).expanduser(), "path")
-
-    for candidate in _edge_candidate_paths(env, home):
-        if path_exists_fn(candidate):
-            return BrowserInfo(True, candidate, "common_install_path")
-
-    return BrowserInfo(False, None, "not_found")
-
-
-def _edge_candidate_paths(env: dict[str, str], home: Path) -> tuple[Path, ...]:
-    roots = [
-        env.get("PROGRAMFILES"),
-        env.get("PROGRAMFILES(X86)"),
-        env.get("LOCALAPPDATA"),
-    ]
-    candidates: list[Path] = []
-    for root in roots:
-        if not root:
-            continue
-        root_path = Path(root).expanduser()
-        candidates.append(root_path / "Microsoft" / "Edge" / "Application" / "msedge.exe")
-    candidates.append(
-        home / "AppData" / "Local" / "Microsoft" / "Edge" / "Application" / "msedge.exe"
-    )
-    return tuple(dict.fromkeys(candidates))
-
-
-def _browser_detection_message(
-    platform_info: PlatformInfo,
-    capabilities: BrowserCapabilities,
-) -> str:
-    if capabilities.edge_webapp_available:
-        return "Microsoft Edge is available for Windows app-window workflows."
-    if platform_info.capabilities.supports_edge_webapp:
-        return (
-            "Microsoft Edge was not detected. The Windows app-window profile "
-            "requires Microsoft Edge."
-        )
-    if capabilities.supports_default_browser:
-        return "Default browser workflows are supported on this platform."
-    return "Browser workflows are not supported on this platform."
-
-
-def _path_exists(path: Path) -> bool:
-    return path.exists()
 
 
 def get_platform_paths(
