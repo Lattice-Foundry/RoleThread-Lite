@@ -1,83 +1,114 @@
 """Windows packaged launcher adapter for RoleThread Lite.
 
-This module resolves Windows/install-time paths and platform primitives, then
-delegates the managed webapp sequence to ``core.launcher_lifecycle``.
+This module keeps RoleThread-specific packaged concerns at the edge and lets
+LitLaunch own runtime process, browser, window, and shutdown lifecycle.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-import json
-import os
-import secrets
-import socket
 import ctypes
+from dataclasses import dataclass
+import os
 from pathlib import Path
-import subprocess
 import sys
-import time
-from typing import Callable, Sequence
-from urllib import request
-from urllib.error import URLError
+from typing import Callable, Mapping, Sequence
 
-from core.browser_adapter import launch_edge_app_mode
-from core.launcher_lifecycle import (
-    EdgeLaunchResult,
-    HealthCheckResult,
+from litlaunch import (
+    BackendCommand,
+    BackendCommandContext,
+    BrowserChoice,
     LauncherConfig,
-    LauncherLifecycleResult,
-    LifecycleStatusCallback,
-    PortReleaseStatus,
-    ShutdownRequestResult,
-    TerminationResult,
-    WindowCloseDetectionResult,
-    run_launcher_lifecycle as run_shared_launcher_lifecycle,
+    LaunchMode,
+    StreamlitLauncher,
 )
+from litlaunch.console import ConsoleMode, ConsoleRenderer, ConsoleTheme
+from litlaunch.lifecycle import LaunchPlan
+from litlaunch.platforms import PlatformDetector
+from litlaunch.redaction import format_command_preview
+from litlaunch.windowing import (
+    NoopWindowMonitor,
+    WindowMonitorConfig,
+    WindowMonitorStatus,
+    WindowTarget,
+    create_window_monitor,
+)
+
 from core.launcher_log import (
     LAUNCHER_LOG_FILE_NAME,
     LAUNCHER_LOG_PATH_ENV,
     write_launcher_log,
 )
-from core.launcher_runtime import (
-    LAUNCH_MODE_NORMAL,
-    LAUNCH_MODE_WEBAPP,
-    STREAMLIT_HOST,
-    STREAMLIT_PORT,
-    build_launcher_shutdown_url,
-    build_streamlit_app_url,
-    build_streamlit_command as build_shared_streamlit_command,
-    build_streamlit_health_url,
-    format_command,
+from core.litlaunch_adapter import (
+    ROLETHREAD_LITLAUNCH_BROWSER,
+    ROLETHREAD_LITLAUNCH_GRACEFUL_TIMEOUT_SECONDS,
+    ROLETHREAD_LITLAUNCH_HOST,
+    ROLETHREAD_LITLAUNCH_PORT,
+    ROLETHREAD_LITLAUNCH_TITLE,
+    ROLETHREAD_LITLAUNCH_WINDOW_APPEAR_TIMEOUT_SECONDS,
+    ROLETHREAD_LITLAUNCH_WINDOW_POLL_SECONDS,
+    ROLETHREAD_LITLAUNCH_WINDOW_STABLE_POLLS,
 )
-from core.shutdown_control import (
-    SHUTDOWN_DIAGNOSTICS_ENV,
-    SHUTDOWN_HEADER,
-    SHUTDOWN_PORT_ENV,
-    SHUTDOWN_TOKEN_ENV,
-)
+from core.litlaunch_shutdown_bridge import ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV
 
 
 APP_NAME = "RoleThread Lite"
 APP_DATA_DIR_NAME = "RoleThread"
 PREFERENCES_FILE_NAME = "preferences.json"
 INTERNAL_STREAMLIT_FLAG = "--rolethread-run-streamlit"
-DEFAULT_HEALTH_TIMEOUT_SECONDS = 30.0
-DEFAULT_SHUTDOWN_TIMEOUT_SECONDS = 15.0
-DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS = 60.0
-DEFAULT_WINDOW_POLL_SECONDS = 2.0
-
-
-@dataclass(frozen=True)
-class WebappWindowInfo:
-    handle: str
-    pid: int
-    title: str
-    class_name: str
-    process_name: str
 
 
 class LauncherConfigurationError(RuntimeError):
-    """Raised when the launcher cannot construct a runnable command."""
+    """Raised when the packaged launcher cannot build a runnable runtime."""
+
+
+@dataclass(frozen=True)
+class PackagedLauncherConfig:
+    """RoleThread product configuration for packaged LitLaunch runs."""
+
+    app_root: Path
+    launcher_executable: Path
+    preferences_path: Path
+    log_path: Path
+    bundled_mode: bool
+    diagnostics_enabled: bool = False
+
+
+class PackagedRoleThreadBackendProvider:
+    """Build the packaged backend command LitLaunch should own."""
+
+    description = "RoleThread packaged Streamlit backend"
+    backend_kind = "rolethread-packaged"
+
+    def __init__(
+        self,
+        *,
+        launcher_executable: str | Path,
+        app_root: str | Path,
+    ) -> None:
+        self.launcher_executable = Path(launcher_executable)
+        self.app_root = validate_app_root(Path(app_root))
+
+    def build_backend_command(
+        self,
+        context: BackendCommandContext,
+    ) -> BackendCommand:
+        app_script = self.app_root / "app.py"
+        return BackendCommand(
+            (
+                str(self.launcher_executable),
+                INTERNAL_STREAMLIT_FLAG,
+                str(app_script),
+                "--global.developmentMode=false",
+                "--server.address",
+                context.host,
+                "--server.headless",
+                "true" if context.headless else "false",
+                "--server.port",
+                str(context.port),
+            ),
+            description=self.description,
+            backend_kind=self.backend_kind,
+        )
 
 
 def validate_app_root(app_root: Path) -> Path:
@@ -98,18 +129,19 @@ def resolve_app_root(
 
     is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
     if is_frozen:
-        bundled_root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+        bundled_root = Path(
+            getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent)
+        )
         return validate_app_root(bundled_root)
 
     current = Path(start_path or Path(__file__)).resolve()
-    candidates = [current, *current.parents]
-    for candidate in candidates:
+    for candidate in (current, *current.parents):
         if (candidate / "app.py").is_file():
             return candidate
     return validate_app_root(Path.cwd())
 
 
-def resolve_app_data_root(env: dict[str, str] | None = None) -> Path:
+def resolve_app_data_root(env: Mapping[str, str] | None = None) -> Path:
     env_map = env if env is not None else os.environ
     local_app_data = env_map.get("LOCALAPPDATA")
     if local_app_data:
@@ -117,94 +149,37 @@ def resolve_app_data_root(env: dict[str, str] | None = None) -> Path:
     return Path.home() / "AppData" / "Local" / APP_DATA_DIR_NAME
 
 
-def resolve_preferences_path(env: dict[str, str] | None = None) -> Path:
+def resolve_preferences_path(env: Mapping[str, str] | None = None) -> Path:
     return resolve_app_data_root(env) / PREFERENCES_FILE_NAME
 
 
-def resolve_launcher_log_path(env: dict[str, str] | None = None) -> Path:
+def resolve_launcher_log_path(env: Mapping[str, str] | None = None) -> Path:
     return resolve_app_data_root(env) / "logs" / LAUNCHER_LOG_FILE_NAME
 
 
-def find_available_local_port() -> int:
-    """Return an available localhost port for the launcher control channel."""
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-        server_socket.bind((STREAMLIT_HOST, 0))
-        return int(server_socket.getsockname()[1])
-
-
-def generate_shutdown_token() -> str:
-    """Return an unguessable token for the launcher shutdown endpoint."""
-
-    return secrets.token_urlsafe(32)
-
-
-def resolve_python_runtime(
-    app_root: Path,
+def resolve_launcher_executable(
     *,
     current_executable: str | None = None,
     frozen: bool | None = None,
 ) -> Path:
     is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
-    if is_frozen:
-        executable = Path(current_executable or sys.executable)
-        if executable.is_file():
-            return executable
+    executable = Path(current_executable or sys.executable)
+    if is_frozen and not executable.is_file():
         raise LauncherConfigurationError(
             "Could not find the bundled RoleThread launcher executable."
         )
-
-    dev_runtime = app_root / ".venv" / "Scripts" / "python.exe"
-    if dev_runtime.is_file():
-        return dev_runtime
-
-    fallback = Path(current_executable or sys.executable)
-    if fallback.is_file():
-        return fallback
-
-    raise LauncherConfigurationError(
-        "Could not find a usable Python runtime. Expected .venv\\Scripts\\python.exe "
-        "or a valid current Python executable."
-    )
-
-
-def build_streamlit_command(
-    python_path: Path,
-    *,
-    launch_mode: str,
-    app_root: Path | None = None,
-    frozen: bool = False,
-) -> tuple[str, ...]:
-    """Build the Streamlit command after resolving adapter-specific app paths."""
-
-    if frozen:
-        if app_root is None:
-            raise LauncherConfigurationError("Bundled launch requires an app root.")
-        app_script = validate_app_root(app_root) / "app.py"
-    else:
-        app_script = None
-
-    try:
-        return build_shared_streamlit_command(
-            python_path,
-            launch_mode=launch_mode,
-            app_script=app_script,
-            internal_streamlit_flag=INTERNAL_STREAMLIT_FLAG if frozen else None,
-        )
-    except ValueError as exc:
-        raise LauncherConfigurationError(str(exc)) from exc
+    return executable
 
 
 def build_launcher_config(
     *,
     app_root: Path | None = None,
-    env: dict[str, str] | None = None,
+    env: Mapping[str, str] | None = None,
     current_executable: str | None = None,
     frozen: bool | None = None,
-    shutdown_port: int | None = None,
-    shutdown_token: str | None = None,
-) -> LauncherConfig:
-    """Build the Windows adapter configuration for the managed webapp lifecycle."""
+    diagnostics_enabled: bool = False,
+) -> PackagedLauncherConfig:
+    """Build RoleThread product config for the packaged LitLaunch launcher."""
 
     is_frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
     resolved_root = (
@@ -212,141 +187,84 @@ def build_launcher_config(
         if app_root is not None
         else resolve_app_root(frozen=is_frozen)
     )
-    preferences_path = resolve_preferences_path(env)
-    log_path = resolve_launcher_log_path(env)
-    python_path = resolve_python_runtime(
-        resolved_root,
-        current_executable=current_executable,
-        frozen=is_frozen,
-    )
-    launch_mode = LAUNCH_MODE_WEBAPP
-    command = build_streamlit_command(
-        python_path,
-        launch_mode=launch_mode,
+    return PackagedLauncherConfig(
         app_root=resolved_root,
-        frozen=is_frozen,
-    )
-    return LauncherConfig(
-        app_root=resolved_root,
-        python_path=python_path,
-        preferences_path=preferences_path,
-        log_path=log_path,
-        launch_mode=launch_mode,
-        command=command,
+        launcher_executable=resolve_launcher_executable(
+            current_executable=current_executable,
+            frozen=is_frozen,
+        ),
+        preferences_path=resolve_preferences_path(env),
+        log_path=resolve_launcher_log_path(env),
         bundled_mode=is_frozen,
-        shutdown_port=shutdown_port or find_available_local_port(),
-        shutdown_token=shutdown_token or generate_shutdown_token(),
+        diagnostics_enabled=diagnostics_enabled,
     )
 
 
-def is_port_available(host: str = STREAMLIT_HOST, port: int = int(STREAMLIT_PORT)) -> bool:
-    """Return False when something is already listening on the Streamlit port."""
+def build_litlaunch_config(config: PackagedLauncherConfig) -> LauncherConfig:
+    """Translate RoleThread product settings into generic LitLaunch config."""
 
-    try:
-        with socket.create_connection((host, port), timeout=0.25):
-            return False
-    except OSError:
-        return True
+    extra_env = {
+        LAUNCHER_LOG_PATH_ENV: str(config.log_path),
+    }
+    if config.diagnostics_enabled:
+        extra_env[ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV] = "1"
 
-
-def get_port_owner_pid(port: int = int(STREAMLIT_PORT)) -> int | None:
-    """Return the owning PID for a listening TCP port when Windows exposes it."""
-
-    if os.name != "nt":
-        return None
-
-    script = f"""
-$connection = Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-if ($null -eq $connection) {{
-    Write-Output ''
-}} else {{
-    Write-Output ([string]$connection.OwningProcess)
-}}
-"""
-    try:
-        result = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", script],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except Exception:
-        return None
-    if result.returncode != 0:
-        return None
-    output = (result.stdout or "").strip().splitlines()
-    if not output:
-        return None
-    try:
-        return int(output[-1].strip())
-    except ValueError:
-        return None
-
-
-def check_port_release_status(
-    *,
-    owned_pid: int | None,
-    port_available_fn: Callable[[], bool] = is_port_available,
-    port_owner_fn: Callable[[], int | None] = get_port_owner_pid,
-) -> PortReleaseStatus:
-    """Return the final Streamlit port state without killing unknown listeners."""
-
-    if port_available_fn():
-        return PortReleaseStatus(
-            released=True,
-            owner_pid=None,
-            owner_kind="free",
-            message=f"Port {STREAMLIT_PORT} is released.",
-        )
-
-    owner = port_owner_fn()
-    if owner is not None and owned_pid is not None and owner == owned_pid:
-        return PortReleaseStatus(
-            released=False,
-            owner_pid=owner,
-            owner_kind="owned_process",
-            message=f"Port {STREAMLIT_PORT} is still occupied by owned process {owner}.",
-        )
-
-    if owner is not None:
-        return PortReleaseStatus(
-            released=False,
-            owner_pid=owner,
-            owner_kind="unknown_process",
-            message=f"Port {STREAMLIT_PORT} is still occupied by unknown process {owner}.",
-        )
-
-    return PortReleaseStatus(
-        released=False,
-        owner_pid=None,
-        owner_kind="unknown_process",
-        message=f"Port {STREAMLIT_PORT} is still occupied; owner PID was unavailable.",
+    return LauncherConfig(
+        app_path=config.app_root / "app.py",
+        title=ROLETHREAD_LITLAUNCH_TITLE,
+        mode=LaunchMode.WEBAPP,
+        browser=BrowserChoice(ROLETHREAD_LITLAUNCH_BROWSER),
+        host=ROLETHREAD_LITLAUNCH_HOST,
+        port=ROLETHREAD_LITLAUNCH_PORT,
+        auto_port=False,
+        headless=True,
+        allow_browser_fallback=False,
+        cwd=config.app_root,
+        extra_env=extra_env,
+        app_args=(),
     )
 
 
-def format_port_release_status(*, owned_pid: int | None) -> str:
-    """Return a concise final status for the Streamlit port after shutdown."""
-
-    status = check_port_release_status(owned_pid=owned_pid)
-    if status.released:
-        return "released"
-    if status.owner_kind == "owned_process":
-        return f"still occupied by owned process {status.owner_pid}"
-    if status.owner_pid is not None:
-        return f"still occupied by unknown process {status.owner_pid}"
-    return "still occupied by unknown process"
+def build_backend_provider(
+    config: PackagedLauncherConfig,
+) -> PackagedRoleThreadBackendProvider:
+    return PackagedRoleThreadBackendProvider(
+        launcher_executable=config.launcher_executable,
+        app_root=config.app_root,
+    )
 
 
-def ensure_streamlit_port_available(
+def build_streamlit_launcher(
+    config: PackagedLauncherConfig,
     *,
-    port_available_fn: Callable[[], bool] = is_port_available,
-) -> None:
-    if not port_available_fn():
-        raise LauncherConfigurationError(
-            f"Port {STREAMLIT_PORT} is already in use. Close the existing RoleThread "
-            "session or choose a future launcher port before starting another copy."
-        )
+    console_renderer: ConsoleRenderer | None = None,
+) -> StreamlitLauncher:
+    return StreamlitLauncher(
+        build_litlaunch_config(config),
+        backend_command_provider=build_backend_provider(config),
+        console_renderer=console_renderer,
+    )
+
+
+def build_launch_plan(config: PackagedLauncherConfig) -> LaunchPlan:
+    """Build a redacted packaged launch plan without starting anything."""
+
+    return build_streamlit_launcher(config).build_launch_plan()
+
+
+def log_launch_plan(config: PackagedLauncherConfig, plan: LaunchPlan) -> None:
+    write_launcher_log(
+        config.log_path,
+        (
+            f"app_root={config.app_root}",
+            f"app_version={get_app_version()}",
+            f"bundled_mode={config.bundled_mode}",
+            f"preferences_path={config.preferences_path}",
+            f"backend_kind={plan.backend_kind}",
+            f"command={plan.command_display}",
+            f"app_url={plan.app_url}",
+        ),
+    )
 
 
 def get_app_version() -> str:
@@ -366,723 +284,88 @@ def show_failure_message(message: str, *, title: str = APP_NAME) -> None:
         return
 
 
-def build_subprocess_env(
-    config: LauncherConfig,
-    env: dict[str, str] | None = None,
-) -> dict[str, str]:
-    """Build the child-process environment with launcher shutdown controls."""
-
-    child_env = dict(os.environ if env is None else env)
-    if config.shutdown_port and config.shutdown_token:
-        child_env[SHUTDOWN_PORT_ENV] = str(config.shutdown_port)
-        child_env[SHUTDOWN_TOKEN_ENV] = config.shutdown_token
-    if config.shutdown_diagnostics:
-        child_env[SHUTDOWN_DIAGNOSTICS_ENV] = "1"
-    child_env[LAUNCHER_LOG_PATH_ENV] = str(config.log_path)
-    return child_env
-
-
-def launch_rolethread(
-    config: LauncherConfig,
+def run_packaged_litlaunch(
+    config: PackagedLauncherConfig,
     *,
-    popen: Callable[..., subprocess.Popen] = subprocess.Popen,
-    port_available_fn: Callable[[], bool] = is_port_available,
-    env: dict[str, str] | None = None,
-) -> subprocess.Popen:
-    # The launcher owns the Streamlit subprocess, so port checks and startup
-    # logging stay outside the Streamlit app runtime.
-    write_launcher_log(
-        config.log_path,
-        (
-            f"app_root={config.app_root}",
-            f"python_path={config.python_path}",
-            f"app_version={get_app_version()}",
-            f"bundled_mode={config.bundled_mode}",
-            f"preferences_path={config.preferences_path}",
-            f"launch_mode={config.launch_mode}",
-            f"shutdown_port={config.shutdown_port}",
-            f"command={format_command(config.command)}",
+    launcher_factory: Callable[..., StreamlitLauncher] = build_streamlit_launcher,
+    platform_detector_factory: Callable[[], PlatformDetector] = PlatformDetector,
+    window_monitor_factory: Callable[..., object] = create_window_monitor,
+    console_renderer: ConsoleRenderer | None = None,
+) -> int:
+    """Run packaged RoleThread through LitLaunch."""
+
+    renderer = console_renderer or _build_console_renderer()
+    launcher = launcher_factory(config, console_renderer=renderer)
+    plan = launcher.build_launch_plan()
+    log_launch_plan(config, plan)
+
+    monitor_plan = _prepare_window_monitor(
+        platform_detector_factory=platform_detector_factory,
+        window_monitor_factory=window_monitor_factory,
+        renderer=renderer,
+    )
+    if monitor_plan is None:
+        return 1
+
+    session = launcher.run()
+    if not session.ok:
+        return 1
+
+    monitor, baseline_handles = monitor_plan
+    result = session.monitor_window(
+        monitor,
+        WindowTarget(
+            ROLETHREAD_LITLAUNCH_TITLE,
+            url=session.url,
+            browser_kind=getattr(session.browser, "kind", None),
+            app_mode=True,
+            baseline_handles=baseline_handles,
         ),
+        config=WindowMonitorConfig(
+            appear_timeout_seconds=ROLETHREAD_LITLAUNCH_WINDOW_APPEAR_TIMEOUT_SECONDS,
+            poll_interval_seconds=ROLETHREAD_LITLAUNCH_WINDOW_POLL_SECONDS,
+            stable_poll_count=ROLETHREAD_LITLAUNCH_WINDOW_STABLE_POLLS,
+        ),
+        graceful_timeout_seconds=ROLETHREAD_LITLAUNCH_GRACEFUL_TIMEOUT_SECONDS,
     )
-    try:
-        ensure_streamlit_port_available(port_available_fn=port_available_fn)
-    except Exception as exc:
-        write_launcher_log(config.log_path, (f"error={exc}",))
-        raise
-
-    # Lifecycle management is handled after startup by run_launcher_lifecycle().
-    try:
-        process = popen(
-            config.command,
-            cwd=config.app_root,
-            env=build_subprocess_env(config, env),
-        )
-    except Exception as exc:
-        write_launcher_log(config.log_path, (f"subprocess_error={exc}",))
-        raise
-
-    write_launcher_log(
-        config.log_path,
-        (f"started_pid={getattr(process, 'pid', 'unknown')}",),
-    )
-    return process
-
-
-def launch_edge_webapp_window(
-    *,
-    url: str | None = None,
-    popen: Callable[..., subprocess.Popen] = subprocess.Popen,
-) -> EdgeLaunchResult:
-    """Open the launcher-managed Edge app window through the Edge adapter."""
-
-    # Browser selection belongs behind the adapter boundary; the lifecycle core
-    # should not need to know which browser implementation opens the app window.
-    return launch_edge_app_mode(
-        url=url or build_streamlit_app_url(),
-        popen=popen,
-        source="launcher",
-    )
-
-
-def wait_for_streamlit_health(
-    *,
-    url: str | None = None,
-    timeout_seconds: float = DEFAULT_HEALTH_TIMEOUT_SECONDS,
-    poll_seconds: float = 0.5,
-    urlopen: Callable[..., object] = request.urlopen,
-    sleep_fn: Callable[[float], None] = time.sleep,
-) -> HealthCheckResult:
-    """Wait for the local Streamlit health endpoint to respond."""
-
-    # Streamlit readiness is a backend concern. Browser/window readiness is a
-    # later launcher step after this health endpoint responds.
-    target_url = url or build_streamlit_health_url()
-    deadline = time.monotonic() + timeout_seconds
-    attempts = 0
-    last_error = ""
-    while time.monotonic() <= deadline:
-        attempts += 1
-        try:
-            with urlopen(target_url, timeout=1):
-                return HealthCheckResult(
-                    ok=True,
-                    url=target_url,
-                    attempts=attempts,
-                    message="Streamlit health endpoint responded.",
-                )
-        except Exception as exc:
-            last_error = str(exc)
-            sleep_fn(poll_seconds)
-    return HealthCheckResult(
-        ok=False,
-        url=target_url,
-        attempts=attempts,
-        message=f"Timed out waiting for Streamlit health. Last error: {last_error}",
-    )
-
-
-def count_rolethread_webapp_windows(
-    *,
-    run_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
-) -> int | None:
-    """Return the number of visible RoleThread Edge app windows, if Windows allows it."""
-
-    windows = capture_rolethread_webapp_windows(run_fn=run_fn)
-    if windows is None:
-        return None
-    return len(windows)
-
-
-def capture_rolethread_webapp_windows(
-    *,
-    run_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
-) -> tuple[WebappWindowInfo, ...] | None:
-    """Return visible RoleThread Edge app windows with exact HWND metadata."""
-
-    # Exact HWND observation is the stable browser-close signal. Edge process
-    # IDs and command lines can be shared across normal and app-mode windows.
-    if os.name != "nt":
-        return None
-    if run_fn is subprocess.run:
-        return capture_rolethread_webapp_windows_native()
-
-    return capture_rolethread_webapp_windows_powershell(run_fn=run_fn)
-
-
-def _resolve_process_name_native(pid: int) -> str:
-    """Return a Windows process image name using Win32 APIs when available."""
-
-    process_query_limited_information = 0x1000
-    kernel32 = ctypes.windll.kernel32
-    handle = kernel32.OpenProcess(process_query_limited_information, False, int(pid))
-    if not handle:
-        return ""
-    try:
-        buffer = ctypes.create_unicode_buffer(32768)
-        size = ctypes.c_ulong(len(buffer))
-        if kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
-            return Path(buffer.value).stem
-    finally:
-        kernel32.CloseHandle(handle)
-    return ""
-
-
-def capture_rolethread_webapp_windows_native() -> tuple[WebappWindowInfo, ...] | None:
-    """Return visible RoleThread Edge app windows using direct Win32 HWND APIs."""
-
-    if os.name != "nt":
-        return None
-    try:
-        user32 = ctypes.windll.user32
-    except Exception:
-        return None
-
-    enum_windows_proc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
-    windows: list[WebappWindowInfo] = []
-
-    def callback(hwnd: int, lparam: int) -> bool:
-        try:
-            if not user32.IsWindowVisible(hwnd):
-                return True
-            title_buffer = ctypes.create_unicode_buffer(512)
-            class_buffer = ctypes.create_unicode_buffer(256)
-            user32.GetWindowTextW(hwnd, title_buffer, len(title_buffer))
-            user32.GetClassNameW(hwnd, class_buffer, len(class_buffer))
-            title = title_buffer.value.strip()
-            class_name = class_buffer.value.strip()
-            if not _is_rolethread_webapp_window_title(title):
-                return True
-            if not class_name.startswith("Chrome_WidgetWin"):
-                return True
-            pid_value = ctypes.c_ulong(0)
-            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid_value))
-            pid = int(pid_value.value)
-            process_name = _resolve_process_name_native(pid).lower()
-            if process_name and process_name != "msedge":
-                return True
-            windows.append(
-                WebappWindowInfo(
-                    handle=f"0x{int(hwnd):X}",
-                    pid=pid,
-                    title=title,
-                    class_name=class_name,
-                    process_name=process_name or "unknown",
-                )
-            )
-        except Exception:
-            return True
-        return True
-
-    try:
-        if not user32.EnumWindows(enum_windows_proc(callback), 0):
-            return None
-    except Exception:
-        return None
-    return tuple(sorted(windows, key=lambda item: item.handle))
-
-
-def _is_rolethread_webapp_window_title(title: str) -> bool:
-    """Return whether a title looks like the app-mode window, not browser chrome."""
-
-    normalized = title.strip().lower()
-    if "rolethread lite" not in normalized:
-        return False
-    if "microsoft edge" in normalized:
-        return False
-    return True
-
-
-def capture_rolethread_webapp_windows_powershell(
-    *,
-    run_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
-) -> tuple[WebappWindowInfo, ...] | None:
-    """Return visible RoleThread Edge app windows using the PowerShell fallback probe."""
-
-    script = """
-$ErrorActionPreference = 'Stop'
-Add-Type @"
-using System;
-using System.Text;
-using System.Runtime.InteropServices;
-public class RoleThreadWindowEnumerator {
-    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-    [DllImport("user32.dll")]
-    public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-    [DllImport("user32.dll")]
-    public static extern bool IsWindowVisible(IntPtr hWnd);
-    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
-    public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
-    public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
-    [DllImport("user32.dll")]
-    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-}
-"@
-$script:matches = New-Object System.Collections.Generic.List[object]
-$callback = [RoleThreadWindowEnumerator+EnumWindowsProc]{
-    param([IntPtr]$hWnd, [IntPtr]$lParam)
-    if (-not [RoleThreadWindowEnumerator]::IsWindowVisible($hWnd)) { return $true }
-    $titleBuilder = New-Object System.Text.StringBuilder 512
-    $classBuilder = New-Object System.Text.StringBuilder 256
-    [void][RoleThreadWindowEnumerator]::GetWindowText($hWnd, $titleBuilder, $titleBuilder.Capacity)
-    [void][RoleThreadWindowEnumerator]::GetClassName($hWnd, $classBuilder, $classBuilder.Capacity)
-    $title = [string]$titleBuilder.ToString()
-    $className = [string]$classBuilder.ToString()
-    if ($title -like '*RoleThread Lite*' -and $title -notlike '*Microsoft*Edge*' -and $className -like 'Chrome_WidgetWin*') {
-        [uint32]$pid = 0
-        [void][RoleThreadWindowEnumerator]::GetWindowThreadProcessId($hWnd, [ref]$pid)
-        try {
-            $process = Get-Process -Id ([int]$pid) -ErrorAction Stop
-            if ($process.ProcessName -eq 'msedge') {
-                $script:matches.Add([pscustomobject]@{
-                    handle = ('0x{0:X}' -f $hWnd.ToInt64())
-                    pid = [int]$pid
-                    title = $title
-                    class_name = $className
-                    process_name = $process.ProcessName
-                }) | Out-Null
-            }
-        } catch {}
-    }
-    return $true
-}
-[void][RoleThreadWindowEnumerator]::EnumWindows($callback, [IntPtr]::Zero)
-$script:matches | Sort-Object handle | ConvertTo-Json -Compress
-"""
-    try:
-        result = run_fn(
-            ["powershell", "-NoProfile", "-Command", script],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except Exception:
-        return None
-    if result.returncode != 0:
-        return None
-    output = (result.stdout or "").strip()
-    if not output:
-        return ()
-    try:
-        parsed = json.loads(output)
-    except json.JSONDecodeError:
-        return None
-    if isinstance(parsed, dict):
-        parsed_items = [parsed]
-    elif isinstance(parsed, list):
-        parsed_items = parsed
-    else:
-        return ()
-
-    windows: list[WebappWindowInfo] = []
-    for item in parsed_items:
-        if not isinstance(item, dict):
-            continue
-        try:
-            windows.append(
-                WebappWindowInfo(
-                    handle=str(item.get("handle", "")),
-                    pid=int(item.get("pid", 0)),
-                    title=str(item.get("title", "")),
-                    class_name=str(item.get("class_name", "")),
-                    process_name=str(item.get("process_name", "")),
-                )
-            )
-        except (TypeError, ValueError):
-            continue
-    return tuple(windows)
-
-
-def wait_for_app_window_close(
-    launch_mode: str,
-    *,
-    process: subprocess.Popen | None = None,
-    count_windows_fn: Callable[[], int | None] = count_rolethread_webapp_windows,
-    capture_windows_fn: Callable[
-        [], tuple[WebappWindowInfo, ...] | None
-    ] | None = None,
-    sleep_fn: Callable[[float], None] = time.sleep,
-    appear_timeout_seconds: float = DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS,
-    poll_seconds: float = DEFAULT_WINDOW_POLL_SECONDS,
-    baseline_window_handles: set[str] | None = None,
-) -> WindowCloseDetectionResult:
-    """Wait until the app window closes when the launch mode supports detection."""
-
-    if launch_mode != LAUNCH_MODE_WEBAPP:
-        return WindowCloseDetectionResult(
-            supported=False,
-            closed=False,
-            observed=False,
-            message=(
-                "Automatic browser-close detection is not enabled for normal "
-                "browser launch mode."
-            ),
-        )
-
-    if capture_windows_fn is not None:
-        return wait_for_exact_app_window_close(
-            process=process,
-            capture_windows_fn=capture_windows_fn,
-            sleep_fn=sleep_fn,
-            appear_timeout_seconds=appear_timeout_seconds,
-            poll_seconds=poll_seconds,
-            baseline_window_handles=baseline_window_handles,
-        )
-
-    if count_windows_fn is count_rolethread_webapp_windows:
-        return wait_for_exact_app_window_close(
-            process=process,
-            capture_windows_fn=capture_rolethread_webapp_windows,
-            sleep_fn=sleep_fn,
-            appear_timeout_seconds=appear_timeout_seconds,
-            poll_seconds=poll_seconds,
-            baseline_window_handles=baseline_window_handles,
-        )
-
-    deadline = time.monotonic() + appear_timeout_seconds
-    observed = False
-    while time.monotonic() <= deadline:
-        if process is not None and process.poll() is not None:
-            return WindowCloseDetectionResult(
-                supported=True,
-                closed=True,
-                observed=observed,
-                message="Streamlit subprocess exited before app-window monitoring completed.",
-            )
-        count = count_windows_fn()
-        if count is None:
-            return WindowCloseDetectionResult(
-                supported=False,
-                closed=False,
-                observed=observed,
-                message="Windows app-window detection was unavailable.",
-            )
-        if count > 0:
-            observed = True
-            break
-        sleep_fn(poll_seconds)
-
-    if not observed:
-        return WindowCloseDetectionResult(
-            supported=False,
-            closed=False,
-            observed=False,
-            message="Timed out waiting for the Edge app window to appear.",
-        )
-
-    while True:
-        if process is not None and process.poll() is not None:
-            return WindowCloseDetectionResult(
-                supported=True,
-                closed=True,
-                observed=True,
-                message="Streamlit subprocess exited while monitoring the app window.",
-            )
-        count = count_windows_fn()
-        if count is None:
-            return WindowCloseDetectionResult(
-                supported=False,
-                closed=False,
-                observed=True,
-                message="Windows app-window detection became unavailable.",
-            )
-        if count == 0:
-            return WindowCloseDetectionResult(
-                supported=True,
-                closed=True,
-                observed=True,
-                message="RoleThread app window closed.",
-            )
-        sleep_fn(poll_seconds)
-
-
-def wait_for_exact_app_window_close(
-    *,
-    process: subprocess.Popen | None = None,
-    capture_windows_fn: Callable[
-        [], tuple[WebappWindowInfo, ...] | None
-    ] = capture_rolethread_webapp_windows,
-    sleep_fn: Callable[[float], None] = time.sleep,
-    appear_timeout_seconds: float = DEFAULT_WINDOW_APPEAR_TIMEOUT_SECONDS,
-    poll_seconds: float = DEFAULT_WINDOW_POLL_SECONDS,
-    baseline_window_handles: set[str] | None = None,
-) -> WindowCloseDetectionResult:
-    """Monitor one observed Edge app-window HWND until that exact handle closes."""
-
-    # Window close is the desktop lifecycle signal. Backend shutdown happens
-    # only after the launcher observes this exact app-window handle disappear.
-    deadline = time.monotonic() + appear_timeout_seconds
-    target: WebappWindowInfo | None = None
-    while time.monotonic() <= deadline:
-        if process is not None and process.poll() is not None:
-            return WindowCloseDetectionResult(
-                supported=True,
-                closed=True,
-                observed=target is not None,
-                message="Streamlit subprocess exited before app-window monitoring completed.",
-                target_handle=target.handle if target else "",
-                target_pid=target.pid if target else None,
-                target_title=target.title if target else "",
-            )
-        windows = capture_windows_fn()
-        if windows is None:
-            return WindowCloseDetectionResult(
-                supported=False,
-                closed=False,
-                observed=target is not None,
-                message="Windows app-window detection was unavailable.",
-                target_handle=target.handle if target else "",
-                target_pid=target.pid if target else None,
-                target_title=target.title if target else "",
-            )
-        candidate_windows = tuple(
-            window
-            for window in windows
-            if not baseline_window_handles or window.handle not in baseline_window_handles
-        )
-        if candidate_windows:
-            candidate = sorted(candidate_windows, key=_window_handle_sort_key)[-1]
-            sleep_fn(poll_seconds)
-            stable_windows = capture_windows_fn()
-            if stable_windows is None:
-                return WindowCloseDetectionResult(
-                    supported=False,
-                    closed=False,
-                    observed=False,
-                    message="Windows app-window detection became unavailable while selecting a stable target.",
-                    target_handle=candidate.handle,
-                    target_pid=candidate.pid,
-                    target_title=candidate.title,
-                )
-            stable_handles = {window.handle for window in stable_windows}
-            if candidate.handle in stable_handles:
-                target = candidate
-                break
-            continue
-        sleep_fn(poll_seconds)
-
-    if target is None:
-        return WindowCloseDetectionResult(
-            supported=False,
-            closed=False,
-            observed=False,
-            message="Timed out waiting for the Edge app window to appear.",
-        )
-
-    while True:
-        if process is not None and process.poll() is not None:
-            return WindowCloseDetectionResult(
-                supported=True,
-                closed=True,
-                observed=True,
-                message="Streamlit subprocess exited while monitoring the app window.",
-                target_handle=target.handle,
-                target_pid=target.pid,
-                target_title=target.title,
-            )
-        windows = capture_windows_fn()
-        if windows is None:
-            return WindowCloseDetectionResult(
-                supported=False,
-                closed=False,
-                observed=True,
-                message="Windows app-window detection became unavailable.",
-                target_handle=target.handle,
-                target_pid=target.pid,
-                target_title=target.title,
-            )
-        active_handles = {window.handle for window in windows}
-        if target.handle not in active_handles:
-            return WindowCloseDetectionResult(
-                supported=True,
-                closed=True,
-                observed=True,
-                message="RoleThread app-window handle closed.",
-                target_handle=target.handle,
-                target_pid=target.pid,
-                target_title=target.title,
-            )
-        sleep_fn(poll_seconds)
-
-
-def _window_handle_sort_key(window: WebappWindowInfo) -> int:
-    """Return a numeric HWND sort key, falling back safely for test doubles."""
-
-    try:
-        return int(window.handle, 16)
-    except (TypeError, ValueError):
+    if result.closed or result.status == WindowMonitorStatus.BACKEND_EXITED:
         return 0
 
+    session.stop(graceful_timeout_seconds=ROLETHREAD_LITLAUNCH_GRACEFUL_TIMEOUT_SECONDS)
+    renderer.render_window_monitor_result(result)
+    return 1
 
-def request_graceful_shutdown(
-    config: LauncherConfig,
+
+def _build_console_renderer() -> ConsoleRenderer:
+    return ConsoleRenderer(mode=ConsoleMode.NORMAL, theme=ConsoleTheme())
+
+
+def _prepare_window_monitor(
     *,
-    urlopen: Callable[..., object] = request.urlopen,
-    timeout_seconds: float = 5.0,
-) -> ShutdownRequestResult:
-    """Request local launcher-controlled app shutdown."""
+    platform_detector_factory: Callable[[], PlatformDetector],
+    window_monitor_factory: Callable[..., object],
+    renderer: ConsoleRenderer,
+) -> tuple[object, tuple[str, ...]] | None:
+    platform_info = platform_detector_factory().detect()
+    monitor = window_monitor_factory(platform_info)
+    if isinstance(monitor, NoopWindowMonitor):
+        renderer.failure_guidance(
+            "Window monitoring is unavailable.",
+            likely_cause="This platform does not support LitLaunch window monitoring.",
+            next_steps=("Install RoleThread on Windows with Edge app-mode support.",),
+        )
+        return None
 
-    # The shutdown endpoint is local and tokened. If it fails, fallback
-    # termination must still target only this launcher-owned subprocess.
-    if not config.shutdown_port or not config.shutdown_token:
-        return ShutdownRequestResult(
-            attempted=False,
-            ok=False,
-            status_code=None,
-            message="No shutdown control channel was configured.",
-        )
-    url = build_launcher_shutdown_url(port=config.shutdown_port)
-    shutdown_request = request.Request(
-        url,
-        data=b"",
-        method="POST",
-    )
-    shutdown_request.add_header(SHUTDOWN_HEADER, config.shutdown_token)
     try:
-        with urlopen(shutdown_request, timeout=timeout_seconds) as response:
-            status_code = int(getattr(response, "status", 200))
-        return ShutdownRequestResult(
-            attempted=True,
-            ok=200 <= status_code < 300,
-            status_code=status_code,
-            message=f"Shutdown endpoint returned HTTP {status_code}.",
-        )
-    except URLError as exc:
-        return ShutdownRequestResult(
-            attempted=True,
-            ok=False,
-            status_code=None,
-            message=f"Shutdown request failed: {exc}",
-        )
+        baseline = monitor.capture(WindowTarget(ROLETHREAD_LITLAUNCH_TITLE, app_mode=True))
     except Exception as exc:
-        return ShutdownRequestResult(
-            attempted=True,
-            ok=False,
-            status_code=None,
-            message=f"Shutdown request failed: {exc}",
+        renderer.failure_guidance(
+            "Window monitoring baseline capture failed.",
+            likely_cause=str(exc),
+            next_steps=("Restart RoleThread and try again.",),
         )
-
-
-def wait_for_process_exit(
-    process: subprocess.Popen,
-    *,
-    timeout_seconds: float,
-) -> bool:
-    try:
-        process.wait(timeout=timeout_seconds)
-        return True
-    except subprocess.TimeoutExpired:
-        return False
-
-
-def terminate_process_fallback(
-    process: subprocess.Popen,
-    *,
-    timeout_seconds: float = DEFAULT_SHUTDOWN_TIMEOUT_SECONDS,
-) -> TerminationResult:
-    """Terminate the Streamlit subprocess, escalating to kill only if needed."""
-
-    # Fallback termination is intentionally process-object scoped. It must not
-    # become port-owner, Edge, or arbitrary Python cleanup.
-    if process.poll() is not None:
-        return TerminationResult(
-            attempted=False,
-            method="none",
-            completed=True,
-            message="Process already exited.",
-        )
-
-    process.terminate()
-    if wait_for_process_exit(process, timeout_seconds=timeout_seconds):
-        return TerminationResult(
-            attempted=True,
-            method="terminate",
-            completed=True,
-            message="Process exited after terminate().",
-        )
-
-    process.kill()
-    if wait_for_process_exit(process, timeout_seconds=5.0):
-        return TerminationResult(
-            attempted=True,
-            method="kill",
-            completed=True,
-            message="Process exited after kill().",
-        )
-
-    return TerminationResult(
-        attempted=True,
-        method="kill",
-        completed=False,
-        message="Process did not exit after kill().",
-    )
-
-
-def run_launcher_lifecycle(
-    config: LauncherConfig,
-    *,
-    popen: Callable[..., subprocess.Popen] = subprocess.Popen,
-    port_available_fn: Callable[[], bool] = is_port_available,
-    health_check_fn: Callable[[], HealthCheckResult] = wait_for_streamlit_health,
-    wait_for_close_fn: (
-        Callable[[str, subprocess.Popen], WindowCloseDetectionResult] | None
-    ) = None,
-    shutdown_request_fn: Callable[
-        [LauncherConfig],
-        ShutdownRequestResult,
-    ] = request_graceful_shutdown,
-    termination_fn: Callable[
-        [subprocess.Popen],
-        TerminationResult,
-    ] = terminate_process_fallback,
-    port_release_fn: Callable[[int | None], PortReleaseStatus] | None = None,
-    edge_launch_fn: Callable[[], EdgeLaunchResult] = launch_edge_webapp_window,
-    status_callback: LifecycleStatusCallback | None = None,
-) -> LauncherLifecycleResult:
-    """Delegate launcher-owned lifecycle orchestration to shared core code."""
-
-    baseline_window_handles: set[str] | None = None
-
-    def edge_launch_with_window_baseline() -> EdgeLaunchResult:
-        nonlocal baseline_window_handles
-        if config.launch_mode == LAUNCH_MODE_WEBAPP:
-            windows = capture_rolethread_webapp_windows()
-            if windows is not None:
-                baseline_window_handles = {window.handle for window in windows}
-        return edge_launch_fn()
-
-    close_waiter = wait_for_close_fn or (
-        lambda mode, process: wait_for_app_window_close(
-            mode,
-            process=process,
-            baseline_window_handles=baseline_window_handles,
-        )
-    )
-    release_checker = port_release_fn or (
-        lambda owner_pid: check_port_release_status(owned_pid=owner_pid)
-    )
-    return run_shared_launcher_lifecycle(
-        config,
-        launch_backend_fn=lambda lifecycle_config: launch_rolethread(
-            lifecycle_config,
-            popen=popen,
-            port_available_fn=port_available_fn,
-        ),
-        health_check_fn=health_check_fn,
-        wait_for_close_fn=close_waiter,
-        shutdown_request_fn=shutdown_request_fn,
-        termination_fn=termination_fn,
-        port_release_fn=release_checker,
-        edge_launch_fn=edge_launch_with_window_baseline,
-        write_log_fn=write_launcher_log,
-        format_command_fn=format_command,
-        wait_for_process_exit_fn=lambda process: wait_for_process_exit(
-            process,
-            timeout_seconds=DEFAULT_SHUTDOWN_TIMEOUT_SECONDS,
-        ),
-        webapp_launch_mode=LAUNCH_MODE_WEBAPP,
-        status_callback=status_callback,
-    )
+        return None
+    return monitor, tuple(window.handle for window in baseline)
 
 
 def run_bundled_streamlit(argv: Sequence[str] | None = None) -> int:
@@ -1112,10 +395,10 @@ def main() -> int:
 
     try:
         config = build_launcher_config()
-        print(f"Starting {APP_NAME} in {config.launch_mode} mode...")
-        print(format_command(config.command))
-        run_launcher_lifecycle(config)
-        return 0
+        print(f"Starting {APP_NAME} through LitLaunch...")
+        plan = build_launch_plan(config)
+        print(format_command_preview(plan.command))
+        return run_packaged_litlaunch(config)
     except Exception as exc:
         try:
             log_path = resolve_launcher_log_path()

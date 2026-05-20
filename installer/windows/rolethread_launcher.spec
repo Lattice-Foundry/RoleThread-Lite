@@ -32,7 +32,7 @@ def collect_project_data(source: str, destination: str) -> list[tuple[str, str]]
 
 
 datas = []
-for package_name in ("streamlit", "pandas", "plotly", "sqlalchemy"):
+for package_name in ("streamlit", "litlaunch", "pandas", "plotly", "sqlalchemy"):
     datas += copy_metadata(package_name)
 
 datas += collect_data_files("streamlit")
@@ -52,7 +52,7 @@ hiddenimports = [
     "plotly",
     "sqlalchemy",
 ]
-for package_name in ("core", "services", "ui"):
+for package_name in ("core", "services", "ui", "litlaunch"):
     hiddenimports += collect_submodules(package_name)
 
 

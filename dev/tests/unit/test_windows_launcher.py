@@ -1,211 +1,25 @@
-import json
 from pathlib import Path
-import subprocess
 from types import SimpleNamespace
 
 import pytest
+from litlaunch import BrowserChoice, LaunchMode
+from litlaunch.windowing import WindowInfo, WindowMonitorResult, WindowMonitorStatus
 
-from core.shutdown_control import (
-    SHUTDOWN_DIAGNOSTICS_ENV,
-    SHUTDOWN_HEADER,
-    SHUTDOWN_PORT_ENV,
-    SHUTDOWN_TOKEN_ENV,
-    LauncherShutdownControl,
-    launcher_shutdown_diagnostics_enabled,
-    resolve_launcher_shutdown_control,
-    start_launcher_shutdown_server,
-)
-from core.launcher_log import write_launcher_log
+from core.launcher_log import LAUNCHER_LOG_PATH_ENV
+from core.litlaunch_adapter import ROLETHREAD_LITLAUNCH_TITLE
+from core.litlaunch_shutdown_bridge import ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV
 from installer.windows.launcher import rolethread_launcher as launcher
 
 
-def _make_app_root(tmp_path: Path, *, with_dev_python: bool = True) -> Path:
+def _make_app_root(tmp_path: Path) -> Path:
     app_root = tmp_path / "app"
     app_root.mkdir()
     (app_root / "app.py").write_text("print('RoleThread')", encoding="utf-8")
-    if with_dev_python:
-        python_path = app_root / ".venv" / "Scripts" / "python.exe"
-        python_path.parent.mkdir(parents=True)
-        python_path.write_text("", encoding="utf-8")
     return app_root
 
 
-def test_build_launcher_config_uses_managed_webapp_without_installer_seed(tmp_path):
+def test_build_launcher_config_resolves_packaged_product_paths(tmp_path):
     app_root = _make_app_root(tmp_path)
-    local_app_data = tmp_path / "local"
-    seed_path = local_app_data / "RoleThread" / "installer_seed.json"
-    seed_path.parent.mkdir(parents=True)
-    seed_path.write_text(
-        json.dumps({"enable_webapp_launch_mode": False}),
-        encoding="utf-8",
-    )
-
-    config = launcher.build_launcher_config(
-        app_root=app_root,
-        env={"LOCALAPPDATA": str(local_app_data)},
-        current_executable=str(tmp_path / "unused.exe"),
-        shutdown_port=54321,
-        shutdown_token="token",
-    )
-
-    assert config.launch_mode == launcher.LAUNCH_MODE_WEBAPP
-    assert "--server.address" in config.command
-    assert "--server.headless" in config.command
-    assert "--" not in config.command
-    assert seed_path.exists()
-
-
-def test_command_construction_for_normal_launch(tmp_path):
-    python_path = tmp_path / "python.exe"
-
-    command = launcher.build_streamlit_command(
-        python_path,
-        launch_mode=launcher.LAUNCH_MODE_NORMAL,
-    )
-
-    assert command == (
-        str(python_path),
-        "-m",
-        "streamlit",
-        "run",
-        "app.py",
-        "--server.port",
-        "8501",
-    )
-
-
-def test_command_construction_for_webapp_launch(tmp_path):
-    python_path = tmp_path / "python.exe"
-
-    command = launcher.build_streamlit_command(
-        python_path,
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-    )
-
-    assert command[:4] == (str(python_path), "-m", "streamlit", "run")
-    assert "--server.port" in command
-    assert command[command.index("--server.port") + 1] == "8501"
-    assert "--server.address" in command
-    assert command[command.index("--server.address") + 1] == "127.0.0.1"
-    assert "--server.headless" in command
-    assert command[command.index("--server.headless") + 1] == "true"
-    assert "--" not in command
-
-
-def test_bundled_command_uses_internal_streamlit_mode(tmp_path):
-    app_root = _make_app_root(tmp_path, with_dev_python=False)
-    launcher_exe = tmp_path / "RoleThreadLauncher.exe"
-    launcher_exe.write_text("", encoding="utf-8")
-
-    command = launcher.build_streamlit_command(
-        launcher_exe,
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        app_root=app_root,
-        frozen=True,
-    )
-
-    assert command == (
-        str(launcher_exe),
-        launcher.INTERNAL_STREAMLIT_FLAG,
-        str(app_root / "app.py"),
-        "--global.developmentMode=false",
-        "--server.port",
-        "8501",
-        "--server.address",
-        "127.0.0.1",
-        "--server.headless",
-        "true",
-    )
-
-
-def test_bundled_normal_command_does_not_force_headless(tmp_path):
-    app_root = _make_app_root(tmp_path, with_dev_python=False)
-    launcher_exe = tmp_path / "RoleThreadLauncher.exe"
-    launcher_exe.write_text("", encoding="utf-8")
-
-    command = launcher.build_streamlit_command(
-        launcher_exe,
-        launch_mode=launcher.LAUNCH_MODE_NORMAL,
-        app_root=app_root,
-        frozen=True,
-    )
-
-    assert "--server.headless" not in command
-    assert "--server.address" not in command
-
-
-def test_dev_python_path_selection_prefers_venv_runtime(tmp_path):
-    app_root = _make_app_root(tmp_path, with_dev_python=True)
-    fallback = tmp_path / "fallback.exe"
-    fallback.write_text("", encoding="utf-8")
-
-    python_path = launcher.resolve_python_runtime(
-        app_root,
-        current_executable=str(fallback),
-    )
-
-    assert python_path == app_root / ".venv" / "Scripts" / "python.exe"
-
-
-def test_python_path_selection_falls_back_to_current_executable(tmp_path):
-    app_root = _make_app_root(tmp_path, with_dev_python=False)
-    fallback = tmp_path / "fallback.exe"
-    fallback.write_text("", encoding="utf-8")
-
-    python_path = launcher.resolve_python_runtime(
-        app_root,
-        current_executable=str(fallback),
-    )
-
-    assert python_path == fallback
-
-
-def test_bundled_runtime_selection_uses_launcher_executable(tmp_path):
-    app_root = _make_app_root(tmp_path, with_dev_python=False)
-    launcher_exe = tmp_path / "RoleThreadLauncher.exe"
-    launcher_exe.write_text("", encoding="utf-8")
-
-    python_path = launcher.resolve_python_runtime(
-        app_root,
-        current_executable=str(launcher_exe),
-        frozen=True,
-    )
-
-    assert python_path == launcher_exe
-
-
-def test_python_path_selection_errors_without_runtime(tmp_path):
-    app_root = _make_app_root(tmp_path, with_dev_python=False)
-
-    with pytest.raises(launcher.LauncherConfigurationError):
-        launcher.resolve_python_runtime(
-            app_root,
-            current_executable=str(tmp_path / "missing.exe"),
-        )
-
-
-def test_build_launcher_config_errors_when_app_root_has_no_app_py(tmp_path):
-    app_root = tmp_path / "not_rolethread"
-    app_root.mkdir()
-
-    with pytest.raises(launcher.LauncherConfigurationError) as exc_info:
-        launcher.build_launcher_config(
-            app_root=app_root,
-            current_executable=str(tmp_path / "missing.exe"),
-        )
-
-    assert "app.py" in str(exc_info.value)
-
-
-def test_resolve_app_root_uses_pyinstaller_meipass_in_frozen_mode(tmp_path, monkeypatch):
-    app_root = _make_app_root(tmp_path, with_dev_python=False)
-    monkeypatch.setattr(launcher.sys, "_MEIPASS", str(app_root), raising=False)
-
-    assert launcher.resolve_app_root(frozen=True) == app_root.resolve()
-
-
-def test_build_launcher_config_uses_bundled_command_in_frozen_mode(tmp_path):
-    app_root = _make_app_root(tmp_path, with_dev_python=False)
     launcher_exe = tmp_path / "RoleThreadLauncher.exe"
     launcher_exe.write_text("", encoding="utf-8")
 
@@ -214,389 +28,187 @@ def test_build_launcher_config_uses_bundled_command_in_frozen_mode(tmp_path):
         env={"LOCALAPPDATA": str(tmp_path / "local")},
         current_executable=str(launcher_exe),
         frozen=True,
-        shutdown_port=54321,
-        shutdown_token="token",
+        diagnostics_enabled=True,
     )
 
-    assert config.python_path == launcher_exe
+    assert config.app_root == app_root.resolve()
+    assert config.launcher_executable == launcher_exe
     assert config.bundled_mode is True
-    assert config.command[:3] == (
+    assert config.diagnostics_enabled is True
+    assert config.preferences_path == tmp_path / "local" / "RoleThread" / "preferences.json"
+    assert config.log_path == tmp_path / "local" / "RoleThread" / "logs" / "launcher.log"
+
+
+def test_litlaunch_config_preserves_rolethread_packaged_contract(tmp_path):
+    config = launcher.PackagedLauncherConfig(
+        app_root=_make_app_root(tmp_path),
+        launcher_executable=tmp_path / "RoleThreadLauncher.exe",
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "launcher.log",
+        bundled_mode=True,
+        diagnostics_enabled=True,
+    )
+
+    litlaunch_config = launcher.build_litlaunch_config(config)
+
+    assert litlaunch_config.title == ROLETHREAD_LITLAUNCH_TITLE
+    assert litlaunch_config.mode == LaunchMode.WEBAPP
+    assert litlaunch_config.browser == BrowserChoice.EDGE
+    assert litlaunch_config.host == "127.0.0.1"
+    assert litlaunch_config.port == 8501
+    assert litlaunch_config.auto_port is False
+    assert litlaunch_config.headless is True
+    assert litlaunch_config.allow_browser_fallback is False
+    assert litlaunch_config.cwd == config.app_root
+    assert litlaunch_config.app_args == ()
+    assert litlaunch_config.extra_env[LAUNCHER_LOG_PATH_ENV] == str(config.log_path)
+    assert litlaunch_config.extra_env[ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV] == "1"
+
+
+def test_packaged_backend_provider_builds_internal_streamlit_command(tmp_path):
+    app_root = _make_app_root(tmp_path)
+    launcher_exe = tmp_path / "RoleThreadLauncher.exe"
+    provider = launcher.PackagedRoleThreadBackendProvider(
+        launcher_executable=launcher_exe,
+        app_root=app_root,
+    )
+    context = SimpleNamespace(
+        host="127.0.0.1",
+        port=8501,
+        headless=True,
+    )
+
+    command = provider.build_backend_command(context).command
+
+    assert command == (
         str(launcher_exe),
         launcher.INTERNAL_STREAMLIT_FLAG,
-        str(app_root / "app.py"),
+        str(app_root.resolve() / "app.py"),
+        "--global.developmentMode=false",
+        "--server.address",
+        "127.0.0.1",
+        "--server.headless",
+        "true",
+        "--server.port",
+        "8501",
     )
-    assert "-m" not in config.command
-    assert config.shutdown_port == 54321
-    assert config.shutdown_token == "token"
+    assert "-- webapp" not in " ".join(command)
 
 
-def test_launcher_log_path_resolution_uses_localappdata():
-    log_path = launcher.resolve_launcher_log_path(
-        {"LOCALAPPDATA": "C:/Users/Public/AppData/Local"}
-    )
-
-    assert log_path == Path("C:/Users/Public/AppData/Local/RoleThread/logs/launcher.log")
-
-
-def test_build_launcher_config_ignores_legacy_preference_and_builds_webapp_command(tmp_path):
+def test_packaged_launch_plan_uses_backend_provider(tmp_path):
     app_root = _make_app_root(tmp_path)
-    local_app_data = tmp_path / "local"
-    preferences_path = local_app_data / "RoleThread" / "preferences.json"
-    preferences_path.parent.mkdir(parents=True)
-    preferences_path.write_text(
-        json.dumps({"enable_webapp_launch_mode": False}),
-        encoding="utf-8",
-    )
-
-    config = launcher.build_launcher_config(
+    launcher_exe = tmp_path / "RoleThreadLauncher.exe"
+    launcher_exe.write_text("", encoding="utf-8")
+    config = launcher.PackagedLauncherConfig(
         app_root=app_root,
-        env={"LOCALAPPDATA": str(local_app_data)},
-        current_executable=str(tmp_path / "unused.exe"),
-        shutdown_port=54321,
-        shutdown_token="token",
-    )
-
-    assert config.launch_mode == launcher.LAUNCH_MODE_WEBAPP
-    assert config.preferences_path == preferences_path
-    assert config.log_path == local_app_data / "RoleThread" / "logs" / "launcher.log"
-    assert "--server.address" in config.command
-    assert config.command[config.command.index("--server.address") + 1] == "127.0.0.1"
-    assert "--server.headless" in config.command
-    assert "--" not in config.command
-
-
-def test_launch_rolethread_logs_and_invokes_subprocess(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    log_path = tmp_path / "logs" / "launcher.log"
-    command = ("python.exe", "-m", "streamlit", "run", "app.py")
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
+        launcher_executable=launcher_exe,
         preferences_path=tmp_path / "preferences.json",
-        log_path=log_path,
-        launch_mode=launcher.LAUNCH_MODE_NORMAL,
-        command=command,
+        log_path=tmp_path / "launcher.log",
+        bundled_mode=True,
+    )
+
+    plan = launcher.build_launch_plan(config)
+
+    assert plan.backend_kind == "rolethread-packaged"
+    assert plan.cwd == app_root.resolve()
+    assert plan.app_url == "http://127.0.0.1:8501"
+    assert plan.health_url == "http://127.0.0.1:8501/_stcore/health"
+    assert plan.command[:2] == (str(launcher_exe), launcher.INTERNAL_STREAMLIT_FLAG)
+    assert "webapp" not in plan.command
+
+
+def test_run_packaged_litlaunch_uses_litlaunch_session_and_monitor(tmp_path):
+    config = launcher.PackagedLauncherConfig(
+        app_root=_make_app_root(tmp_path),
+        launcher_executable=tmp_path / "RoleThreadLauncher.exe",
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "launcher.log",
+        bundled_mode=True,
+    )
+    session = _FakeSession(
+        monitor_result=WindowMonitorResult(
+            supported=True,
+            observed=True,
+            closed=True,
+            status=WindowMonitorStatus.WINDOW_CLOSED,
+            message="closed",
+        )
     )
     calls = []
 
-    class FakeProcess:
-        pid = 1234
-
-    def fake_popen(*args, **kwargs):
-        calls.append((args, kwargs))
-        return FakeProcess()
-
-    result = launcher.launch_rolethread(
+    exit_code = launcher.run_packaged_litlaunch(
         config,
-        popen=fake_popen,
-        port_available_fn=lambda: True,
+        launcher_factory=lambda cfg, *, console_renderer=None: _FakeLauncher(session),
+        platform_detector_factory=_FakePlatformDetector,
+        window_monitor_factory=lambda platform: _FakeMonitor(calls),
     )
 
-    assert isinstance(result, FakeProcess)
-    assert len(calls) == 1
-    assert calls[0][0] == (command,)
-    assert calls[0][1]["cwd"] == app_root
-    assert SHUTDOWN_PORT_ENV not in calls[0][1]["env"]
-    log_text = log_path.read_text(encoding="utf-8")
-    assert "launch_mode=normal" in log_text
-    assert f"app_version={launcher.get_app_version()}" in log_text
-    assert "bundled_mode=False" in log_text
-    assert "command=python.exe -m streamlit run app.py" in log_text
-    assert "started_pid=1234" in log_text
+    assert exit_code == 0
+    assert session.run_called is True
+    assert session.monitor_called is True
+    assert session.stopped is False
+    assert calls == [("capture", ROLETHREAD_LITLAUNCH_TITLE)]
+    assert "backend_kind=rolethread-packaged" in config.log_path.read_text(
+        encoding="utf-8"
+    )
 
 
-def test_shared_launcher_log_writer_strips_ansi_for_backend_closeout(tmp_path):
-    log_path = tmp_path / "logs" / "launcher.log"
+def test_run_packaged_litlaunch_stops_backend_when_monitor_fails(tmp_path):
+    config = launcher.PackagedLauncherConfig(
+        app_root=_make_app_root(tmp_path),
+        launcher_executable=tmp_path / "RoleThreadLauncher.exe",
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "launcher.log",
+        bundled_mode=True,
+    )
+    session = _FakeSession(
+        monitor_result=WindowMonitorResult(
+            supported=True,
+            observed=False,
+            closed=False,
+            status=WindowMonitorStatus.TIMEOUT,
+            message="timeout",
+        )
+    )
 
-    write_launcher_log(
-        log_path,
+    exit_code = launcher.run_packaged_litlaunch(
+        config,
+        launcher_factory=lambda cfg, *, console_renderer=None: _FakeLauncher(session),
+        platform_detector_factory=_FakePlatformDetector,
+        window_monitor_factory=lambda platform: _FakeMonitor([]),
+    )
+
+    assert exit_code == 1
+    assert session.stopped is True
+
+
+def test_build_launcher_config_errors_when_app_root_has_no_app_py(tmp_path):
+    with pytest.raises(launcher.LauncherConfigurationError):
+        launcher.build_launcher_config(app_root=tmp_path / "missing")
+
+
+def test_run_bundled_streamlit_rewrites_argv(monkeypatch, tmp_path):
+    app_root = _make_app_root(tmp_path)
+    calls = []
+
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "streamlit.web.cli",
+        SimpleNamespace(main=lambda: calls.append(tuple(__import__("sys").argv))),
+    )
+
+    result = launcher.run_bundled_streamlit([str(app_root / "app.py"), "--server.port", "8501"])
+
+    assert result == 0
+    assert calls == [
         (
-            "lifecycle=cloud_sync_shutdown",
-            "message=\033[38;2;214;169;71mCloud sync:\033[0m Staged cloud sync completed.",
-        ),
-    )
-
-    log_text = log_path.read_text(encoding="utf-8")
-    assert "lifecycle=cloud_sync_shutdown" in log_text
-    assert "message=Cloud sync: Staged cloud sync completed." in log_text
-    assert "\033[" not in log_text
-
-
-def test_launch_rolethread_reports_port_in_use_without_starting_subprocess(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    log_path = tmp_path / "logs" / "launcher.log"
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=log_path,
-        launch_mode=launcher.LAUNCH_MODE_NORMAL,
-        command=("python.exe", "-m", "streamlit", "run", "app.py"),
-    )
-
-    with pytest.raises(launcher.LauncherConfigurationError) as exc_info:
-        launcher.launch_rolethread(
-            config,
-            popen=lambda *args, **kwargs: (_ for _ in ()).throw(
-                AssertionError("subprocess should not start")
-            ),
-            port_available_fn=lambda: False,
+            "streamlit",
+            "run",
+            str((app_root / "app.py").resolve()),
+            "--server.port",
+            "8501",
         )
-
-    assert "Port 8501 is already in use" in str(exc_info.value)
-    assert "Port 8501 is already in use" in log_path.read_text(encoding="utf-8")
-
-
-def test_launch_rolethread_logs_subprocess_failure(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    log_path = tmp_path / "logs" / "launcher.log"
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=log_path,
-        launch_mode=launcher.LAUNCH_MODE_NORMAL,
-        command=("python.exe", "-m", "streamlit", "run", "app.py"),
-    )
-
-    def fail_popen(*args, **kwargs):
-        raise OSError("streamlit exploded")
-
-    with pytest.raises(OSError):
-        launcher.launch_rolethread(
-            config,
-            popen=fail_popen,
-            port_available_fn=lambda: True,
-        )
-
-    log_text = log_path.read_text(encoding="utf-8")
-    assert "subprocess_error=streamlit exploded" in log_text
-
-
-def test_port_available_false_when_connection_succeeds(monkeypatch):
-    class FakeSocket:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr(launcher.socket, "create_connection", lambda *args, **kwargs: FakeSocket())
-
-    assert launcher.is_port_available() is False
-
-
-def test_port_available_true_when_connection_fails(monkeypatch):
-    def fail(*args, **kwargs):
-        raise OSError("closed")
-
-    monkeypatch.setattr(launcher.socket, "create_connection", fail)
-
-    assert launcher.is_port_available() is True
-
-
-def test_capture_rolethread_webapp_windows_parses_exact_hwnd_metadata(monkeypatch):
-    monkeypatch.setattr(launcher.os, "name", "nt")
-
-    def fake_run(*args, **kwargs):
-        return subprocess.CompletedProcess(
-            args=args[0],
-            returncode=0,
-            stdout=json.dumps(
-                [
-                    {
-                        "handle": "0x7D09AA",
-                        "pid": 25740,
-                        "title": "RoleThread Lite",
-                        "class_name": "Chrome_WidgetWin_1",
-                        "process_name": "msedge",
-                    }
-                ]
-            ),
-            stderr="",
-        )
-
-    windows = launcher.capture_rolethread_webapp_windows(run_fn=fake_run)
-
-    assert windows == (
-        launcher.WebappWindowInfo(
-            handle="0x7D09AA",
-            pid=25740,
-            title="RoleThread Lite",
-            class_name="Chrome_WidgetWin_1",
-            process_name="msedge",
-        ),
-    )
-    assert launcher.count_rolethread_webapp_windows(run_fn=fake_run) == 1
-
-
-@pytest.mark.parametrize(
-    ("title", "expected"),
-    [
-        ("RoleThread Lite", True),
-        ("RoleThread Lite - Personal - Microsoft Edge", False),
-        ("RoleThread Lite - Microsoft Edge", False),
-        ("RoleThread", False),
-        ("Codex", False),
-    ],
-)
-def test_webapp_window_title_rejects_normal_edge_browser_chrome(title, expected):
-    assert launcher._is_rolethread_webapp_window_title(title) is expected
-
-
-def test_wait_for_app_window_close_tracks_exact_webapp_handle():
-    target = launcher.WebappWindowInfo(
-        handle="0x7D09AA",
-        pid=25740,
-        title="RoleThread Lite",
-        class_name="Chrome_WidgetWin_1",
-        process_name="msedge",
-    )
-    calls = iter([(), (target,), (target,), (target,), ()])
-
-    result = launcher.wait_for_app_window_close(
-        launcher.LAUNCH_MODE_WEBAPP,
-        capture_windows_fn=lambda: next(calls),
-        sleep_fn=lambda _: None,
-        appear_timeout_seconds=5,
-        poll_seconds=0,
-    )
-
-    assert result.supported is True
-    assert result.observed is True
-    assert result.closed is True
-    assert result.target_handle == "0x7D09AA"
-    assert result.target_pid == 25740
-    assert result.target_title == "RoleThread Lite"
-
-
-def test_wait_for_app_window_close_tracks_new_handle_after_baseline():
-    existing = launcher.WebappWindowInfo(
-        handle="0x100",
-        pid=100,
-        title="RoleThread Lite",
-        class_name="Chrome_WidgetWin_1",
-        process_name="msedge",
-    )
-    target = launcher.WebappWindowInfo(
-        handle="0x200",
-        pid=200,
-        title="RoleThread Lite",
-        class_name="Chrome_WidgetWin_1",
-        process_name="msedge",
-    )
-    calls = iter([(existing,), (existing, target), (existing, target), (existing,)])
-
-    result = launcher.wait_for_app_window_close(
-        launcher.LAUNCH_MODE_WEBAPP,
-        capture_windows_fn=lambda: next(calls),
-        sleep_fn=lambda _: None,
-        appear_timeout_seconds=5,
-        poll_seconds=0,
-        baseline_window_handles={"0x100"},
-    )
-
-    assert result.supported is True
-    assert result.closed is True
-    assert result.target_handle == "0x200"
-    assert result.target_pid == 200
-
-
-def test_wait_for_app_window_close_prefers_newer_handle_without_baseline():
-    older = launcher.WebappWindowInfo(
-        handle="0x100",
-        pid=100,
-        title="RoleThread Lite",
-        class_name="Chrome_WidgetWin_1",
-        process_name="msedge",
-    )
-    newer = launcher.WebappWindowInfo(
-        handle="0x300",
-        pid=300,
-        title="RoleThread Lite",
-        class_name="Chrome_WidgetWin_1",
-        process_name="msedge",
-    )
-    calls = iter([(older, newer), (older, newer), (older,)])
-
-    result = launcher.wait_for_app_window_close(
-        launcher.LAUNCH_MODE_WEBAPP,
-        capture_windows_fn=lambda: next(calls),
-        sleep_fn=lambda _: None,
-        appear_timeout_seconds=5,
-        poll_seconds=0,
-    )
-
-    assert result.supported is True
-    assert result.closed is True
-    assert result.target_handle == "0x300"
-
-
-def test_wait_for_app_window_close_rejects_transient_webapp_handle():
-    transient = launcher.WebappWindowInfo(
-        handle="0x111",
-        pid=100,
-        title="RoleThread Lite",
-        class_name="Chrome_WidgetWin_1",
-        process_name="msedge",
-    )
-    stable = launcher.WebappWindowInfo(
-        handle="0x222",
-        pid=101,
-        title="RoleThread Lite",
-        class_name="Chrome_WidgetWin_1",
-        process_name="msedge",
-    )
-    calls = iter([(transient,), (), (stable,), (stable,), ()])
-
-    result = launcher.wait_for_app_window_close(
-        launcher.LAUNCH_MODE_WEBAPP,
-        capture_windows_fn=lambda: next(calls),
-        sleep_fn=lambda _: None,
-        appear_timeout_seconds=5,
-        poll_seconds=0,
-    )
-
-    assert result.supported is True
-    assert result.closed is True
-    assert result.target_handle == "0x222"
-
-
-def test_check_port_release_status_reports_free_port():
-    status = launcher.check_port_release_status(
-        owned_pid=123,
-        port_available_fn=lambda: True,
-        port_owner_fn=lambda: (_ for _ in ()).throw(
-            AssertionError("owner should not be queried for free port")
-        ),
-    )
-
-    assert status.released is True
-    assert status.owner_kind == "free"
-
-
-def test_check_port_release_status_reports_owned_process():
-    status = launcher.check_port_release_status(
-        owned_pid=123,
-        port_available_fn=lambda: False,
-        port_owner_fn=lambda: 123,
-    )
-
-    assert status.released is False
-    assert status.owner_pid == 123
-    assert status.owner_kind == "owned_process"
-
-
-def test_check_port_release_status_reports_unknown_process():
-    status = launcher.check_port_release_status(
-        owned_pid=123,
-        port_available_fn=lambda: False,
-        port_owner_fn=lambda: 999,
-    )
-
-    assert status.released is False
-    assert status.owner_pid == 999
-    assert status.owner_kind == "unknown_process"
+    ]
 
 
 def test_pyinstaller_spec_uses_windowed_no_console_mode():
@@ -607,769 +219,62 @@ def test_pyinstaller_spec_uses_windowed_no_console_mode():
     assert "console=True" not in spec_text
 
 
-def test_pyinstaller_spec_packages_shared_launcher_lifecycle_modules():
+def test_pyinstaller_spec_packages_litlaunch_runtime():
     spec_path = Path(__file__).parents[3] / "installer" / "windows" / "rolethread_launcher.spec"
     spec_text = spec_path.read_text(encoding="utf-8")
 
+    assert '"litlaunch"' in spec_text
     assert "rolethread_launcher.py" in spec_text
-    assert 'collect_project_data("core", "core")' in spec_text
-    assert 'collect_submodules(package_name)' in spec_text
-    assert 'for package_name in ("core", "services", "ui")' in spec_text
 
 
-def test_inno_installer_script_packages_launcher_bundle():
-    inno_path = (
-        Path(__file__).parents[3]
-        / "installer"
-        / "windows"
-        / "inno"
-        / "rolethread_lite.iss"
-    )
-    inno_text = inno_path.read_text(encoding="utf-8")
+class _FakeLauncher:
+    def __init__(self, session):
+        self.session = session
 
-    assert "AppName={#AppName}" in inno_text
-    assert '#define AppName "RoleThread Lite"' in inno_text
-    assert "DefaultDirName={autopf}\\RoleThread Lite" in inno_text
-    assert "#define BundleDir \"..\\dist\\RoleThreadLauncher\"" in inno_text
-    assert "Source: \"{#BundleDir}\\*\"" in inno_text
-    assert "Name: \"{group}\\RoleThread Lite\"" in inno_text
-    assert "Name: \"{group}\\RoleThread Uninstaller\"" in inno_text
-    assert 'Filename: "{uninstallexe}"' in inno_text
-    assert "Name: \"{autodesktop}\\RoleThread Lite\"" in inno_text
-    assert "Tasks: desktopicon" in inno_text
-    assert "postinstall" in inno_text
-    assert "OutputBaseFilename=RoleThreadLiteSetup-v{#AppVersion}" in inno_text
-    assert 'Name: "webappmode"' not in inno_text
-    assert "Use Windows Edge webapp mode by default (recommended)" not in inno_text
-    assert "can be changed later in Settings" not in inno_text
-    assert "installer_seed.json" not in inno_text
-    assert '"enable_webapp_launch_mode": true' not in inno_text
-    assert '"enable_webapp_launch_mode": false' not in inno_text
-    assert "WizardIsTaskSelected('webappmode')" not in inno_text
-    assert "Remove local RoleThread user data" in inno_text
-    assert "database/app state, preferences, logs, cache" in inno_text
-    assert "Developer clean uninstall / remove installer test state" not in inno_text
-    assert "RoleThreadLauncher.exe" in inno_text
-    assert "tasklist" in inno_text
-    assert "RoleThreadAppDataRoot()" in inno_text
-    assert "RoleThreadWorkspaceRoot()" in inno_text
-    assert "DelTree(Path, True, True, True)" in inno_text
-    assert "External/cloud backup destinations" in inno_text
-    assert "BringWizardToFront" in inno_text
-    assert "ShowWindow(WizardForm.Handle, SW_RESTORE)" in inno_text
-    assert "WizardForm.BringToFront" in inno_text
-    assert "SetActiveWindow(WizardForm.Handle)" in inno_text
-    assert "SetForegroundWindow(WizardForm.Handle)" in inno_text
-
-
-def test_build_installer_script_validates_bundle_and_inno_compiler():
-    script_path = (
-        Path(__file__).parents[3]
-        / "installer"
-        / "windows"
-        / "scripts"
-        / "build_installer.ps1"
-    )
-    script_text = script_path.read_text(encoding="utf-8")
-
-    assert "rolethread_lite.iss" in script_text
-    assert "RoleThreadLauncher.exe" in script_text
-    assert "Resolve-InnoCompiler" in script_text
-    assert "ISCC.exe" in script_text
-    assert "Inno Setup compiler was not found" in script_text
-    assert "/DAppVersion=$version" in script_text
-    assert "RoleThreadLiteSetup-v$version.exe" in script_text
-    assert "BuildBundle" in script_text
-    assert "UseExistingBundle" in script_text
-    assert "Building fresh PyInstaller bundle before installer packaging" in script_text
-    assert "Bundle version: $bundleVersion" in script_text
-    assert "Bundle rebuilt this run: $bundleWasRebuilt" in script_text
-    assert "Refusing to build installer from a stale PyInstaller bundle" in script_text
-    assert "$bundleVersion -ne $version" in script_text
-    assert "LOCALAPPDATA" in script_text
-    assert "Programs\\Inno Setup 6\\ISCC.exe" in script_text
-
-
-def test_obsolete_developer_cleanup_script_is_removed_from_installer_docs():
-    repo_root = Path(__file__).parents[3]
-    cleanup_script = (
-        repo_root / "installer" / "windows" / "scripts" / "clean_rolethread_user_data.ps1"
-    )
-    readme_text = (
-        repo_root / "installer" / "windows" / "README.md"
-    ).read_text(encoding="utf-8")
-
-    assert not cleanup_script.exists()
-    assert "clean_rolethread_user_data.ps1" not in readme_text
-    assert "Developer clean uninstall" not in readme_text
-    assert "normal Windows uninstaller" in readme_text
-
-
-def test_shutdown_control_resolves_only_when_launcher_env_is_complete():
-    assert resolve_launcher_shutdown_control({}) is None
-    assert resolve_launcher_shutdown_control(
-        {SHUTDOWN_PORT_ENV: "not-a-port", SHUTDOWN_TOKEN_ENV: "token"}
-    ) is None
-
-    control = resolve_launcher_shutdown_control(
-        {SHUTDOWN_PORT_ENV: "54321", SHUTDOWN_TOKEN_ENV: "token"}
-    )
-
-    assert control == LauncherShutdownControl(port=54321, token="token")
-
-
-def test_shutdown_diagnostics_env_parses_truthy_values():
-    assert launcher_shutdown_diagnostics_enabled({}) is False
-    assert launcher_shutdown_diagnostics_enabled({SHUTDOWN_DIAGNOSTICS_ENV: "1"}) is True
-    assert launcher_shutdown_diagnostics_enabled({SHUTDOWN_DIAGNOSTICS_ENV: "true"}) is True
-    assert launcher_shutdown_diagnostics_enabled({SHUTDOWN_DIAGNOSTICS_ENV: "off"}) is False
-
-
-def test_start_launcher_shutdown_server_ignores_missing_control():
-    assert start_launcher_shutdown_server(None, shutdown_fn=lambda: None) is False
-
-
-def test_build_subprocess_env_includes_shutdown_control(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-
-    env = launcher.build_subprocess_env(config, {"BASE": "1"})
-
-    assert env["BASE"] == "1"
-    assert env[SHUTDOWN_PORT_ENV] == "54321"
-    assert env[SHUTDOWN_TOKEN_ENV] == "secret"
-    assert env[launcher.LAUNCHER_LOG_PATH_ENV] == str(config.log_path)
-    assert SHUTDOWN_DIAGNOSTICS_ENV not in env
-
-
-def test_build_subprocess_env_includes_shutdown_diagnostics_when_enabled(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-        shutdown_diagnostics=True,
-    )
-
-    env = launcher.build_subprocess_env(config, {})
-
-    assert env[SHUTDOWN_DIAGNOSTICS_ENV] == "1"
-
-
-def test_build_subprocess_env_does_not_mark_launch_mode_in_child_env(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_NORMAL,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-
-    env = launcher.build_subprocess_env(config, {})
-
-    assert SHUTDOWN_PORT_ENV in env
-    assert not any(key.startswith("ROLETHREAD_MANAGED_WEBAPP") for key in env)
-
-
-def test_launch_edge_webapp_window_delegates_to_edge_adapter(monkeypatch):
-    calls = []
-
-    def fake_launch_edge_app_mode(*, url, popen, source):
-        calls.append((url, popen, source))
-        return launcher.EdgeLaunchResult(
-            attempted=True,
-            launched=True,
-            command=("msedge", f"--app={url}"),
-            message="launched",
+    def build_launch_plan(self):
+        return SimpleNamespace(
+            backend_kind="rolethread-packaged",
+            app_root="X:/rolethread",
+            app_version="test",
+            bundled_mode=True,
+            preferences_path="preferences.json",
+            command_display="RoleThreadLauncher.exe --rolethread-run-streamlit app.py",
+            app_url="http://127.0.0.1:8501",
         )
 
-    monkeypatch.setattr(launcher, "launch_edge_app_mode", fake_launch_edge_app_mode)
-    popen = lambda command: None
+    def run(self):
+        self.session.run_called = True
+        return self.session
 
-    result = launcher.launch_edge_webapp_window(url="http://127.0.0.1:8501", popen=popen)
 
-    assert result.attempted is True
-    assert result.launched is True
-    assert result.command == ("msedge", "--app=http://127.0.0.1:8501")
-    assert calls == [("http://127.0.0.1:8501", popen, "launcher")]
+class _FakeSession:
+    ok = True
+    url = "http://127.0.0.1:8501"
+    browser = SimpleNamespace(kind=None)
 
+    def __init__(self, *, monitor_result):
+        self.monitor_result = monitor_result
+        self.run_called = False
+        self.monitor_called = False
+        self.stopped = False
 
-def test_launch_edge_webapp_window_uses_default_loopback_app_url(monkeypatch):
-    calls = []
+    def monitor_window(self, *args, **kwargs):
+        self.monitor_called = True
+        return self.monitor_result
 
-    def fake_launch_edge_app_mode(*, url, popen, source):
-        calls.append(url)
-        return launcher.EdgeLaunchResult(
-            attempted=True,
-            launched=True,
-            command=("msedge", f"--app={url}"),
-            message="launched",
-        )
+    def stop(self, **kwargs):
+        self.stopped = True
 
-    monkeypatch.setattr(launcher, "launch_edge_app_mode", fake_launch_edge_app_mode)
-    result = launcher.launch_edge_webapp_window(popen=lambda command: None)
 
-    assert result.launched is True
-    assert calls == ["http://127.0.0.1:8501"]
+class _FakePlatformDetector:
+    def detect(self):
+        return SimpleNamespace(platform="windows")
 
 
-def test_request_graceful_shutdown_builds_tokenized_local_request(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-    calls = []
+class _FakeMonitor:
+    def __init__(self, calls):
+        self.calls = calls
 
-    class FakeResponse:
-        status = 200
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    def fake_urlopen(request_obj, timeout):
-        calls.append((request_obj, timeout))
-        return FakeResponse()
-
-    result = launcher.request_graceful_shutdown(config, urlopen=fake_urlopen)
-
-    assert result.ok is True
-    assert result.status_code == 200
-    assert calls[0][0].full_url == "http://127.0.0.1:54321/shutdown"
-    headers = dict(calls[0][0].header_items())
-    assert headers["X-rolethread-launcher-token"] == "secret"
-
-
-def test_wait_for_app_window_close_detects_webapp_close_sequence():
-    counts = iter([0, 1, 1, 0])
-
-    result = launcher.wait_for_app_window_close(
-        launcher.LAUNCH_MODE_WEBAPP,
-        count_windows_fn=lambda: next(counts),
-        sleep_fn=lambda _: None,
-        appear_timeout_seconds=5,
-        poll_seconds=0,
-    )
-
-    assert result.supported is True
-    assert result.observed is True
-    assert result.closed is True
-
-
-def test_wait_for_app_window_close_reports_normal_mode_limitation():
-    result = launcher.wait_for_app_window_close(launcher.LAUNCH_MODE_NORMAL)
-
-    assert result.supported is False
-    assert result.closed is False
-    assert "normal browser" in result.message
-
-
-def test_terminate_process_fallback_uses_terminate_before_kill():
-    class FakeProcess:
-        def __init__(self):
-            self.calls = []
-            self.exited = False
-
-        def poll(self):
-            return 0 if self.exited else None
-
-        def terminate(self):
-            self.calls.append("terminate")
-            self.exited = True
-
-        def kill(self):
-            self.calls.append("kill")
-
-        def wait(self, timeout):
-            if self.exited:
-                return 0
-            raise subprocess.TimeoutExpired("fake", timeout)
-
-    process = FakeProcess()
-
-    result = launcher.terminate_process_fallback(process)
-
-    assert result.method == "terminate"
-    assert result.completed is True
-    assert process.calls == ["terminate"]
-
-
-def test_terminate_process_fallback_kills_as_last_resort(monkeypatch):
-    class FakeProcess:
-        def __init__(self):
-            self.calls = []
-
-        def poll(self):
-            return None
-
-        def terminate(self):
-            self.calls.append("terminate")
-
-        def kill(self):
-            self.calls.append("kill")
-
-    process = FakeProcess()
-    waits = iter([False, True])
-    monkeypatch.setattr(launcher, "wait_for_process_exit", lambda *args, **kwargs: next(waits))
-
-    result = launcher.terminate_process_fallback(process)
-
-    assert result.method == "kill"
-    assert result.completed is True
-    assert process.calls == ["terminate", "kill"]
-
-
-def test_run_launcher_lifecycle_graceful_shutdown_path(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    log_path = tmp_path / "logs" / "launcher.log"
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=log_path,
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-
-    class FakeProcess:
-        pid = 777
-
-        def __init__(self):
-            self.exited = False
-
-        def poll(self):
-            return 0 if self.exited else None
-
-        def wait(self, timeout):
-            self.exited = True
-            return 0
-
-    result = launcher.run_launcher_lifecycle(
-        config,
-        popen=lambda *args, **kwargs: FakeProcess(),
-        port_available_fn=lambda: True,
-        health_check_fn=lambda: launcher.HealthCheckResult(
-            ok=True,
-            url="http://127.0.0.1:8501/_stcore/health",
-            attempts=1,
-            message="ok",
-        ),
-        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
-            supported=True,
-            closed=True,
-            observed=True,
-            message="closed",
-        ),
-        shutdown_request_fn=lambda cfg: launcher.ShutdownRequestResult(
-            attempted=True,
-            ok=True,
-            status_code=200,
-            message="ok",
-        ),
-        termination_fn=lambda process: (_ for _ in ()).throw(
-            AssertionError("termination should not run")
-        ),
-        port_release_fn=lambda pid: launcher.PortReleaseStatus(
-            True,
-            None,
-            "free",
-            "released",
-        ),
-        edge_launch_fn=lambda: launcher.EdgeLaunchResult(
-            True,
-            True,
-            ("msedge", "--app=http://127.0.0.1:8501"),
-            "launched",
-        ),
-    )
-
-    assert result.final_state == "graceful_shutdown"
-    assert result.shutdown_request.ok is True
-    log_text = log_path.read_text(encoding="utf-8")
-    assert "lifecycle=health_check" in log_text
-    assert "lifecycle=window_monitor" in log_text
-    assert "lifecycle=shutdown_request" in log_text
-    assert "lifecycle=port_release" in log_text
-
-
-def test_run_launcher_lifecycle_delegates_to_shared_core_orchestrator(tmp_path, monkeypatch):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "logs" / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-    received = {}
-
-    def shared_orchestrator(config_arg, **kwargs):
-        received["config"] = config_arg
-        received["kwargs"] = kwargs
-        return launcher.LauncherLifecycleResult(
-            process_pid=123,
-            launch_mode=config_arg.launch_mode,
-            health=launcher.HealthCheckResult(True, "url", 1, "ok"),
-            close_detection=launcher.WindowCloseDetectionResult(True, True, True, "closed"),
-            shutdown_request=launcher.ShutdownRequestResult(True, True, 200, "ok"),
-            termination=launcher.TerminationResult(False, "none", True, "done"),
-            final_state="graceful_shutdown",
-        )
-
-    monkeypatch.setattr(launcher, "run_shared_launcher_lifecycle", shared_orchestrator)
-
-    result = launcher.run_launcher_lifecycle(
-        config,
-        popen=lambda *args, **kwargs: object(),
-        port_available_fn=lambda: True,
-        health_check_fn=lambda: launcher.HealthCheckResult(True, "url", 1, "ok"),
-        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
-            True,
-            True,
-            True,
-            "closed",
-        ),
-        shutdown_request_fn=lambda cfg: launcher.ShutdownRequestResult(
-            True,
-            True,
-            200,
-            "ok",
-        ),
-        termination_fn=lambda process: launcher.TerminationResult(False, "none", True, "done"),
-        port_release_fn=lambda pid: launcher.PortReleaseStatus(True, None, "free", "released"),
-        edge_launch_fn=lambda: launcher.EdgeLaunchResult(True, True, ("msedge",), "launched"),
-        status_callback=lambda message: None,
-    )
-
-    assert result.final_state == "graceful_shutdown"
-    assert received["config"] == config
-    assert received["kwargs"]["write_log_fn"] is launcher.write_launcher_log
-    assert received["kwargs"]["format_command_fn"] is launcher.format_command
-    assert received["kwargs"]["webapp_launch_mode"] == launcher.LAUNCH_MODE_WEBAPP
-    assert callable(received["kwargs"]["launch_backend_fn"])
-    assert callable(received["kwargs"]["wait_for_process_exit_fn"])
-
-def test_run_launcher_lifecycle_orders_managed_webapp_steps_and_reports_status(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "logs" / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=(
-            "python.exe",
-            "-m",
-            "streamlit",
-            "run",
-            "app.py",
-            "--server.headless",
-            "true",
-        ),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-    calls = []
-    statuses = []
-
-    class FakeProcess:
-        pid = 779
-
-        def wait(self, timeout):
-            calls.append("wait_for_exit")
-            return 0
-
-    def popen(*args, **kwargs):
-        calls.append("popen")
-        return FakeProcess()
-
-    def health():
-        calls.append("health")
-        return launcher.HealthCheckResult(True, "url", 1, "ok")
-
-    def edge_launch():
-        calls.append("edge_launch")
-        return launcher.EdgeLaunchResult(True, True, ("msedge",), "launched")
-
-    def wait_for_close(mode, process):
-        calls.append("wait_for_close")
-        return launcher.WindowCloseDetectionResult(True, True, True, "closed")
-
-    def shutdown(config_arg):
-        calls.append("shutdown")
-        return launcher.ShutdownRequestResult(True, True, 200, "ok")
-
-    result = launcher.run_launcher_lifecycle(
-        config,
-        popen=popen,
-        port_available_fn=lambda: True,
-        health_check_fn=health,
-        wait_for_close_fn=wait_for_close,
-        shutdown_request_fn=shutdown,
-        port_release_fn=lambda pid: launcher.PortReleaseStatus(
-            True,
-            None,
-            "free",
-            "released",
-        ),
-        edge_launch_fn=edge_launch,
-        status_callback=statuses.append,
-    )
-
-    assert result.final_state == "graceful_shutdown"
-    assert calls == [
-        "popen",
-        "health",
-        "edge_launch",
-        "wait_for_close",
-        "shutdown",
-        "wait_for_exit",
-    ]
-    joined_statuses = "\n".join(statuses)
-    assert "Starting Streamlit backend:" in joined_statuses
-    assert "Waiting for Streamlit health endpoint." in joined_statuses
-    assert "Launching Edge app-mode window." in joined_statuses
-    assert "Monitoring app window for close." in joined_statuses
-    assert "App window closed; requesting graceful backend shutdown." in joined_statuses
-    assert "Port release: released" in joined_statuses
-
-def test_run_launcher_lifecycle_terminates_after_shutdown_timeout(tmp_path, monkeypatch):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "logs" / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-
-    class FakeProcess:
-        pid = 888
-
-        def poll(self):
-            return None
-
-    monkeypatch.setattr(launcher, "wait_for_process_exit", lambda *args, **kwargs: False)
-
-    result = launcher.run_launcher_lifecycle(
-        config,
-        popen=lambda *args, **kwargs: FakeProcess(),
-        port_available_fn=lambda: True,
-        health_check_fn=lambda: launcher.HealthCheckResult(True, "url", 1, "ok"),
-        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
-            True,
-            True,
-            True,
-            "closed",
-        ),
-        shutdown_request_fn=lambda cfg: launcher.ShutdownRequestResult(
-            True,
-            False,
-            None,
-            "failed",
-        ),
-        termination_fn=lambda process: launcher.TerminationResult(
-            True,
-            "terminate",
-            True,
-            "terminated",
-        ),
-        port_release_fn=lambda pid: launcher.PortReleaseStatus(
-            True,
-            None,
-            "free",
-            "released",
-        ),
-        edge_launch_fn=lambda: launcher.EdgeLaunchResult(False, False, (), "skipped"),
-    )
-
-    assert result.final_state == "terminated"
-    assert result.termination.method == "terminate"
-
-
-def test_run_launcher_lifecycle_terminates_when_health_check_fails(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "logs" / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-
-    class FakeProcess:
-        pid = 889
-
-    result = launcher.run_launcher_lifecycle(
-        config,
-        popen=lambda *args, **kwargs: FakeProcess(),
-        port_available_fn=lambda: True,
-        health_check_fn=lambda: launcher.HealthCheckResult(False, "url", 3, "timeout"),
-        wait_for_close_fn=lambda mode, process: (_ for _ in ()).throw(
-            AssertionError("window monitoring should not run")
-        ),
-        shutdown_request_fn=lambda cfg: (_ for _ in ()).throw(
-            AssertionError("shutdown should not run")
-        ),
-        termination_fn=lambda process: launcher.TerminationResult(
-            True,
-            "terminate",
-            True,
-            "terminated",
-        ),
-        port_release_fn=lambda pid: launcher.PortReleaseStatus(
-            True,
-            None,
-            "free",
-            "released",
-        ),
-    )
-
-    assert result.final_state == "health_failed"
-    assert result.termination.method == "terminate"
-    assert result.shutdown_request.attempted is False
-
-
-def test_run_launcher_lifecycle_does_not_shutdown_when_monitoring_unsupported(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "logs" / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_NORMAL,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-
-    class FakeProcess:
-        pid = 999
-
-    result = launcher.run_launcher_lifecycle(
-        config,
-        popen=lambda *args, **kwargs: FakeProcess(),
-        port_available_fn=lambda: True,
-        health_check_fn=lambda: launcher.HealthCheckResult(True, "url", 1, "ok"),
-        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
-            False,
-            False,
-            False,
-            "unsupported",
-        ),
-        shutdown_request_fn=lambda cfg: (_ for _ in ()).throw(
-            AssertionError("shutdown should not run")
-        ),
-        termination_fn=lambda process: (_ for _ in ()).throw(
-            AssertionError("termination should not run")
-        ),
-        port_release_fn=lambda pid: launcher.PortReleaseStatus(
-            False,
-            999,
-            "unknown_process",
-            "still occupied",
-        ),
-        edge_launch_fn=lambda: (_ for _ in ()).throw(
-            AssertionError("normal mode should not launch Edge")
-        ),
-    )
-
-    assert result.final_state == "monitoring_unavailable"
-    assert result.shutdown_request.attempted is False
-
-
-def test_run_launcher_lifecycle_terminates_owned_webapp_backend_when_window_never_appears(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    config = launcher.LauncherConfig(
-        app_root=app_root,
-        python_path=Path("python.exe"),
-        preferences_path=tmp_path / "preferences.json",
-        log_path=tmp_path / "logs" / "launcher.log",
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit"),
-        shutdown_port=54321,
-        shutdown_token="secret",
-    )
-
-    class FakeProcess:
-        pid = 1001
-
-    result = launcher.run_launcher_lifecycle(
-        config,
-        popen=lambda *args, **kwargs: FakeProcess(),
-        port_available_fn=lambda: True,
-        health_check_fn=lambda: launcher.HealthCheckResult(True, "url", 1, "ok"),
-        wait_for_close_fn=lambda mode, process: launcher.WindowCloseDetectionResult(
-            False,
-            False,
-            False,
-            "Timed out waiting for the Edge app window to appear.",
-        ),
-        shutdown_request_fn=lambda cfg: (_ for _ in ()).throw(
-            AssertionError("shutdown should not run without app-window close")
-        ),
-        termination_fn=lambda process: launcher.TerminationResult(
-            True,
-            "terminate",
-            True,
-            "terminated owned backend",
-        ),
-        port_release_fn=lambda pid: launcher.PortReleaseStatus(
-            True,
-            None,
-            "free",
-            "released",
-        ),
-        edge_launch_fn=lambda: launcher.EdgeLaunchResult(
-            True,
-            True,
-            ("msedge", "--app=http://127.0.0.1:8501"),
-            "launched",
-        ),
-    )
-
-    assert result.final_state == "window_monitor_failed_terminated"
-    assert result.termination.attempted is True
-    assert result.termination.method == "terminate"
-    log_text = config.log_path.read_text(encoding="utf-8")
-    assert "lifecycle=window_monitor_failed" in log_text
-    assert "terminated owned backend" in log_text
-
+    def capture(self, target):
+        self.calls.append(("capture", target.title))
+        return (WindowInfo(handle="0x100", title=target.title),)
