@@ -10,8 +10,10 @@ This checklist defines the stable-release gate for RoleThread Lite 1.0.
 - Confirm the runtime is Python `3.14.5`, the official supported V1 runtime
 - Confirm OS compatibility docs describe Windows/Linux primary support and
   macOS beta support
-- Confirm launch docs describe the normal browser workflow and manual
-  install-as-app fallback for V1
+- Confirm launch docs describe the installed Windows app path, the LitLaunch
+  source profile path, and the normal Streamlit browser development path
+- Confirm `litlaunch.toml` contains the expected source runtime profile
+- Confirm LitLaunch diagnostics/report instructions are documented for support
 - Confirm fresh-install storage defaults are documented for Windows, Linux,
   and macOS
 - Confirm README status describes the V1 stable surface
@@ -31,6 +33,9 @@ RoleThread Lite V1 is stable for local-first dataset craftsmanship:
 - merging datasets with hardened identity and sidecar behavior
 - creating local backups and optional cloud-backup mirrors
 - reviewing dataset quality through deterministic Insights
+- installed Windows launch through the packaged RoleThread launcher
+- source app-window launch through the `rolethread-webapp` LitLaunch profile
+- source browser development through `streamlit run app.py`
 
 ## Deferred Beyond V1
 
@@ -41,18 +46,30 @@ The following are intentionally outside the Lite V1 release surface:
 - hosted inference or training orchestration
 - multi-user permissions, review queues, or cloud workers
 - automatic creative rewriting or hidden AI-driven dataset generation
-- automated Edge/web-app launcher orchestration
+- RoleThread-owned browser, monitor, backend, or shutdown runtime orchestration
+- duplicating LitLaunch internals in RoleThread docs
 
-## Release Backlog
+## Runtime Verification
 
-Final launcher work must own the full application lifecycle:
+The V1 runtime boundary is:
 
-- server startup
-- readiness detection
-- browser or web-app launch
-- shutdown handling
-- fallback messaging when Edge or a target browser is unavailable
+- RoleThread owns product behavior, data workflows, preferences, backups,
+  cloud-sync policy, branding, and installer presentation.
+- LitLaunch owns runtime profiles, command planning, monitored app-window
+  launch, backend lifecycle, diagnostics, and shutdown coordination.
+- `app.py` remains the Streamlit app entry point and should not know about
+  app-window launch semantics.
 
-These boundaries keep the stable release local, inspectable, deterministic, and
-recoverable.
+Before release, verify:
+
+- `python -m litlaunch.cli run --profile rolethread-webapp`
+- `python -m litlaunch.cli inspect --profile rolethread-webapp`
+- `python -m litlaunch.cli inspect --profile rolethread-webapp --html --output litlaunch-report.html --force`
+- packaged launcher smoke from the PyInstaller bundle
+- installed-user launch/shutdown smoke from the setup executable
+- cloud-sync closeout runs once on normal app-window close
+- no backend remains listening on port `8501` after shutdown
+
+These boundaries keep the stable release local, inspectable, deterministic,
+supportable, and recoverable.
 

@@ -12,6 +12,15 @@ Future version bumps should update this file with concise user-facing or maintai
 
 ### Changed
 
+- Completed the LitLaunch-first documentation transition for user, FAQ,
+  developer, packaging, installer, diagnostics, and release-gate docs.
+- Clarified the current runtime model: RoleThread owns product/data behavior,
+  LitLaunch owns runtime/platform behavior, `litlaunch.toml` is the source
+  launch contract, and the installed shortcut uses the packaged launcher.
+- Historical changelog entries below may still mention earlier launcher,
+  webapp, or browser-adapter prototypes; those entries describe past
+  implementation stages, not the current architecture.
+
 ### Fixed
 
 ### Internal
