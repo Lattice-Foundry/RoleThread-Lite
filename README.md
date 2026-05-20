@@ -133,16 +133,16 @@ RoleThread Lite. It is expected to improve as installer testing continues.
 Installed Windows builds always use the managed launcher-owned webapp lifecycle:
 Streamlit starts headless on `127.0.0.1`, and the launcher opens a local
 Microsoft Edge app-style window. Source users can run the same managed Windows
-workflow with:
+workflow through the LitLaunch profile:
 
 ```bat
-python launch.py --webapp
+python -m litlaunch.cli run --profile rolethread-webapp
 ```
 
-Launcher diagnostics are available through:
+LitLaunch diagnostics are available through:
 
 ```bat
-python launch.py --webapp --diag
+python -m litlaunch.cli inspect --profile rolethread-webapp
 ```
 
 Normal source/browser development can still use `streamlit run app.py`.

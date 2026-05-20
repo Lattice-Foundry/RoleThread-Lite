@@ -50,7 +50,8 @@ Runtime dependencies live in `requirements.txt`. Developer/build dependencies be
 Development launch workflows may use:
 
 - `streamlit run app.py`
-- `python launch.py --webapp`
+- `python -m litlaunch.cli run --profile rolethread-webapp`
+- `python -m litlaunch.cli inspect --profile rolethread-webapp`
 - `.venv\Scripts\python.exe installer\windows\launcher\rolethread_launcher.py`
 - scripts under `installer/windows/scripts/`
 
@@ -156,6 +157,6 @@ Packaging is still evolving before V1. The architecture is fixed around a
 bundled Windows app plus a source-based contributor workflow. Installer UX may
 continue to improve across Windows and Edge machine differences, but the
 runtime boundary is stable: installer builds package release snapshots, while
-source users run either plain Streamlit or the managed `launch.py --webapp`
+source users run either plain Streamlit or the managed LitLaunch profile
 lifecycle.
 

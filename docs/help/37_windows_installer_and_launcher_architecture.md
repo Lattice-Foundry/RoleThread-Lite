@@ -3,9 +3,10 @@
 The Windows launcher is the packaged adapter for RoleThread's managed webapp
 lifecycle.
 
-Streamlit owns the app runtime. RoleThread owns the desktop/webapp lifecycle:
-backend startup, health readiness, browser adapter launch, window monitoring,
-graceful shutdown, fallback termination, and port release verification.
+LitLaunch owns the desktop/webapp lifecycle: backend startup, health readiness,
+browser app-mode launch, window monitoring, graceful shutdown, fallback
+termination, and runtime diagnostics. RoleThread owns packaged path resolution,
+the packaged backend provider, product log paths, and branded failure messages.
 
 ## Architecture Boundary
 
@@ -13,47 +14,40 @@ The current installed path is:
 
 ```text
 RoleThreadLauncher.exe
--> shared launcher lifecycle
--> shared runtime helpers
--> Edge browser adapter
+-> RoleThread packaged adapter
+-> LitLaunch monitored webapp runtime
 -> managed app window
 -> Streamlit runtime
 ```
 
-`launch.py --webapp` uses the same lifecycle shape from source. The packaged
-launcher stays Windows-specific where it must: frozen path resolution,
-PyInstaller resource layout, Windows subprocess flags, HWND inspection, Edge
-adapter wiring, log paths, and installer assumptions.
+The source/dev path uses the `rolethread-webapp` profile in `litlaunch.toml`.
+The packaged launcher stays Windows-specific where it must: frozen path
+resolution, PyInstaller resource layout, packaged backend command construction,
+log paths, and installer assumptions.
 
 ## Launcher Responsibilities
 
 The launcher is responsible for:
 
 - resolving app root and bundled runtime paths
-- building the Streamlit command
-- starting the Streamlit backend subprocess
-- binding managed webapp runs to `127.0.0.1`
-- waiting for `/_stcore/health`
-- launching the browser adapter
-- monitoring the owned app window where Windows HWND metadata is available
-- requesting local token-protected shutdown
-- using `terminate()` only after graceful shutdown fails
-- using `kill()` only as a last resort
-- logging final port `8501` release state
+- loading the RoleThread LitLaunch profile
+- supplying the packaged backend command provider
+- passing product log and shutdown diagnostic environment
 - reporting startup failures clearly
 
 The launcher should not duplicate dataset logic, UI behavior, import/export
-rules, or browser profile cleanup.
+rules, LitLaunch command planning, browser launch, window monitoring, or
+shutdown protocol behavior.
 
 ## Managed Runtime Sequence
 
-Installed and source-managed webapp runs follow the same order:
+Installed and source-managed webapp runs follow the same LitLaunch-owned order:
 
-1. build lifecycle configuration
+1. load runtime configuration
 2. start Streamlit headless
 3. wait for `/_stcore/health`
-4. launch Edge app-mode through the browser adapter
-5. identify and monitor the app HWND
+4. launch Edge app-mode
+5. monitor the app window
 6. request graceful backend shutdown when the app window closes
 7. wait for backend exit hooks
 8. fall back to `terminate()` if needed

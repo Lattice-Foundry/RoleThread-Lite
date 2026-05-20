@@ -236,11 +236,9 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
 
     assert document.article.title == "Developer Launch Flags"
     assert document.article.category == "For Developers"
-    assert "python launch.py --webapp" in document.content
-    assert "python launch.py --webapp --debug" in document.content
-    assert "python launch.py --webapp --diag" in document.content
+    assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
+    assert "python -m litlaunch.cli inspect --profile rolethread-webapp" in document.content
     assert "streamlit run app.py" in document.content
-    assert "There is no place like `http://127.0.0.1`." in document.content
     assert "`dev`" in document.content
     assert "Launch Flags Detected" in document.content
     assert "Diagnostics are gated behind `dev`" not in document.content
@@ -270,7 +268,7 @@ def test_installing_rolethread_lite_help_article_documents_install_and_uninstall
 
     assert document.article.title == "Installing RoleThread Lite"
     assert "Windows setup executable is a beta convenience path" in document.content
-    assert "python launch.py --webapp" in document.content
+    assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
     assert "Users do not choose a runtime mode during setup" in document.content
     assert "Use Windows Edge webapp mode" not in document.content
     assert "Linux uses the source/manual workflow" in document.content
@@ -296,7 +294,7 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "~/.local/share/rolethread" in document.content
     assert "~/Library/Application Support/RoleThread" in document.content
     assert "managed Microsoft Edge app window" in document.content
-    assert "python launch.py --webapp --diag" in document.content
+    assert "python -m litlaunch.cli inspect --profile rolethread-webapp" in document.content
     assert "streamlit run app.py -- webapp" not in document.content
     assert "For setup commands and uninstall instructions" in document.content
     assert "Cloud sync folders are optional backup or sync targets" in document.content
@@ -623,7 +621,7 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
 
     assert launcher.article.category == "For Developers"
     assert "packaged adapter" in launcher.content
-    assert "Streamlit owns the app runtime" in launcher.content
+    assert "LitLaunch owns the desktop/webapp lifecycle" in launcher.content
     assert "The installer no longer offers a runtime-mode selector" in launcher.content
     assert "Use Windows Edge webapp mode by default (recommended)" not in launcher.content
     assert "`enable_webapp_launch_mode`" not in launcher.content
@@ -1381,7 +1379,7 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert max(len(group) for group in grouped.values()) < len(entries) * 0.25
     assert any(
         entry.display_question == "How do I launch RoleThread Lite from source?"
-        and "python launch.py --webapp" in entry.answer
+        and "python -m litlaunch.cli run --profile rolethread-webapp" in entry.answer
         and "installing-rolethread-lite" in entry.related_help_ids
         for entry in entries
     )
@@ -1393,8 +1391,7 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     )
     assert any(
         entry.display_question == "How do I run launcher diagnostics?"
-        and "--diag" in entry.answer
-        and "--debug" in entry.answer
+        and "litlaunch.cli inspect --profile rolethread-webapp" in entry.answer
         for entry in entries
     )
     assert any(

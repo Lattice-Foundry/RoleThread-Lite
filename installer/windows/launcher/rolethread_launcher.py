@@ -7,7 +7,7 @@ LitLaunch own runtime process, browser, window, and shutdown lifecycle.
 from __future__ import annotations
 
 import ctypes
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import os
 from pathlib import Path
 import sys
@@ -16,42 +16,32 @@ from typing import Callable, Mapping, Sequence, TextIO
 from litlaunch import (
     BackendCommand,
     BackendCommandContext,
-    BrowserChoice,
-    LauncherConfig,
-    LaunchMode,
+    LaunchPlan,
+    LaunchProfile,
+    MonitoredRunResult,
+    PlatformDetector,
+    PlatformInfo,
     StreamlitLauncher,
+    WindowMonitor,
+    run_monitored_webapp,
 )
 from litlaunch.console import ConsoleMode, ConsoleRenderer, ConsoleTheme
-from litlaunch.lifecycle import LaunchPlan
-from litlaunch.platforms import PlatformDetector
 from litlaunch.redaction import format_command_preview
-from litlaunch.windowing import (
-    NoopWindowMonitor,
-    WindowMonitorConfig,
-    WindowMonitorStatus,
-    WindowTarget,
-    create_window_monitor,
-)
 
-from core.launcher_log import (
-    LAUNCHER_LOG_FILE_NAME,
-    LAUNCHER_LOG_PATH_ENV,
-    write_launcher_log,
+from core.product_log import (
+    PRODUCT_LOG_FILE_NAME,
+    PRODUCT_LOG_PATH_ENV,
+    write_product_log,
 )
-from core.litlaunch_adapter import (
-    ROLETHREAD_LITLAUNCH_BROWSER,
-    ROLETHREAD_LITLAUNCH_GRACEFUL_TIMEOUT_SECONDS,
-    ROLETHREAD_LITLAUNCH_HOST,
-    ROLETHREAD_LITLAUNCH_PORT,
-    ROLETHREAD_LITLAUNCH_TITLE,
-    ROLETHREAD_LITLAUNCH_WINDOW_APPEAR_TIMEOUT_SECONDS,
-    ROLETHREAD_LITLAUNCH_WINDOW_POLL_SECONDS,
-    ROLETHREAD_LITLAUNCH_WINDOW_STABLE_POLLS,
+from core.runtime_profiles import (
+    ROLETHREAD_APP_TITLE,
+    ROLETHREAD_WEBAPP_PROFILE,
+    load_rolethread_profile,
 )
-from core.litlaunch_shutdown_bridge import ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV
+from core.runtime_shutdown import ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV
 
 
-APP_NAME = "RoleThread Lite"
+APP_NAME = ROLETHREAD_APP_TITLE
 APP_DATA_DIR_NAME = "RoleThread"
 PREFERENCES_FILE_NAME = "preferences.json"
 INTERNAL_STREAMLIT_FLAG = "--rolethread-run-streamlit"
@@ -154,7 +144,7 @@ def resolve_preferences_path(env: Mapping[str, str] | None = None) -> Path:
 
 
 def resolve_launcher_log_path(env: Mapping[str, str] | None = None) -> Path:
-    return resolve_app_data_root(env) / "logs" / LAUNCHER_LOG_FILE_NAME
+    return resolve_app_data_root(env) / "logs" / PRODUCT_LOG_FILE_NAME
 
 
 def resolve_launcher_executable(
@@ -200,29 +190,32 @@ def build_launcher_config(
     )
 
 
-def build_litlaunch_config(config: PackagedLauncherConfig) -> LauncherConfig:
-    """Translate RoleThread product settings into generic LitLaunch config."""
+def build_launch_profile(config: PackagedLauncherConfig) -> LaunchProfile:
+    """Load the RoleThread webapp profile and apply packaged product settings."""
 
     extra_env = {
-        LAUNCHER_LOG_PATH_ENV: str(config.log_path),
+        PRODUCT_LOG_PATH_ENV: str(config.log_path),
     }
     if config.diagnostics_enabled:
         extra_env[ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV] = "1"
 
-    return LauncherConfig(
-        app_path=config.app_root / "app.py",
-        title=ROLETHREAD_LITLAUNCH_TITLE,
-        mode=LaunchMode.WEBAPP,
-        browser=BrowserChoice(ROLETHREAD_LITLAUNCH_BROWSER),
-        host=ROLETHREAD_LITLAUNCH_HOST,
-        port=ROLETHREAD_LITLAUNCH_PORT,
-        auto_port=False,
-        headless=True,
-        allow_browser_fallback=False,
-        cwd=config.app_root,
-        extra_env=extra_env,
-        app_args=(),
+    profile = load_rolethread_profile(ROLETHREAD_WEBAPP_PROFILE, root=config.app_root)
+    profile_config = profile.config
+    return replace(
+        profile,
+        config=replace(
+            profile_config,
+            app_path=config.app_root / "app.py",
+            cwd=config.app_root,
+            extra_env={**dict(profile_config.extra_env), **extra_env},
+        ),
     )
+
+
+def build_litlaunch_config(config: PackagedLauncherConfig):
+    """Return the packaged LitLaunch config for launch-plan tests."""
+
+    return build_launch_profile(config).config
 
 
 def build_backend_provider(
@@ -240,7 +233,7 @@ def build_streamlit_launcher(
     console_renderer: ConsoleRenderer | None = None,
 ) -> StreamlitLauncher:
     return StreamlitLauncher(
-        build_litlaunch_config(config),
+        build_launch_profile(config).config,
         backend_command_provider=build_backend_provider(config),
         console_renderer=console_renderer,
     )
@@ -253,7 +246,7 @@ def build_launch_plan(config: PackagedLauncherConfig) -> LaunchPlan:
 
 
 def log_launch_plan(config: PackagedLauncherConfig, plan: LaunchPlan) -> None:
-    write_launcher_log(
+    write_product_log(
         config.log_path,
         (
             f"app_root={config.app_root}",
@@ -263,6 +256,27 @@ def log_launch_plan(config: PackagedLauncherConfig, plan: LaunchPlan) -> None:
             f"backend_kind={plan.backend_kind}",
             f"command={plan.command_display}",
             f"app_url={plan.app_url}",
+        ),
+    )
+
+
+def log_runtime_result(
+    config: PackagedLauncherConfig,
+    result: MonitoredRunResult,
+) -> None:
+    monitor_status = (
+        result.monitor_result.status.value
+        if result.monitor_result is not None
+        else "none"
+    )
+    write_product_log(
+        config.log_path,
+        (
+            f"exit_code={result.exit_code}",
+            f"launched={result.launched}",
+            f"stopped_cleanly={result.stopped_cleanly}",
+            f"monitor_status={monitor_status}",
+            f"message={result.message}",
         ),
     )
 
@@ -284,13 +298,15 @@ def show_failure_message(message: str, *, title: str = APP_NAME) -> None:
         return
 
 
-def run_packaged_litlaunch(
+def run_packaged_runtime(
     config: PackagedLauncherConfig,
     *,
     launcher_factory: Callable[..., StreamlitLauncher] = build_streamlit_launcher,
-    platform_detector_factory: Callable[[], PlatformDetector] = PlatformDetector,
-    window_monitor_factory: Callable[..., object] = create_window_monitor,
+    monitored_runner: Callable[..., MonitoredRunResult] = run_monitored_webapp,
     console_renderer: ConsoleRenderer | None = None,
+    platform_detector: PlatformDetector | None = None,
+    window_monitor_factory: Callable[[PlatformInfo], WindowMonitor] | None = None,
+    monitor: WindowMonitor | None = None,
 ) -> int:
     """Run packaged RoleThread through LitLaunch."""
 
@@ -298,42 +314,20 @@ def run_packaged_litlaunch(
     launcher = launcher_factory(config, console_renderer=renderer)
     plan = launcher.build_launch_plan()
     log_launch_plan(config, plan)
-
-    monitor_plan = _prepare_window_monitor(
-        platform_detector_factory=platform_detector_factory,
-        window_monitor_factory=window_monitor_factory,
-        renderer=renderer,
-    )
-    if monitor_plan is None:
-        return 1
-
-    session = launcher.run()
-    if not session.ok:
-        return 1
-
-    monitor, baseline_handles = monitor_plan
-    result = session.monitor_window(
-        monitor,
-        WindowTarget(
-            ROLETHREAD_LITLAUNCH_TITLE,
-            url=session.url,
-            browser_kind=getattr(session.browser, "kind", None),
-            app_mode=True,
-            baseline_handles=baseline_handles,
-        ),
-        config=WindowMonitorConfig(
-            appear_timeout_seconds=ROLETHREAD_LITLAUNCH_WINDOW_APPEAR_TIMEOUT_SECONDS,
-            poll_interval_seconds=ROLETHREAD_LITLAUNCH_WINDOW_POLL_SECONDS,
-            stable_poll_count=ROLETHREAD_LITLAUNCH_WINDOW_STABLE_POLLS,
-        ),
-        graceful_timeout_seconds=ROLETHREAD_LITLAUNCH_GRACEFUL_TIMEOUT_SECONDS,
-    )
-    if result.closed or result.status == WindowMonitorStatus.BACKEND_EXITED:
-        return 0
-
-    session.stop(graceful_timeout_seconds=ROLETHREAD_LITLAUNCH_GRACEFUL_TIMEOUT_SECONDS)
-    renderer.render_window_monitor_result(result)
-    return 1
+    profile = build_launch_profile(config)
+    runner_kwargs = {
+        "window_monitor_config": profile.window_monitor_config,
+        "graceful_timeout_seconds": profile.graceful_timeout_seconds,
+        "platform_detector": platform_detector,
+        "monitor": monitor,
+    }
+    if window_monitor_factory is not None:
+        runner_kwargs["window_monitor_factory"] = window_monitor_factory
+    result = monitored_runner(launcher, **runner_kwargs)
+    log_runtime_result(config, result)
+    if result.exit_code != 0 and result.monitor_result is not None:
+        renderer.render_window_monitor_result(result.monitor_result)
+    return result.exit_code
 
 
 def _build_console_renderer() -> ConsoleRenderer:
@@ -342,34 +336,6 @@ def _build_console_renderer() -> ConsoleRenderer:
         theme=ConsoleTheme(),
         stream=_safe_output_stream(),
     )
-
-
-def _prepare_window_monitor(
-    *,
-    platform_detector_factory: Callable[[], PlatformDetector],
-    window_monitor_factory: Callable[..., object],
-    renderer: ConsoleRenderer,
-) -> tuple[object, tuple[str, ...]] | None:
-    platform_info = platform_detector_factory().detect()
-    monitor = window_monitor_factory(platform_info)
-    if isinstance(monitor, NoopWindowMonitor):
-        renderer.failure_guidance(
-            "Window monitoring is unavailable.",
-            likely_cause="This platform does not support LitLaunch window monitoring.",
-            next_steps=("Install RoleThread on Windows with Edge app-mode support.",),
-        )
-        return None
-
-    try:
-        baseline = monitor.capture(WindowTarget(ROLETHREAD_LITLAUNCH_TITLE, app_mode=True))
-    except Exception as exc:
-        renderer.failure_guidance(
-            "Window monitoring baseline capture failed.",
-            likely_cause=str(exc),
-            next_steps=("Restart RoleThread and try again.",),
-        )
-        return None
-    return monitor, tuple(window.handle for window in baseline)
 
 
 def run_bundled_streamlit(argv: Sequence[str] | None = None) -> int:
@@ -402,11 +368,11 @@ def main() -> int:
         _safe_print(f"Starting {APP_NAME} through LitLaunch...")
         plan = build_launch_plan(config)
         _safe_print(format_command_preview(plan.command))
-        return run_packaged_litlaunch(config)
+        return run_packaged_runtime(config)
     except Exception as exc:
         try:
             log_path = resolve_launcher_log_path()
-            write_launcher_log(log_path, (f"error={exc}",))
+            write_product_log(log_path, (f"error={exc}",))
             show_failure_message(
                 f"RoleThread could not start.\n\n{exc}\n\nDetails were written to:\n{log_path}"
             )

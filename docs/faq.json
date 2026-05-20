@@ -853,7 +853,7 @@
   },
   {
     "question": "Installation and launching: How do I launch RoleThread Lite from source?",
-    "answer": "For normal source browser use, activate the virtual environment and run `streamlit run app.py`.\n\nFor the managed Windows app-window workflow, use `python launch.py --webapp`.",
+    "answer": "For normal source browser use, activate the virtual environment and run `streamlit run app.py`.\n\nFor the managed Windows app-window workflow, use `python -m litlaunch.cli run --profile rolethread-webapp`.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
@@ -862,7 +862,7 @@
   },
   {
     "question": "Installation and launching: How do I launch managed webapp mode from source?",
-    "answer": "Run `python launch.py --webapp` from the source checkout.\n\nFor launcher diagnostics, add `--diag` or `--debug`.",
+    "answer": "Run `python -m litlaunch.cli run --profile rolethread-webapp` from the source checkout.\n\nFor runtime diagnostics, use `python -m litlaunch.cli inspect --profile rolethread-webapp`.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
@@ -897,7 +897,7 @@
   },
   {
     "question": "Installation and launching: Can I still use normal Streamlit browser mode from source?",
-    "answer": "Yes. `streamlit run app.py` remains valid for source and developer browser mode.\n\nManaged webapp launch is handled through `python launch.py --webapp`.",
+    "answer": "Yes. `streamlit run app.py` remains valid for source and developer browser mode.\n\nManaged webapp launch is handled through the `rolethread-webapp` LitLaunch profile.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
@@ -906,7 +906,7 @@
   },
   {
     "question": "Troubleshooting: How do I run launcher diagnostics?",
-    "answer": "From a source checkout, run `python launch.py --webapp --diag` or `python launch.py --webapp --debug`.\n\nUse this for launcher startup, browser window, or shutdown investigation.",
+    "answer": "From a source checkout, run `python -m litlaunch.cli inspect --profile rolethread-webapp`.\n\nUse this for runtime profile, command planning, browser policy, or shutdown investigation.",
     "category": "Troubleshooting",
     "related_help_ids": [
       "os-compatibility-and-storage-policy",

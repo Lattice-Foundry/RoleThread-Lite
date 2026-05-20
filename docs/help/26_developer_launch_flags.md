@@ -2,54 +2,42 @@
 
 RoleThread has two source launch paths:
 
-- `python launch.py --webapp` for the managed app-window lifecycle
+- `python -m litlaunch.cli run --profile rolethread-webapp` for the managed app-window lifecycle
 - `streamlit run app.py` for plain Streamlit browser development
 
-Use the launcher path when testing the installed-runtime shape. Use plain
-Streamlit when working on app UI behavior and you do not need app-window
-closeout, browser adapter launch, or launcher diagnostics.
+Use the LitLaunch profile path when testing the installed-runtime shape. Use
+plain Streamlit when working on app UI behavior and you do not need app-window
+closeout, browser launch, or runtime diagnostics.
 
 ## Managed Webapp Launch
 
 ```bat
-python launch.py --webapp
+python -m litlaunch.cli run --profile rolethread-webapp
 ```
 
 This is the canonical source/dev path for the managed webapp lifecycle. It
 matches the installed runtime model:
 
-1. build launcher configuration
+1. load `litlaunch.toml`
 2. start Streamlit headless
 3. bind Streamlit to `127.0.0.1`
 4. wait for `/_stcore/health`
-5. launch the browser adapter
-6. monitor the owned app window
+5. launch Microsoft Edge app-mode
+6. monitor the app window
 7. request graceful shutdown when the window closes
-8. verify port release
+8. verify backend exit
 
-There is no place like `http://127.0.0.1`.
+## LitLaunch Diagnostics
 
-## Launcher Diagnostics
-
-Use `--debug` for verbose lifecycle logging:
+Use LitLaunch inspect when you need a runtime plan without launching the app:
 
 ```bat
-python launch.py --webapp --debug
+python -m litlaunch.cli inspect --profile rolethread-webapp
 ```
 
-Use `--diag` when you want the same diagnostic intent without changing the
-primary launch mode:
-
-```bat
-python launch.py --webapp --diag
-```
-
-Diagnostics report the launcher sequence: command construction, backend start,
-health wait, browser adapter launch, window monitoring, shutdown request,
-backend exit, and port release status.
-
-The old app-side Edge debug flags were removed. Launcher and browser diagnostics
-belong behind `launch.py`.
+Diagnostics cover profile loading, command planning, backend health URLs,
+browser policy, and runtime configuration. Detailed LitLaunch runtime behavior
+belongs in the LitLaunch docs.
 
 ## Plain Streamlit Browser Mode
 
@@ -62,7 +50,7 @@ browser in this mode, and RoleThread does not attempt app-window monitoring or
 managed backend shutdown.
 
 Do not use a custom `webapp` argument with `streamlit run`. Managed webapp
-behavior is launcher-owned.
+behavior is LitLaunch-owned.
 
 ## App Developer Diagnostics
 
@@ -87,9 +75,9 @@ sections such as:
 
 ## Installed Runtime
 
-Installed Windows builds always use the managed launcher-owned webapp lifecycle.
+Installed Windows builds always use the managed LitLaunch webapp lifecycle.
 The installer no longer exposes a runtime-mode selector.
 
-`RoleThreadLauncher.exe` is the packaged adapter. Shared lifecycle code owns the
-runtime sequence; the Windows adapter supplies bundled paths, subprocess flags,
-Edge adapter wiring, HWND monitoring, and logging.
+`RoleThreadLauncher.exe` is the packaged product adapter. LitLaunch owns the
+runtime sequence; the Windows adapter supplies bundled paths, the packaged
+backend provider, product log paths, and branded failure messaging.

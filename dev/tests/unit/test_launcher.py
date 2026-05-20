@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from core.launcher import DEV_FLAG, LaunchFlags, parse_launch_flags, should_show_dev_diagnostics
+from core.app_flags import (
+    DEV_FLAG,
+    LaunchFlags,
+    parse_launch_flags,
+    should_show_dev_diagnostics,
+)
 
 
 def test_parse_launch_flags_detects_dev_flag():
@@ -24,3 +29,7 @@ def test_app_no_longer_owns_webapp_browser_orchestration():
     assert "_handle_webapp_launch" not in source
     assert "_legacy_webapp_launch_warning" not in source
     assert "_dev_edge_debug_report" not in source
+
+
+def test_root_source_launcher_removed_in_litlaunch_first_architecture():
+    assert not Path("launch.py").exists()

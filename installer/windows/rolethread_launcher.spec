@@ -37,6 +37,7 @@ for package_name in ("streamlit", "litlaunch", "pandas", "plotly", "sqlalchemy")
 
 datas += collect_data_files("streamlit")
 datas += collect_project_data("app.py", ".")
+datas += collect_project_data("litlaunch.toml", ".")
 datas += collect_project_data("core", "core")
 datas += collect_project_data("services", "services")
 datas += collect_project_data("ui", "ui")

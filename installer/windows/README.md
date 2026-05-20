@@ -67,36 +67,24 @@ A first source prototype lives at:
 installer/windows/launcher/rolethread_launcher.py
 ```
 
-This launcher source is intended to be wrapped by PyInstaller in a later pass.
-The Inno installer will eventually create shortcuts to the wrapped launcher,
-not to raw terminal commands.
+This launcher source is wrapped by PyInstaller. The Inno installer creates
+shortcuts to the wrapped launcher, not to raw terminal commands.
 
-The prototype currently:
+The launcher currently:
 
 - resolves the RoleThread app root for development use
-- prefers `.venv\Scripts\python.exe` when running from the repository
-- reads `%LOCALAPPDATA%\RoleThread\preferences.json`
-- uses `enable_webapp_launch_mode` to choose normal or `webapp` launch mode
-- starts Streamlit with `python -m streamlit run app.py` in development mode
-- adds `-- webapp` when webapp launch mode is enabled
-- opens the initial Edge app window from the launcher in bundled webapp mode
-- passes a local-only shutdown token/port to app sessions it starts
-- waits for the Streamlit health endpoint before entering lifecycle monitoring
-- watches the exact Edge webapp window handle where Windows metadata allows it
-- requests graceful app shutdown before using terminate/kill fallback
-- verifies and logs whether port `8501` was released after shutdown
+- loads the RoleThread LitLaunch profile from `litlaunch.toml`
+- supplies a packaged backend command provider for the frozen executable
+- passes product log and shutdown diagnostic environment to the backend
+- delegates Streamlit command planning, health checks, browser app-mode launch,
+  window monitoring, shutdown, and backend lifecycle to LitLaunch
 - writes launcher logs under `%LOCALAPPDATA%\RoleThread\logs\launcher.log`
-- reports clearly when `app.py` is missing, the runtime cannot be found, or port `8501` is already in use
+- reports clearly when `app.py`, `litlaunch.toml`, or bundled runtime resources
+  are missing
 
-In source/dev `-- webapp` runs, the app opens Edge and performs duplicate-browser
-cleanup. In bundled webapp mode, the launcher opens the initial Edge app window
-after the Streamlit health endpoint responds, while the app still receives the
-`webapp` flag for compatibility, diagnostics, and future shared behavior.
-
-The launcher does own backend subprocess lifecycle for launcher-started
-sessions. A local shutdown endpoint is enabled only when the launcher provides a
-generated token and localhost control port. Manual `streamlit run app.py`
-sessions do not enable that control channel.
+The app does not receive a raw `webapp` argument. App-window launch semantics
+belong to LitLaunch and the packaged launcher remains only a RoleThread product
+adapter.
 
 ## PyInstaller Bundle Prototype
 
@@ -263,22 +251,14 @@ The prototype installer:
 - creates a Start Menu shortcut named **RoleThread Lite**
 - creates a Start Menu shortcut named **RoleThread Uninstaller**
 - offers an optional Desktop shortcut
-- enables **Use Windows Edge webapp mode by default (recommended)** by default
 - registers a normal Windows uninstaller
 - offers **Launch RoleThread Lite** after setup completes
 - removes installed app/runtime files and shortcuts during normal uninstall
 - preserves `%LOCALAPPDATA%\RoleThread` and `%USERPROFILE%\RoleThread`
 
-The Windows Edge webapp option is recommended for installed Windows builds
-because it gives RoleThread the best managed app-window lifecycle. Normal
-browser mode remains available by clearing the installer option during setup.
-
-The installer writes a small first-run seed file under
-`%LOCALAPPDATA%\RoleThread\installer_seed.json`. On launch, the RoleThread
-launcher merges only `enable_webapp_launch_mode` into the DB-backed settings
-table, removes the seed file, and leaves unrelated preferences untouched. This
-keeps Settings authoritative after install while avoiding broad JSON editing in
-Inno Setup.
+Installed Windows builds use the managed LitLaunch Edge app-window lifecycle.
+Normal source browser mode remains available to developers through
+`streamlit run app.py`.
 
 The prototype installer does not yet implement firewall rules, code signing,
 auto-update, GitHub Release automation, or final branding polish.
@@ -334,23 +314,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\ru
 
 Expected behavior:
 
-- the launcher uses `.venv\Scripts\python.exe`
-- the launcher reads `%LOCALAPPDATA%\RoleThread\preferences.json`
-- `enable_webapp_launch_mode: false` or missing preferences starts normal browser mode
-- `enable_webapp_launch_mode: true` adds the app's `webapp` launch flag
+- the launcher loads `litlaunch.toml`
+- the launcher supplies the packaged backend command provider
+- LitLaunch starts Streamlit headless on `127.0.0.1:8501`
+- LitLaunch opens the Edge app-mode window
 - logs are appended to `%LOCALAPPDATA%\RoleThread\logs\launcher.log`
-- webapp mode can monitor the Edge app window and request graceful shutdown
-- after shutdown, the launcher logs whether port `8501` was released
-- normal browser mode currently has limited browser-close detection and may
-  require manual backend/process cleanup during development
+- LitLaunch monitors the Edge app window and requests graceful shutdown
+- backend exit and shutdown status are logged
 
 Before smoke testing, make sure no other RoleThread/Streamlit process is already
 using port `8501`. If the port is busy, the launcher exits with a clear message
 instead of starting a second server.
 
-To test webapp mode, set `enable_webapp_launch_mode` in the local launcher
-preferences or installer seed, then run the launcher again. Manual source users
-can use `streamlit run app.py -- webapp` instead of editing preferences.
+To test source webapp mode, use:
+
+```powershell
+python -m litlaunch.cli run --profile rolethread-webapp
+```
 
 ## Installer Test Reset
 
@@ -374,31 +354,23 @@ external/cloud backup destinations.
 The launcher is responsible for:
 
 - using the bundled runtime and bundled app files
-- starting RoleThread/Streamlit locally
-- reading `enable_webapp_launch_mode` from preferences
-- launching either normal browser mode or Windows Edge webapp mode
-- passing the internal `webapp` flag when webapp mode is enabled
+- loading the RoleThread LitLaunch profile
+- supplying the packaged backend command provider
+- passing product log and shutdown diagnostic environment
 - writing launcher/app logs under `%LOCALAPPDATA%\RoleThread\logs`
-- continuing to improve normal-browser shutdown detection
 
-The in-app `webapp` flag remains the shared compatibility and diagnostics flag
-for webapp startup. Bundled installed runs also use a launcher-managed marker so
-the launcher owns the initial Edge app-window open.
-
-The launcher now owns the shutdown lifecycle for supported webapp runs: it
-starts the Streamlit subprocess, waits for health, selects a stable observed
-Edge webapp HWND, requests local token-protected shutdown when that handle
-closes so `atexit` and cloud sync cleanup can run, then escalates to
-terminate/kill only for the backend subprocess it started. It logs the final
-port `8501` state so stale installed backends are easier to diagnose.
+LitLaunch owns the shutdown lifecycle for supported webapp runs: it starts the
+Streamlit subprocess, waits for health, observes the app window, requests
+graceful shutdown when that window closes so cloud sync cleanup can run, then
+escalates only for the backend subprocess it started.
 
 For port checks, a remaining `TIME_WAIT`, `FIN_WAIT_2`, or `CLOSE_WAIT` row is
 not the same as a stuck backend. The important failure condition is a
 `LISTENING` row on port `8501`, especially one owned by `RoleThreadLauncher.exe`.
 
-If a webapp launch never produces a stable app-window handle, the launcher
-does not leave the backend running indefinitely. It logs the timeout and
-terminates only the backend subprocess it started.
+If a webapp launch never produces a stable app-window handle, LitLaunch does
+not leave the backend running indefinitely. It reports the timeout and stops the
+backend subprocess it started.
 
 ## Uninstall Requirements
 

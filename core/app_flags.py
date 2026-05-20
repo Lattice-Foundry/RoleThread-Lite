@@ -1,7 +1,7 @@
-"""App-side launch flag helpers.
+"""App-side diagnostic flag helpers.
 
-The managed webapp lifecycle is owned by ``launch.py`` and the packaged
-launcher. The Streamlit app only keeps a small dev diagnostics flag for source
+Runtime launch, browser/app-mode behavior, and shutdown lifecycle are owned by
+LitLaunch. The Streamlit app only keeps a small dev diagnostics flag for source
 workflows such as ``streamlit run app.py -- dev``.
 """
 

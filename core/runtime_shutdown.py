@@ -12,8 +12,7 @@ from pathlib import Path
 from litlaunch import LauncherRuntime, ShutdownResult
 
 from core.cloud_sync_shutdown import run_cloud_sync_shutdown
-from core.launcher_console import format_launcher_status
-from core.launcher_log import resolve_launcher_log_path_from_env, write_launcher_log
+from core.product_log import resolve_product_log_path_from_env, write_product_log
 
 
 ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV = "ROLETHREAD_LAUNCHER_SHUTDOWN_DIAGNOSTICS"
@@ -25,18 +24,14 @@ _RUNTIME_CONFIGURED = False
 _RUNTIME: LauncherRuntime | None = None
 
 
-def configure_litlaunch_shutdown_bridge(
+def configure_runtime_shutdown(
     *,
     environ: Mapping[str, str] | None = None,
     runtime: LauncherRuntime | None = None,
     exit_fn: Callable[[int], object] = os._exit,
     register_atexit_fn: Callable[[Callable[[], object]], object] = atexit.register,
 ) -> bool:
-    """Configure RoleThread cleanup for LitLaunch when its env is present.
-
-    The app remains launch-semantics-blind: this bridge only knows about
-    shutdown cleanup hooks exposed by LitLaunch, not browser or app-mode launch.
-    """
+    """Configure RoleThread cleanup when LitLaunch runtime env is present."""
 
     global _ATEXIT_REGISTERED, _RUNTIME, _RUNTIME_CONFIGURED
     with _STATE_LOCK:
@@ -82,7 +77,7 @@ def run_cloud_sync_closeout(
         _CLOUD_SYNC_RAN = True
 
     env = environ if environ is not None else os.environ
-    log_path = resolve_launcher_log_path_from_env(env)
+    log_path = resolve_product_log_path_from_env(env)
     resolved_diagnostics = (
         _diagnostics_enabled(env)
         if diagnostics_enabled is None
@@ -114,11 +109,11 @@ def _finish_litlaunch_shutdown(
 
 
 def _print_cloud_sync_status(message: str) -> None:
-    print(format_launcher_status(message), flush=True)
+    print(f"[RoleThread] {message}", flush=True)
 
 
 def _write_cloud_sync_log(log_path: Path, message: str) -> None:
-    write_launcher_log(
+    write_product_log(
         log_path,
         (
             "lifecycle=cloud_sync_shutdown",
@@ -144,7 +139,7 @@ def _flush_standard_streams() -> None:
             pass
 
 
-def _reset_shutdown_bridge_state_for_tests() -> None:
+def _reset_shutdown_state_for_tests() -> None:
     global _ATEXIT_REGISTERED, _CLOUD_SYNC_RAN, _RUNTIME, _RUNTIME_CONFIGURED
     with _STATE_LOCK:
         _ATEXIT_REGISTERED = False

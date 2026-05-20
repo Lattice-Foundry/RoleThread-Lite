@@ -7,15 +7,15 @@ from pathlib import Path
 
 import streamlit as st
 
-from core.launcher import (
+from core.app_flags import (
     parse_launch_flags,
     should_show_dev_diagnostics,
 )
-from core.litlaunch_shutdown_bridge import configure_litlaunch_shutdown_bridge
+from core.runtime_shutdown import configure_runtime_shutdown
 from core.runtime import get_python_runtime_status
 
 st.set_page_config(page_title="RoleThread Lite", layout="wide")
-configure_litlaunch_shutdown_bridge()
+configure_runtime_shutdown()
 
 _runtime_status = get_python_runtime_status()
 if _runtime_status.is_below_minimum:

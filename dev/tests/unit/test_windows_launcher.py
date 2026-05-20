@@ -2,12 +2,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from litlaunch import BrowserChoice, LaunchMode
-from litlaunch.windowing import WindowInfo, WindowMonitorResult, WindowMonitorStatus
+from litlaunch import BrowserChoice, LaunchMode, MonitoredRunResult
+from litlaunch.windowing import WindowMonitorResult, WindowMonitorStatus
 
-from core.launcher_log import LAUNCHER_LOG_PATH_ENV
-from core.litlaunch_adapter import ROLETHREAD_LITLAUNCH_TITLE
-from core.litlaunch_shutdown_bridge import ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV
+from core.product_log import PRODUCT_LOG_PATH_ENV
+from core.runtime_profiles import ROLETHREAD_APP_TITLE
+from core.runtime_shutdown import ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV
 from installer.windows.launcher import rolethread_launcher as launcher
 
 
@@ -15,6 +15,29 @@ def _make_app_root(tmp_path: Path) -> Path:
     app_root = tmp_path / "app"
     app_root.mkdir()
     (app_root / "app.py").write_text("print('RoleThread')", encoding="utf-8")
+    (app_root / "litlaunch.toml").write_text(
+        """
+[profiles.rolethread-webapp]
+app_path = "app.py"
+cwd = "."
+title = "RoleThread Lite"
+mode = "webapp"
+browser = "edge"
+host = "127.0.0.1"
+port = 8501
+auto_port = false
+headless = true
+allow_browser_fallback = false
+graceful_timeout = 15
+
+[profiles.rolethread-webapp.window_monitor]
+enabled = true
+appear_timeout = 60
+poll_interval = 1
+stable_polls = 2
+""".strip(),
+        encoding="utf-8",
+    )
     return app_root
 
 
@@ -51,7 +74,7 @@ def test_litlaunch_config_preserves_rolethread_packaged_contract(tmp_path):
 
     litlaunch_config = launcher.build_litlaunch_config(config)
 
-    assert litlaunch_config.title == ROLETHREAD_LITLAUNCH_TITLE
+    assert litlaunch_config.title == ROLETHREAD_APP_TITLE
     assert litlaunch_config.mode == LaunchMode.WEBAPP
     assert litlaunch_config.browser == BrowserChoice.EDGE
     assert litlaunch_config.host == "127.0.0.1"
@@ -61,7 +84,7 @@ def test_litlaunch_config_preserves_rolethread_packaged_contract(tmp_path):
     assert litlaunch_config.allow_browser_fallback is False
     assert litlaunch_config.cwd == config.app_root
     assert litlaunch_config.app_args == ()
-    assert litlaunch_config.extra_env[LAUNCHER_LOG_PATH_ENV] == str(config.log_path)
+    assert litlaunch_config.extra_env[PRODUCT_LOG_PATH_ENV] == str(config.log_path)
     assert litlaunch_config.extra_env[ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV] == "1"
 
 
@@ -117,7 +140,7 @@ def test_packaged_launch_plan_uses_backend_provider(tmp_path):
     assert "webapp" not in plan.command
 
 
-def test_run_packaged_litlaunch_uses_litlaunch_session_and_monitor(tmp_path):
+def test_run_packaged_runtime_delegates_monitored_webapp_to_litlaunch(tmp_path):
     config = launcher.PackagedLauncherConfig(
         app_root=_make_app_root(tmp_path),
         launcher_executable=tmp_path / "RoleThreadLauncher.exe",
@@ -125,35 +148,42 @@ def test_run_packaged_litlaunch_uses_litlaunch_session_and_monitor(tmp_path):
         log_path=tmp_path / "launcher.log",
         bundled_mode=True,
     )
-    session = _FakeSession(
-        monitor_result=WindowMonitorResult(
-            supported=True,
-            observed=True,
-            closed=True,
-            status=WindowMonitorStatus.WINDOW_CLOSED,
-            message="closed",
-        )
+    monitor_result = WindowMonitorResult(
+        supported=True,
+        observed=True,
+        closed=True,
+        status=WindowMonitorStatus.WINDOW_CLOSED,
+        message="closed",
     )
     calls = []
 
-    exit_code = launcher.run_packaged_litlaunch(
+    def fake_runner(launcher_obj, **kwargs):
+        calls.append((launcher_obj, kwargs))
+        return MonitoredRunResult(
+            exit_code=0,
+            session=None,
+            monitor_result=monitor_result,
+            message="closed",
+            launched=True,
+            stopped_cleanly=True,
+        )
+
+    exit_code = launcher.run_packaged_runtime(
         config,
-        launcher_factory=lambda cfg, *, console_renderer=None: _FakeLauncher(session),
-        platform_detector_factory=_FakePlatformDetector,
-        window_monitor_factory=lambda platform: _FakeMonitor(calls),
+        launcher_factory=lambda cfg, *, console_renderer=None: _FakeLauncher(),
+        monitored_runner=fake_runner,
     )
 
     assert exit_code == 0
-    assert session.run_called is True
-    assert session.monitor_called is True
-    assert session.stopped is False
-    assert calls == [("capture", ROLETHREAD_LITLAUNCH_TITLE)]
-    assert "backend_kind=rolethread-packaged" in config.log_path.read_text(
-        encoding="utf-8"
-    )
+    assert len(calls) == 1
+    assert calls[0][1]["graceful_timeout_seconds"] == 15
+    assert calls[0][1]["window_monitor_config"].appear_timeout_seconds == 60
+    log_text = config.log_path.read_text(encoding="utf-8")
+    assert "backend_kind=rolethread-packaged" in log_text
+    assert "monitor_status=window_closed" in log_text
 
 
-def test_run_packaged_litlaunch_stops_backend_when_monitor_fails(tmp_path):
+def test_run_packaged_runtime_returns_litlaunch_failure_code(tmp_path):
     config = launcher.PackagedLauncherConfig(
         app_root=_make_app_root(tmp_path),
         launcher_executable=tmp_path / "RoleThreadLauncher.exe",
@@ -161,25 +191,32 @@ def test_run_packaged_litlaunch_stops_backend_when_monitor_fails(tmp_path):
         log_path=tmp_path / "launcher.log",
         bundled_mode=True,
     )
-    session = _FakeSession(
-        monitor_result=WindowMonitorResult(
-            supported=True,
-            observed=False,
-            closed=False,
-            status=WindowMonitorStatus.TIMEOUT,
-            message="timeout",
-        )
+    monitor_result = WindowMonitorResult(
+        supported=True,
+        observed=False,
+        closed=False,
+        status=WindowMonitorStatus.TIMEOUT,
+        message="timeout",
     )
 
-    exit_code = launcher.run_packaged_litlaunch(
+    def fake_runner(launcher_obj, **kwargs):
+        return MonitoredRunResult(
+            exit_code=1,
+            session=None,
+            monitor_result=monitor_result,
+            message="timeout",
+            launched=True,
+            stopped_cleanly=True,
+        )
+
+    exit_code = launcher.run_packaged_runtime(
         config,
-        launcher_factory=lambda cfg, *, console_renderer=None: _FakeLauncher(session),
-        platform_detector_factory=_FakePlatformDetector,
-        window_monitor_factory=lambda platform: _FakeMonitor([]),
+        launcher_factory=lambda cfg, *, console_renderer=None: _FakeLauncher(),
+        monitored_runner=fake_runner,
     )
 
     assert exit_code == 1
-    assert session.stopped is True
+    assert "monitor_status=timeout" in config.log_path.read_text(encoding="utf-8")
 
 
 def test_build_launcher_config_errors_when_app_root_has_no_app_py(tmp_path):
@@ -197,7 +234,9 @@ def test_run_bundled_streamlit_rewrites_argv(monkeypatch, tmp_path):
         SimpleNamespace(main=lambda: calls.append(tuple(__import__("sys").argv))),
     )
 
-    result = launcher.run_bundled_streamlit([str(app_root / "app.py"), "--server.port", "8501"])
+    result = launcher.run_bundled_streamlit(
+        [str(app_root / "app.py"), "--server.port", "8501"]
+    )
 
     assert result == 0
     assert calls == [
@@ -233,56 +272,15 @@ def test_pyinstaller_spec_packages_litlaunch_runtime():
 
     assert '"litlaunch"' in spec_text
     assert "rolethread_launcher.py" in spec_text
+    assert "litlaunch.toml" in spec_text
 
 
 class _FakeLauncher:
-    def __init__(self, session):
-        self.session = session
-
     def build_launch_plan(self):
         return SimpleNamespace(
             backend_kind="rolethread-packaged",
-            app_root="X:/rolethread",
-            app_version="test",
-            bundled_mode=True,
-            preferences_path="preferences.json",
+            cwd="X:/rolethread",
             command_display="RoleThreadLauncher.exe --rolethread-run-streamlit app.py",
+            command=("RoleThreadLauncher.exe", "--rolethread-run-streamlit", "app.py"),
             app_url="http://127.0.0.1:8501",
         )
-
-    def run(self):
-        self.session.run_called = True
-        return self.session
-
-
-class _FakeSession:
-    ok = True
-    url = "http://127.0.0.1:8501"
-    browser = SimpleNamespace(kind=None)
-
-    def __init__(self, *, monitor_result):
-        self.monitor_result = monitor_result
-        self.run_called = False
-        self.monitor_called = False
-        self.stopped = False
-
-    def monitor_window(self, *args, **kwargs):
-        self.monitor_called = True
-        return self.monitor_result
-
-    def stop(self, **kwargs):
-        self.stopped = True
-
-
-class _FakePlatformDetector:
-    def detect(self):
-        return SimpleNamespace(platform="windows")
-
-
-class _FakeMonitor:
-    def __init__(self, calls):
-        self.calls = calls
-
-    def capture(self, target):
-        self.calls.append(("capture", target.title))
-        return (WindowInfo(handle="0x100", title=target.title),)

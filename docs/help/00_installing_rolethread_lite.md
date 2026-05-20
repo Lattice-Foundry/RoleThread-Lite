@@ -61,12 +61,12 @@ streamlit run app.py
 For the managed Windows Edge app-window launch path:
 
 ```bat
-python launch.py --webapp
+python -m litlaunch.cli run --profile rolethread-webapp
 ```
 
-This uses the same launcher-owned webapp lifecycle as the installed app.
-Streamlit runs headless, binds to `127.0.0.1`, and the launcher opens the
-managed Edge app window.
+This uses the same LitLaunch-owned webapp lifecycle as the installed app.
+Streamlit runs headless, binds to `127.0.0.1`, and LitLaunch opens the managed
+Edge app window.
 
 ## Linux Manual Install
 

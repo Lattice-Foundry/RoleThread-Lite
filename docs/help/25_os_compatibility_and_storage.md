@@ -131,7 +131,7 @@ available.
 Source Windows users can launch the same managed app-window workflow with:
 
 ```bat
-python launch.py --webapp
+python -m litlaunch.cli run --profile rolethread-webapp
 ```
 
 Normal browser mode remains available through:
@@ -143,7 +143,7 @@ streamlit run app.py
 Launcher diagnostics for the managed webapp workflow use:
 
 ```bat
-python launch.py --webapp --diag
+python -m litlaunch.cli inspect --profile rolethread-webapp
 ```
 
 Linux and macOS use normal browser mode. If you want an app-style window on
@@ -153,7 +153,7 @@ manually.
 Windows:
 
 - installed workflow: managed Microsoft Edge app window
-- source managed workflow: `python launch.py --webapp`
+- source managed workflow: `python -m litlaunch.cli run --profile rolethread-webapp`
 - source browser workflow: `streamlit run app.py`
 
 Linux:

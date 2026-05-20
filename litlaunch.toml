@@ -1,0 +1,29 @@
+[profiles.rolethread-webapp]
+app_path = "app.py"
+cwd = "."
+title = "RoleThread Lite"
+mode = "webapp"
+browser = "edge"
+host = "127.0.0.1"
+port = 8501
+auto_port = false
+headless = true
+allow_browser_fallback = false
+graceful_timeout = 15
+
+[profiles.rolethread-webapp.window_monitor]
+enabled = true
+appear_timeout = 60
+poll_interval = 1
+stable_polls = 2
+
+[profiles.rolethread-browser]
+app_path = "app.py"
+cwd = "."
+title = "RoleThread Lite"
+mode = "browser"
+browser = "auto"
+host = "127.0.0.1"
+port = 8501
+auto_port = false
+allow_browser_fallback = true
