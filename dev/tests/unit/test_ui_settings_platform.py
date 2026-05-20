@@ -96,7 +96,7 @@ def test_public_launch_mode_summarizes_active_or_preferred_mode():
     ) == "`Normal Streamlit mode`"
     assert ui_settings._format_public_launch_mode(
         LaunchFlags(dev=True),
-        {"enable_webapp_launch_mode": True},
+        {},
     ) == "`Dev diagnostics`"
 
 

@@ -48,7 +48,6 @@ def get_default_preferences(
         "backup_destination_custom_path": "",
         "cloud_backup_last_sync_at": "",
         "auto_correct_validation_errors": True,
-        "enable_webapp_launch_mode": False,
     }
 
 

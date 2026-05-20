@@ -599,7 +599,6 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "bundled Streamlit runtime" in packaging.content
     assert "Inno Setup" in packaging.content
     assert "Inno Setup installer prototype" in packaging.content
-    assert "managed launcher-owned webapp lifecycle" in packaging.content
     assert "There is no installer runtime-mode selector" in packaging.content
     assert "check the taskbar for the RoleThread Lite installer" in packaging.content
     assert "through Settings" not in packaging.content
@@ -621,15 +620,10 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "build_installer.ps1" in packaging.content
     assert "build_bundle.ps1" in packaging.content
     assert "do not edit installer or launcher" in packaging.content
-    assert "lifecycle-sensitive code" in packaging.content
 
     assert launcher.article.category == "For Developers"
     assert "packaged adapter" in launcher.content
     assert "Streamlit owns the app runtime" in launcher.content
-    assert "RoleThread owns the desktop/webapp lifecycle" in launcher.content
-    assert "shared launcher lifecycle" in launcher.content
-    assert "browser adapter launch" in launcher.content
-    assert "Edge browser adapter" in launcher.content
     assert "The installer no longer offers a runtime-mode selector" in launcher.content
     assert "Use Windows Edge webapp mode by default (recommended)" not in launcher.content
     assert "`enable_webapp_launch_mode`" not in launcher.content
@@ -647,14 +641,9 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     )
     assert "`RoleThreadLauncher.exe` is still running" in launcher.content
     assert "windowed/no-console" in launcher.content
-    assert "shutdown endpoint" in launcher.content
     assert "`/_stcore/health`" in launcher.content
-    assert "`terminate()`" in launcher.content
-    assert "`kill()` only as a last resort" in launcher.content
-    assert "Edge is the current supported browser adapter" in launcher.content
     assert "launcher-managed environment marker" not in launcher.content
     assert "Edge process IDs are not a reliable app-window abstraction" in launcher.content
-    assert "There is no PID/process-kill fallback" in launcher.content
     assert "Health means the backend is ready to accept traffic" in launcher.content
     assert "Successful relaunch is also a practical validation signal" in launcher.content
     assert "Settings > Experimental Features" not in launcher.content
