@@ -711,10 +711,10 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
     HelpArticle(
         "developer-launch-flags",
         "26_developer_launch_flags.md",
-        "Developer Launch Flags",
+        "Developer Launch and Diagnostics",
         "For Developers",
         250,
-        "Developer/tester launch flags for diagnostics and webapp startup.",
+        "Source launch paths, LitLaunch profiles, diagnostics, and installed runtime boundaries.",
         (
             "codebase-architecture",
             "platform-support-philosophy",

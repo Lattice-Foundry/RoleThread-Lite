@@ -6,7 +6,8 @@ Durable behavior lives in framework-independent modules. Streamlit owns renderin
 
 ## The Main Layers
 
-The main source areas map to runtime responsibilities.
+The main source areas map to product responsibilities. Runtime/platform
+behavior is deliberately pushed out to LitLaunch.
 
 ### `ui/`
 
@@ -50,16 +51,19 @@ Core modules should not import Streamlit. They are the most reusable part of the
 
 ### `installer/`
 
-The `installer/` area contains Windows packaging and launcher work.
+The `installer/` area contains Windows packaging and product launcher work.
 
 It includes the Windows launcher, PyInstaller bundle configuration, Inno Setup
-script, build helpers, and packaging documentation. The launcher is separate
-from the Streamlit app because it owns startup orchestration, bundled runtime
-selection, installed Edge webapp startup, HWND monitoring, and backend shutdown
-lifecycle.
+script, build helpers, and packaging documentation.
 
-Installer code should not duplicate dataset, UI, or browser adapter logic. Its
-boundary is runtime packaging and process lifecycle.
+The packaged launcher is separate from the Streamlit app because installed
+users should not need Python, virtual environments, pip, or manual Streamlit
+commands. It remains a product wrapper: frozen path resolution, packaged
+backend provider wiring, RoleThread log paths, and branded failure messages.
+
+Installer code should not duplicate dataset, UI, or LitLaunch runtime logic.
+Browser/window observation, command planning, backend lifecycle, diagnostics,
+and shutdown protocol belong to LitLaunch.
 
 ### `docs/`
 
@@ -71,9 +75,37 @@ Help content is registered explicitly so the in-app documentation browser can pr
 
 Streamlit is a replaceable UI shell.
 
-Dataset mutation, sidecar synchronization, registry metadata, platform paths, launch planning, and export workflows need deterministic behavior outside a live UI session.
+Dataset mutation, sidecar synchronization, registry metadata, platform paths,
+cloud backup policy, and export workflows need deterministic behavior outside a
+live UI session.
 
-This boundary keeps service/core behavior reusable by tests, launchers, and future product surfaces.
+This boundary keeps service/core behavior reusable by tests, the packaged
+launcher, and future product surfaces.
+
+## Runtime Boundary
+
+RoleThread uses LitLaunch instead of carrying its own runtime platform.
+
+RoleThread owns:
+
+- datasets, validation, repair, imports, exports, and registry metadata
+- preferences, storage locations, backups, and cloud sync policy
+- branding, help text, support wording, and installer presentation
+- packaged/frozen path resolution and backend provider wiring
+- product shutdown hooks, such as cloud-sync closeout
+
+LitLaunch owns:
+
+- `litlaunch.toml` profile loading
+- command planning
+- monitored app-window runtime
+- browser/window observation
+- backend lifecycle
+- runtime diagnostics
+- shutdown protocol
+
+`app.py` should remain launch-semantics-blind. It is the Streamlit app entry
+point, not a launcher.
 
 ## Service Pipelines
 

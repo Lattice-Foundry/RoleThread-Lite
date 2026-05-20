@@ -2,7 +2,9 @@
 
 RoleThread Lite uses tests to protect behavior at the service and core boundaries.
 
-The most important tests prove deterministic behavior for datasets, sidecars, tags, backups, preferences, platform capabilities, and launch decisions.
+The most important tests prove deterministic behavior for datasets, sidecars,
+tags, backups, preferences, platform capabilities, and RoleThread's LitLaunch
+configuration boundaries.
 
 ## Lightweight and Deterministic
 
@@ -31,7 +33,7 @@ Tests should prefer public helpers, service functions, and meaningful outputs ov
 It is fine to test a private helper when it protects a narrow safety rule or complicated transformation. But the suite should mostly describe expected behavior:
 
 - given this dataset, this service returns this result
-- given this preference state, this launcher command is built
+- given this profile state, this runtime configuration is exposed
 - given this platform, these defaults are resolved
 - given this alias history, this tag resolves safely
 
@@ -47,7 +49,7 @@ Coverage is heaviest around data integrity and startup behavior:
 - validation and repair helpers
 - platform and runtime detection
 - path default resolution
-- launcher command construction
+- LitLaunch profile and packaged-provider wiring
 - preferences and settings helpers
 - Help and FAQ registries
 
@@ -59,19 +61,48 @@ Streamlit interaction can be tested when the user flow itself matters, especiall
 
 The target is confidence without turning the suite into a slow visual automation project.
 
-## Launcher and Platform Tests
+## Runtime and Platform Tests
 
-Launcher and platform behavior should be tested through command construction, path resolution, capability metadata, and safe fallback statuses.
+Runtime and platform behavior should be tested through profile configuration,
+path resolution, capability metadata, packaged-provider wiring, and safe status
+messages.
 
-Tests should not spawn real browsers or require a real installer. They should prove that RoleThread decides correctly:
+RoleThread tests should not spawn real browsers or require a real installer.
+They should prove that RoleThread supplies the right product configuration to
+LitLaunch:
 
-- normal mode versus webapp mode
-- Windows Edge support versus fallback
+- source profile versus plain Streamlit development
+- Windows app-window support messaging
 - unsupported platform behavior
 - bundled path detection
-- launcher logging and failure reporting
+- packaged backend provider construction
+- product logging and failure reporting
 
-Browser and installer workflows still need manual smoke testing; the decision logic should stay covered.
+LitLaunch has its own runtime/platform test suite. RoleThread should not mirror
+those internals. Browser, package, installer, and installed-user workflows still
+need smoke testing; RoleThread's unit tests should cover the decisions and
+adapter edges it actually owns.
+
+## Packaging Smoke Tests
+
+Packaging verification is partly manual by design:
+
+- build the PyInstaller bundle
+- run the packaged launcher from `dist`
+- confirm the LitLaunch profile loads
+- confirm the backend starts on `127.0.0.1:8501`
+- confirm the app window opens
+- close the app window and confirm shutdown/cloud-sync closeout
+- build the Inno installer
+- install, launch, uninstall, and verify user data behavior
+
+For diagnostics, use:
+
+```bat
+python -m litlaunch.cli inspect --profile rolethread-webapp --html --output litlaunch-report.html --force
+```
+
+Generated diagnostics reports are support artifacts, not source files.
 
 ## Contributor Guidance
 

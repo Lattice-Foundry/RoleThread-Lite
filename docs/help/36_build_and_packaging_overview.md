@@ -88,8 +88,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File installer\windows\scripts\bu
 
 Treat `installer/windows/launcher/`, the PyInstaller spec, and the Inno script
 as lifecycle-sensitive code. Touch them only when the change requires launcher
-or installer behavior changes and you understand the subprocess, HWND, shutdown,
-and stale-bundle safety implications.
+or installer behavior changes and you understand the packaged LitLaunch
+boundary, backend-provider wiring, and stale-bundle safety implications.
 
 ## Generated Artifacts
 
@@ -130,8 +130,9 @@ bundle into a newer setup executable. The stale backend looked healthy on port
 checking source/bundle versions prevents updates from silently shipping stale
 runtime behavior.
 
-The Windows installer always uses the managed launcher-owned webapp lifecycle.
-There is no installer runtime-mode selector.
+The Windows installer always launches through the packaged RoleThread launcher.
+That wrapper loads the RoleThread LitLaunch profile and delegates runtime
+behavior to LitLaunch. The installer does not offer a runtime selector.
 
 On some Windows systems, the setup wizard may appear behind other windows after
 the UAC prompt. If setup does not appear immediately, minimize other windows or
@@ -157,6 +158,5 @@ Packaging is still evolving before V1. The architecture is fixed around a
 bundled Windows app plus a source-based contributor workflow. Installer UX may
 continue to improve across Windows and Edge machine differences, but the
 runtime boundary is stable: installer builds package release snapshots, while
-source users run either plain Streamlit or the managed LitLaunch profile
-lifecycle.
+source users run either plain Streamlit or the LitLaunch app-window profile.
 

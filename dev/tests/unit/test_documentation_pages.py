@@ -238,15 +238,17 @@ def test_deep_edit_article_keeps_legacy_article_id_and_file_name():
 def test_developer_launch_flags_help_article_documents_supported_flags():
     document = load_help_document("developer-launch-flags")
 
-    assert document.article.title == "Developer Launch Flags"
+    assert document.article.title == "Developer Launch and Diagnostics"
     assert document.article.category == "For Developers"
     assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
     assert "python -m litlaunch.cli inspect --profile rolethread-webapp" in document.content
+    assert "litlaunch-report.html" in document.content
     assert "streamlit run app.py" in document.content
     assert "`dev`" in document.content
     assert "Launch Flags Detected" in document.content
     assert "Diagnostics are gated behind `dev`" not in document.content
-    assert "custom `webapp` argument" in document.content
+    assert "Do not pass a custom `webapp`" in document.content
+    assert "`app.py` should remain launch-semantics-blind" in document.content
 
 
 def test_public_help_docs_do_not_reference_removed_webapp_flows():
@@ -576,7 +578,7 @@ def test_developer_philosophy_help_articles_document_engineering_conventions():
     assert "pytest" in testing.content
     assert "`core/` and `services/`" in testing.content
     assert "dataset mutation services" in testing.content
-    assert "Launcher and platform behavior" in testing.content
+    assert "Runtime and Platform Tests" in testing.content
 
     assert naming.article.category == "For Developers"
     assert "Interaction, Not Scene" in naming.content
@@ -614,7 +616,7 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "bundled Streamlit runtime" in packaging.content
     assert "Inno Setup" in packaging.content
     assert "Inno Setup installer prototype" in packaging.content
-    assert "There is no installer runtime-mode selector" in packaging.content
+    assert "installer does not offer a runtime selector" in packaging.content
     assert "check the taskbar for the RoleThread Lite installer" in packaging.content
     assert "through Settings" not in packaging.content
     assert "Normal uninstall preserves RoleThread user data by default" in (
@@ -637,9 +639,9 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
     assert "do not edit installer or launcher" in packaging.content
 
     assert launcher.article.category == "For Developers"
-    assert "packaged adapter" in launcher.content
-    assert "LitLaunch owns the desktop/webapp lifecycle" in launcher.content
-    assert "The installer no longer offers a runtime-mode selector" in launcher.content
+    assert "product wrapper around\nLitLaunch" in launcher.content
+    assert "LitLaunch owns runtime/platform behavior" in launcher.content
+    assert "No custom browser stack" in launcher.content
     assert "Use Windows Edge webapp mode by default (recommended)" not in launcher.content
     assert "`enable_webapp_launch_mode`" not in launcher.content
     assert "DB-backed setting" not in launcher.content
@@ -655,12 +657,10 @@ def test_developer_packaging_help_articles_document_release_and_contribution_flo
         launcher.content
     )
     assert "`RoleThreadLauncher.exe` is still running" in launcher.content
-    assert "windowed/no-console" in launcher.content
-    assert "`/_stcore/health`" in launcher.content
+    assert "127.0.0.1:8501" in launcher.content
+    assert "LitLaunch loads the `rolethread-webapp` profile" in launcher.content
     assert "launcher-managed environment marker" not in launcher.content
-    assert "Edge process IDs are not a reliable app-window abstraction" in launcher.content
-    assert "Health means the backend is ready to accept traffic" in launcher.content
-    assert "Successful relaunch is also a practical validation signal" in launcher.content
+    assert "backend exits and port `8501` releases" in launcher.content
     assert "Settings > Experimental Features" not in launcher.content
 
 
@@ -677,6 +677,12 @@ def test_developer_docs_do_not_reference_removed_launcher_flows():
         "app-owned browser",
         "duplicate browser cleanup",
         "installer option during setup",
+        "managed webapp",
+        "launcher lifecycle",
+        "launcher runtime",
+        "browser adapter",
+        "runtime-mode selector",
+        "launcher-owned",
     )
 
     for article in get_help_article_registry().values():
