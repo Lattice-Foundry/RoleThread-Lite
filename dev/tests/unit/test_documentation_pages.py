@@ -95,12 +95,16 @@ def test_filter_help_topics_matches_title_and_content():
 def test_help_article_registry_has_expected_articles():
     registry = get_help_article_registry()
 
-    assert len(registry) == 59
+    assert len(registry) == 60
     assert get_default_help_article_id() == "installing-rolethread-lite"
     assert registry["installing-rolethread-lite"].file_name == (
         "00_installing_rolethread_lite.md"
     )
     assert registry["installing-rolethread-lite"].category == "Getting Started"
+    assert registry["why-rolethread-uses-litlaunch"].file_name == (
+        "59_why_rolethread_uses_litlaunch.md"
+    )
+    assert registry["why-rolethread-uses-litlaunch"].category == "Getting Started"
     assert registry["getting-started"].file_name == "01_getting_started.md"
     assert registry["glossary"].category == "Reference"
     assert (
@@ -269,7 +273,7 @@ def test_installing_rolethread_lite_help_article_documents_install_and_uninstall
     assert document.article.title == "Installing RoleThread Lite"
     assert "Windows setup executable is a beta convenience path" in document.content
     assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
-    assert "Users do not choose a runtime mode during setup" in document.content
+    assert "Users do\nnot choose a runtime mode during setup" in document.content
     assert "Use Windows Edge webapp mode" not in document.content
     assert "Linux uses the source/manual workflow" in document.content
     assert "macOS is beta/manual for V1" in document.content
@@ -283,6 +287,19 @@ def test_installing_rolethread_lite_help_article_documents_install_and_uninstall
     assert "minimize other windows or\ncheck the taskbar" in document.content
 
 
+def test_why_rolethread_uses_litlaunch_help_article_is_user_facing():
+    document = load_help_document("why-rolethread-uses-litlaunch")
+
+    assert document.article.title == "Why RoleThread Uses LitLaunch"
+    assert document.article.category == "Getting Started"
+    assert "local-first app" in document.content
+    assert "LitLaunch provides that runtime layer" in document.content
+    assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
+    assert "litlaunch-report.html" in document.content
+    assert "LaunchPlan" not in document.content
+    assert "shutdown server" not in document.content
+
+
 def test_os_compatibility_help_article_documents_v1_policy():
     document = load_help_document("os-compatibility-and-storage-policy")
 
@@ -293,7 +310,7 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "%LOCALAPPDATA%\\RoleThread" in document.content
     assert "~/.local/share/rolethread" in document.content
     assert "~/Library/Application Support/RoleThread" in document.content
-    assert "managed Microsoft Edge app window" in document.content
+    assert "local Microsoft Edge app-window" in document.content
     assert "python -m litlaunch.cli inspect --profile rolethread-webapp" in document.content
     assert "streamlit run app.py -- webapp" not in document.content
     assert "For setup commands and uninstall instructions" in document.content
@@ -330,8 +347,8 @@ def test_planned_for_version_2_documents_roadmap_direction_without_promises():
     assert "not a release commitment, feature\nguarantee, or date promise" in (
         document.content
     )
-    assert "additional browser adapters" in document.content
-    assert "Edge to Chrome to Chromium fallback behavior" in document.content
+    assert "broader packaged runtime polish" in document.content
+    assert "clearer LitLaunch diagnostics guidance" in document.content
     assert "improved Linux compatibility" in document.content
     assert "macOS beta refinement" in document.content
     assert "additional generation templates" in document.content
@@ -342,9 +359,9 @@ def test_planned_for_version_2_documents_roadmap_direction_without_promises():
     assert "optional cloud-backup recovery" in document.content
     assert "full\nGit-like version control" in document.content
     assert "Validation should remain guidance-oriented" in document.content
-    assert "loopback-only managed runtime posture" in document.content
-    assert "future launcher-managed update workflow is possible" in document.content
-    assert "LatticeFoundry infrastructure" in document.content
+    assert "loopback-only local runtime posture" in document.content
+    assert "future packaged update workflow is possible" in document.content
+    assert "Runtime platform work should stay reusable through LitLaunch" in document.content
     assert "hosted inference" in document.content
     assert "mandatory cloud workflow" in document.content
     assert "telemetry-heavy product" in document.content
@@ -537,7 +554,7 @@ def test_developer_architecture_help_articles_document_layer_boundaries():
     assert "Windows is a primary supported platform" in platform.content
     assert "Linux is a primary supported platform" in platform.content
     assert "macOS is beta/manual support" in platform.content
-    assert "Managed webapp mode is Windows/Microsoft Edge only" in platform.content
+    assert "RoleThread's installed Windows app opens in a local Microsoft Edge app-style" in platform.content
 
 
 def test_developer_philosophy_help_articles_document_engineering_conventions():
@@ -710,7 +727,8 @@ def test_help_article_order_is_global_reader_order():
     ordered_ids = [article.article_id for article in get_help_article_order()]
 
     assert ordered_ids[0] == "installing-rolethread-lite"
-    assert ordered_ids[1] == "getting-started"
+    assert ordered_ids[1] == "why-rolethread-uses-litlaunch"
+    assert ordered_ids[2] == "getting-started"
     assert ordered_ids[-1] == "lite-vs-studio-boundaries"
     assert ordered_ids.index("creating-a-new-dataset") < ordered_ids.index(
         "what-rolethread-is-actually-for"
@@ -745,6 +763,7 @@ def test_help_article_category_order_and_grouping():
     assert tuple(grouped) == get_help_category_order()
     assert [article.article_id for article in grouped["Getting Started"]] == [
         "installing-rolethread-lite",
+        "why-rolethread-uses-litlaunch",
         "getting-started",
         "what-rolethread-lite-does",
         "dataset-formats",
@@ -959,8 +978,13 @@ def test_adjacent_help_articles_follow_global_order():
     assert previous_article.article_id == "understanding-the-main-workspaces"
     assert next_article.article_id == "default-mode-vs-group-chat"
     assert get_adjacent_help_articles("installing-rolethread-lite")[0] is None
-    previous_article, next_article = get_adjacent_help_articles("getting-started")
+    previous_article, next_article = get_adjacent_help_articles(
+        "why-rolethread-uses-litlaunch"
+    )
     assert previous_article.article_id == "installing-rolethread-lite"
+    assert next_article.article_id == "getting-started"
+    previous_article, next_article = get_adjacent_help_articles("getting-started")
+    assert previous_article.article_id == "why-rolethread-uses-litlaunch"
     assert next_article.article_id == "what-rolethread-lite-does"
     previous_article, next_article = get_adjacent_help_articles(
         "v1-limitations-and-future-boundaries"
@@ -1390,13 +1414,13 @@ def test_faq_entries_group_into_clean_sidebar_categories():
         for entry in entries
     )
     assert any(
-        entry.display_question == "How do I run launcher diagnostics?"
+        entry.display_question == "How do I run LitLaunch diagnostics?"
         and "litlaunch.cli inspect --profile rolethread-webapp" in entry.answer
         for entry in entries
     )
     assert any(
-        "native-style webapp launcher with a compiled installer" in entry.question
-        and "science reasons" in entry.answer
+        "desktop-style local app" in entry.question
+        and "LitLaunch now carries the runtime machinery" in entry.answer
         for entry in entries
     )
     assert any(

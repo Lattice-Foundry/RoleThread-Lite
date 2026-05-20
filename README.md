@@ -130,10 +130,11 @@ Download the latest `RoleThreadLiteSetup-v<version>.exe` from GitHub Releases.
 The installer is a beta convenience path, not the only supported way to run
 RoleThread Lite. It is expected to improve as installer testing continues.
 
-Installed Windows builds always use the managed launcher-owned webapp lifecycle:
-Streamlit starts headless on `127.0.0.1`, and the launcher opens a local
-Microsoft Edge app-style window. Source users can run the same managed Windows
-workflow through the LitLaunch profile:
+Installed Windows builds open like a local desktop-style app. The packaged
+launcher starts RoleThread on your machine and opens a Microsoft Edge app
+window backed by LitLaunch.
+
+Source users can launch the same Windows app-window profile with:
 
 ```bat
 python -m litlaunch.cli run --profile rolethread-webapp
@@ -146,6 +147,17 @@ python -m litlaunch.cli inspect --profile rolethread-webapp
 ```
 
 Normal source/browser development can still use `streamlit run app.py`.
+
+## Why RoleThread Uses LitLaunch
+
+RoleThread Lite is local-first, but it still benefits from a dependable app
+runtime: clean startup, loopback-only local access, browser/app-window launch,
+shutdown coordination, and diagnostics when something goes wrong.
+
+LitLaunch provides that runtime layer so RoleThread can stay focused on dataset
+work instead of maintaining custom browser, process, and shutdown machinery.
+It also gives source users and packaged users the same runtime profile model,
+which makes support and troubleshooting clearer.
 
 ## Windows Installer Status
 
@@ -208,8 +220,8 @@ storage can cause constant sync activity, file locking, conflicts, or odd
 timestamps. If OneDrive keeps syncing RoleThread files, review OneDrive backup
 and sync settings for folders such as Documents or Desktop.
 
-Launch policy is platform-aware. The Windows installer defaults to Edge webapp
-mode when available, while Linux and macOS use default-browser or manual
+Launch policy is platform-aware. The Windows installer opens a local Edge app
+window when available, while Linux and macOS use default-browser or manual
 local-URL workflows.
 
 The V1 stability gate is:

@@ -12,11 +12,12 @@ Windows support includes:
 
 - platform-native app data paths under `%LOCALAPPDATA%\RoleThread`
 - user workspace defaults under `%USERPROFILE%\RoleThread`
-- Windows launcher and PyInstaller bundle work
-- managed Microsoft Edge app-window lifecycle
-- future Inno Setup installer work
+- Windows packaged launcher and PyInstaller bundle work
+- local Microsoft Edge app-window support through LitLaunch
+- Inno Setup installer work
 
-The Windows launcher/installer path exists to remove Python, virtual environment, Streamlit command, and dependency setup from the installed-user workflow.
+The Windows installer path exists to remove Python, virtual environment,
+Streamlit command, and dependency setup from the installed-user workflow.
 
 ## Linux
 
@@ -29,7 +30,8 @@ The expected V1 path is:
 - install dependencies
 - run Streamlit manually
 
-Linux uses standard browser workflows. OneDrive integration and managed Edge webapp mode are not part of Linux V1 support.
+Linux uses standard browser workflows. OneDrive integration and Windows Edge
+app-window launch are not part of Linux V1 support.
 
 ## macOS
 
@@ -39,13 +41,14 @@ RoleThread Lite should degrade gracefully on macOS, but direct maintainer testin
 
 macOS installer behavior is not planned for V1.
 
-## Managed Webapp Mode
+## Local App-Window Runtime
 
-Managed webapp mode is Windows/Microsoft Edge only.
+RoleThread's installed Windows app opens in a local Microsoft Edge app-style
+window when Edge is available.
 
-The implementation depends on Windows process metadata and HWND/window
-inspection so RoleThread can open the Edge app window, monitor the exact window
-handle, and shut down the launcher-owned Streamlit backend cleanly.
+LitLaunch owns the runtime behavior around that app window: profile-based
+startup, browser/app-window launch, local health checks, and shutdown
+coordination. RoleThread supplies the product configuration and cleanup hooks.
 
 On unsupported platforms, source users should use plain Streamlit browser mode:
 `streamlit run app.py`.

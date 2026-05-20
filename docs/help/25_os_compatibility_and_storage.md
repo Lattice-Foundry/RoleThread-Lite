@@ -12,8 +12,9 @@ Lite**.
 **Windows is a primary V1 support platform.**
 
 Windows is the main maintainer-tested desktop target. RoleThread Lite has a
-beta setup installer for Windows and a managed Microsoft Edge app-window
-workflow when Edge is available. Manual source installs remain supported.
+beta setup installer for Windows and a local Microsoft Edge app-window
+workflow through LitLaunch when Edge is available. Manual source installs
+remain supported.
 
 **Linux is a primary V1 support platform.**
 
@@ -123,14 +124,15 @@ The safest pattern is:
 
 ## Launch Behavior Policy
 
-RoleThread V1 defines platform-aware launch policy and diagnostics.
+RoleThread V1 defines platform-aware launch policy and diagnostics without
+making the app itself own browser or process orchestration.
 
-The Windows installer always uses the managed launcher-owned webapp lifecycle.
-RoleThread starts the local Streamlit backend headless, binds it to
-`127.0.0.1`, and opens a Microsoft Edge app-style window when Edge is
+The Windows installer opens RoleThread as a local app-style window through the
+packaged launcher. LitLaunch handles the local runtime profile, keeps the app
+bound to `127.0.0.1`, and opens a Microsoft Edge app-style window when Edge is
 available.
 
-Source Windows users can launch the same managed app-window workflow with:
+Source Windows users can launch the same app-window profile with:
 
 ```bat
 python -m litlaunch.cli run --profile rolethread-webapp
@@ -142,7 +144,7 @@ Normal browser mode remains available through:
 streamlit run app.py
 ```
 
-Launcher diagnostics for the managed webapp workflow use:
+LitLaunch diagnostics for the app-window profile use:
 
 ```bat
 python -m litlaunch.cli inspect --profile rolethread-webapp
@@ -154,8 +156,8 @@ manually.
 
 Windows:
 
-- installed workflow: managed Microsoft Edge app window
-- source managed workflow: `python -m litlaunch.cli run --profile rolethread-webapp`
+- installed workflow: local Microsoft Edge app window
+- source app-window workflow: `python -m litlaunch.cli run --profile rolethread-webapp`
 - source browser workflow: `streamlit run app.py`
 
 Linux:

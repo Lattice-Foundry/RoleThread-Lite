@@ -398,8 +398,8 @@ def get_platform_launch_plan(
             is_preferred_available=True,
             edge_webapp_ready=True,
             notes=(
-                "Edge is available for the managed Windows webapp launch flow.",
-                "Installed RoleThread uses this launcher-owned lifecycle.",
+                "Edge is available for the Windows app-window launch flow.",
+                "Installed RoleThread uses LitLaunch for local runtime startup and shutdown.",
             ),
         )
 
@@ -413,7 +413,7 @@ def get_platform_launch_plan(
             edge_webapp_ready=False,
             notes=(
                 "Microsoft Edge was not detected.",
-                "Managed Windows webapp launch requires the Edge adapter.",
+                "The Windows app-window profile requires Microsoft Edge.",
                 "Source workflows can still use the normal Streamlit browser path.",
             ),
         )
@@ -517,11 +517,11 @@ def _browser_detection_message(
     capabilities: BrowserCapabilities,
 ) -> str:
     if capabilities.edge_webapp_available:
-        return "Microsoft Edge is available for managed Windows webapp workflows."
+        return "Microsoft Edge is available for Windows app-window workflows."
     if platform_info.capabilities.supports_edge_webapp:
         return (
-            "Microsoft Edge was not detected. Managed Windows webapp launch "
-            "requires the Edge adapter."
+            "Microsoft Edge was not detected. The Windows app-window profile "
+            "requires Microsoft Edge."
         )
     if capabilities.supports_default_browser:
         return "Default browser workflows are supported on this platform."

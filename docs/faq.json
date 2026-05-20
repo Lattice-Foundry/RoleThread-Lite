@@ -736,10 +736,12 @@
     "related_help_ids": []
   },
   {
-    "question": "Meta: Is it absurd that RoleThread Lite runs Streamlit through a native-style webapp launcher with a compiled installer?",
-    "answer": "Absolutely. We did it for science reasons. We regret nothing...mostly.",
+    "question": "Meta: Is it absurd that RoleThread Lite runs Streamlit like a desktop-style local app?",
+    "answer": "A little. But it makes the installed Windows experience cleaner, and LitLaunch now carries the runtime machinery so RoleThread can stay focused on dataset work.",
     "category": "Troubleshooting",
-    "related_help_ids": []
+    "related_help_ids": [
+      "why-rolethread-uses-litlaunch"
+    ]
   },
   {
     "question": "Philosophy and boundaries: Why does RoleThread prefer deterministic workflows?",
@@ -844,43 +846,47 @@
   },
   {
     "question": "Getting started: How do I install RoleThread Lite on Windows?",
-    "answer": "Use the Windows installer for the quickest setup. The installer configures RoleThread Lite, sets up the launcher, and places shortcuts.\n\nIf you prefer a manual install, follow the manual setup steps in the installation guide.",
+    "answer": "Use the Windows installer for the quickest setup. It installs RoleThread Lite, includes the packaged runtime, and places shortcuts.\n\nIf you prefer a manual install, follow the manual setup steps in the installation guide.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
+      "why-rolethread-uses-litlaunch",
       "getting-started"
     ]
   },
   {
     "question": "Installation and launching: How do I launch RoleThread Lite from source?",
-    "answer": "For normal source browser use, activate the virtual environment and run `streamlit run app.py`.\n\nFor the managed Windows app-window workflow, use `python -m litlaunch.cli run --profile rolethread-webapp`.",
+    "answer": "For normal source browser use, activate the virtual environment and run `streamlit run app.py`.\n\nFor the Windows app-window profile, use `python -m litlaunch.cli run --profile rolethread-webapp`.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
+      "why-rolethread-uses-litlaunch",
       "os-compatibility-and-storage-policy"
     ]
   },
   {
-    "question": "Installation and launching: How do I launch managed webapp mode from source?",
-    "answer": "Run `python -m litlaunch.cli run --profile rolethread-webapp` from the source checkout.\n\nFor runtime diagnostics, use `python -m litlaunch.cli inspect --profile rolethread-webapp`.",
+    "question": "Installation and launching: How do I launch the LitLaunch app-window profile from source?",
+    "answer": "Run `python -m litlaunch.cli run --profile rolethread-webapp` from the source checkout.\n\nFor diagnostics, use `python -m litlaunch.cli inspect --profile rolethread-webapp`.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
+      "why-rolethread-uses-litlaunch",
       "os-compatibility-and-storage-policy"
     ]
   },
   {
     "question": "Installation and launching: Why does the installed Windows app open in an app-style Edge window?",
-    "answer": "The installed app uses RoleThread's managed launcher. It starts Streamlit headless, then opens a local Microsoft Edge app-style window so closeout and backend shutdown are handled cleanly.",
+    "answer": "That gives RoleThread a desktop-style local app experience while still keeping your data on your machine.\n\nLitLaunch handles the local runtime, app-window launch, diagnostics, and clean shutdown path.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
+      "why-rolethread-uses-litlaunch",
       "os-compatibility-and-storage-policy"
     ]
   },
   {
     "question": "Installation and launching: Is RoleThread Lite exposed to my network?",
-    "answer": "No. The managed Windows webapp binds Streamlit to `127.0.0.1`, which means the local machine only.\n\nLite does not provide a LAN or server mode.",
+    "answer": "No. The Windows app-window profile binds RoleThread to `127.0.0.1`, which means the local machine only.\n\nLite does not provide a LAN or server mode.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "os-compatibility-and-storage-policy",
@@ -889,7 +895,7 @@
   },
   {
     "question": "Installation and launching: What does 127.0.0.1 mean?",
-    "answer": "`127.0.0.1` is the loopback address: your own computer talking to itself.\n\nIn managed webapp mode, RoleThread uses it so the local Streamlit backend is not advertised as a network service.",
+    "answer": "`127.0.0.1` is the loopback address: your own computer talking to itself.\n\nRoleThread uses it for the local app-window profile so the app is not advertised as a network service.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "os-compatibility-and-storage-policy"
@@ -897,7 +903,7 @@
   },
   {
     "question": "Installation and launching: Can I still use normal Streamlit browser mode from source?",
-    "answer": "Yes. `streamlit run app.py` remains valid for source and developer browser mode.\n\nManaged webapp launch is handled through the `rolethread-webapp` LitLaunch profile.",
+    "answer": "Yes. `streamlit run app.py` remains valid for source and developer browser mode.\n\nThe Windows app-window launch is handled through the `rolethread-webapp` LitLaunch profile.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
@@ -905,10 +911,11 @@
     ]
   },
   {
-    "question": "Troubleshooting: How do I run launcher diagnostics?",
-    "answer": "From a source checkout, run `python -m litlaunch.cli inspect --profile rolethread-webapp`.\n\nUse this for runtime profile, command planning, browser policy, or shutdown investigation.",
+    "question": "Troubleshooting: How do I run LitLaunch diagnostics?",
+    "answer": "From a source checkout, run `python -m litlaunch.cli inspect --profile rolethread-webapp`.\n\nFor an HTML report, run `python -m litlaunch.cli inspect --profile rolethread-webapp --html --output litlaunch-report.html --force`.\n\nReview the report before sharing it, especially if local file paths are sensitive.",
     "category": "Troubleshooting",
     "related_help_ids": [
+      "why-rolethread-uses-litlaunch",
       "os-compatibility-and-storage-policy",
       "installing-rolethread-lite"
     ]

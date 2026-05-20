@@ -360,7 +360,7 @@ def _render_platform_about() -> None:
             st.caption(
                 _format_about_row(
                     "Note",
-                    "Managed webapp mode is owned by LitLaunch profiles or the installed launcher.",
+                    "Local app-window launch is owned by LitLaunch profiles or the installed app.",
                 )
             )
         for note in launch_plan.notes:

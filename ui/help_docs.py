@@ -72,12 +72,26 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Installing RoleThread Lite",
         "Getting Started",
         5,
-        "Windows installer, manual setup, managed launch, and uninstall behavior.",
+        "Windows installer, manual setup, local app-window launch, and uninstall behavior.",
         (
             "getting-started",
+            "why-rolethread-uses-litlaunch",
             "what-rolethread-lite-does",
             "dataset-formats",
             "os-compatibility-and-storage-policy",
+        ),
+    ),
+    HelpArticle(
+        "why-rolethread-uses-litlaunch",
+        "59_why_rolethread_uses_litlaunch.md",
+        "Why RoleThread Uses LitLaunch",
+        "Getting Started",
+        6,
+        "Why RoleThread uses LitLaunch for local startup, app windows, shutdown, and diagnostics.",
+        (
+            "installing-rolethread-lite",
+            "os-compatibility-and-storage-policy",
+            "privacy-and-local-first-creative-workflows",
         ),
     ),
     HelpArticle(
@@ -742,7 +756,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Platform Support Philosophy",
         "For Developers",
         280,
-        "How Windows, Linux, macOS, webapp mode, and storage support are scoped.",
+        "How Windows, Linux, macOS, local app-window, and storage support are scoped.",
         (
             "developer-launch-flags",
             "os-compatibility-and-storage-policy",
@@ -820,7 +834,7 @@ HELP_ARTICLES: tuple[HelpArticle, ...] = (
         "Windows Installer and Launcher Architecture",
         "For Developers",
         340,
-        "How the Windows launcher delegates into the managed webapp lifecycle.",
+        "How the Windows packaged launcher delegates runtime behavior to LitLaunch.",
         (
             "build-and-packaging-overview",
             "developer-launch-flags",

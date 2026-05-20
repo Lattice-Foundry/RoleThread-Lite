@@ -16,29 +16,27 @@ dataset work:
 - Data Generation prompt compilation
 - metadata organization
 - import, merge, backup, and export workflows
-- reliable managed runtime behavior
+- reliable local runtime behavior
 
 The goal is to make the existing workflow stronger, broader, and easier to
 trust.
 
-## Runtime and Launcher Improvements
+## Runtime and Packaging Improvements
 
-The managed launcher-owned webapp lifecycle is now the expected runtime model
-for installed Windows builds.
+Installed Windows builds now use LitLaunch for local app startup, app-window
+launch, diagnostics, and shutdown coordination.
 
 V2 direction includes:
 
-- additional browser adapters
-- Edge to Chrome to Chromium fallback behavior
-- improved browser detection
-- platform-aware launcher behavior
-- clearer launcher diagnostics
+- broader packaged runtime polish
+- clearer LitLaunch diagnostics guidance
 - lifecycle hardening
 - runtime reliability improvements
-- packaged runtime refinement
+- packaged app refinement
 
-The intended boundary remains the same: Streamlit owns the app runtime;
-RoleThread owns desktop/webapp lifecycle.
+The intended boundary remains the same: RoleThread owns dataset workflows,
+product policy, and user data behavior. LitLaunch owns generic runtime
+platform behavior.
 
 ## macOS and Linux Expansion
 
@@ -50,9 +48,9 @@ V2 may improve non-Windows workflows through:
 - community-driven macOS validation
 - clearer platform-specific setup and diagnostics
 
-The current Windows launcher work creates a stronger model for future platform
-support, but it does not imply all platforms will receive identical integration
-at once.
+The current Windows installed-app work creates a stronger model for future
+platform support, but it does not imply all platforms will receive identical
+integration at once.
 
 ## Data Generation Improvements
 
@@ -94,7 +92,7 @@ Expected V2 work includes quality-of-life improvements across daily workflows:
 - smoother editing flows
 - faster review and correction paths
 - community-requested workflow refinements
-- launcher and runtime polish
+- local runtime polish
 - clearer diagnostics and logs
 - more predictable recovery paths
 
@@ -128,7 +126,7 @@ V2 should continue hardening the local runtime:
 - shutdown reliability
 - crash recovery
 - deterministic runtime behavior
-- loopback-only managed runtime posture
+- loopback-only local runtime posture
 - local security improvements
 - packaged startup and update safety
 - clearer failure reporting
@@ -137,7 +135,7 @@ The app should stay understandable when something goes wrong.
 
 ## Optional Future Update System
 
-A future launcher-managed update workflow is possible, but not guaranteed.
+A future packaged update workflow is possible, but not guaranteed.
 
 If it happens, it should be:
 
@@ -151,12 +149,9 @@ Lite should not become an account-gated or cloud-controlled update surface.
 
 ## Long-Term Runtime Architecture
 
-Some launcher/runtime lifecycle work may eventually be extracted into reusable
-LatticeFoundry infrastructure.
-
-That is exploratory and long-term. It should only happen if it makes the
-runtime cleaner, more reusable, and easier to maintain without complicating
-Lite.
+Runtime platform work should stay reusable through LitLaunch rather than become
+RoleThread-specific infrastructure. Lite should benefit from that platform
+without turning its own docs or codebase into a runtime framework.
 
 ## What Lite V2 Is Not Intended To Become
 

@@ -37,7 +37,7 @@ FAQ_CATEGORY_ORDER = (
 
 FAQ_CATEGORY_DESCRIPTIONS = {
     "Getting Started": "First-run questions, examples, and the basic app rhythm.",
-    "Installation and Launching": "Install, source launch, managed webapp, and diagnostics.",
+    "Installation and Launching": "Install, source launch, local app windows, and diagnostics.",
     "Datasets and Editing": "Daily editing, search, split/join, prompts, and dataset craft.",
     "Tags and Validation": "Tags, characters, metadata, validation, and quality review.",
     "Import, Export, and Training Files": "Working copies, sidecars, merge, export, and training files.",
@@ -142,10 +142,17 @@ _FAQ_QUESTION_HELP_RELATED = {
     ),
     "How do I launch RoleThread Lite from source?": (
         "installing-rolethread-lite",
+        "why-rolethread-uses-litlaunch",
+        "os-compatibility-and-storage-policy",
+    ),
+    "How do I launch the LitLaunch app-window profile from source?": (
+        "installing-rolethread-lite",
+        "why-rolethread-uses-litlaunch",
         "os-compatibility-and-storage-policy",
     ),
     "Why does the installed Windows app open in an app-style Edge window?": (
         "installing-rolethread-lite",
+        "why-rolethread-uses-litlaunch",
         "os-compatibility-and-storage-policy",
     ),
     "Is RoleThread Lite exposed to my network?": (
@@ -155,7 +162,8 @@ _FAQ_QUESTION_HELP_RELATED = {
     "What does 127.0.0.1 mean?": (
         "os-compatibility-and-storage-policy",
     ),
-    "How do I run launcher diagnostics?": (
+    "How do I run LitLaunch diagnostics?": (
+        "why-rolethread-uses-litlaunch",
         "os-compatibility-and-storage-policy",
         "installing-rolethread-lite",
     ),

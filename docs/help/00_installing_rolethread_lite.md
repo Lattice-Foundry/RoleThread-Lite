@@ -26,9 +26,10 @@ It is expected to keep improving as installer testing continues.
 4. Finish setup and launch RoleThread Lite from the installer, Start Menu, or
    Desktop shortcut.
 
-Installed RoleThread Lite uses the managed launcher automatically. It starts the
-local Streamlit backend headless, binds it to `127.0.0.1`, and opens the app in
-a local Edge app-style window. Users do not choose a runtime mode during setup.
+Installed RoleThread Lite starts like a normal local app. The packaged launcher
+uses LitLaunch behind the scenes, keeps the app bound to your own computer at
+`127.0.0.1`, and opens RoleThread in a local Edge app-style window. Users do
+not choose a runtime mode during setup.
 
 On some Windows systems, the installer may appear behind other windows after
 the UAC prompt. If setup does not appear immediately, minimize other windows or
@@ -58,15 +59,15 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-For the managed Windows Edge app-window launch path:
+For the Windows app-window launch path:
 
 ```bat
 python -m litlaunch.cli run --profile rolethread-webapp
 ```
 
-This uses the same LitLaunch-owned webapp lifecycle as the installed app.
-Streamlit runs headless, binds to `127.0.0.1`, and LitLaunch opens the managed
-Edge app window.
+This uses the same LitLaunch profile model as the installed app. LitLaunch
+starts the local app runtime, binds it to `127.0.0.1`, and opens the Edge app
+window.
 
 ## Linux Manual Install
 
@@ -79,8 +80,9 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Managed Windows Edge app-window mode is not available on Linux. Use normal browser
-mode, or create a browser app shortcut manually if your browser supports it.
+The Windows Edge app-window profile is not available on Linux. Use normal
+browser mode, or create a browser app shortcut manually if your browser
+supports it.
 
 ## macOS Manual Install
 
@@ -93,8 +95,9 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Managed Windows Edge app-window mode is not available on macOS. Use normal browser
-mode, or create a browser app shortcut manually if your browser supports it.
+The Windows Edge app-window profile is not available on macOS. Use normal
+browser mode, or create a browser app shortcut manually if your browser
+supports it.
 
 ## Uninstalling On Windows
 

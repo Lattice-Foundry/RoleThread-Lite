@@ -159,7 +159,7 @@ def test_browser_detection_falls_back_when_edge_missing_on_windows():
     assert result.capabilities.supports_edge_webapp is True
     assert result.capabilities.edge_webapp_available is False
     assert result.capabilities.fallback_to_default_browser is True
-    assert "Managed Windows webapp launch requires the Edge adapter" in result.message
+    assert "Windows app-window profile requires Microsoft Edge" in result.message
 
 
 def test_browser_detection_uses_default_browser_only_on_linux_and_macos():
@@ -213,7 +213,7 @@ def test_launch_plan_prefers_edge_webapp_when_edge_available_on_windows():
     assert plan.fallback_label == "Default browser"
     assert plan.is_preferred_available is True
     assert plan.edge_webapp_ready is True
-    assert any("managed Windows webapp launch flow" in note for note in plan.notes)
+    assert any("Windows app-window launch flow" in note for note in plan.notes)
 
 
 def test_launch_plan_falls_back_to_default_browser_when_edge_missing_on_windows():
