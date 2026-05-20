@@ -43,7 +43,10 @@ def get_python_runtime_status(
 
     current = version_info or tuple(sys.version_info[:3])
     current_version = ".".join(str(part) for part in current)
-    is_official = current == MIN_SUPPORTED_PYTHON
+    official_version_info = tuple(
+        int(part) for part in OFFICIAL_PYTHON_VERSION.split(".")
+    )
+    is_official = current == official_version_info
     is_below_minimum = current < MIN_SUPPORTED_PYTHON
     is_newer_than_tested = current > MAX_TESTED_PYTHON
 
@@ -63,11 +66,17 @@ def get_python_runtime_status(
             f"{current_version}, which is newer than the tested V1 runtime. "
             "The app may run, but this runtime is not officially supported yet."
         )
-    else:
+    elif is_official:
         status_label = RUNTIME_STATUS_SUPPORTED
         message = (
             "RoleThread Lite is running on the official supported Python "
             f"runtime: {OFFICIAL_PYTHON_VERSION}."
+        )
+    else:
+        status_label = RUNTIME_STATUS_SUPPORTED
+        message = (
+            "RoleThread Lite is running on a supported Python runtime. "
+            f"The official tested V1 runtime is Python {OFFICIAL_PYTHON_VERSION}."
         )
 
     return PythonRuntimeStatus(

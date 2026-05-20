@@ -7,7 +7,7 @@ This checklist defines the stable-release gate for RoleThread Lite 1.0.
 - Run `python -m pytest`
 - Confirm the suite passes from a clean workspace
 - Confirm `core/version.py` reports the intended release version
-- Confirm the runtime is Python `3.14.4`, the official supported V1 runtime
+- Confirm the runtime is Python `3.14.5`, the official supported V1 runtime
 - Confirm OS compatibility docs describe Windows/Linux primary support and
   macOS beta support
 - Confirm launch docs describe the normal browser workflow and manual

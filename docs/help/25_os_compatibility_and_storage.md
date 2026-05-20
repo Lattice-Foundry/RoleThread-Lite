@@ -34,9 +34,11 @@ RoleThread should degrade gracefully where possible, but unsupported platforms s
 
 ## Official Python Runtime
 
-RoleThread Lite V1 officially supports Python 3.14.4.
+RoleThread Lite V1 officially supports Python 3.14.5.
 
-Older Python versions are blocked so the app fails clearly instead of producing confusing import or dependency errors later.
+Python 3.14.4 remains the minimum supported V1 runtime. Older Python versions
+are blocked so the app fails clearly instead of producing confusing import or
+dependency errors later.
 
 Newer Python versions may run, but they are untested for V1 unless documented later.
 

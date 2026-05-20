@@ -31,6 +31,8 @@ installer/windows/inno/Output/
 *.pyc
 *.jsonl
 !dev/tests/fixtures/**/*.jsonl
+litlaunch-report.html
+*.litlaunch-report.html
 *.exe
 *.msi
 backup_config.json

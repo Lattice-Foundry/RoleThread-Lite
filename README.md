@@ -89,10 +89,10 @@ RoleThread Lite 1.0 is the stable release surface for dataset craftsmanship.
 
 ## Install Options
 
-RoleThread Lite V1 officially supports Python `3.14.4`.
+RoleThread Lite V1 officially supports Python `3.14.5`.
 
-Other Python versions may run, but they are not guaranteed for V1 unless they
-are tested later. Python versions below `3.14.4` are unsupported.
+Python `3.14.4` remains the minimum supported V1 runtime. Newer Python versions
+may run, but they are not guaranteed for V1 unless they are tested later.
 
 Windows users have two practical paths:
 

@@ -289,7 +289,7 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "Windows is a primary V1 support platform" in document.content
     assert "Linux is a primary V1 support platform" in document.content
     assert "macOS is beta-supported for V1" in document.content
-    assert "Python 3.14.4" in document.content
+    assert "Python 3.14.5" in document.content
     assert "%LOCALAPPDATA%\\RoleThread" in document.content
     assert "~/.local/share/rolethread" in document.content
     assert "~/Library/Application Support/RoleThread" in document.content

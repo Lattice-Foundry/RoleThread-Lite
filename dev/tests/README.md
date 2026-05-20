@@ -35,8 +35,9 @@ on stable contracts that protect local-first data safety.
 
 ## Setup
 
-RoleThread Lite V1 is developed and tested on Python `3.14.4`. Other runtimes
-may work, but `3.14.4` is the official supported V1 runtime.
+RoleThread Lite V1 is developed and tested on Python `3.14.5`. Python `3.14.4`
+remains the minimum supported V1 runtime. Other runtimes may work, but `3.14.5`
+is the official supported V1 runtime.
 
 Windows/dev environment:
 
