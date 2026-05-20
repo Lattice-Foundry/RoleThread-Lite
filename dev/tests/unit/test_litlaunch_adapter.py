@@ -10,6 +10,8 @@ from core.litlaunch_adapter import (
     ROLETHREAD_LITLAUNCH_TITLE,
     build_source_webapp_command_preview,
     build_source_webapp_config,
+    build_source_webapp_launch_plan,
+    resolve_rolethread_root,
 )
 
 
@@ -25,19 +27,25 @@ def test_source_webapp_litlaunch_config_matches_rolethread_contract():
     assert config.auto_port is False
     assert config.headless is True
     assert config.allow_browser_fallback is False
+    assert config.cwd == resolve_rolethread_root()
     assert config.app_args == ()
 
 
-def test_source_webapp_litlaunch_command_preview_is_headless_loopback():
-    command = build_source_webapp_command_preview()
+def test_source_webapp_litlaunch_plan_is_headless_loopback():
+    plan = build_source_webapp_launch_plan(include_browser_resolution=False)
 
-    assert command[:5] == (
+    assert plan.command[:5] == (
         sys.executable,
         "-m",
         "streamlit",
         "run",
         "app.py",
     )
+    assert plan.app_url == "http://127.0.0.1:8501"
+    assert plan.health_url == "http://127.0.0.1:8501/_stcore/health"
+    assert plan.resolved_port == 8501
+    assert plan.cwd == resolve_rolethread_root()
+    command = plan.command
     assert command[command.index("--server.address") + 1] == "127.0.0.1"
     assert command[command.index("--server.headless") + 1] == "true"
     assert command[command.index("--server.port") + 1] == "8501"
@@ -50,6 +58,14 @@ def test_source_webapp_litlaunch_command_preview_has_no_app_webapp_arg():
     assert "webapp" not in command
 
 
+def test_source_webapp_litlaunch_command_preview_uses_launch_plan():
+    command = build_source_webapp_command_preview()
+
+    assert command == build_source_webapp_launch_plan(
+        include_browser_resolution=False
+    ).command
+
+
 def test_source_webapp_litlaunch_config_accepts_explicit_app_path(tmp_path):
     app_path = tmp_path / "app.py"
 
@@ -57,3 +73,20 @@ def test_source_webapp_litlaunch_config_accepts_explicit_app_path(tmp_path):
 
     assert config.app_path == app_path
     assert config.browser.value == ROLETHREAD_LITLAUNCH_BROWSER
+
+
+def test_source_webapp_litlaunch_config_accepts_explicit_root(tmp_path):
+    app_root = tmp_path / "rolethread"
+    app_root.mkdir()
+
+    config = build_source_webapp_config(app_root=app_root)
+
+    assert config.cwd == app_root.resolve()
+
+
+def test_requirements_pin_litlaunch_0311():
+    requirements = resolve_rolethread_root().joinpath("requirements.txt").read_text(
+        encoding="utf-8"
+    )
+
+    assert "litlaunch==0.31.1" in requirements

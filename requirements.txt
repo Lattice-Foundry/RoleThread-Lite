@@ -1,5 +1,5 @@
 streamlit>=1.35.0
-litlaunch==0.25.0
+litlaunch==0.31.1
 pandas>=2.0.0
 plotly>=5.20.0
 sqlalchemy>=2.0

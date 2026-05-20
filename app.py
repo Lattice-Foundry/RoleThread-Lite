@@ -3,7 +3,6 @@
 Owns app startup and session initialization. Navigation wiring and page-state
 compatibility live in ui.navigation.
 """
-import atexit
 from pathlib import Path
 
 import streamlit as st
@@ -12,11 +11,11 @@ from core.launcher import (
     parse_launch_flags,
     should_show_dev_diagnostics,
 )
+from core.litlaunch_shutdown_bridge import configure_litlaunch_shutdown_bridge
 from core.runtime import get_python_runtime_status
-from core.shutdown_control import start_launcher_shutdown_server
 
 st.set_page_config(page_title="RoleThread Lite", layout="wide")
-start_launcher_shutdown_server()
+configure_litlaunch_shutdown_bridge()
 
 _runtime_status = get_python_runtime_status()
 if _runtime_status.is_below_minimum:
@@ -34,16 +33,9 @@ from core.cloud_sync import (
     get_cloud_restore_candidate,
     restore_cloud_backup,
 )
-from core.cloud_sync_shutdown import run_cloud_sync_shutdown
 from core.dataset import DEFAULT_SYSTEM_PROMPT, load_dataset_with_summary
 from core.generation.seed import initialize_generation_registry
-from core.launcher_console import format_launcher_status
-from core.launcher_log import resolve_launcher_log_path_from_env, write_launcher_log
 from core.preferences import load_preferences
-from core.shutdown_control import (
-    launcher_shutdown_diagnostics_enabled,
-    resolve_launcher_shutdown_control,
-)
 from ui.session_state import (
     persist_loaded_normalization,
     set_loaded_entries,
@@ -310,55 +302,7 @@ div[data-baseweb="menu"] li[role="option"][aria-selected="true"] {{
 """, unsafe_allow_html=True)
 
 
-# Cloud backup startup hooks.
-def _sync_cloud_backups_on_exit() -> None:
-    """Best-effort cloud backup sync for Streamlit process shutdown."""
-
-    launcher_control = resolve_launcher_shutdown_control()
-    log_path = resolve_launcher_log_path_from_env() if launcher_control else None
-    diagnostics_enabled = launcher_shutdown_diagnostics_enabled()
-    status_callback = (
-        _print_launcher_cloud_sync_status
-        if launcher_control
-        else _print_cloud_sync_status
-    )
-
-    run_cloud_sync_shutdown(
-        diagnostics_enabled=diagnostics_enabled,
-        status_callback=status_callback,
-        diagnostic_callback=(
-            (lambda message: _write_launcher_cloud_sync_log(log_path, message))
-            if log_path
-            else None
-        ),
-    )
-
-
-def _print_cloud_sync_status(message: str) -> None:
-    print(message, flush=True)
-
-
-def _print_launcher_cloud_sync_status(message: str) -> None:
-    print(format_launcher_status(message), flush=True)
-
-
-def _write_launcher_cloud_sync_log(log_path: Path, message: str) -> None:
-    write_launcher_log(
-        log_path,
-        (
-            "lifecycle=cloud_sync_shutdown",
-            f"message={message}",
-        ),
-    )
-
-
-def _register_cloud_sync_on_exit() -> None:
-    if st.session_state.get("_cloud_sync_atexit_registered"):
-        return
-    atexit.register(_sync_cloud_backups_on_exit)
-    st.session_state["_cloud_sync_atexit_registered"] = True
-
-
+# Cloud backup startup prompt.
 def _render_cloud_restore_prompt() -> None:
     candidate = st.session_state.get("_cloud_restore_candidate")
     if candidate is None and not st.session_state.get("_cloud_restore_checked"):
@@ -390,7 +334,6 @@ def _render_cloud_restore_prompt() -> None:
             st.rerun()
 
 
-_register_cloud_sync_on_exit()
 _render_cloud_restore_prompt()
 
 

@@ -1,0 +1,153 @@
+"""RoleThread product cleanup hooks for LitLaunch-managed shutdown."""
+
+from __future__ import annotations
+
+import atexit
+import os
+import sys
+import threading
+from collections.abc import Callable, Mapping
+from pathlib import Path
+
+from litlaunch import LauncherRuntime, ShutdownResult
+
+from core.cloud_sync_shutdown import run_cloud_sync_shutdown
+from core.launcher_console import format_launcher_status
+from core.launcher_log import resolve_launcher_log_path_from_env, write_launcher_log
+
+
+ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV = "ROLETHREAD_LAUNCHER_SHUTDOWN_DIAGNOSTICS"
+
+_STATE_LOCK = threading.Lock()
+_CLOUD_SYNC_RAN = False
+_ATEXIT_REGISTERED = False
+_RUNTIME_CONFIGURED = False
+_RUNTIME: LauncherRuntime | None = None
+
+
+def configure_litlaunch_shutdown_bridge(
+    *,
+    environ: Mapping[str, str] | None = None,
+    runtime: LauncherRuntime | None = None,
+    exit_fn: Callable[[int], object] = os._exit,
+    register_atexit_fn: Callable[[Callable[[], object]], object] = atexit.register,
+) -> bool:
+    """Configure RoleThread cleanup for LitLaunch when its env is present.
+
+    The app remains launch-semantics-blind: this bridge only knows about
+    shutdown cleanup hooks exposed by LitLaunch, not browser or app-mode launch.
+    """
+
+    global _ATEXIT_REGISTERED, _RUNTIME, _RUNTIME_CONFIGURED
+    with _STATE_LOCK:
+        if not _ATEXIT_REGISTERED:
+            register_atexit_fn(run_cloud_sync_closeout)
+            _ATEXIT_REGISTERED = True
+        if _RUNTIME_CONFIGURED:
+            return bool(_RUNTIME and _RUNTIME.available)
+
+        resolved_runtime = runtime or LauncherRuntime.from_env(environ)
+        _RUNTIME = resolved_runtime
+        _RUNTIME_CONFIGURED = True
+
+    if not resolved_runtime.available:
+        return False
+
+    resolved_runtime.register_shutdown_hook(
+        run_cloud_sync_closeout,
+        label="Cloud backup sync",
+        success_message="Cloud backup sync complete.",
+        failure_message="Cloud backup sync failed.",
+        continue_on_error=True,
+    )
+    resolved_runtime.set_shutdown_completion_callback(
+        lambda result: _finish_litlaunch_shutdown(result, exit_fn=exit_fn)
+    )
+    return resolved_runtime.enable_shutdown_endpoint()
+
+
+def run_cloud_sync_closeout(
+    *,
+    diagnostics_enabled: bool | None = None,
+    status_callback: Callable[[str], object] | None = None,
+    diagnostic_callback: Callable[[str], object] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> bool:
+    """Run RoleThread cloud sync closeout once per backend process."""
+
+    global _CLOUD_SYNC_RAN
+    with _STATE_LOCK:
+        if _CLOUD_SYNC_RAN:
+            return False
+        _CLOUD_SYNC_RAN = True
+
+    env = environ if environ is not None else os.environ
+    log_path = resolve_launcher_log_path_from_env(env)
+    resolved_diagnostics = (
+        _diagnostics_enabled(env)
+        if diagnostics_enabled is None
+        else diagnostics_enabled
+    )
+    resolved_status_callback = status_callback or _print_cloud_sync_status
+    resolved_diagnostic_callback = diagnostic_callback
+    if resolved_diagnostic_callback is None and log_path is not None:
+        resolved_diagnostic_callback = lambda message: _write_cloud_sync_log(
+            log_path,
+            message,
+        )
+
+    run_cloud_sync_shutdown(
+        diagnostics_enabled=resolved_diagnostics,
+        status_callback=resolved_status_callback,
+        diagnostic_callback=resolved_diagnostic_callback,
+    )
+    return True
+
+
+def _finish_litlaunch_shutdown(
+    result: ShutdownResult,
+    *,
+    exit_fn: Callable[[int], object],
+) -> None:
+    _flush_standard_streams()
+    exit_fn(0 if result.ok else 1)
+
+
+def _print_cloud_sync_status(message: str) -> None:
+    print(format_launcher_status(message), flush=True)
+
+
+def _write_cloud_sync_log(log_path: Path, message: str) -> None:
+    write_launcher_log(
+        log_path,
+        (
+            "lifecycle=cloud_sync_shutdown",
+            f"message={message}",
+        ),
+    )
+
+
+def _diagnostics_enabled(environ: Mapping[str, str]) -> bool:
+    return str(environ.get(ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV, "")).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _flush_standard_streams() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.flush()
+        except Exception:
+            pass
+
+
+def _reset_shutdown_bridge_state_for_tests() -> None:
+    global _ATEXIT_REGISTERED, _CLOUD_SYNC_RAN, _RUNTIME, _RUNTIME_CONFIGURED
+    with _STATE_LOCK:
+        _ATEXIT_REGISTERED = False
+        _CLOUD_SYNC_RAN = False
+        _RUNTIME = None
+        _RUNTIME_CONFIGURED = False

@@ -1,4 +1,7 @@
-from pathlib import Path
+from types import SimpleNamespace
+
+from litlaunch import BrowserChoice, LaunchMode
+from litlaunch.windowing import WindowInfo, WindowMonitorResult, WindowMonitorStatus
 
 import launch as root_launcher
 from core.launcher_console import (
@@ -9,251 +12,171 @@ from core.launcher_console import (
     strip_ansi,
     terminal_supports_ansi,
 )
-from installer.windows.launcher import rolethread_launcher as launcher
-
-
-def _make_app_root(tmp_path: Path) -> Path:
-    app_root = tmp_path / "rolethread"
-    app_root.mkdir()
-    (app_root / "app.py").write_text("print('RoleThread')\n", encoding="utf-8")
-    return app_root
+from core.litlaunch_adapter import ROLETHREAD_LITLAUNCH_TITLE, resolve_rolethread_root
 
 
 def test_parse_launch_args_defaults_to_browser_mode():
     options = root_launcher.parse_launch_args([])
 
-    assert options.launch_mode == launcher.LAUNCH_MODE_NORMAL
+    assert options.launch_mode == root_launcher.LAUNCH_MODE_NORMAL
     assert options.debug is False
 
 
 def test_parse_launch_args_supports_webapp_and_debug():
     options = root_launcher.parse_launch_args(["--webapp", "--debug"])
 
-    assert options.launch_mode == launcher.LAUNCH_MODE_WEBAPP
+    assert options.launch_mode == root_launcher.LAUNCH_MODE_WEBAPP
     assert options.debug is True
 
 
 def test_parse_launch_args_supports_diag_alias_for_launcher_debug():
     options = root_launcher.parse_launch_args(["--webapp", "--diag"])
 
-    assert options.launch_mode == launcher.LAUNCH_MODE_WEBAPP
+    assert options.launch_mode == root_launcher.LAUNCH_MODE_WEBAPP
     assert options.debug is True
 
 
-def test_manual_webapp_config_starts_streamlit_headless(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    python_path = tmp_path / "python.exe"
-    python_path.write_text("", encoding="utf-8")
+def test_browser_launcher_uses_litlaunch_source_config():
+    launcher = root_launcher.build_browser_launcher()
+    config = launcher.config
 
-    config = root_launcher.build_manual_launcher_config(
-        root_launcher.LaunchOptions(launch_mode=launcher.LAUNCH_MODE_WEBAPP),
-        app_root=app_root,
-        env={"LOCALAPPDATA": str(tmp_path / "local")},
-        current_executable=str(python_path),
-        shutdown_port=54321,
-        shutdown_token="token",
-    )
-
-    assert config.app_root == app_root.resolve()
-    assert config.launch_mode == launcher.LAUNCH_MODE_WEBAPP
-    assert config.bundled_mode is False
-    assert config.shutdown_port == 54321
-    assert config.shutdown_token == "token"
-    assert config.shutdown_diagnostics is False
-    assert config.command[:4] == (str(python_path), "-m", "streamlit", "run")
-    assert "--server.port" in config.command
-    assert config.command[config.command.index("--server.port") + 1] == "8501"
-    assert "--server.address" in config.command
-    assert config.command[config.command.index("--server.address") + 1] == "127.0.0.1"
-    assert "--server.headless" in config.command
-    assert config.command[config.command.index("--server.headless") + 1] == "true"
-    assert "--" not in config.command
+    assert config.app_path.name == "app.py"
+    assert config.title == ROLETHREAD_LITLAUNCH_TITLE
+    assert config.mode == LaunchMode.BROWSER
+    assert config.browser == BrowserChoice.AUTO
+    assert config.host == "127.0.0.1"
+    assert config.port == 8501
+    assert config.auto_port is False
+    assert config.cwd == resolve_rolethread_root()
+    assert config.app_args == ()
 
 
-def test_manual_webapp_debug_config_enables_shutdown_diagnostics(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    python_path = tmp_path / "python.exe"
-    python_path.write_text("", encoding="utf-8")
-
-    config = root_launcher.build_manual_launcher_config(
-        root_launcher.LaunchOptions(
-            launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-            debug=True,
-        ),
-        app_root=app_root,
-        env={"LOCALAPPDATA": str(tmp_path / "local")},
-        current_executable=str(python_path),
-        shutdown_port=54321,
-        shutdown_token="token",
-    )
-
-    assert config.shutdown_diagnostics is True
-
-
-def test_manual_browser_config_keeps_normal_streamlit_browser_flow(tmp_path):
-    app_root = _make_app_root(tmp_path)
-    python_path = tmp_path / "python.exe"
-    python_path.write_text("", encoding="utf-8")
-
-    config = root_launcher.build_manual_launcher_config(
-        root_launcher.LaunchOptions(launch_mode=launcher.LAUNCH_MODE_NORMAL),
-        app_root=app_root,
-        env={"LOCALAPPDATA": str(tmp_path / "local")},
-        current_executable=str(python_path),
-        shutdown_port=54321,
-        shutdown_token="token",
-    )
-
-    assert config.launch_mode == launcher.LAUNCH_MODE_NORMAL
-    assert "--server.headless" not in config.command
-    assert "--server.address" not in config.command
-    assert config.command == (
-        str(python_path),
-        "-m",
-        "streamlit",
-        "run",
-        "app.py",
-        "--server.port",
-        "8501",
-    )
-
-
-def test_webapp_run_delegates_to_lifecycle_with_status_callback():
+def test_webapp_run_uses_litlaunch_session_and_window_monitor():
     calls = []
-
-    config = launcher.LauncherConfig(
-        app_root=Path("X:/rolethread"),
-        python_path=Path("python.exe"),
-        preferences_path=Path("preferences.json"),
-        log_path=Path("launcher.log"),
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit", "run", "app.py"),
+    session = _FakeSession(
+        monitor_result=WindowMonitorResult(
+            supported=True,
+            observed=True,
+            closed=True,
+            status=WindowMonitorStatus.WINDOW_CLOSED,
+            message="closed",
+        )
     )
 
-    def build_config(options):
-        calls.append(("config", options.launch_mode))
-        return config
-
-    def run_lifecycle(config_arg, *, status_callback=None):
-        calls.append(("lifecycle", config_arg.launch_mode))
-        calls.append(("status_callback", callable(status_callback)))
+    def build_launcher(options, *, console_renderer=None):
+        calls.append(("builder", options.launch_mode, console_renderer is not None))
+        return _FakeLauncher(session)
 
     exit_code = root_launcher.run(
         ["--webapp"],
-        config_builder=build_config,
-        lifecycle_fn=run_lifecycle,
+        launcher_builder=build_launcher,
+        platform_detector_factory=_FakePlatformDetector,
+        window_monitor_factory=lambda platform: _FakeMonitor(calls),
     )
 
     assert exit_code == 0
-    assert calls == [
-        ("config", launcher.LAUNCH_MODE_WEBAPP),
-        ("lifecycle", launcher.LAUNCH_MODE_WEBAPP),
-        ("status_callback", True),
+    assert calls[:3] == [
+        ("builder", root_launcher.LAUNCH_MODE_WEBAPP, True),
+        ("detect",),
+        ("capture", ROLETHREAD_LITLAUNCH_TITLE),
     ]
+    assert session.run_called is True
+    assert session.monitor_called is True
+    assert session.stopped is False
 
 
-def test_browser_run_without_debug_keeps_quiet_lifecycle_callback():
-    calls = []
-    config = launcher.LauncherConfig(
-        app_root=Path("X:/rolethread"),
-        python_path=Path("python.exe"),
-        preferences_path=Path("preferences.json"),
-        log_path=Path("launcher.log"),
-        launch_mode=launcher.LAUNCH_MODE_NORMAL,
-        command=("python.exe", "-m", "streamlit", "run", "app.py"),
+def test_webapp_run_stops_session_when_monitoring_fails():
+    session = _FakeSession(
+        monitor_result=WindowMonitorResult(
+            supported=True,
+            observed=False,
+            closed=False,
+            status=WindowMonitorStatus.TIMEOUT,
+            message="timeout",
+        )
     )
 
-    def build_config(options):
-        calls.append(("config", options.launch_mode))
-        return config
+    exit_code = root_launcher.run(
+        ["--webapp"],
+        launcher_builder=lambda options, *, console_renderer=None: _FakeLauncher(
+            session
+        ),
+        platform_detector_factory=_FakePlatformDetector,
+        window_monitor_factory=lambda platform: _FakeMonitor([]),
+    )
 
-    def run_lifecycle(config_arg):
-        calls.append(("lifecycle", config_arg.launch_mode))
+    assert exit_code == 1
+    assert session.stopped is True
+
+
+def test_browser_run_waits_on_litlaunch_session():
+    session = _FakeSession(wait_result=0)
 
     exit_code = root_launcher.run(
         ["--browser"],
-        config_builder=build_config,
-        lifecycle_fn=run_lifecycle,
-    )
-
-    assert exit_code == 0
-    assert calls == [
-        ("config", launcher.LAUNCH_MODE_NORMAL),
-        ("lifecycle", launcher.LAUNCH_MODE_NORMAL),
-    ]
-
-
-def test_webapp_run_prints_lifecycle_status_without_debug(capsys):
-    config = launcher.LauncherConfig(
-        app_root=Path("X:/rolethread"),
-        python_path=Path("python.exe"),
-        preferences_path=Path("preferences.json"),
-        log_path=Path("launcher.log"),
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=("python.exe", "-m", "streamlit", "run", "app.py"),
-    )
-
-    def build_config(options):
-        return config
-
-    def run_lifecycle(config_arg, *, status_callback=None):
-        status_callback("Waiting for Streamlit health endpoint.")
-        status_callback("Launching Edge app-mode window.")
-
-    exit_code = root_launcher.run(
-        ["--webapp"],
-        config_builder=build_config,
-        lifecycle_fn=run_lifecycle,
-    )
-
-    output = capsys.readouterr().out
-    assert exit_code == 0
-    assert "[RoleThread Launcher] Building launcher configuration." not in output
-    assert "[RoleThread Launcher] Command:" not in output
-    assert "[RoleThread Launcher] Waiting for Streamlit health endpoint." in output
-    assert "[RoleThread Launcher] Launching Edge app-mode window." in output
-
-
-def test_debug_run_prints_lifecycle_status_and_configuration(capsys):
-    config = launcher.LauncherConfig(
-        app_root=Path("X:/rolethread"),
-        python_path=Path("python.exe"),
-        preferences_path=Path("preferences.json"),
-        log_path=Path("launcher.log"),
-        launch_mode=launcher.LAUNCH_MODE_WEBAPP,
-        command=(
-            "python.exe",
-            "-m",
-            "streamlit",
-            "run",
-            "app.py",
-            "--server.headless",
-            "true",
+        launcher_builder=lambda options, *, console_renderer=None: _FakeLauncher(
+            session
         ),
     )
 
-    def build_config(options):
-        return config
-
-    def run_lifecycle(config_arg, *, status_callback=None):
-        status_callback("Waiting for Streamlit health endpoint.")
-        status_callback("Launching Edge app-mode window.")
-        status_callback("Backend exited after graceful shutdown.")
-
-    exit_code = root_launcher.run(
-        ["--webapp", "--debug"],
-        config_builder=build_config,
-        lifecycle_fn=run_lifecycle,
-    )
-
-    output = capsys.readouterr().out
     assert exit_code == 0
-    assert "[RoleThread Launcher] Building launcher configuration." in output
-    assert "[RoleThread Launcher] Managed webapp mode: Streamlit will start headless." in output
-    assert "--server.headless true" in output
-    assert "[RoleThread Launcher] Waiting for Streamlit health endpoint." in output
-    assert "[RoleThread Launcher] Launching Edge app-mode window." in output
-    assert "[RoleThread Launcher] Backend exited after graceful shutdown." in output
+    assert session.wait_called is True
+    assert session.monitor_called is False
+
+
+class _FakeLauncher:
+    def __init__(self, session):
+        self.session = session
+
+    def build_launch_plan(self):
+        return SimpleNamespace(
+            command_display="python -m streamlit run app.py",
+            app_url="http://127.0.0.1:8501",
+        )
+
+    def run(self):
+        self.session.run_called = True
+        return self.session
+
+
+class _FakeSession:
+    ok = True
+    url = "http://127.0.0.1:8501"
+    browser = SimpleNamespace(kind=None)
+
+    def __init__(self, *, monitor_result=None, wait_result=0):
+        self.monitor_result = monitor_result
+        self.wait_result = wait_result
+        self.run_called = False
+        self.monitor_called = False
+        self.wait_called = False
+        self.stopped = False
+
+    def monitor_window(self, *args, **kwargs):
+        self.monitor_called = True
+        return self.monitor_result
+
+    def wait(self):
+        self.wait_called = True
+        return self.wait_result
+
+    def stop(self, **kwargs):
+        self.stopped = True
+
+
+class _FakePlatformDetector:
+    def detect(self):
+        return SimpleNamespace(platform="windows")
+
+
+class _FakeMonitor:
+    def __init__(self, calls):
+        self.calls = calls
+
+    def capture(self, target):
+        self.calls.append(("detect",))
+        self.calls.append(("capture", target.title))
+        return (WindowInfo(handle="0x100", title=target.title),)
 
 
 def test_launcher_status_formatting_keeps_plain_text_without_color():
