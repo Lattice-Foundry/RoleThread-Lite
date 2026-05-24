@@ -1,15 +1,17 @@
 # Developer Launch and Diagnostics
 
-RoleThread has two source launch paths:
+RoleThread has three source launch paths:
 
 - `python -m litlaunch.cli run --profile rolethread-webapp` for the LitLaunch app-window profile
+- `python -m litlaunch.cli run --profile rolethread-browser` for a secondary LitLaunch browser smoke profile
 - `streamlit run app.py` for plain Streamlit browser development
 
-Use the LitLaunch profile path when testing the same runtime shape used by the
-installed Windows app. Use plain Streamlit when working on app UI behavior and
-you do not need app-window closeout or runtime diagnostics.
+Use `rolethread-webapp` when testing the same runtime shape used by the
+installed Windows app. Use `rolethread-browser` when you want LitLaunch runtime
+ownership in a regular browser window. Use plain Streamlit when working on app
+UI behavior and you do not need LitLaunch runtime ownership.
 
-## LitLaunch Profile Launch
+## Official LitLaunch App-Window Profile
 
 ```bat
 python -m litlaunch.cli run --profile rolethread-webapp
@@ -23,6 +25,17 @@ RoleThread's job is narrower: provide product settings, app title, local paths,
 cloud-sync shutdown hooks, and packaged-mode configuration where needed.
 `app.py` should remain launch-semantics-blind. Do not pass a custom `webapp`
 argument through `streamlit run`.
+
+## Secondary Browser Smoke Profile
+
+```bat
+python -m litlaunch.cli run --profile rolethread-browser
+```
+
+This profile is developer-oriented. It opens RoleThread through LitLaunch in a
+regular browser window, still bound to `127.0.0.1`, and is useful for browser
+mode smoke testing. It is not the normal installed-user path and should not be
+presented as the primary source launch command.
 
 ## LitLaunch Diagnostics
 

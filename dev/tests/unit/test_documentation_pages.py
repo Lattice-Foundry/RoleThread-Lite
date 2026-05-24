@@ -241,6 +241,9 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     assert document.article.title == "Developer Launch and Diagnostics"
     assert document.article.category == "For Developers"
     assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
+    assert "python -m litlaunch.cli run --profile rolethread-browser" in document.content
+    assert "secondary LitLaunch browser smoke profile" in document.content
+    assert "not the normal installed-user path" in document.content
     assert "python -m litlaunch report --profile rolethread-webapp --force" in document.content
     assert ".litlaunch/reports/" in document.content
     assert "python -m litlaunch inspect --profile rolethread-webapp --json" in document.content
@@ -1419,6 +1422,14 @@ def test_faq_entries_group_into_clean_sidebar_categories():
         entry.display_question == "How do I launch RoleThread Lite from source?"
         and "python -m litlaunch.cli run --profile rolethread-webapp" in entry.answer
         and "installing-rolethread-lite" in entry.related_help_ids
+        for entry in entries
+    )
+    assert any(
+        entry.display_question
+        == "Can I still use normal Streamlit browser mode from source?"
+        and "python -m litlaunch.cli run --profile rolethread-browser"
+        in entry.answer
+        and "official Windows app-window launch" in entry.answer
         for entry in entries
     )
     assert any(

@@ -903,7 +903,7 @@
   },
   {
     "question": "Installation and launching: Can I still use normal Streamlit browser mode from source?",
-    "answer": "Yes. `streamlit run app.py` remains valid for source and developer browser mode.\n\nThe Windows app-window launch is handled through the `rolethread-webapp` LitLaunch profile.",
+    "answer": "Yes. `streamlit run app.py` remains valid for source and developer browser mode.\n\nThe official Windows app-window launch is handled through the `rolethread-webapp` LitLaunch profile. Developers can also smoke LitLaunch's regular-browser path with `python -m litlaunch.cli run --profile rolethread-browser`.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
