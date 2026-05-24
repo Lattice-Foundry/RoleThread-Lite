@@ -120,6 +120,11 @@ Settings includes installation details that are useful when troubleshooting:
 - resolved platform path defaults
 - whether important paths are platform defaults or user overrides
 
+For runtime support artifacts, use **Support -> Diagnostics**. That page can
+show LitLaunch runtime posture, create downloadable support bundles, and write
+reports under `.litlaunch/reports/`. Review generated reports before sharing
+them outside your machine.
+
 RoleThread Lite V1 officially supports Python 3.14.5. Python 3.14.4 remains the
 minimum supported V1 runtime. Newer Python versions may work, but they are
 untested for V1 unless documented later. Older Python versions are unsupported

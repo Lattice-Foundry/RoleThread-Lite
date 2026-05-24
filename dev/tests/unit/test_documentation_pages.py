@@ -306,6 +306,8 @@ def test_why_rolethread_uses_litlaunch_help_article_is_user_facing():
     assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
     assert "python -m litlaunch report --profile rolethread-webapp --force" in document.content
     assert ".litlaunch/reports/" in document.content
+    assert "Support -> Diagnostics" in document.content
+    assert "downloadable support artifacts" in document.content
     assert "support" in document.content
     assert "not telemetry" in document.content
     assert "LaunchPlan" not in document.content
@@ -1440,6 +1442,7 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     )
     assert any(
         entry.display_question == "How do I run LitLaunch diagnostics?"
+        and "Support -> Diagnostics" in entry.answer
         and "python -m litlaunch report --profile rolethread-webapp --force"
         in entry.answer
         and ".litlaunch/reports/" in entry.answer

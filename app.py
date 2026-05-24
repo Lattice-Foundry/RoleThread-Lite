@@ -45,6 +45,7 @@ from ui.navigation import (
     PAGE_CHARACTER_MANAGEMENT,
     PAGE_CREATE_ENTRY,
     PAGE_DATA_GENERATION,
+    PAGE_DIAGNOSTICS,
     PAGE_EDIT_ENTRIES,
     PAGE_EXPORT,
     PAGE_FAQ,
@@ -70,6 +71,7 @@ from ui.ui_export import render_export_page
 from ui.ui_faq import render_faq_page
 from ui.ui_generation import render_generation_page
 from ui.ui_help import render_help_page
+from ui.litlaunch_diagnostics import render_litlaunch_diagnostics
 from ui.ui_tag_management import render_tag_management_page
 from ui.manage import render_manage_page
 from ui.ui_merge import render_merge_page
@@ -437,6 +439,7 @@ _PAGE_RENDERERS = {
     PAGE_SETTINGS: render_settings_page,
     PAGE_HELP: render_help_page,
     PAGE_FAQ: render_faq_page,
+    PAGE_DIAGNOSTICS: render_litlaunch_diagnostics,
 }
 render_navigation(_PAGE_RENDERERS)
 

@@ -27,6 +27,7 @@ PAGE_INSIGHTS = "Insights"
 PAGE_SETTINGS = "Settings"
 PAGE_HELP = "Help"
 PAGE_FAQ = "FAQ"
+PAGE_DIAGNOSTICS = "Diagnostics"
 
 
 @dataclass(frozen=True)
@@ -139,6 +140,13 @@ _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
         ":material/contact_support:",
         "faq",
     ),
+    PageDefinition(
+        PAGE_DIAGNOSTICS,
+        "Diagnostics",
+        "Support",
+        ":material/troubleshoot:",
+        "diagnostics",
+    ),
 )
 
 # Preserve old visible labels that may still be stored in session state,
@@ -158,7 +166,7 @@ _TOP_NAVIGATION_ORDER = {
     ),
     "Quality": (PAGE_VALIDATION, PAGE_INSIGHTS),
     "Output": (PAGE_DATA_GENERATION, PAGE_MERGE_DATASETS, PAGE_EXPORT),
-    "Support": (PAGE_HELP, PAGE_FAQ, PAGE_SETTINGS),
+    "Support": (PAGE_HELP, PAGE_FAQ, PAGE_DIAGNOSTICS, PAGE_SETTINGS),
 }
 
 _QUICK_NAVIGATION_PRIMARY = (

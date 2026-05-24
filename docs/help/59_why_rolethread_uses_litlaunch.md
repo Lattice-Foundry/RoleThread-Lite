@@ -58,6 +58,11 @@ reports before sharing, especially if your local paths are sensitive. LitLaunch
 reports posture and runtime configuration, but it does not secure Streamlit apps
 by itself.
 
+RoleThread also exposes a **Support -> Diagnostics** page in the app. That page
+uses LitLaunch's generated support surface to show the same local runtime
+posture in a Streamlit-native view, create downloadable support artifacts, and
+write reports under `.litlaunch/reports/` when you choose to generate them.
+
 ## Why This Matters
 
 Earlier RoleThread prototypes proved the need for a stronger local runtime

@@ -150,10 +150,13 @@ LitLaunch diagnostics reports are available through:
 python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Reports are written under `.litlaunch/reports/`. They are support artifacts,
-not telemetry. LitLaunch may include a generic redaction/privacy warning so you
-remember to review local paths before sharing a report. It reports runtime
-posture and configuration; it does not make a Streamlit app secure by itself.
+The installed app also includes **Support -> Diagnostics**, a LitLaunch-powered
+support page that can summarize the local runtime and generate support
+artifacts. Reports are written under `.litlaunch/reports/`. They are support
+artifacts, not telemetry. LitLaunch may include a generic redaction/privacy
+warning so you remember to review local paths before sharing a report. It
+reports runtime posture and configuration; it does not make a Streamlit app
+secure by itself.
 
 Normal source/browser development can still use `streamlit run app.py`.
 

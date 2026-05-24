@@ -53,6 +53,7 @@ def test_page_registry_exposes_legacy_pages():
     assert navigation.PAGE_CREATE_ENTRY in registry
     assert navigation.PAGE_MANAGE_DATASET in registry
     assert navigation.PAGE_DATA_GENERATION in registry
+    assert navigation.PAGE_DIAGNOSTICS in registry
     assert navigation.PAGE_EDIT_ENTRIES in registry
     assert navigation.PAGE_EDIT_ENTRIES == "Edit Entries"
     assert navigation.get_page_title(navigation.PAGE_EDIT_ENTRIES) == "Deep Edit"
@@ -109,6 +110,7 @@ def test_top_navigation_sections_follow_workflow_categories():
         "Support": [
             navigation.PAGE_HELP,
             navigation.PAGE_FAQ,
+            navigation.PAGE_DIAGNOSTICS,
             navigation.PAGE_SETTINGS,
         ],
     }
@@ -134,6 +136,7 @@ def test_quick_navigation_pages_use_curated_rail_groups():
 def test_help_page_owns_sidebar_and_other_pages_use_quick_rail():
     assert navigation.page_owns_sidebar(navigation.PAGE_HELP) is True
     assert navigation.page_owns_sidebar(navigation.PAGE_FAQ) is True
+    assert navigation.page_owns_sidebar(navigation.PAGE_DIAGNOSTICS) is False
     assert navigation.page_owns_sidebar(navigation.PAGE_MANAGE_DATASET) is False
     assert navigation.page_owns_sidebar("Unknown") is False
 
