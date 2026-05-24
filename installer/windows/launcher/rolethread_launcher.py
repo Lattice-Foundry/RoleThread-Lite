@@ -217,6 +217,7 @@ def build_launch_profile(config: PackagedLauncherConfig) -> LaunchProfile:
             profile_config,
             app_path=config.app_root / "app.py",
             cwd=config.app_root,
+            runtime_event_log=None,
             extra_env={**dict(profile_config.extra_env), **extra_env},
         ),
     )

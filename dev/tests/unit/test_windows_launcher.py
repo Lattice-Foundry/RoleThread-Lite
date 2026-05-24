@@ -86,6 +86,7 @@ def test_litlaunch_config_preserves_rolethread_packaged_contract(tmp_path):
     assert litlaunch_config.allow_browser_fallback is False
     assert litlaunch_config.cwd == config.app_root
     assert litlaunch_config.app_args == ()
+    assert litlaunch_config.runtime_event_log is None
     assert litlaunch_config.extra_env[PRODUCT_LOG_PATH_ENV] == str(config.log_path)
     assert litlaunch_config.extra_env[ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV] == "1"
 

@@ -1,18 +1,9 @@
 import ast
+import importlib
 from pathlib import Path
 
 import ui.litlaunch_diagnostics as diagnostics_page
-from core.product_log import (
-    PRODUCT_LOG_PATH_ENV,
-    SOURCE_RUNTIME_EVENT_LOG_PATH,
-    resolve_diagnostics_event_log_path,
-)
-
-
-def test_diagnostics_event_log_path_defaults_to_source_runtime_log(monkeypatch):
-    monkeypatch.delenv(PRODUCT_LOG_PATH_ENV, raising=False)
-
-    assert resolve_diagnostics_event_log_path() == SOURCE_RUNTIME_EVENT_LOG_PATH
+from core.product_log import PRODUCT_LOG_PATH_ENV
 
 
 def test_generated_litlaunch_diagnostics_page_imports_and_parses():
@@ -25,21 +16,29 @@ def test_generated_litlaunch_diagnostics_page_imports_and_parses():
     assert diagnostics_page.APP_NAME == "RoleThread Lite"
     assert diagnostics_page.PROFILE_NAME == "rolethread-webapp"
     assert diagnostics_page.THEME == "auto"
-    assert diagnostics_page.EVENT_LOG_PATH == str(SOURCE_RUNTIME_EVENT_LOG_PATH)
+    assert diagnostics_page.EVENT_LOG_PATH == r".litlaunch\runtime-events.log"
+    assert diagnostics_page.EVENT_LOG_ENV_VAR == PRODUCT_LOG_PATH_ENV
     assert "litlaunch-support-bundle.txt" in source
+    assert "use_container_width" not in source
+    assert 'width="stretch"' in source
 
 
-def test_generated_litlaunch_diagnostics_page_uses_product_log_env(monkeypatch):
+def test_generated_litlaunch_diagnostics_page_resolves_event_log(monkeypatch):
+    monkeypatch.delenv(PRODUCT_LOG_PATH_ENV, raising=False)
+    reloaded = importlib.reload(diagnostics_page)
+
+    assert reloaded._runtime_event_log_path() == Path(
+        r".litlaunch\runtime-events.log"
+    ).resolve()
+
     monkeypatch.setenv(
         PRODUCT_LOG_PATH_ENV,
         r"C:\Users\tester\AppData\Local\RoleThread\logs\launcher.log",
     )
 
-    import importlib
-
     reloaded = importlib.reload(diagnostics_page)
 
-    assert reloaded.EVENT_LOG_PATH == (
+    assert reloaded._runtime_event_log_path() == Path(
         r"C:\Users\tester\AppData\Local\RoleThread\logs\launcher.log"
     )
 

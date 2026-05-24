@@ -9,16 +9,16 @@ from __future__ import annotations
 from html import escape
 from pathlib import Path
 import traceback
+import os
 from typing import Any
-
-from core.product_log import resolve_diagnostics_event_log_path
 
 
 APP_NAME = 'RoleThread Lite'
 PROFILE_NAME = 'rolethread-webapp'
 PROJECT_ROOT = '.'
 INCLUDE_EVENTS = True
-EVENT_LOG_PATH = str(resolve_diagnostics_event_log_path())
+EVENT_LOG_PATH = '.litlaunch\\runtime-events.log'
+EVENT_LOG_ENV_VAR = 'ROLETHREAD_LAUNCHER_LOG_PATH'
 PAGE_TITLE = 'Runtime Diagnostics'
 THEME = 'auto'
 
@@ -792,7 +792,8 @@ def _render_event_trail(st: Any) -> None:
 
     _render_section_spacer(st)
     st.subheader("Runtime Event Trail")
-    if not EVENT_LOG_PATH:
+    event_path = _runtime_event_log_path()
+    if event_path is None:
         _render_notice(
             st,
             "info",
@@ -800,7 +801,6 @@ def _render_event_trail(st: Any) -> None:
         )
         return
 
-    event_path = _resolve_project_path(EVENT_LOG_PATH)
     if not event_path.is_file():
         _render_notice(st, "info", "No runtime event log found.")
         st.code(str(event_path))
@@ -852,9 +852,11 @@ def _section_attention_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _event_category_counts() -> dict[str, int]:
-    if not INCLUDE_EVENTS or not EVENT_LOG_PATH:
+    if not INCLUDE_EVENTS:
         return {}
-    event_path = _resolve_project_path(EVENT_LOG_PATH)
+    event_path = _runtime_event_log_path()
+    if event_path is None:
+        return {}
     if not event_path.is_file():
         return {}
     counts: dict[str, int] = {}
@@ -1074,3 +1076,13 @@ def _resolve_project_path(value: str) -> Path:
     if path.is_absolute():
         return path
     return _project_root() / path
+
+
+def _runtime_event_log_path() -> Path | None:
+    if EVENT_LOG_ENV_VAR:
+        env_value = os.environ.get(EVENT_LOG_ENV_VAR)
+        if env_value:
+            return _resolve_project_path(env_value)
+    if EVENT_LOG_PATH:
+        return _resolve_project_path(EVENT_LOG_PATH)
+    return None
