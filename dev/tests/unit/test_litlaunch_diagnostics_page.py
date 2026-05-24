@@ -75,3 +75,69 @@ def test_generated_litlaunch_diagnostics_page_counts_jsonl_events(
 
     monkeypatch.delenv(PRODUCT_LOG_PATH_ENV, raising=False)
     importlib.reload(diagnostics_page)
+
+
+def test_generated_litlaunch_diagnostics_page_groups_sessions_newest_first():
+    records = [
+        {
+            "name": "launch_planned",
+            "category": "launch",
+            "level": "info",
+            "timestamp": "2026-05-24T21:00:00+00:00",
+            "details": {"mode": "webapp", "browser": "Microsoft Edge"},
+        },
+        {
+            "name": "port_released",
+            "category": "port",
+            "level": "info",
+            "timestamp": "2026-05-24T21:00:03+00:00",
+            "details": {"host": "127.0.0.1", "port": "8501"},
+        },
+        {
+            "name": "launch_planned",
+            "category": "launch",
+            "level": "info",
+            "timestamp": "2026-05-24T22:00:00+00:00",
+            "details": {
+                "mode": "webapp",
+                "browser": "Microsoft Edge",
+                "host": "127.0.0.1",
+                "port": "8501",
+            },
+        },
+        {
+            "name": "monitor_started",
+            "category": "monitor",
+            "level": "info",
+            "timestamp": "2026-05-24T22:00:01+00:00",
+            "details": {"target": "RoleThread Lite"},
+        },
+        {
+            "name": "hook_succeeded",
+            "category": "hook",
+            "level": "info",
+            "timestamp": "2026-05-24T22:00:02+00:00",
+            "details": {"label": "Cloud backup sync"},
+        },
+        {
+            "name": "port_released",
+            "category": "port",
+            "level": "info",
+            "timestamp": "2026-05-24T22:00:04+00:00",
+            "details": {"host": "127.0.0.1", "port": "8501"},
+        },
+    ]
+
+    sessions = diagnostics_page._group_runtime_sessions(records)
+
+    assert [session[0]["timestamp"] for session in sessions] == [
+        "2026-05-24T22:00:00+00:00",
+        "2026-05-24T21:00:00+00:00",
+    ]
+    summary = diagnostics_page._summarize_runtime_session(sessions[0])
+    assert summary["title"] == "Webapp launched in Microsoft Edge"
+    assert summary["fields"]["Duration"] == "4.0s"
+    assert summary["fields"]["Status"] == "Clean shutdown"
+    assert summary["fields"]["Host"] == "127.0.0.1"
+    assert summary["fields"]["Port"] == "8501"
+    assert summary["fields"]["Hooks"] == "1 completed, 0 failed"

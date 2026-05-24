@@ -6,6 +6,7 @@ it to match your Streamlit application.
 
 from __future__ import annotations
 
+from datetime import datetime
 from html import escape
 from pathlib import Path
 import json
@@ -125,9 +126,9 @@ def render_litlaunch_diagnostics() -> None:
     _render_summary(st, data)
     _render_posture_cards(st, data)
     _render_operational_snapshot(st, data)
+    _render_runtime_sessions(st)
     _render_artifact_actions(st, report)
     _render_sections(st, data)
-    _render_event_trail(st)
 
 
 def _collect_diagnostics() -> tuple[Any | None, str | None, str | None]:
@@ -393,6 +394,44 @@ def _inject_litlaunch_styles(st: Any) -> None:
 .litlaunch-pill-error {{
     background: {theme["error_pill_bg"]};
     color: {theme["error"]};
+}}
+.litlaunch-session-card {{
+    background: {theme["surface_soft"]};
+    border: 1px solid {theme["row_border"]};
+    border-left: 4px solid {theme["blue"]};
+    border-radius: 0.48rem;
+    margin: 0.52rem 0 0.72rem 0;
+    padding: 0.75rem 0.85rem;
+}}
+.litlaunch-session-title {{
+    color: {theme["surface_text"]};
+    font-size: 1.08rem;
+    font-weight: 800;
+    line-height: 1.3;
+}}
+.litlaunch-session-subtitle {{
+    color: {theme["message"]};
+    font-size: 0.92rem;
+    line-height: 1.45;
+    margin-top: 0.18rem;
+}}
+.litlaunch-session-grid {{
+    display: grid;
+    gap: 0.45rem 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    margin-top: 0.68rem;
+}}
+.litlaunch-session-field-label {{
+    color: {theme["muted"]};
+    font-size: 0.76rem;
+    font-weight: 750;
+    text-transform: uppercase;
+}}
+.litlaunch-session-field-value {{
+    color: {theme["surface_text"]};
+    font-size: 0.92rem;
+    font-weight: 650;
+    margin-top: 0.08rem;
 }}
 </style>
         """,
@@ -791,8 +830,15 @@ def _render_event_trail(st: Any) -> None:
     if not INCLUDE_EVENTS:
         return
 
+    _render_runtime_sessions(st)
+
+
+def _render_runtime_sessions(st: Any) -> None:
+    if not INCLUDE_EVENTS:
+        return
+
     _render_section_spacer(st)
-    st.subheader("Runtime Event Trail")
+    st.subheader("Runtime Sessions")
     event_path = _runtime_event_log_path()
     if event_path is None:
         _render_notice(
@@ -808,10 +854,319 @@ def _render_event_trail(st: Any) -> None:
         return
 
     lines = event_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    records = _runtime_event_records_from_lines(lines)
+    sessions = _group_runtime_sessions(records)
+    if not sessions:
+        _render_notice(
+            st,
+            "info",
+            "No structured runtime sessions were found in the event log.",
+        )
+    else:
+        _render_muted(
+            st,
+            f"Showing {min(len(sessions), 5)} of {len(sessions)} runtime sessions "
+            "from newest to oldest.",
+        )
+        for index, session in enumerate(sessions[:5]):
+            summary = _summarize_runtime_session(session)
+            label = "Latest Session" if index == 0 else f"Previous Session {index}"
+            with st.expander(
+                f"{label} - {summary['status']}",
+                expanded=index == 0,
+            ):
+                _render_runtime_session_summary(st, summary)
+                _render_runtime_session_timeline(st, session)
+    _render_raw_event_trail(st, event_path, lines)
+
+
+def _render_raw_event_trail(st: Any, event_path: Path, lines: list[str]) -> None:
     recent_lines = lines[-80:]
-    _render_muted(st, f"Showing {len(recent_lines)} recent lines from:")
-    st.code(str(event_path))
-    st.code("\n".join(recent_lines) or "No events recorded yet.")
+    with st.expander("Raw Runtime Event Trail", expanded=False):
+        _render_muted(st, f"Showing {len(recent_lines)} recent lines from:")
+        st.code(str(event_path))
+        st.code("\n".join(recent_lines) or "No events recorded yet.")
+
+
+def _runtime_event_records_from_lines(lines: list[str]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for line in lines:
+        record = _parse_runtime_event_record(line)
+        if record is not None:
+            records.append(record)
+    return records
+
+
+def _parse_runtime_event_record(line: str) -> dict[str, Any] | None:
+    text = line.strip()
+    if not text.startswith("{"):
+        return None
+    try:
+        record = json.loads(text)
+    except Exception:
+        return None
+    if not isinstance(record, dict):
+        return None
+
+    name = record.get("name")
+    category = record.get("category")
+    level = record.get("level", "info")
+    timestamp = record.get("timestamp")
+    message = record.get("message", "")
+    details = record.get("details", {})
+    if not isinstance(name, str) or not name.strip():
+        return None
+    if not isinstance(category, str) or not category.strip():
+        return None
+    if not isinstance(level, str):
+        level = "info"
+    if not isinstance(timestamp, str):
+        timestamp = ""
+    if not isinstance(message, str):
+        message = ""
+    if not isinstance(details, dict):
+        details = {}
+
+    return {
+        "name": name.strip(),
+        "category": category.strip(),
+        "level": _normalize_event_level(level),
+        "timestamp": timestamp.strip(),
+        "message": message.strip(),
+        "details": details,
+    }
+
+
+def _group_runtime_sessions(
+    records: list[dict[str, Any]],
+) -> list[list[dict[str, Any]]]:
+    sessions: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    for record in records:
+        if record.get("name") == "launch_planned":
+            if current:
+                sessions.append(current)
+            current = [record]
+        elif current:
+            current.append(record)
+        else:
+            current = [record]
+    if current:
+        sessions.append(current)
+    return list(reversed(sessions))
+
+
+def _summarize_runtime_session(session: list[dict[str, Any]]) -> dict[str, Any]:
+    names = {str(record.get("name", "")) for record in session}
+    levels = {
+        _normalize_event_level(str(record.get("level", "info")))
+        for record in session
+    }
+    start_time = _event_timestamp(session[0]) if session else None
+    end_time = _session_end_time(session)
+
+    status = "Running"
+    status_level = "ok"
+    if "error" in levels or "hook_failed" in names:
+        status = "Error"
+        status_level = "error"
+    elif "warning" in levels:
+        status = "Warning"
+        status_level = "warning"
+    elif "backend_stopped" in names or "port_released" in names:
+        status = "Clean shutdown"
+        status_level = "ok"
+    elif "shutdown_requested" in names:
+        status = "Shutdown requested"
+        status_level = "info"
+
+    mode = _first_event_detail(session, "mode") or "unknown"
+    browser = _first_event_detail(session, "browser")
+    host = _first_event_detail(session, "host")
+    port = _first_event_detail(session, "port")
+    pid = _first_event_detail(session, "pid")
+    monitor_target = _first_event_detail(session, "target")
+    hook_successes = sum(
+        1 for record in session if record.get("name") == "hook_succeeded"
+    )
+    hook_failures = sum(1 for record in session if record.get("name") == "hook_failed")
+
+    title = f"{_display_mode(mode)} launch session"
+    if browser:
+        title = f"{_display_mode(mode)} launched in {browser}"
+
+    subtitle_parts: list[str] = []
+    if host and port:
+        subtitle_parts.append(f"Backend healthy on {host}:{port}")
+    elif port:
+        subtitle_parts.append(f"Backend healthy on port {port}")
+    if monitor_target:
+        subtitle_parts.append(f"Monitoring window: {monitor_target}")
+    elif "monitor_started" in names:
+        subtitle_parts.append("Window monitoring started")
+
+    fields = {
+        "Started": _format_timestamp(start_time) if start_time else "unknown",
+        "Duration": _format_duration(start_time, end_time) if end_time else "running",
+        "Status": status,
+        "Mode": _display_mode(mode),
+    }
+    if browser:
+        fields["Browser"] = browser
+    if host:
+        fields["Host"] = host
+    if port:
+        fields["Port"] = port
+    if pid:
+        fields["Backend PID"] = pid
+    if hook_successes or hook_failures:
+        fields["Hooks"] = f"{hook_successes} completed, {hook_failures} failed"
+
+    return {
+        "title": title,
+        "subtitle": " · ".join(subtitle_parts) or "Runtime lifecycle events recorded.",
+        "status": status,
+        "status_level": status_level,
+        "fields": fields,
+    }
+
+
+def _render_runtime_session_summary(st: Any, summary: dict[str, Any]) -> None:
+    fields = summary.get("fields", {})
+    field_html = ""
+    if isinstance(fields, dict):
+        for label, value in fields.items():
+            field_html += (
+                "<div>"
+                f"<div class='litlaunch-session-field-label'>{_html(label)}</div>"
+                f"<div class='litlaunch-session-field-value'>{_html(value)}</div>"
+                "</div>"
+            )
+    st.markdown(
+        (
+            f"<div class='litlaunch-session-card "
+            f"{_status_class(str(summary.get('status_level', 'info')))}'>"
+            "<div class='litlaunch-session-title'>"
+            f"{_html(summary.get('title', 'Runtime session'))}</div>"
+            "<div class='litlaunch-session-subtitle'>"
+            f"{_html(summary.get('subtitle', ''))}</div>"
+            f"<div class='litlaunch-session-grid'>{field_html}</div>"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _render_runtime_session_timeline(
+    st: Any,
+    session: list[dict[str, Any]],
+) -> None:
+    st.markdown("**Session Timeline**")
+    for record in session[-24:]:
+        timestamp = _event_timestamp(record)
+        detail = _format_timestamp(timestamp) if timestamp else None
+        _render_diagnostic_row(
+            st,
+            _normalize_event_level(str(record.get("level", "info"))),
+            _friendly_event_name(str(record.get("name", ""))),
+            str(record.get("category", "runtime")),
+            detail,
+        )
+
+
+def _friendly_event_name(name: str) -> str:
+    labels = {
+        "launch_planned": "Launch planned",
+        "backend_starting": "Backend startup requested",
+        "backend_started": "Backend process started",
+        "backend_start_failed": "Backend startup failed",
+        "health_ready": "Health check passed",
+        "browser_launched": "Browser launched",
+        "monitor_started": "Window monitoring started",
+        "shutdown_requested": "Shutdown requested",
+        "hook_succeeded": "Shutdown hook completed",
+        "hook_failed": "Shutdown hook failed",
+        "backend_stopped": "Backend stopped",
+        "port_released": "Port released",
+    }
+    return labels.get(name, name.replace("_", " ").strip().title() or "Runtime event")
+
+
+def _session_end_time(session: list[dict[str, Any]]) -> datetime | None:
+    terminal_names = {
+        "port_released",
+        "backend_stopped",
+        "backend_start_failed",
+        "hook_failed",
+    }
+    for record in reversed(session):
+        if record.get("name") in terminal_names:
+            return _event_timestamp(record)
+    return None
+
+
+def _event_timestamp(record: dict[str, Any]) -> datetime | None:
+    timestamp = record.get("timestamp")
+    if not isinstance(timestamp, str) or not timestamp.strip():
+        return None
+    text = timestamp.strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _format_timestamp(value: datetime | None) -> str:
+    if value is None:
+        return "unknown"
+    return value.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _format_duration(start: datetime | None, end: datetime | None) -> str:
+    if start is None or end is None:
+        return "unknown"
+    seconds = max(0.0, (end - start).total_seconds())
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes, remainder = divmod(seconds, 60)
+    if minutes < 60:
+        return f"{int(minutes)}m {int(remainder)}s"
+    hours, minutes = divmod(minutes, 60)
+    return f"{int(hours)}h {int(minutes)}m"
+
+
+def _first_event_detail(session: list[dict[str, Any]], key: str) -> str | None:
+    for record in session:
+        details = record.get("details")
+        if not isinstance(details, dict) or key not in details:
+            continue
+        value = details.get(key)
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        if isinstance(value, int | float | bool):
+            return str(value)
+    return None
+
+
+def _display_mode(mode: str | None) -> str:
+    if not mode:
+        return "Runtime"
+    normalized = str(mode).strip().lower()
+    if normalized == "webapp":
+        return "Webapp"
+    if normalized == "browser":
+        return "Browser"
+    return normalized.replace("_", " ").title()
+
+
+def _normalize_event_level(level: str) -> str:
+    normalized = str(level or "info").strip().lower()
+    if normalized == "warning":
+        return "warning"
+    if normalized == "error":
+        return "error"
+    return "info"
 
 
 def _status_mix_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
