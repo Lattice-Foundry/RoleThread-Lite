@@ -1,6 +1,7 @@
 from litlaunch import HookConsoleVisibility, ShutdownHookStatus, ShutdownResult
 
 from core.cloud_sync import CloudSyncResult
+from core.product_log import PRODUCT_LOG_PATH_ENV, SOURCE_RUNTIME_EVENT_LOG_PATH
 from core import runtime_shutdown as shutdown
 
 
@@ -171,15 +172,15 @@ def test_cloud_sync_closeout_surfaces_failure_without_failing_shutdown(monkeypat
 
 
 def test_cloud_sync_closeout_does_not_print_raw_rolethread_status(monkeypatch, capsys):
-    monkeypatch.setattr(
-        shutdown,
-        "run_cloud_sync_shutdown",
-        lambda **kwargs: CloudSyncResult(
+    def fake_cloud_sync(**kwargs):
+        kwargs["diagnostic_callback"]("Cloud sync: Checking staged cloud sync queue.")
+        return CloudSyncResult(
             ok=True,
             message="Cloud backup sync complete. Copied 1 sidecar.",
             sidecars_copied=1,
-        ),
-    )
+        )
+
+    monkeypatch.setattr(shutdown, "run_cloud_sync_shutdown", fake_cloud_sync)
 
     shutdown.run_cloud_sync_closeout(
         diagnostic_callback=lambda message: None,
@@ -189,6 +190,33 @@ def test_cloud_sync_closeout_does_not_print_raw_rolethread_status(monkeypatch, c
     captured = capsys.readouterr()
     assert "[RoleThread]" not in captured.out
     assert captured.err == ""
+
+
+def test_source_runtime_event_log_gets_structured_cloud_sync_event(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.chdir(tmp_path)
+    def fake_cloud_sync(**kwargs):
+        kwargs["diagnostic_callback"]("Cloud sync: Checking staged cloud sync queue.")
+        return CloudSyncResult(
+            ok=True,
+            message="Cloud backup sync complete. Copied 1 sidecar.",
+            sidecars_copied=1,
+        )
+
+    monkeypatch.setattr(shutdown, "run_cloud_sync_shutdown", fake_cloud_sync)
+
+    shutdown.run_cloud_sync_closeout(
+        environ={PRODUCT_LOG_PATH_ENV: str(SOURCE_RUNTIME_EVENT_LOG_PATH)},
+    )
+
+    log_text = SOURCE_RUNTIME_EVENT_LOG_PATH.read_text(encoding="utf-8")
+    assert "lifecycle=cloud_sync_shutdown" in log_text
+    assert "litlaunch_event level=info category=hook name=cloud_sync_closeout" in (
+        log_text
+    )
+    assert "label=Cloud backup sync" in log_text
 
 
 class _FakeRuntime:

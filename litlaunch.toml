@@ -18,6 +18,9 @@ appear_timeout = 60
 poll_interval = 1
 stable_polls = 2
 
+[profiles.rolethread-webapp.extra_env]
+ROLETHREAD_LAUNCHER_LOG_PATH = ".litlaunch/runtime-events.log"
+
 [profiles.rolethread-browser]
 app_path = "app.py"
 cwd = "."
@@ -29,3 +32,6 @@ host = "127.0.0.1"
 port = 8501
 auto_port = false
 allow_browser_fallback = true
+
+[profiles.rolethread-browser.extra_env]
+ROLETHREAD_LAUNCHER_LOG_PATH = ".litlaunch/runtime-events.log"

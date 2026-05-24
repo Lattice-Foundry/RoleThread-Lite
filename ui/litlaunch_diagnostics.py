@@ -11,14 +11,14 @@ from pathlib import Path
 import traceback
 from typing import Any
 
-from core.product_log import resolve_product_log_path_from_env
+from core.product_log import resolve_diagnostics_event_log_path
 
 
 APP_NAME = 'RoleThread Lite'
 PROFILE_NAME = 'rolethread-webapp'
 PROJECT_ROOT = '.'
 INCLUDE_EVENTS = True
-EVENT_LOG_PATH = str(resolve_product_log_path_from_env() or "") or None
+EVENT_LOG_PATH = str(resolve_diagnostics_event_log_path())
 PAGE_TITLE = 'Runtime Diagnostics'
 THEME = 'auto'
 

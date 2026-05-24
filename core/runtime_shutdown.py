@@ -18,7 +18,11 @@ from litlaunch import (
 
 from core.cloud_sync import CloudSyncResult
 from core.cloud_sync_shutdown import NOT_CONFIGURED_MESSAGE, run_cloud_sync_shutdown
-from core.product_log import resolve_product_log_path_from_env, write_product_log
+from core.product_log import (
+    SOURCE_RUNTIME_EVENT_LOG_PATH,
+    resolve_product_log_path_from_env,
+    write_product_log,
+)
 
 
 ROLETHREAD_SHUTDOWN_DIAGNOSTICS_ENV = "ROLETHREAD_LAUNCHER_SHUTDOWN_DIAGNOSTICS"
@@ -102,7 +106,10 @@ def run_cloud_sync_closeout(
         status_callback=resolved_status_callback,
         diagnostic_callback=resolved_diagnostic_callback,
     )
-    return _cloud_sync_hook_status(result)
+    status = _cloud_sync_hook_status(result)
+    if log_path is not None and _is_source_runtime_event_log(log_path):
+        _write_source_runtime_hook_event(log_path, status)
+    return status
 
 
 def _finish_litlaunch_shutdown(
@@ -157,6 +164,31 @@ def _write_cloud_sync_log(log_path: Path, message: str) -> None:
             f"message={message}",
         ),
     )
+
+
+def _write_source_runtime_hook_event(
+    log_path: Path,
+    status: ShutdownHookStatus,
+) -> None:
+    write_product_log(
+        log_path,
+        (
+            "litlaunch_event "
+            "level=info "
+            "category=hook "
+            "name=cloud_sync_closeout "
+            f"message={_single_line(status.message or 'Cloud sync closeout ran.')} "
+            "label=Cloud backup sync",
+        ),
+    )
+
+
+def _is_source_runtime_event_log(log_path: Path) -> bool:
+    return not log_path.is_absolute() and log_path == SOURCE_RUNTIME_EVENT_LOG_PATH
+
+
+def _single_line(value: object) -> str:
+    return " ".join(str(value).replace("\r", " ").replace("\n", " ").split())
 
 
 def _diagnostics_enabled(environ: Mapping[str, str]) -> bool:

@@ -13,6 +13,7 @@ from core.runtime_profiles import (
     resolve_rolethread_root,
     rolethread_profile_path,
 )
+from core.product_log import PRODUCT_LOG_PATH_ENV
 
 
 def test_webapp_profile_matches_rolethread_contract():
@@ -31,6 +32,7 @@ def test_webapp_profile_matches_rolethread_contract():
     assert config.allow_browser_fallback is False
     assert config.cwd == resolve_rolethread_root()
     assert config.app_args == ()
+    assert config.extra_env[PRODUCT_LOG_PATH_ENV] == ".litlaunch/runtime-events.log"
     assert profile.graceful_timeout_seconds == 15
     assert profile.window_monitor_config.appear_timeout_seconds == 60
     assert profile.window_monitor_config.poll_interval_seconds == 1
@@ -49,6 +51,7 @@ def test_browser_profile_is_plain_browser_mode():
     assert config.port == 8501
     assert config.auto_port is False
     assert config.allow_browser_fallback is True
+    assert config.extra_env[PRODUCT_LOG_PATH_ENV] == ".litlaunch/runtime-events.log"
 
 
 def test_rolethread_profile_path_resolves_project_config():
