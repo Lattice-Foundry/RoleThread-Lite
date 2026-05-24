@@ -9,9 +9,15 @@ import threading
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from litlaunch import LauncherRuntime, ShutdownResult
+from litlaunch import (
+    HookConsoleVisibility,
+    LauncherRuntime,
+    ShutdownHookStatus,
+    ShutdownResult,
+)
 
-from core.cloud_sync_shutdown import run_cloud_sync_shutdown
+from core.cloud_sync import CloudSyncResult
+from core.cloud_sync_shutdown import NOT_CONFIGURED_MESSAGE, run_cloud_sync_shutdown
 from core.product_log import resolve_product_log_path_from_env, write_product_log
 
 
@@ -51,7 +57,7 @@ def configure_runtime_shutdown(
     resolved_runtime.register_shutdown_hook(
         run_cloud_sync_closeout,
         label="Cloud backup sync",
-        success_message="Cloud backup sync complete.",
+        success_message=None,
         failure_message="Cloud backup sync failed.",
         continue_on_error=True,
     )
@@ -67,13 +73,13 @@ def run_cloud_sync_closeout(
     status_callback: Callable[[str], object] | None = None,
     diagnostic_callback: Callable[[str], object] | None = None,
     environ: Mapping[str, str] | None = None,
-) -> bool:
+) -> ShutdownHookStatus:
     """Run RoleThread cloud sync closeout once per backend process."""
 
     global _CLOUD_SYNC_RAN
     with _STATE_LOCK:
         if _CLOUD_SYNC_RAN:
-            return False
+            return ShutdownHookStatus(render=False)
         _CLOUD_SYNC_RAN = True
 
     env = environ if environ is not None else os.environ
@@ -83,7 +89,7 @@ def run_cloud_sync_closeout(
         if diagnostics_enabled is None
         else diagnostics_enabled
     )
-    resolved_status_callback = status_callback or _print_cloud_sync_status
+    resolved_status_callback = _collect_status_messages(status_callback)
     resolved_diagnostic_callback = diagnostic_callback
     if resolved_diagnostic_callback is None and log_path is not None:
         resolved_diagnostic_callback = lambda message: _write_cloud_sync_log(
@@ -91,12 +97,12 @@ def run_cloud_sync_closeout(
             message,
         )
 
-    run_cloud_sync_shutdown(
+    result = run_cloud_sync_shutdown(
         diagnostics_enabled=resolved_diagnostics,
         status_callback=resolved_status_callback,
         diagnostic_callback=resolved_diagnostic_callback,
     )
-    return True
+    return _cloud_sync_hook_status(result)
 
 
 def _finish_litlaunch_shutdown(
@@ -108,8 +114,39 @@ def _finish_litlaunch_shutdown(
     exit_fn(0 if result.ok else 1)
 
 
-def _print_cloud_sync_status(message: str) -> None:
-    print(f"[RoleThread] {message}", flush=True)
+def _collect_status_messages(
+    callback: Callable[[str], object] | None,
+) -> Callable[[str], None]:
+    def collect(message: str) -> None:
+        if callback is not None:
+            callback(message)
+
+    return collect
+
+
+def _cloud_sync_hook_status(result: CloudSyncResult) -> ShutdownHookStatus:
+    if result.ok and result.message == NOT_CONFIGURED_MESSAGE:
+        return ShutdownHookStatus(
+            message="Cloud sync: No staged cloud sync work configured.",
+            console_visibility=HookConsoleVisibility.VERBOSE,
+        )
+    if result.ok and result.warnings:
+        return ShutdownHookStatus(
+            message="Cloud sync warning: Staged cloud sync completed with warnings.",
+            console_visibility=HookConsoleVisibility.NORMAL,
+        )
+    if result.ok:
+        return ShutdownHookStatus(
+            message="Cloud sync: Staged cloud sync completed.",
+            console_visibility=HookConsoleVisibility.NORMAL,
+        )
+    return ShutdownHookStatus(
+        message=(
+            "Cloud sync warning: Staged cloud sync did not complete; "
+            "pending work was preserved."
+        ),
+        console_visibility=HookConsoleVisibility.NORMAL,
+    )
 
 
 def _write_cloud_sync_log(log_path: Path, message: str) -> None:

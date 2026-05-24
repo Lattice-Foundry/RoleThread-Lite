@@ -1,5 +1,6 @@
-from litlaunch import ShutdownResult
+from litlaunch import HookConsoleVisibility, ShutdownHookStatus, ShutdownResult
 
+from core.cloud_sync import CloudSyncResult
 from core import runtime_shutdown as shutdown
 
 
@@ -36,6 +37,7 @@ def test_shutdown_bridge_registers_litlaunch_cleanup_hook():
     assert enabled is True
     assert runtime.endpoint_enabled is True
     assert runtime.hook["label"] == "Cloud backup sync"
+    assert runtime.hook["success_message"] is None
     assert callable(runtime.hook["func"])
     assert callable(runtime.completion_callback)
 
@@ -48,6 +50,11 @@ def test_cloud_sync_closeout_runs_once(monkeypatch):
 
     def fake_cloud_sync(**kwargs):
         calls.append(kwargs)
+        return CloudSyncResult(
+            ok=True,
+            message="Cloud backup sync complete. Copied 1 sidecar.",
+            sidecars_copied=1,
+        )
 
     monkeypatch.setattr(shutdown, "run_cloud_sync_shutdown", fake_cloud_sync)
 
@@ -64,8 +71,10 @@ def test_cloud_sync_closeout_runs_once(monkeypatch):
         environ={},
     )
 
-    assert first is True
-    assert second is False
+    assert isinstance(first, ShutdownHookStatus)
+    assert first.message == "Cloud sync: Staged cloud sync completed."
+    assert first.console_visibility == HookConsoleVisibility.NORMAL
+    assert second.render is False
     assert len(calls) == 1
     assert calls[0]["diagnostics_enabled"] is True
 
@@ -75,7 +84,12 @@ def test_cloud_sync_diagnostics_can_be_enabled_from_env(monkeypatch):
     monkeypatch.setattr(
         shutdown,
         "run_cloud_sync_shutdown",
-        lambda **kwargs: calls.append(kwargs),
+        lambda **kwargs: calls.append(kwargs)
+        or CloudSyncResult(
+            ok=True,
+            message="Cloud backup sync complete. Copied 1 sidecar.",
+            sidecars_copied=1,
+        ),
     )
 
     shutdown.run_cloud_sync_closeout(
@@ -85,6 +99,96 @@ def test_cloud_sync_diagnostics_can_be_enabled_from_env(monkeypatch):
     )
 
     assert calls[0]["diagnostics_enabled"] is True
+
+
+def test_cloud_sync_closeout_hides_not_configured_status(monkeypatch):
+    monkeypatch.setattr(
+        shutdown,
+        "run_cloud_sync_shutdown",
+        lambda **kwargs: CloudSyncResult(
+            ok=True,
+            message="Cloud backup sync is not configured.",
+        ),
+    )
+
+    status = shutdown.run_cloud_sync_closeout(
+        status_callback=lambda message: None,
+        diagnostic_callback=lambda message: None,
+        environ={},
+    )
+
+    assert status.message == "Cloud sync: No staged cloud sync work configured."
+    assert status.console_visibility == HookConsoleVisibility.VERBOSE
+    assert status.ok is True
+
+
+def test_cloud_sync_closeout_surfaces_warning_status(monkeypatch):
+    monkeypatch.setattr(
+        shutdown,
+        "run_cloud_sync_shutdown",
+        lambda **kwargs: CloudSyncResult(
+            ok=True,
+            message="Cloud backup sync complete. Copied 1 sidecar.",
+            sidecars_copied=1,
+            warnings=("old staging directory was removed",),
+        ),
+    )
+
+    status = shutdown.run_cloud_sync_closeout(
+        status_callback=lambda message: None,
+        diagnostic_callback=lambda message: None,
+        environ={},
+    )
+
+    assert status.message == "Cloud sync warning: Staged cloud sync completed with warnings."
+    assert status.console_visibility == HookConsoleVisibility.NORMAL
+    assert status.ok is True
+
+
+def test_cloud_sync_closeout_surfaces_failure_without_failing_shutdown(monkeypatch):
+    monkeypatch.setattr(
+        shutdown,
+        "run_cloud_sync_shutdown",
+        lambda **kwargs: CloudSyncResult(
+            ok=False,
+            message="Cloud backup sync failed: disk full",
+            errors=("disk full",),
+        ),
+    )
+
+    status = shutdown.run_cloud_sync_closeout(
+        status_callback=lambda message: None,
+        diagnostic_callback=lambda message: None,
+        environ={},
+    )
+
+    assert status.message == (
+        "Cloud sync warning: Staged cloud sync did not complete; "
+        "pending work was preserved."
+    )
+    assert status.console_visibility == HookConsoleVisibility.NORMAL
+    assert status.ok is True
+
+
+def test_cloud_sync_closeout_does_not_print_raw_rolethread_status(monkeypatch, capsys):
+    monkeypatch.setattr(
+        shutdown,
+        "run_cloud_sync_shutdown",
+        lambda **kwargs: CloudSyncResult(
+            ok=True,
+            message="Cloud backup sync complete. Copied 1 sidecar.",
+            sidecars_copied=1,
+        ),
+    )
+
+    shutdown.run_cloud_sync_closeout(
+        diagnostic_callback=lambda message: None,
+        environ={},
+    )
+
+    captured = capsys.readouterr()
+    assert "[RoleThread]" not in captured.out
+    assert captured.err == ""
 
 
 class _FakeRuntime:
