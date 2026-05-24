@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from html import escape
 from pathlib import Path
-import traceback
+import json
 import os
+import traceback
 from typing import Any
 
 
@@ -868,6 +869,10 @@ def _event_category_counts() -> dict[str, int]:
 
 
 def _extract_event_category(line: str) -> str | None:
+    json_category = _extract_json_event_category(line)
+    if json_category:
+        return json_category
+
     marker = "category="
     if marker in line:
         category = line.split(marker, 1)[1].split()[0].strip(" ,;")
@@ -878,6 +883,23 @@ def _extract_event_category(line: str) -> str | None:
             value = parts[3].strip("[]")
             return value or None
     return None
+
+
+def _extract_json_event_category(line: str) -> str | None:
+    text = line.strip()
+    if not text.startswith("{"):
+        return None
+    try:
+        record = json.loads(text)
+    except Exception:
+        return None
+    if not isinstance(record, dict):
+        return None
+    category = record.get("category")
+    if not isinstance(category, str):
+        return None
+    category = category.strip()
+    return category or None
 
 
 def _render_posture_card(st: Any, label: str, value: str, status: str) -> None:

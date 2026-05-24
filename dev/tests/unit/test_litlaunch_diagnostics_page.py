@@ -1,5 +1,6 @@
 import ast
 import importlib
+import json
 from pathlib import Path
 
 import ui.litlaunch_diagnostics as diagnostics_page
@@ -41,6 +42,36 @@ def test_generated_litlaunch_diagnostics_page_resolves_event_log(monkeypatch):
     assert reloaded._runtime_event_log_path() == Path(
         r"C:\Users\tester\AppData\Local\RoleThread\logs\launcher.log"
     )
+
+    monkeypatch.delenv(PRODUCT_LOG_PATH_ENV, raising=False)
+    importlib.reload(diagnostics_page)
+
+
+def test_generated_litlaunch_diagnostics_page_counts_jsonl_events(
+    monkeypatch,
+    tmp_path,
+):
+    event_log = tmp_path / "runtime-events.log"
+    records = [
+        {"category": "launch", "details": {"token": "secret"}},
+        {"category": "backend"},
+        {"category": "launch"},
+        {"category": ""},
+        {"category": 123},
+    ]
+    event_log.write_text(
+        "\n".join(json.dumps(record) for record in records)
+        + "\nnot-json\nlitlaunch_event level=info category=hook name=done",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(PRODUCT_LOG_PATH_ENV, str(event_log))
+    reloaded = importlib.reload(diagnostics_page)
+
+    assert reloaded._event_category_counts() == {
+        "backend": 1,
+        "hook": 1,
+        "launch": 2,
+    }
 
     monkeypatch.delenv(PRODUCT_LOG_PATH_ENV, raising=False)
     importlib.reload(diagnostics_page)
