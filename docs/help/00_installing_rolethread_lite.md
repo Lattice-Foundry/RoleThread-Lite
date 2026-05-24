@@ -14,6 +14,10 @@ Windows Edge app window.
 Use the manual source workflow if you want full visibility into the Python
 environment, dependency installation, launch command, and repository files.
 
+RoleThread Lite V1 is tested on Python 3.14.5 with the Streamlit 1.57.x
+runtime line. The source requirements keep Streamlit on that line during the
+V1 stabilization window.
+
 ## Windows Setup Installer
 
 The Windows setup executable is a beta convenience path. It packages a tested

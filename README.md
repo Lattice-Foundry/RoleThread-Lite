@@ -94,6 +94,10 @@ RoleThread Lite V1 officially supports Python `3.14.5`.
 Python `3.14.4` remains the minimum supported V1 runtime. Newer Python versions
 may run, but they are not guaranteed for V1 unless they are tested later.
 
+RoleThread Lite V1 is tested against the Streamlit `1.57.x` runtime line.
+The source install requirements keep Streamlit on that release line for the
+V1 stabilization window.
+
 Windows users have two practical paths:
 
 * **Windows setup executable**: a beta convenience installer published through

@@ -2,6 +2,8 @@ from pathlib import Path
 import sys
 
 from litlaunch import BrowserChoice, LaunchMode, StreamlitLauncher, TrustMode
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 from core.runtime_profiles import (
     ROLETHREAD_APP_TITLE,
@@ -82,3 +84,19 @@ def test_requirements_do_not_pin_litlaunch_before_pypi_release():
     )
 
     assert "litlaunch==" not in requirements
+
+
+def test_requirements_keep_streamlit_on_tested_v1_line():
+    requirements = resolve_rolethread_root().joinpath("requirements.txt").read_text(
+        encoding="utf-8"
+    )
+    streamlit_requirement = next(
+        Requirement(line)
+        for line in requirements.splitlines()
+        if line.startswith("streamlit")
+    )
+
+    specifier = streamlit_requirement.specifier
+    assert Version("1.57.0") in specifier
+    assert Version("1.56.9") not in specifier
+    assert Version("1.58.0") not in specifier

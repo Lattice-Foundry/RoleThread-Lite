@@ -46,6 +46,9 @@ Newer Python versions may run, but they are untested for V1 unless documented la
 Manual Linux/macOS users should create their environment with `python3.14`.
 Windows development users should use `py -3.14`.
 
+RoleThread Lite V1 is tested against Streamlit 1.57.x. Source installs should
+use `requirements.txt` so the app stays on the tested Streamlit line.
+
 ## Fresh-Install Storage Defaults
 
 On a fresh install with no saved preferences, RoleThread uses platform-native defaults.
