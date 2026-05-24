@@ -90,13 +90,37 @@ def test_requirements_keep_streamlit_on_tested_v1_line():
     requirements = resolve_rolethread_root().joinpath("requirements.txt").read_text(
         encoding="utf-8"
     )
-    streamlit_requirement = next(
-        Requirement(line)
-        for line in requirements.splitlines()
-        if line.startswith("streamlit")
-    )
+    streamlit_requirement = _requirement_for(requirements, "streamlit")
 
     specifier = streamlit_requirement.specifier
     assert Version("1.57.0") in specifier
     assert Version("1.56.9") not in specifier
     assert Version("1.58.0") not in specifier
+
+
+def test_requirements_keep_direct_dependencies_on_tested_v1_lines():
+    requirements = resolve_rolethread_root().joinpath("requirements.txt").read_text(
+        encoding="utf-8"
+    )
+    expected_lines = {
+        "pandas": ("3.0.3", "3.0.2", "3.1.0"),
+        "plotly": ("6.7.0", "6.6.9", "6.8.0"),
+        "sqlalchemy": ("2.0.49", "2.0.48", "2.1.0"),
+    }
+
+    for (
+        package_name,
+        (tested_floor, previous_version, next_minor),
+    ) in expected_lines.items():
+        specifier = _requirement_for(requirements, package_name).specifier
+        assert Version(tested_floor) in specifier
+        assert Version(previous_version) not in specifier
+        assert Version(next_minor) not in specifier
+
+
+def _requirement_for(requirements: str, package_name: str) -> Requirement:
+    return next(
+        Requirement(line)
+        for line in requirements.splitlines()
+        if line.lower().startswith(package_name.lower())
+    )
