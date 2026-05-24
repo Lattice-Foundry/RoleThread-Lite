@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 
-from litlaunch import BrowserChoice, LaunchMode, StreamlitLauncher
+from litlaunch import BrowserChoice, LaunchMode, StreamlitLauncher, TrustMode
 
 from core.runtime_profiles import (
     ROLETHREAD_APP_TITLE,
@@ -21,6 +21,7 @@ def test_webapp_profile_matches_rolethread_contract():
     assert config.title == ROLETHREAD_APP_TITLE == "RoleThread Lite"
     assert config.mode == LaunchMode.WEBAPP
     assert config.browser == BrowserChoice.EDGE
+    assert config.trust_mode == TrustMode.STRICT_LOCAL
     assert config.host == "127.0.0.1"
     assert config.port == 8501
     assert config.auto_port is False
@@ -41,6 +42,7 @@ def test_browser_profile_is_plain_browser_mode():
     assert config.title == ROLETHREAD_APP_TITLE
     assert config.mode == LaunchMode.BROWSER
     assert config.browser == BrowserChoice.AUTO
+    assert config.trust_mode == TrustMode.STRICT_LOCAL
     assert config.host == "127.0.0.1"
     assert config.port == 8501
     assert config.auto_port is False
@@ -74,9 +76,9 @@ def test_source_webapp_launch_plan_is_headless_loopback():
     assert "webapp" not in command
 
 
-def test_requirements_pin_current_litlaunch_beta():
+def test_requirements_do_not_pin_litlaunch_before_pypi_release():
     requirements = resolve_rolethread_root().joinpath("requirements.txt").read_text(
         encoding="utf-8"
     )
 
-    assert "litlaunch==0.91.0b0" in requirements
+    assert "litlaunch==" not in requirements

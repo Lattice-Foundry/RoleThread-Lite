@@ -23,6 +23,7 @@ cwd = "."
 title = "RoleThread Lite"
 mode = "webapp"
 browser = "edge"
+trust_mode = "strict_local"
 host = "127.0.0.1"
 port = 8501
 auto_port = false

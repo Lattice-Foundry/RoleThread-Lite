@@ -28,6 +28,7 @@ installer/windows/_work/
 installer/windows/inno/Output/
 
 # Generated files
+.litlaunch/
 *.pyc
 *.jsonl
 !dev/tests/fixtures/**/*.jsonl
