@@ -144,11 +144,14 @@ Normal browser mode remains available through:
 streamlit run app.py
 ```
 
-LitLaunch diagnostics for the app-window profile use:
+LitLaunch diagnostics reports for the app-window profile use:
 
 ```bat
-python -m litlaunch.cli inspect --profile rolethread-webapp
+python -m litlaunch report --profile rolethread-webapp --force
 ```
+
+Reports are written under `.litlaunch/reports/` and are support artifacts, not
+telemetry.
 
 Linux and macOS use normal browser mode. If you want an app-style window on
 those platforms, use your browser's built-in install or shortcut option

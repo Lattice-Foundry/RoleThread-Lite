@@ -51,7 +51,7 @@ Development launch workflows may use:
 
 - `streamlit run app.py`
 - `python -m litlaunch.cli run --profile rolethread-webapp`
-- `python -m litlaunch.cli inspect --profile rolethread-webapp`
+- `python -m litlaunch report --profile rolethread-webapp --force`
 - `.venv\Scripts\python.exe installer\windows\launcher\rolethread_launcher.py`
 - scripts under `installer/windows/scripts/`
 

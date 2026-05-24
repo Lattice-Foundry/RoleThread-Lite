@@ -241,8 +241,12 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     assert document.article.title == "Developer Launch and Diagnostics"
     assert document.article.category == "For Developers"
     assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
-    assert "python -m litlaunch.cli inspect --profile rolethread-webapp" in document.content
-    assert "litlaunch-report.html" in document.content
+    assert "python -m litlaunch report --profile rolethread-webapp --force" in document.content
+    assert ".litlaunch/reports/" in document.content
+    assert "python -m litlaunch inspect --profile rolethread-webapp --json" in document.content
+    assert "python -m litlaunch inspect --profile rolethread-webapp --bundle" in document.content
+    assert "not telemetry" in document.content
+    assert "does not secure a Streamlit app by itself" in document.content
     assert "streamlit run app.py" in document.content
     assert "`dev`" in document.content
     assert "Launch Flags Detected" in document.content
@@ -297,7 +301,10 @@ def test_why_rolethread_uses_litlaunch_help_article_is_user_facing():
     assert "local-first app" in document.content
     assert "LitLaunch provides that runtime layer" in document.content
     assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
-    assert "litlaunch-report.html" in document.content
+    assert "python -m litlaunch report --profile rolethread-webapp --force" in document.content
+    assert ".litlaunch/reports/" in document.content
+    assert "support" in document.content
+    assert "not telemetry" in document.content
     assert "LaunchPlan" not in document.content
     assert "shutdown server" not in document.content
 
@@ -313,7 +320,8 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "~/.local/share/rolethread" in document.content
     assert "~/Library/Application Support/RoleThread" in document.content
     assert "local Microsoft Edge app-window" in document.content
-    assert "python -m litlaunch.cli inspect --profile rolethread-webapp" in document.content
+    assert "python -m litlaunch report --profile rolethread-webapp --force" in document.content
+    assert ".litlaunch/reports/" in document.content
     assert "streamlit run app.py -- webapp" not in document.content
     assert "For setup commands and uninstall instructions" in document.content
     assert "Cloud sync folders are optional backup or sync targets" in document.content
@@ -1421,7 +1429,10 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     )
     assert any(
         entry.display_question == "How do I run LitLaunch diagnostics?"
-        and "litlaunch.cli inspect --profile rolethread-webapp" in entry.answer
+        and "python -m litlaunch report --profile rolethread-webapp --force"
+        in entry.answer
+        and ".litlaunch/reports/" in entry.answer
+        and "not telemetry" in entry.answer
         for entry in entries
     )
     assert any(

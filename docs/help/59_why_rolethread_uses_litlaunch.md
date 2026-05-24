@@ -48,13 +48,15 @@ When runtime troubleshooting is needed, source users can generate a LitLaunch
 diagnostics report:
 
 ```bat
-python -m litlaunch.cli inspect --profile rolethread-webapp --html --output litlaunch-report.html --force
+python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Diagnostics are meant to help explain startup, profile, browser, and local
-runtime behavior. They are support artifacts, not telemetry. Keep generated
-reports out of Git and review them before sharing, especially if your local
-paths are sensitive.
+Reports are written under `.litlaunch/reports/`. Diagnostics are meant to help
+explain startup, profile, browser, and local runtime behavior. They are support
+artifacts, not telemetry. A generic redaction/privacy warning may appear; review
+reports before sharing, especially if your local paths are sensitive. LitLaunch
+reports posture and runtime configuration, but it does not secure Streamlit apps
+by itself.
 
 ## Why This Matters
 

@@ -239,10 +239,19 @@ python -m litlaunch.cli run --profile rolethread-webapp
 For diagnostics:
 
 ```powershell
-python -m litlaunch.cli inspect --profile rolethread-webapp --html --output litlaunch-report.html --force
+python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Generated diagnostics reports should stay out of Git.
+Generated diagnostics reports are written under `.litlaunch/reports/` and
+should stay out of Git. They are support artifacts, not telemetry. A generic
+redaction/privacy warning may appear; review reports before sharing. LitLaunch
+reports runtime posture and configuration, but it does not secure Streamlit apps
+by itself. For advanced support output, use:
+
+```powershell
+python -m litlaunch inspect --profile rolethread-webapp --json
+python -m litlaunch inspect --profile rolethread-webapp --bundle
+```
 
 ## Uninstall Behavior
 

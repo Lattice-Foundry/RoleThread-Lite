@@ -26,21 +26,27 @@ argument through `streamlit run`.
 
 ## LitLaunch Diagnostics
 
-Use LitLaunch inspect when you need a runtime report without launching the app:
+Use LitLaunch report when you need a runtime support artifact without launching
+the app:
 
 ```bat
-python -m litlaunch.cli inspect --profile rolethread-webapp
+python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-For support work, generate an HTML report:
+Reports are written under `.litlaunch/reports/`. They are support artifacts,
+not telemetry. LitLaunch may show a generic redaction/privacy warning so you
+review local paths before sharing. It reports runtime posture and configuration;
+it does not secure a Streamlit app by itself.
+
+Advanced support workflows can still inspect structured profile data:
 
 ```bat
-python -m litlaunch.cli inspect --profile rolethread-webapp --html --output litlaunch-report.html --force
+python -m litlaunch inspect --profile rolethread-webapp --json
+python -m litlaunch inspect --profile rolethread-webapp --bundle
 ```
 
 Diagnostics are useful for profile loading, command planning, browser policy,
-health URLs, and local runtime configuration. Review generated reports before
-sharing them, especially if local file paths are sensitive.
+health URLs, and local runtime configuration.
 
 ## Plain Streamlit Browser Mode
 

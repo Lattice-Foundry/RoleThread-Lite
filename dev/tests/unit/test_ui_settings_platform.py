@@ -121,6 +121,9 @@ def test_obsolete_edge_debug_diagnostics_are_removed_from_settings_ui():
     assert "Duplicate Browser Cleanup Diagnostics" not in source
     assert "Edge Window Debug" not in source
     assert "Edge Process Debug" not in source
+    assert "litlaunch.cli inspect --profile rolethread-webapp" not in source
+    assert "litlaunch-report.html" not in source
+    assert "litlaunch report --profile rolethread-webapp --force" in source
 
 
 def test_settings_no_longer_exposes_webapp_browser_state_reset():

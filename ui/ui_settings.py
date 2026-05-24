@@ -360,7 +360,7 @@ def _render_platform_about() -> None:
         st.caption(
             _format_about_row(
                 "Diagnostics",
-                "`python -m litlaunch.cli inspect --profile rolethread-webapp`",
+                "`python -m litlaunch report --profile rolethread-webapp --force`",
             )
         )
         st.caption(

@@ -81,16 +81,26 @@ main support path for startup failures:
 %LOCALAPPDATA%\RoleThread\logs\launcher.log
 ```
 
-Source/runtime diagnostics use LitLaunch inspect:
+Source/runtime diagnostics use LitLaunch reports:
 
 ```bat
-python -m litlaunch.cli inspect --profile rolethread-webapp
-python -m litlaunch.cli inspect --profile rolethread-webapp --html --output litlaunch-report.html --force
+python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Diagnostics reports are useful for profile, command, browser, health, and
-local runtime questions. Generated reports should stay out of Git and should be
-reviewed before sharing.
+Reports are written under `.litlaunch/reports/` and are useful for profile,
+command, browser, health, and local runtime questions. They are support
+artifacts, not telemetry. Generated reports should stay out of Git and should
+be reviewed before sharing; LitLaunch reports runtime posture and configuration,
+not application security.
+
+Advanced support workflows can still use:
+
+```bat
+python -m litlaunch inspect --profile rolethread-webapp --json
+python -m litlaunch inspect --profile rolethread-webapp --bundle
+```
+
+Use those when structured output is more useful than a report.
 
 ## Shutdown and Cloud Sync
 

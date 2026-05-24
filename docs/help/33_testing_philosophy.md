@@ -99,10 +99,12 @@ Packaging verification is partly manual by design:
 For diagnostics, use:
 
 ```bat
-python -m litlaunch.cli inspect --profile rolethread-webapp --html --output litlaunch-report.html --force
+python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Generated diagnostics reports are support artifacts, not source files.
+Generated diagnostics reports live under `.litlaunch/reports/`. They are
+support artifacts, not telemetry or source files. A generic redaction/privacy
+warning is expected when reports may contain local paths.
 
 ## Contributor Guidance
 
