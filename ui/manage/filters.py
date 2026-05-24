@@ -125,9 +125,11 @@ def render_filters(
         st.session_state.entry_page = 0
         st.session_state.filter_tags = []
 
+    if "filter_only_used" not in st.session_state:
+        st.session_state["filter_only_used"] = True
+
     only_used = st.checkbox(
         "Only show used tags",
-        value=st.session_state.get("filter_only_used", True),
         key="filter_only_used",
         on_change=_reset_page_and_selection,
     )
