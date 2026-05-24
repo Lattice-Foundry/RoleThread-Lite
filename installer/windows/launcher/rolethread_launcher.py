@@ -21,6 +21,7 @@ from litlaunch import (
     MonitoredRunResult,
     PlatformDetector,
     PlatformInfo,
+    RuntimeEvent,
     StreamlitLauncher,
     WindowMonitor,
     run_monitored_webapp,
@@ -45,6 +46,15 @@ APP_NAME = ROLETHREAD_APP_TITLE
 APP_DATA_DIR_NAME = "RoleThread"
 PREFERENCES_FILE_NAME = "preferences.json"
 INTERNAL_STREAMLIT_FLAG = "--rolethread-run-streamlit"
+RUNTIME_EVENT_DETAIL_KEYS = (
+    "browser",
+    "host",
+    "label",
+    "mode",
+    "pid",
+    "port",
+    "returncode",
+)
 
 
 class LauncherConfigurationError(RuntimeError):
@@ -236,6 +246,7 @@ def build_streamlit_launcher(
         build_launch_profile(config).config,
         backend_command_provider=build_backend_provider(config),
         console_renderer=console_renderer,
+        event_sink=build_runtime_event_sink(config),
     )
 
 
@@ -255,7 +266,6 @@ def log_launch_plan(config: PackagedLauncherConfig, plan: LaunchPlan) -> None:
             f"preferences_path={config.preferences_path}",
             f"backend_kind={plan.backend_kind}",
             f"command={plan.command_display}",
-            f"app_url={plan.app_url}",
         ),
     )
 
@@ -279,6 +289,36 @@ def log_runtime_result(
             f"message={result.message}",
         ),
     )
+
+
+def build_runtime_event_sink(
+    config: PackagedLauncherConfig,
+) -> Callable[[RuntimeEvent], None]:
+    """Return a small LitLaunch event sink for the packaged product log."""
+
+    def write_event(event: RuntimeEvent) -> None:
+        write_product_log(config.log_path, (format_runtime_event(event),))
+
+    return write_event
+
+
+def format_runtime_event(event: RuntimeEvent) -> str:
+    details = " ".join(
+        f"{key}={_single_line(event.details[key])}"
+        for key in RUNTIME_EVENT_DETAIL_KEYS
+        if key in event.details and str(event.details[key]).strip()
+    )
+    base = (
+        f"litlaunch_event level={_single_line(event.level)} "
+        f"category={_single_line(event.category)} "
+        f"name={_single_line(event.name)} "
+        f"message={_single_line(event.message)}"
+    )
+    return f"{base} {details}" if details else base
+
+
+def _single_line(value: object) -> str:
+    return " ".join(str(value).replace("\r", " ").replace("\n", " ").split())
 
 
 def get_app_version() -> str:

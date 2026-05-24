@@ -1,8 +1,9 @@
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from litlaunch import BrowserChoice, LaunchMode, MonitoredRunResult
+from litlaunch import BrowserChoice, LaunchMode, MonitoredRunResult, RuntimeEvent
 from litlaunch.windowing import WindowMonitorResult, WindowMonitorStatus
 
 from core.product_log import PRODUCT_LOG_PATH_ENV
@@ -141,6 +142,47 @@ def test_packaged_launch_plan_uses_backend_provider(tmp_path):
     assert "webapp" not in plan.command
 
 
+def test_packaged_launcher_wires_litlaunch_runtime_events_to_product_log(tmp_path):
+    config = launcher.PackagedLauncherConfig(
+        app_root=_make_app_root(tmp_path),
+        launcher_executable=tmp_path / "RoleThreadLauncher.exe",
+        preferences_path=tmp_path / "preferences.json",
+        log_path=tmp_path / "launcher.log",
+        bundled_mode=True,
+    )
+    streamlit_launcher = launcher.build_streamlit_launcher(config)
+
+    assert streamlit_launcher.event_sink is not None
+    streamlit_launcher.event_sink(
+        RuntimeEvent(
+            name="browser_launched",
+            category="browser",
+            level="info",
+            message="Browser launched.\nNewline ignored.",
+            timestamp=datetime.now(UTC),
+            details={
+                "browser": "edge",
+                "host": "127.0.0.1",
+                "port": "8501",
+                "url": "http://127.0.0.1:8501",
+                "shutdown_token": "secret-token",
+                "extra_env": "API_KEY=secret",
+            },
+        )
+    )
+
+    log_text = config.log_path.read_text(encoding="utf-8")
+    assert "litlaunch_event level=info category=browser name=browser_launched" in log_text
+    assert "message=Browser launched. Newline ignored." in log_text
+    assert "browser=edge" in log_text
+    assert "host=127.0.0.1" in log_text
+    assert "port=8501" in log_text
+    assert "url=" not in log_text
+    assert "shutdown_token" not in log_text
+    assert "secret-token" not in log_text
+    assert "API_KEY" not in log_text
+
+
 def test_run_packaged_runtime_delegates_monitored_webapp_to_litlaunch(tmp_path):
     config = launcher.PackagedLauncherConfig(
         app_root=_make_app_root(tmp_path),
@@ -182,6 +224,7 @@ def test_run_packaged_runtime_delegates_monitored_webapp_to_litlaunch(tmp_path):
     log_text = config.log_path.read_text(encoding="utf-8")
     assert "backend_kind=rolethread-packaged" in log_text
     assert "monitor_status=window_closed" in log_text
+    assert "app_url=" not in log_text
 
 
 def test_run_packaged_runtime_returns_litlaunch_failure_code(tmp_path):
