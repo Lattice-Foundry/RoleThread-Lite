@@ -252,7 +252,8 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     assert "does not secure a Streamlit app by itself" in document.content
     assert "streamlit run app.py" in document.content
     assert "`dev`" in document.content
-    assert "Launch Flags Detected" in document.content
+    assert "Support -> Diagnostics" in document.content
+    assert "Launch Flags Detected" not in document.content
     assert "Diagnostics are gated behind `dev`" not in document.content
     assert "Do not pass a custom `webapp`" in document.content
     assert "`app.py` should remain launch-semantics-blind" in document.content

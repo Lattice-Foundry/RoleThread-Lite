@@ -73,23 +73,12 @@ part of this path.
 
 ## App Developer Diagnostics
 
-Use the app-level `dev` flag to expose internal diagnostics inside
-**Settings > About This Installation**:
+Use **Support -> Diagnostics** for RoleThread product diagnostics, LitLaunch
+runtime diagnostics, support artifacts, and the runtime event trail.
 
-```bat
-streamlit run app.py -- dev
-```
-
-Dev mode keeps raw platform, path, browser, and runtime metadata out of the
-default About view while keeping those details available to contributors.
-
-The dev view adds diagnostic sections such as:
-
-- Launch Flags Detected
-- Platform Capabilities
-- Browser Support
-- Platform Path Defaults
-- Raw Platform Diagnostics
+The older app-side `dev` flag is intentionally not the primary diagnostics
+surface. Runtime and storage support details now live in the Diagnostics page so
+Settings can stay focused on user preferences.
 
 ## Installed Runtime
 

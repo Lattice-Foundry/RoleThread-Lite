@@ -186,14 +186,15 @@ Unknown platforms:
 
 ## Where To Check This In The App
 
-Open **Settings** and review **About This Installation**.
+Open **Settings** and review **About This Installation** for the concise
+product, platform, support, and Python runtime summary.
 
-In normal mode, that section shows:
+For deeper operational detail, open **Support -> Diagnostics**. That page shows:
 
-- detected platform
-- Python runtime compatibility
-- launch behavior
-- storage locations
+- runtime posture
+- storage paths
+- cloud backup status
+- product logs and support artifact locations
+- LitLaunch diagnostics and runtime event history
 
-Developer diagnostics are shown only when the app is launched with developer
-flags.
+Settings owns preferences. Diagnostics owns support detail.

@@ -18,12 +18,10 @@ from core.cloud_sync import (
     sync_configured_backups_to_cloud,
 )
 from core.platform import (
-    PATH_SOURCE_PLATFORM_DEFAULT,
     detect_onedrive_path,
     detect_platform,
-    get_platform_path_resolutions,
 )
-from core.preferences import export_settings, get_all_settings, import_settings
+from core.preferences import export_settings, import_settings
 from core.runtime import get_python_runtime_status
 from core.version import ROLETHREAD_VERSION
 from ui.file_dialogs import (
@@ -309,13 +307,7 @@ def _render_platform_about() -> None:
     """Render current OS support information without changing behavior."""
 
     platform_info = detect_platform()
-    dev_mode = _is_dev_mode()
-    flags = st.session_state.get("_runtime_launch_flags")
-    capabilities = platform_info.capabilities
-    diagnostics = platform_info.diagnostics
     runtime_status = get_python_runtime_status()
-    preferences = get_all_settings()
-    platform_paths = get_platform_path_resolutions(preferences=preferences)
 
     st.subheader("About This Installation")
     version_col, platform_col, support_col, python_col = st.columns(4)
@@ -332,83 +324,11 @@ def _render_platform_about() -> None:
         st.markdown("**Python**")
         st.caption(runtime_status.current_version)
 
-    with st.expander("Python Runtime Compatibility"):
-        st.caption(_format_about_row("Current Python", f"`{runtime_status.current_version}`"))
-        st.caption(_format_about_row("Official Python", f"`{runtime_status.official_version}`"))
-        st.caption(_format_about_row("Runtime status", f"`{runtime_status.status_label}`"))
-        st.caption(_format_about_row("Message", runtime_status.message))
-
-    with st.expander("Launch Behavior"):
-        st.caption(
-            _format_about_row(
-                "Launch mode",
-                _format_public_launch_mode(flags, preferences),
-            )
-        )
-        st.caption(
-            _format_about_row(
-                "Runtime owner",
-                "`LitLaunch`",
-            )
-        )
-        st.caption(
-            _format_about_row(
-                "Source app-window profile",
-                "`python -m litlaunch.cli run --profile rolethread-webapp`",
-            )
-        )
-        st.caption(
-            _format_about_row(
-                "Diagnostics",
-                "`python -m litlaunch report --profile rolethread-webapp --force`",
-            )
-        )
-        st.caption(
-            _format_about_row(
-                "Note",
-                "Local app-window launch is handled by LitLaunch profiles or the installed app.",
-            )
-        )
-
-    if dev_mode:
-        with st.expander("Launch Flags Detected"):
-            st.caption(_format_about_row("Flags", _format_launch_flags_detected(flags)))
-
-        with st.expander("Platform Capabilities"):
-            for label, enabled in _platform_capability_labels(capabilities):
-                st.caption(_format_about_row(label, f"`{'Yes' if enabled else 'No'}`"))
-
-        with st.expander("Platform Path Defaults"):
-            _render_platform_paths(platform_paths, include_source=True, include_advanced=True)
-
-        with st.expander("Raw Platform Diagnostics"):
-            st.caption(_format_about_row("Platform slug", f"`{platform_info.platform_slug}`"))
-            st.caption(_format_about_row("Raw system", f"`{diagnostics.raw_system}`"))
-            st.caption(_format_about_row("Release", f"`{diagnostics.release}`"))
-            st.caption(_format_about_row("Version", f"`{diagnostics.version}`"))
-            st.caption(
-                _format_about_row("Platform string", f"`{diagnostics.platform_string}`")
-            )
-            st.caption(_format_about_row("Machine", f"`{diagnostics.machine}`"))
-            st.caption(_format_about_row("Processor", f"`{diagnostics.processor}`"))
-            st.caption(
-                _format_about_row(
-                    "Python architecture",
-                    f"`{diagnostics.python_architecture}`",
-                )
-            )
-            st.caption(
-                _format_about_row(
-                    "Python implementation",
-                    f"`{diagnostics.python_implementation}`",
-                )
-            )
-
-    else:
-        with st.expander("Storage Locations"):
-            _render_platform_paths(platform_paths, include_source=False, include_advanced=False)
-            with st.expander("Advanced storage paths"):
-                _render_advanced_platform_paths(platform_paths, include_source=False)
+    st.caption(f"Python status: {runtime_status.status_label}.")
+    st.caption(
+        "For runtime details, storage paths, cloud backup status, logs, and "
+        "support reports, open **Support -> Diagnostics**."
+    )
 
     st.divider()
     st.markdown(_format_project_info_markup(), unsafe_allow_html=True)
@@ -436,92 +356,6 @@ def _format_project_info_markup() -> str:
   </div>
 </div>
 """
-
-
-def _platform_capability_labels(capabilities) -> tuple[tuple[str, bool], ...]:
-    return (
-        ("Installer support", capabilities.supports_installer),
-        ("OneDrive detection", capabilities.supports_onedrive),
-        ("Safe cloud sync support", capabilities.supports_safe_cloud_sync),
-        ("Linux manual run support", capabilities.supports_linux_manual_run),
-        ("macOS beta support", capabilities.supports_macos_beta),
-    )
-
-
-def _render_platform_paths(
-    platform_paths,
-    *,
-    include_source: bool,
-    include_advanced: bool,
-) -> None:
-    for label, resolved_path in (
-        ("App data", platform_paths.app_data_root),
-        ("Workspace", platform_paths.workspace_root),
-        ("Training data", platform_paths.training_data_dir),
-        ("Exports", platform_paths.exports_dir),
-        ("Imports", platform_paths.imports_dir),
-        ("Backups", platform_paths.backups_dir),
-    ):
-        st.caption(
-            _format_about_row(
-                label,
-                _format_platform_path_value(resolved_path, include_source=include_source),
-            )
-        )
-    if include_advanced:
-        _render_advanced_platform_paths(platform_paths, include_source=include_source)
-
-
-def _render_advanced_platform_paths(platform_paths, *, include_source: bool) -> None:
-    for label, resolved_path in (
-        ("Logs", platform_paths.logs_dir),
-        ("Cache", platform_paths.cache_dir),
-        ("Database", platform_paths.database_path),
-        ("Preferences", platform_paths.preferences_path),
-    ):
-        st.caption(
-            _format_about_row(
-                label,
-                _format_platform_path_value(resolved_path, include_source=include_source),
-            )
-        )
-
-
-def _format_path_source(source: str) -> str:
-    if source == PATH_SOURCE_PLATFORM_DEFAULT:
-        return "Platform Default"
-    return "User Override"
-
-
-def _is_dev_mode() -> bool:
-    return bool(st.session_state.get("_dev_mode"))
-
-
-def _format_public_launch_mode(flags, preferences: dict) -> str:
-    return "`Dev diagnostics`" if getattr(flags, "dev", False) else "`Normal Streamlit mode`"
-
-
-def _format_launch_flags_detected(flags) -> str:
-    active: list[str] = []
-    if getattr(flags, "dev", False):
-        active.append("dev")
-    if not active:
-        return "`None`"
-    return "`" + "`, `".join(active) + "`"
-
-
-def _format_platform_path_value(resolved_path, *, include_source: bool = True) -> str:
-    if not include_source:
-        return f"`{resolved_path.path}`"
-    source_label = _format_path_source(resolved_path.source)
-    value = f"`{resolved_path.path}` ({source_label})"
-    if resolved_path.source != PATH_SOURCE_PLATFORM_DEFAULT:
-        value += f"; default `{resolved_path.platform_default}`"
-    return value
-
-
-def _format_about_row(label: str, value: str) -> str:
-    return f"{label}: {value}"
 
 
 def _normalize_folder_path(raw_path: str, *, label: str) -> str:

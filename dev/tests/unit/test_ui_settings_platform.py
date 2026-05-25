@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from core.platform import detect_platform
-from core.app_flags import LaunchFlags
 from core.cloud_sync import (
     BACKUP_DESTINATION_BOX,
     BACKUP_DESTINATION_DROPBOX,
@@ -11,13 +10,6 @@ from core.cloud_sync import (
     BACKUP_DESTINATION_ONEDRIVE,
 )
 from ui import ui_settings
-
-
-class _ResolvedPath:
-    def __init__(self, path, source, platform_default):
-        self.path = path
-        self.source = source
-        self.platform_default = platform_default
 
 
 def _option_values(options):
@@ -55,54 +47,12 @@ def test_cloud_destination_options_hide_onedrive_when_capability_unsupported():
         ]
 
 
-def test_platform_path_format_hides_source_outside_dev_mode():
-    resolved = _ResolvedPath(
-        path="C:/Users/digit/RoleThread/training_data",
-        source="user_override",
-        platform_default="C:/Users/digit/RoleThread/training_data",
-    )
-
-    assert ui_settings._format_platform_path_value(
-        resolved,
-        include_source=False,
-    ) == "`C:/Users/digit/RoleThread/training_data`"
-
-
-def test_platform_path_format_shows_source_in_dev_mode():
-    resolved = _ResolvedPath(
-        path="X:/custom/training_data",
-        source="user_override",
-        platform_default="C:/Users/digit/RoleThread/training_data",
-    )
-
-    value = ui_settings._format_platform_path_value(resolved, include_source=True)
-
-    assert "User Override" in value
-    assert "default `C:/Users/digit/RoleThread/training_data`" in value
-
-
 def test_settings_no_longer_exposes_webapp_preference_toggle():
     source = Path(ui_settings.__file__).read_text(encoding="utf-8")
 
     assert "Experimental Features" not in source
     assert "Enable webapp launch mode" not in source
     assert "_enable_webapp_launch_mode_checkbox" not in source
-
-
-def test_public_launch_mode_summarizes_active_or_preferred_mode():
-    assert ui_settings._format_public_launch_mode(
-        LaunchFlags(),
-        {},
-    ) == "`Normal Streamlit mode`"
-    assert ui_settings._format_public_launch_mode(
-        LaunchFlags(dev=True),
-        {},
-    ) == "`Dev diagnostics`"
-
-
-def test_launch_flags_detected_summary_is_compact():
-    assert ui_settings._format_launch_flags_detected(LaunchFlags()) == "`None`"
-    assert ui_settings._format_launch_flags_detected(LaunchFlags(dev=True)) == "`dev`"
 
 
 def test_obsolete_edge_debug_diagnostics_are_removed_from_settings_ui():
@@ -123,7 +73,23 @@ def test_obsolete_edge_debug_diagnostics_are_removed_from_settings_ui():
     assert "Edge Process Debug" not in source
     assert "litlaunch.cli inspect --profile rolethread-webapp" not in source
     assert "litlaunch-report.html" not in source
-    assert "litlaunch report --profile rolethread-webapp --force" in source
+    assert "litlaunch report --profile rolethread-webapp --force" not in source
+
+
+def test_settings_about_is_concise_and_points_to_diagnostics():
+    source = Path(ui_settings.__file__).read_text(encoding="utf-8")
+
+    assert "About This Installation" in source
+    assert "Support -> Diagnostics" in source
+    assert "Python status:" in source
+    assert "Launch Behavior" not in source
+    assert "Source app-window profile" not in source
+    assert "Python Runtime Compatibility" not in source
+    assert "Storage Locations" not in source
+    assert "Advanced storage paths" not in source
+    assert "Platform Path Defaults" not in source
+    assert "Raw Platform Diagnostics" not in source
+    assert "_render_platform_paths" not in source
 
 
 def test_settings_no_longer_exposes_webapp_browser_state_reset():
