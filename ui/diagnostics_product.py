@@ -16,6 +16,7 @@ from core.product_diagnostics import (
     SupportArtifactDiagnostics,
     collect_product_diagnostics,
 )
+from ui.theme import COLOR_USER
 
 
 PRIMARY_PATH_LABELS = {
@@ -69,7 +70,7 @@ def _render_overview(diagnostics: ProductDiagnostics) -> None:
 
 
 def _render_storage_and_data(paths: Iterable[ProductPathDiagnostics]) -> None:
-    st.markdown("**Storage & Data**")
+    _render_section_title("Storage & Data")
     path_rows = tuple(paths)
     primary_paths = tuple(
         path for path in path_rows if path.label in PRIMARY_PATH_LABELS
@@ -85,7 +86,7 @@ def _render_storage_and_data(paths: Iterable[ProductPathDiagnostics]) -> None:
 
 
 def _render_cloud_backup(cloud_backup: CloudBackupDiagnostics) -> None:
-    st.markdown("**Cloud Backup**")
+    _render_section_title("Cloud Backup")
     status_label, status_level = _cloud_status(cloud_backup)
     rows = [
         ("Status", status_label, status_level),
@@ -118,7 +119,7 @@ def _render_support_and_health(
     support_artifacts: SupportArtifactDiagnostics,
     data_health: DataHealthDiagnostics,
 ) -> None:
-    st.markdown("**Support & Data Health**")
+    _render_section_title("Support & Data Health")
     rows = (
         (
             "Product log",
@@ -254,8 +255,25 @@ def inject_product_diagnostics_styles() -> None:
     line-height: 1.35;
     margin-top: 0.34rem;
 }
+.rolethread-diagnostics-section-title {
+    color: __ROLETHREAD_SECTION_TITLE_COLOR__;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.35;
+    margin: 0.82rem 0 0.42rem 0;
+}
 </style>
-        """,
+        """.replace("__ROLETHREAD_SECTION_TITLE_COLOR__", COLOR_USER),
+        unsafe_allow_html=True,
+    )
+
+
+def _render_section_title(label: str) -> None:
+    st.markdown(
+        (
+            "<div class='rolethread-diagnostics-section-title'>"
+            f"{_html(label)}</div>"
+        ),
         unsafe_allow_html=True,
     )
 

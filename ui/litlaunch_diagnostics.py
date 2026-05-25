@@ -792,10 +792,12 @@ def _render_download_artifact_group(
     artifacts: dict[str, dict[str, str]],
 ) -> None:
     with column:
+        _render_control_title(st, "Download Artifact")
         label = st.selectbox(
             "Download Artifact",
             options=list(artifacts),
             key="litlaunch_download_artifact_select",
+            label_visibility="collapsed",
         )
         artifact = artifacts[label]
         st.download_button(
@@ -813,16 +815,34 @@ def _render_write_artifact_group(
     artifacts: dict[str, dict[str, str]],
 ) -> None:
     with column:
+        _render_control_title(st, "Write Artifact")
         label = st.selectbox(
             "Write Artifact",
             options=list(artifacts),
             key="litlaunch_write_artifact_select",
+            label_visibility="collapsed",
         )
         artifact = artifacts[label]
         if st.button("Write", key="litlaunch_write_artifact_button"):
             path = _write_report_artifact(artifact["file_name"], artifact["content"])
             _render_notice(st, "ok", f"Wrote {label}.")
             st.code(str(path))
+
+
+def _render_control_title(st: Any, label: str) -> None:
+    theme = _theme_tokens()
+    st.markdown(
+        (
+            "<div style='"
+            f"color: {theme['blue']}; "
+            "font-size: 1rem; "
+            "font-weight: 800; "
+            "line-height: 1.35; "
+            "margin: 0 0 0.36rem 0;"
+            f"'>{_html(label)}</div>"
+        ),
+        unsafe_allow_html=True,
+    )
 
 
 def _write_report_artifact(file_name: str, content: str) -> Path:
