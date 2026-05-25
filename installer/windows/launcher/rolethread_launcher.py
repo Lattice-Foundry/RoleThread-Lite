@@ -305,7 +305,7 @@ def build_runtime_event_sink(
 
 def format_runtime_event(event: RuntimeEvent) -> str:
     details = " ".join(
-        f"{key}={_single_line(event.details[key])}"
+        f"{key}={_format_runtime_event_detail(key, event.details[key])}"
         for key in RUNTIME_EVENT_DETAIL_KEYS
         if key in event.details and str(event.details[key]).strip()
     )
@@ -316,6 +316,19 @@ def format_runtime_event(event: RuntimeEvent) -> str:
         f"message={_single_line(event.message)}"
     )
     return f"{base} {details}" if details else base
+
+
+def _format_runtime_event_detail(key: str, value: object) -> str:
+    if key == "browser":
+        return _single_line(_display_browser_name(value))
+    return _single_line(value)
+
+
+def _display_browser_name(value: object) -> str:
+    normalized = str(value).strip()
+    if normalized.casefold() == "edge":
+        return "Edge"
+    return normalized
 
 
 def _single_line(value: object) -> str:

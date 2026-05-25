@@ -56,6 +56,11 @@ Development launch workflows may use:
 - `.venv\Scripts\python.exe installer\windows\launcher\rolethread_launcher.py`
 - scripts under `installer/windows/scripts/`
 
+When the app is running, **Support -> Diagnostics** is the primary support
+surface. It shows the LitLaunch runtime view, RoleThread product diagnostics,
+support artifact actions, and runtime event trail. CLI reports remain useful
+for release scripts and source checkouts where opening the app is unnecessary.
+
 Launcher and build scripts are source-controlled because they define the build. Generated bundles are not source-controlled.
 
 ## Build Scripts
@@ -102,6 +107,7 @@ That includes:
 - PyInstaller `dist/` output
 - Inno Setup `Output/` folders
 - generated setup executables
+- generated `.litlaunch/` reports, bundles, and runtime-event artifacts
 - temporary packaging folders
 
 Final setup executables belong in GitHub Releases after a release build is

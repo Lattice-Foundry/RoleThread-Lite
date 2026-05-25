@@ -18,7 +18,10 @@ LitLaunch handles the app startup and closeout path around RoleThread:
 - source launch profiles
 - local app-window launch on Windows
 - loopback-only local runtime configuration
-- startup checks and diagnostics reports
+- startup checks and health checks
+- runtime event logging
+- diagnostics reports, support artifacts, and support bundles
+- runtime posture, exposure, transport, and governance reporting
 - clean shutdown coordination
 
 RoleThread stays focused on the product work: dataset editing, validation,
@@ -44,24 +47,31 @@ streamlit run app.py
 
 ## Diagnostics
 
-When runtime troubleshooting is needed, source users can generate a LitLaunch
-diagnostics report:
+When troubleshooting is needed, open **Support -> Diagnostics** in the app.
+That page is powered by LitLaunch and layered with RoleThread product context.
+It shows:
+
+- runtime summary and operational snapshot
+- runtime posture, exposure, transport, and governance checks
+- RoleThread storage, cloud backup, data health, and support paths
+- downloadable support artifacts for reports and bundles
+- runtime event trail with session history
+- raw runtime event trail for deeper support/debug work
+
+Generated reports and bundles are written under `.litlaunch/reports/`.
+Diagnostics are meant to help explain startup, profile, browser/app-window,
+support, and local runtime behavior. They are support artifacts, not telemetry.
+A generic redaction/privacy warning may appear; review reports and bundles
+before sharing, especially if your local paths are sensitive. LitLaunch reports
+posture and runtime configuration, but it does not secure Streamlit apps by
+itself.
+
+Source users and support workflows can also generate a LitLaunch diagnostics
+report without opening the app:
 
 ```bat
 python -m litlaunch report --profile rolethread-webapp --force
 ```
-
-Reports are written under `.litlaunch/reports/`. Diagnostics are meant to help
-explain startup, profile, browser, and local runtime behavior. They are support
-artifacts, not telemetry. A generic redaction/privacy warning may appear; review
-reports before sharing, especially if your local paths are sensitive. LitLaunch
-reports posture and runtime configuration, but it does not secure Streamlit apps
-by itself.
-
-RoleThread also exposes a **Support -> Diagnostics** page in the app. That page
-uses LitLaunch's generated support surface to show the same local runtime
-posture in a Streamlit-native view, create downloadable support artifacts, and
-write reports under `.litlaunch/reports/` when you choose to generate them.
 
 ## Why This Matters
 

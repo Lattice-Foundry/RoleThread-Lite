@@ -21,6 +21,7 @@ It handles:
 - user-facing controls
 - visual presentation
 - Help and FAQ browser rendering
+- the app-owned LitLaunch diagnostics page integration
 
 The UI layer may call services and core helpers. It should not own durable mutation, validation, persistence, or platform rules.
 
@@ -63,7 +64,7 @@ backend provider wiring, RoleThread log paths, and branded failure messages.
 
 Installer code should not duplicate dataset, UI, or LitLaunch runtime logic.
 Browser/window observation, command planning, backend lifecycle, diagnostics,
-and shutdown protocol belong to LitLaunch.
+runtime event logging, and shutdown protocol belong to LitLaunch.
 
 ### `docs/`
 
@@ -101,7 +102,7 @@ LitLaunch owns:
 - monitored app-window runtime
 - browser/window observation
 - backend lifecycle
-- runtime diagnostics
+- runtime diagnostics, support artifacts, and runtime event logging
 - shutdown protocol
 
 `app.py` should remain launch-semantics-blind. It is the Streamlit app entry

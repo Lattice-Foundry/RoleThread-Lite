@@ -147,14 +147,21 @@ Normal browser mode remains available through:
 streamlit run app.py
 ```
 
-LitLaunch diagnostics reports for the app-window profile use:
+When RoleThread is running, open **Support -> Diagnostics** for the integrated
+runtime/support view. It shows LitLaunch posture, operational snapshot,
+RoleThread product context, support artifact actions, and runtime event
+history.
+
+Source users can also generate a LitLaunch diagnostics report for the
+app-window profile:
 
 ```bat
 python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Reports are written under `.litlaunch/reports/` and are support artifacts, not
-telemetry.
+Reports and bundles are written under `.litlaunch/reports/` and are support
+artifacts, not telemetry. Review generated artifacts before sharing because
+local paths and runtime metadata may appear.
 
 Linux and macOS use normal browser mode. If you want an app-style window on
 those platforms, use your browser's built-in install or shortcut option
@@ -190,6 +197,7 @@ Open **Support -> Diagnostics** for product, platform, support, and Python
 runtime details. That page shows:
 
 - runtime posture
+- operational snapshot
 - storage paths
 - cloud backup status
 - product logs and support artifact locations

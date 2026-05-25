@@ -19,7 +19,8 @@ python -m litlaunch.cli run --profile rolethread-webapp
 
 This command loads `litlaunch.toml` and lets LitLaunch own runtime behavior:
 command planning, backend startup, health checks, browser/app-window launch,
-window observation, shutdown coordination, and diagnostics.
+window observation, runtime event logging, shutdown coordination, and
+diagnostics.
 
 RoleThread's job is narrower: provide product settings, app title, local paths,
 cloud-sync shutdown hooks, and packaged-mode configuration where needed.
@@ -39,17 +40,22 @@ presented as the primary source launch command.
 
 ## LitLaunch Diagnostics
 
-Use LitLaunch report when you need a runtime support artifact without launching
-the app:
+Use **Support -> Diagnostics** in the running app for the full RoleThread
+support surface: LitLaunch runtime posture, operational snapshot, support
+artifacts, RoleThread storage/cloud/data context, and the runtime event trail.
+
+Use LitLaunch report when you need a support artifact without launching the
+app:
 
 ```bat
 python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Reports are written under `.litlaunch/reports/`. They are support artifacts,
-not telemetry. LitLaunch may show a generic redaction/privacy warning so you
-review local paths before sharing. It reports runtime posture and configuration;
-it does not secure a Streamlit app by itself.
+Reports and bundles are written under `.litlaunch/reports/`. They are support
+artifacts, not telemetry. LitLaunch may show a generic redaction/privacy warning
+so you review local paths before sharing. Redaction is pattern-based; local
+paths and runtime metadata may still appear. LitLaunch reports runtime posture
+and configuration; it does not secure a Streamlit app by itself.
 
 Advanced support workflows can still inspect structured profile data:
 
@@ -60,6 +66,17 @@ python -m litlaunch inspect --profile rolethread-webapp --bundle
 
 Diagnostics are useful for profile loading, command planning, browser policy,
 health URLs, and local runtime configuration.
+
+## Generated Diagnostics Page
+
+RoleThread commits the generated LitLaunch diagnostics page as app-owned UI and
+adds a small RoleThread product diagnostics layer around it. That layer supplies
+storage paths, cloud backup status, product log locations, data-health signals,
+and other support facts that are specific to RoleThread.
+
+The generated page should stay close to LitLaunch's output. RoleThread may add
+product panels and navigation wiring, but it should not fork LitLaunch runtime
+internals into the app.
 
 ## Plain Streamlit Browser Mode
 
@@ -74,7 +91,9 @@ part of this path.
 ## App Developer Diagnostics
 
 Use **Support -> Diagnostics** for RoleThread product diagnostics, LitLaunch
-runtime diagnostics, support artifacts, and the runtime event trail.
+runtime diagnostics, support artifacts, and the runtime event trail. Runtime
+event logs are written as local support data and surfaced in the page as
+session replay rather than raw console text.
 
 The older app-side `dev` flag is intentionally not the primary diagnostics
 surface. Runtime and storage support details now live in the Diagnostics page so

@@ -111,19 +111,14 @@ Settings export is not the same as dataset export. It saves app preferences, not
 
 ## Installation Diagnostics
 
-Settings includes installation details that are useful when troubleshooting:
+Settings keeps the About view concise: product identity, detected platform,
+Python support status, and a pointer to deeper diagnostics.
 
-- detected platform and support level
-- current Python runtime and the official supported V1 runtime
-- platform/runtime diagnostics
-- browser support and launch behavior
-- resolved platform path defaults
-- whether important paths are platform defaults or user overrides
-
-For runtime support artifacts, use **Support -> Diagnostics**. That page can
-show LitLaunch runtime posture, create downloadable support bundles, and write
-reports under `.litlaunch/reports/`. Review generated reports before sharing
-them outside your machine.
+For runtime support details, use **Support -> Diagnostics**. That page shows
+LitLaunch runtime posture, operational snapshot, RoleThread storage and cloud
+backup context, runtime event history, and support artifact actions. Generated
+reports and bundles are written under `.litlaunch/reports/`. Review generated
+artifacts before sharing them outside your machine.
 
 RoleThread Lite V1 officially supports Python 3.14.5. Python 3.14.4 remains the
 minimum supported V1 runtime. Newer Python versions may work, but they are

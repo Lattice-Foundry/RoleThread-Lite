@@ -127,9 +127,9 @@ def test_render_product_diagnostics_outputs_expected_sections(monkeypatch):
 
     text = fake_st.text()
     assert "RoleThread Overview" in text
-    assert "Storage & Data" in text
+    assert "Storage &amp; Data" in text
     assert "Cloud Backup" in text
-    assert "Support & Data Health" in text
+    assert "Support &amp; Data Health" in text
     assert "v1.4.45" in text
     assert "1.0.0rc6" in text
     assert "Local-only" not in text

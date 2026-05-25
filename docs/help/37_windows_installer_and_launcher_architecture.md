@@ -57,7 +57,8 @@ LitLaunch owns the generic Streamlit runtime platform:
 - window observation
 - graceful shutdown
 - backend stop escalation
-- diagnostics and inspect reports
+- runtime event logging
+- diagnostics, support artifacts, reports, and inspect output
 
 RoleThread docs should explain how RoleThread uses those capabilities, not
 repeat their internals.
@@ -81,17 +82,23 @@ main support path for startup failures:
 %LOCALAPPDATA%\RoleThread\logs\launcher.log
 ```
 
-Source/runtime diagnostics use LitLaunch reports:
+Installed users should normally start with **Support -> Diagnostics** in the
+app. That page shows the LitLaunch runtime summary, operational snapshot,
+runtime posture, RoleThread product support context, support artifact actions,
+and runtime event trail.
+
+Source/runtime diagnostics can also use LitLaunch reports:
 
 ```bat
 python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Reports are written under `.litlaunch/reports/` and are useful for profile,
-command, browser, health, and local runtime questions. They are support
-artifacts, not telemetry. Generated reports should stay out of Git and should
-be reviewed before sharing; LitLaunch reports runtime posture and configuration,
-not application security.
+Reports and bundles are written under `.litlaunch/reports/` and are useful for
+profile, command, browser/app-window, health, event-trail, and local runtime
+questions. They are support artifacts, not telemetry. Generated artifacts should
+stay out of Git and should be reviewed before sharing; LitLaunch uses
+pattern-based redaction and reports runtime posture and configuration, not
+application security.
 
 Advanced support workflows can still use:
 

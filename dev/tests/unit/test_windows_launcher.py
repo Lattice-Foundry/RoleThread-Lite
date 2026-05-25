@@ -175,7 +175,7 @@ def test_packaged_launcher_wires_litlaunch_runtime_events_to_product_log(tmp_pat
     log_text = config.log_path.read_text(encoding="utf-8")
     assert "litlaunch_event level=info category=browser name=browser_launched" in log_text
     assert "message=Browser launched. Newline ignored." in log_text
-    assert "browser=edge" in log_text
+    assert "browser=Edge" in log_text
     assert "host=127.0.0.1" in log_text
     assert "port=8501" in log_text
     assert "url=" not in log_text

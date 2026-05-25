@@ -77,6 +77,7 @@ LitLaunch:
 - bundled path detection
 - packaged backend provider construction
 - product logging and failure reporting
+- diagnostics page integration and product support context
 
 LitLaunch has its own runtime/platform test suite. RoleThread should not mirror
 those internals. Browser, package, installer, and installed-user workflows still
@@ -97,15 +98,20 @@ Packaging verification is partly manual by design:
 - build the Inno installer
 - install, launch, uninstall, and verify user data behavior
 
-For diagnostics, use:
+For command-line diagnostics, use:
 
 ```bat
 python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Generated diagnostics reports live under `.litlaunch/reports/`. They are
-support artifacts, not telemetry or source files. A generic redaction/privacy
-warning is expected when reports may contain local paths.
+The running app also exposes **Support -> Diagnostics**. That page should be
+smoked when diagnostics UI changes: runtime summary, operational snapshot,
+RoleThread product panels, support artifacts, runtime event trail, and raw
+runtime event trail should all remain usable.
+
+Generated diagnostics reports and bundles live under `.litlaunch/reports/`.
+They are support artifacts, not telemetry or source files. A generic
+redaction/privacy warning is expected when reports may contain local paths.
 
 ## Contributor Guidance
 

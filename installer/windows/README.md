@@ -37,7 +37,8 @@ LitLaunch owns the generic runtime work:
 - browser/app-window launch
 - window observation
 - shutdown coordination
-- diagnostics
+- runtime event logging
+- diagnostics, support artifacts, and support bundles
 
 The app does not receive a raw `webapp` argument. `app.py` remains the
 Streamlit app entry point, not a launcher.
@@ -238,15 +239,22 @@ python -m litlaunch.cli run --profile rolethread-webapp
 
 For diagnostics:
 
+Installed users should normally open **Support -> Diagnostics** in the app.
+That page shows runtime summary, operational snapshot, RoleThread product
+support context, support artifact actions, and the runtime event trail.
+
+Source/operator workflows can also generate a report directly:
+
 ```powershell
 python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-Generated diagnostics reports are written under `.litlaunch/reports/` and
-should stay out of Git. They are support artifacts, not telemetry. A generic
-redaction/privacy warning may appear; review reports before sharing. LitLaunch
-reports runtime posture and configuration, but it does not secure Streamlit apps
-by itself. For advanced support output, use:
+Generated diagnostics reports and bundles are written under
+`.litlaunch/reports/` and should stay out of Git. They are support artifacts,
+not telemetry. A generic redaction/privacy warning may appear; review artifacts
+before sharing because local paths and runtime metadata can still appear.
+LitLaunch reports runtime posture and configuration, but it does not secure
+Streamlit apps by itself. For advanced support output, use:
 
 ```powershell
 python -m litlaunch inspect --profile rolethread-webapp --json
@@ -296,7 +304,8 @@ Until CI/CD packaging is added, the likely release flow is manual:
 3. Build the PyInstaller one-folder bundle locally on Windows.
 4. Build the Inno Setup installer locally.
 5. Test fresh install, upgrade, normal uninstall, and full uninstall behavior.
-6. Generate a LitLaunch diagnostics report if runtime support data is needed.
+6. Open **Support -> Diagnostics** or generate a LitLaunch diagnostics report if
+   runtime support data is needed.
 7. Upload the generated setup executable to GitHub Releases.
 
 Pushing to `main` does not automatically create installer artifacts unless

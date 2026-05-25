@@ -16,7 +16,8 @@ This checklist defines the stable-release gate for RoleThread Lite 1.0.
 - Confirm launch docs describe the installed Windows app path, the LitLaunch
   source profile path, and the normal Streamlit browser development path
 - Confirm `litlaunch.toml` contains the expected source runtime profile
-- Confirm LitLaunch diagnostics/report instructions are documented for support
+- Confirm Support -> Diagnostics and LitLaunch report instructions are
+  documented for support
 - Confirm fresh-install storage defaults are documented for Windows, Linux,
   and macOS
 - Confirm README status describes the V1 stable surface
@@ -66,8 +67,11 @@ The V1 runtime boundary is:
 Before release, verify:
 
 - `python -m litlaunch.cli run --profile rolethread-webapp`
+- Support -> Diagnostics opens in the app and shows runtime summary,
+  operational snapshot, product diagnostics, support artifacts, and runtime
+  event trail
 - `python -m litlaunch report --profile rolethread-webapp --force`
-- `.litlaunch/reports/` contains the generated support report and remains untracked
+- `.litlaunch/reports/` contains generated support reports/bundles and remains untracked
 - advanced support output still works through `python -m litlaunch inspect --profile rolethread-webapp --json`
 - advanced support bundles still work through `python -m litlaunch inspect --profile rolethread-webapp --bundle`
 - packaged launcher smoke from the PyInstaller bundle

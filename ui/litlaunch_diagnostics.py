@@ -1034,7 +1034,7 @@ def _summarize_runtime_session(session: list[dict[str, Any]]) -> dict[str, Any]:
         status_level = "info"
 
     mode = _first_event_detail(session, "mode") or "unknown"
-    browser = _first_event_detail(session, "browser")
+    browser = _display_browser(_first_event_detail(session, "browser"))
     host = _first_event_detail(session, "host")
     port = _first_event_detail(session, "port")
     pid = _first_event_detail(session, "pid")
@@ -1177,7 +1177,7 @@ def _console_event_message(record: dict[str, Any]) -> str:
         details = {}
     if name == "launch_planned":
         mode = _safe_detail(details, "mode")
-        browser = _safe_detail(details, "browser")
+        browser = _display_browser(_safe_detail(details, "browser"))
         target = f" in {browser}" if browser else ""
         return f"Planned {mode or 'runtime'} launch{target}."
     if name == "backend_starting":
@@ -1191,7 +1191,7 @@ def _console_event_message(record: dict[str, Any]) -> str:
     if name == "health_ready":
         return _with_host_port("Ready", details) + "."
     if name == "browser_launched":
-        browser = _safe_detail(details, "browser")
+        browser = _display_browser(_safe_detail(details, "browser"))
         mode = _safe_detail(details, "mode")
         if browser and mode:
             return f"Launched {browser} for {mode} mode."
@@ -1328,6 +1328,26 @@ def _display_mode(mode: str | None) -> str:
     if normalized == "browser":
         return "Browser"
     return normalized.replace("_", " ").title()
+
+
+def _display_browser(browser: str | None) -> str | None:
+    if not browser:
+        return None
+    normalized = str(browser).strip()
+    if not normalized:
+        return None
+    lowered = normalized.casefold()
+    if lowered == "edge":
+        return "Edge"
+    if lowered == "microsoft edge":
+        return "Microsoft Edge"
+    if lowered == "chrome":
+        return "Chrome"
+    if lowered == "chromium":
+        return "Chromium"
+    if lowered == "default":
+        return "Default browser"
+    return normalized
 
 
 def _normalize_event_level(level: str) -> str:
@@ -1601,6 +1621,8 @@ def _compact_metric_value(label: str, value: str | None) -> str:
         if normalized == "incomplete":
             return "Incomplete"
     if label == "Browser/Platform":
+        if normalized.casefold() == "edge":
+            return "Edge"
         if "Microsoft Edge" in normalized:
             return "Edge"
         if "Chrome" in normalized or "Chromium" in normalized:

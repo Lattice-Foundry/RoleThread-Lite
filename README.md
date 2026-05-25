@@ -144,19 +144,23 @@ Source users can launch the same Windows app-window profile with:
 python -m litlaunch.cli run --profile rolethread-webapp
 ```
 
-LitLaunch diagnostics reports are available through:
+The installed app includes **Support -> Diagnostics**, a LitLaunch-powered
+support page for runtime posture, operational snapshots, RoleThread product
+context, support artifacts, and the runtime event trail. Generated reports and
+bundles are written under `.litlaunch/reports/`.
+
+Source users and support workflows can also generate a report without opening
+the app:
 
 ```bat
 python -m litlaunch report --profile rolethread-webapp --force
 ```
 
-The installed app also includes **Support -> Diagnostics**, a LitLaunch-powered
-support page that can summarize the local runtime and generate support
-artifacts. Reports are written under `.litlaunch/reports/`. They are support
-artifacts, not telemetry. LitLaunch may include a generic redaction/privacy
-warning so you remember to review local paths before sharing a report. It
-reports runtime posture and configuration; it does not make a Streamlit app
-secure by itself.
+Diagnostics are support artifacts, not telemetry. LitLaunch uses pattern-based
+redaction and may include a generic privacy warning; review generated artifacts
+before sharing because local paths and runtime metadata can still appear.
+LitLaunch reports runtime posture and configuration. It does not make a
+Streamlit app secure by itself.
 
 Normal source/browser development can still use `streamlit run app.py`.
 
@@ -164,12 +168,14 @@ Normal source/browser development can still use `streamlit run app.py`.
 
 RoleThread Lite is local-first, but it still benefits from a dependable app
 runtime: clean startup, loopback-only local access, browser/app-window launch,
-shutdown coordination, and diagnostics when something goes wrong.
+shutdown coordination, runtime event logging, and diagnostics when something
+goes wrong.
 
 LitLaunch provides that runtime layer so RoleThread can stay focused on dataset
 work instead of maintaining custom browser, process, and shutdown machinery.
 It also gives source users and packaged users the same runtime profile model,
-which makes support and troubleshooting clearer.
+plus an integrated diagnostics/support surface that makes troubleshooting
+clearer.
 
 ## Windows Installer Status
 

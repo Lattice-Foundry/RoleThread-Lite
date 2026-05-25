@@ -49,9 +49,10 @@ Prioritize tests for:
 - validation and repair
 - backup and cloud sync behavior
 - preferences and platform paths
-- launcher command construction
+- LitLaunch profile/configuration boundaries
 - installer/runtime boundaries and version guards
-- HWND classification and shutdown lifecycle behavior
+- packaged backend provider wiring and product logging
+- diagnostics page/product support context
 - Help/FAQ registry changes
 
 Avoid brittle UI-heavy tests when a pure helper or service test can prove the rule more directly.
@@ -71,10 +72,12 @@ instructions in **Build and Packaging Overview** and use
 
 Change `installer/windows/launcher/`, the PyInstaller spec, or the Inno script
 only when the feature or bug fix actually requires launcher or installer
-behavior changes. That code owns subprocess startup, Windows Edge app-window
-monitoring, shutdown fallback, local port release, uninstall behavior, and
-stale-bundle protection; casual edits can break installed-app lifecycle in ways
-normal source runs will not catch.
+behavior changes. That code owns product packaging concerns: frozen path
+resolution, packaged backend provider wiring, product log paths, branded
+startup failures, uninstall behavior, and stale-bundle protection. LitLaunch
+owns browser/app-window monitoring, backend lifecycle, shutdown coordination,
+runtime diagnostics, and support artifacts. Casual edits can still break the
+installed-app lifecycle in ways normal source runs will not catch.
 
 ## Naming and Style
 

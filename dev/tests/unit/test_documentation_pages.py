@@ -248,6 +248,8 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
     assert ".litlaunch/reports/" in document.content
     assert "python -m litlaunch inspect --profile rolethread-webapp --json" in document.content
     assert "python -m litlaunch inspect --profile rolethread-webapp --bundle" in document.content
+    assert "runtime event trail" in document.content
+    assert "Generated Diagnostics Page" in document.content
     assert "not telemetry" in document.content
     assert "does not secure a Streamlit app by itself" in document.content
     assert "streamlit run app.py" in document.content
@@ -309,6 +311,8 @@ def test_why_rolethread_uses_litlaunch_help_article_is_user_facing():
     assert ".litlaunch/reports/" in document.content
     assert "Support -> Diagnostics" in document.content
     assert "downloadable support artifacts" in document.content
+    assert "runtime event trail with session history" in document.content
+    assert "runtime posture, exposure, transport, and governance" in document.content
     assert "support" in document.content
     assert "not telemetry" in document.content
     assert "LaunchPlan" not in document.content
@@ -328,6 +332,7 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "local Microsoft Edge app-window" in document.content
     assert "python -m litlaunch report --profile rolethread-webapp --force" in document.content
     assert ".litlaunch/reports/" in document.content
+    assert "runtime event\nhistory" in document.content
     assert "streamlit run app.py -- webapp" not in document.content
     assert "For setup commands and uninstall instructions" in document.content
     assert "Cloud sync folders are optional backup or sync targets" in document.content
@@ -719,7 +724,10 @@ def test_developer_docs_do_not_reference_removed_launcher_flows():
         contribution.content
     )
     assert "build_installer.ps1" in contribution.content
-    assert "casual edits can break installed-app lifecycle" in contribution.content
+    assert "Casual edits can still break the\ninstalled-app lifecycle" in (
+        contribution.content
+    )
+    assert "runtime diagnostics, and support artifacts" in contribution.content
 
     assert boundaries.article.category == "For Developers"
     assert "Lite is the stable dataset tooling surface" in boundaries.content
@@ -1428,6 +1436,12 @@ def test_faq_entries_group_into_clean_sidebar_categories():
         for entry in entries
     )
     assert any(
+        entry.display_question == "What is LitLaunch?"
+        and "local runtime and diagnostics layer" in entry.answer
+        and "support artifacts" in entry.answer
+        for entry in entries
+    )
+    assert any(
         entry.display_question
         == "Can I still use normal Streamlit browser mode from source?"
         and "python -m litlaunch.cli run --profile rolethread-browser"
@@ -1444,10 +1458,27 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert any(
         entry.display_question == "How do I run LitLaunch diagnostics?"
         and "Support -> Diagnostics" in entry.answer
+        and "Runtime Event Trail" in entry.answer
         and "python -m litlaunch report --profile rolethread-webapp --force"
         in entry.answer
         and ".litlaunch/reports/" in entry.answer
         and "not telemetry" in entry.answer
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "What is the Runtime Event Trail?"
+        and "recent LitLaunch runtime sessions" in entry.answer
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "What are support artifacts?"
+        and ".litlaunch/reports/" in entry.answer
+        and "not telemetry" in entry.answer
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Does RoleThread send diagnostics remotely?"
+        and "does not upload them automatically" in entry.answer
         for entry in entries
     )
     assert any(
