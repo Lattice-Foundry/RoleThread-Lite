@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import stat
 
 import pytest
 from sqlalchemy import create_engine
@@ -316,6 +317,121 @@ def test_sync_backups_to_cloud_keeps_previous_publish_on_staging_failure(
     assert previous_settings.read_text(encoding="utf-8") == '{"previous": true}\n'
     assert not (destination / "database" / latest_db.name).exists()
     assert not list(tmp_path.glob(".cloud.staging-*"))
+
+
+def test_sync_backups_to_cloud_succeeds_when_previous_cleanup_is_deferred(
+    tmp_path,
+    monkeypatch,
+):
+    _settings_db(tmp_path, monkeypatch)
+    _patch_backup_config_paths(tmp_path, monkeypatch)
+
+    db_backup_dir = tmp_path / "local_backups" / "database"
+    db_backup_dir.mkdir(parents=True)
+    latest_db = db_backup_dir / f"{DB_BACKUP_PREFIX}20260513_130000{DB_BACKUP_SUFFIX}"
+    latest_db.write_text("latest", encoding="utf-8")
+    monkeypatch.setattr(cloud_sync, "get_db_backup_dir", lambda: db_backup_dir)
+    monkeypatch.setattr(cloud_sync, "TRAINING_DATA_DIR", tmp_path / "training_data")
+    preferences.set_all_settings({
+        "backup_destination_type": "custom",
+        "backup_destination_custom_path": str(tmp_path / "cloud"),
+    })
+
+    destination = tmp_path / "cloud"
+    destination.mkdir()
+    (destination / "settings.json").write_text(
+        '{"previous": true}\n',
+        encoding="utf-8",
+    )
+
+    original_remove_path = cloud_sync._remove_path
+
+    def defer_previous_cleanup(path):
+        if ".previous-" in path.name:
+            return (
+                "OneDrive delayed cleanup of older cloud backup staging folders. "
+                "Cloud sync can continue, and RoleThread will retry cleanup on a "
+                "future sync."
+            )
+        return original_remove_path(path)
+
+    monkeypatch.setattr(cloud_sync, "_remove_path", defer_previous_cleanup)
+
+    result = cloud_sync.sync_backups_to_cloud(destination)
+
+    assert result.ok is True
+    assert result.warnings == (
+        "OneDrive delayed cleanup of older cloud backup staging folders. "
+        "Cloud sync can continue, and RoleThread will retry cleanup on a future sync.",
+    )
+    assert (
+        destination / "database" / latest_db.name
+    ).read_text(encoding="utf-8") == "latest"
+    assert list(tmp_path.glob(".cloud.previous-*"))
+
+
+def test_remove_path_retries_transient_cloud_cleanup_lock(tmp_path, monkeypatch):
+    target = tmp_path / ".backups.previous-123"
+    target.mkdir()
+    (target / "settings.json").write_text("{}", encoding="utf-8")
+    real_rmtree = cloud_sync.shutil.rmtree
+    attempts = []
+    sleeps = []
+
+    def flaky_rmtree(path, *, onexc=None):
+        attempts.append(path)
+        if len(attempts) < 3:
+            raise PermissionError("locked by sync provider")
+        real_rmtree(path, onexc=onexc)
+
+    monkeypatch.setattr(cloud_sync.shutil, "rmtree", flaky_rmtree)
+    monkeypatch.setattr(cloud_sync, "_CLOUD_CLEANUP_RETRY_DELAYS_SECONDS", (0, 0))
+    monkeypatch.setattr(cloud_sync.time, "sleep", sleeps.append)
+
+    warning = cloud_sync._remove_path(target)
+
+    assert warning is None
+    assert not target.exists()
+    assert len(attempts) == 3
+    assert sleeps == [0, 0]
+
+
+def test_remove_path_clears_readonly_file_before_delete(tmp_path):
+    target = tmp_path / "readonly.json"
+    target.write_text("{}", encoding="utf-8")
+    target.chmod(stat.S_IREAD)
+
+    warning = cloud_sync._remove_path(target)
+
+    assert warning is None
+    assert not target.exists()
+
+
+def test_remove_path_classifies_onedrive_cleanup_deferral(tmp_path, monkeypatch):
+    target = tmp_path / ".backups.previous-123"
+    target.mkdir()
+    sleeps = []
+
+    def locked_rmtree(path, *, onexc=None):
+        raise PermissionError("locked by OneDrive")
+
+    monkeypatch.setattr(cloud_sync.shutil, "rmtree", locked_rmtree)
+    monkeypatch.setattr(cloud_sync, "_CLOUD_CLEANUP_RETRY_DELAYS_SECONDS", (0,))
+    monkeypatch.setattr(cloud_sync.time, "sleep", sleeps.append)
+    monkeypatch.setattr(
+        cloud_sync,
+        "detect_cloud_sync_provider_for_path",
+        lambda path: "OneDrive",
+    )
+
+    warning = cloud_sync._remove_path(target)
+
+    assert warning is not None
+    assert "OneDrive delayed cleanup of older cloud backup staging folders" in warning
+    assert "Cloud sync can continue" in warning
+    assert "retry cleanup on a future sync" in warning
+    assert "locked by OneDrive" in warning
+    assert sleeps == [0]
 
 
 def test_table_row_count_rejects_unapproved_table_name():

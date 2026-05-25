@@ -140,7 +140,7 @@ def test_cloud_sync_closeout_surfaces_warning_status(monkeypatch):
         environ={},
     )
 
-    assert status.message == "Cloud sync warning: Staged cloud sync completed with warnings."
+    assert status.message == "Cloud sync: Staged cloud sync completed with cleanup warnings."
     assert status.console_visibility == HookConsoleVisibility.NORMAL
     assert status.ok is True
 

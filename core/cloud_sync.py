@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
+import stat
+import time
 
 from core.db import get_db_path
 from core.db_backups import (
@@ -66,6 +68,11 @@ _USER_METADATA_COUNT_QUERIES = {
     "entry_character_turns": "SELECT COUNT(*) FROM entry_character_turns",
     "system_prompt_templates": "SELECT COUNT(*) FROM system_prompt_templates",
 }
+_CLOUD_CLEANUP_RETRY_DELAYS_SECONDS = (0.1, 0.3, 0.7)
+_WINDOWS_CLOUD_FILE_ATTRS = (
+    getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    | getattr(stat, "FILE_ATTRIBUTE_OFFLINE", 0)
+)
 
 
 @dataclass(frozen=True)
@@ -497,14 +504,67 @@ def _previous_destination_path(destination: Path) -> Path:
 
 
 def _remove_path(path: Path) -> str | None:
-    try:
-        if path.is_dir():
-            shutil.rmtree(path)
-        elif path.exists():
-            path.unlink()
-    except Exception as exc:
-        return f"Could not remove {path}: {exc}"
+    last_error: Exception | None = None
+    for attempt in range(len(_CLOUD_CLEANUP_RETRY_DELAYS_SECONDS) + 1):
+        try:
+            _remove_path_once(path)
+            return None
+        except FileNotFoundError:
+            return None
+        except Exception as exc:
+            last_error = exc
+            if attempt < len(_CLOUD_CLEANUP_RETRY_DELAYS_SECONDS):
+                time.sleep(_CLOUD_CLEANUP_RETRY_DELAYS_SECONDS[attempt])
+
+    if last_error is not None:
+        return _format_remove_path_warning(path, last_error)
     return None
+
+
+def _remove_path_once(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path, onexc=_handle_remove_error)
+    elif path.exists():
+        try:
+            path.unlink()
+        except PermissionError:
+            _make_writable(path)
+            path.unlink()
+
+
+def _handle_remove_error(function, path, excinfo) -> None:
+    error = excinfo if isinstance(excinfo, BaseException) else excinfo[1]
+    if isinstance(error, PermissionError):
+        _make_writable(Path(path))
+        function(path)
+        return
+    raise error
+
+
+def _make_writable(path: Path) -> None:
+    try:
+        path.chmod(stat.S_IREAD | stat.S_IWRITE)
+    except OSError:
+        return
+
+
+def _format_remove_path_warning(path: Path, error: Exception) -> str:
+    provider = detect_cloud_sync_provider_for_path(path)
+    if provider == "OneDrive" or _has_windows_cloud_attributes(path):
+        return (
+            "OneDrive delayed cleanup of older cloud backup staging folders. "
+            "Cloud sync can continue, and RoleThread will retry cleanup on a "
+            f"future sync. Path: {path}. Details: {error}"
+        )
+    return f"Could not remove {path}: {error}"
+
+
+def _has_windows_cloud_attributes(path: Path) -> bool:
+    try:
+        attributes = path.stat().st_file_attributes
+    except (AttributeError, OSError):
+        return False
+    return bool(attributes & _WINDOWS_CLOUD_FILE_ATTRS)
 
 
 def _copy_file_atomically(source: Path, target: Path) -> None:

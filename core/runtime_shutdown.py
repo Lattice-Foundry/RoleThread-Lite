@@ -135,7 +135,7 @@ def _cloud_sync_hook_status(result: CloudSyncResult) -> ShutdownHookStatus:
         )
     if result.ok and result.warnings:
         return ShutdownHookStatus(
-            message="Cloud sync warning: Staged cloud sync completed with warnings.",
+            message="Cloud sync: Staged cloud sync completed with cleanup warnings.",
             console_visibility=HookConsoleVisibility.NORMAL,
         )
     if result.ok:
