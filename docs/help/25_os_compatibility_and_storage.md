@@ -186,10 +186,8 @@ Unknown platforms:
 
 ## Where To Check This In The App
 
-Open **Settings** and review **About This Installation** for the concise
-product, platform, support, and Python runtime summary.
-
-For deeper operational detail, open **Support -> Diagnostics**. That page shows:
+Open **Support -> Diagnostics** for product, platform, support, and Python
+runtime details. That page shows:
 
 - runtime posture
 - storage paths

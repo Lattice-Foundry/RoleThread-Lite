@@ -22,8 +22,6 @@ from core.platform import (
     detect_platform,
 )
 from core.preferences import export_settings, import_settings
-from core.runtime import get_python_runtime_status
-from core.version import ROLETHREAD_VERSION
 from ui.file_dialogs import (
     browse_directory,
     browse_settings_export_file,
@@ -32,8 +30,6 @@ from ui.file_dialogs import (
 )
 from core.storage import get_backups_dir, get_default_training_data_dir
 from ui.session_state import update_prefs
-
-INLINE_CODE_TEXT_GREEN = "#3D9F64"
 
 
 def render_settings_page() -> None:
@@ -272,9 +268,6 @@ def render_settings_page() -> None:
                 st.success("Settings imported.")
                 st.rerun()
 
-    st.divider()
-    _render_platform_about()
-
 
 def _apply_preferences_to_session(prefs: dict) -> None:
     """Refresh settings-related session state after a DB import."""
@@ -301,61 +294,6 @@ def _apply_preferences_to_session(prefs: dict) -> None:
         "auto_correct_validation_errors",
         prefs.get("auto_normalize_on_load", True),
     )
-
-
-def _render_platform_about() -> None:
-    """Render current OS support information without changing behavior."""
-
-    platform_info = detect_platform()
-    runtime_status = get_python_runtime_status()
-
-    st.subheader("About This Installation")
-    version_col, platform_col, support_col, python_col = st.columns(4)
-    with version_col:
-        st.markdown("**RoleThread**")
-        st.caption(f"v{ROLETHREAD_VERSION}")
-    with platform_col:
-        st.markdown("**Detected Platform**")
-        st.caption(platform_info.display_name)
-    with support_col:
-        st.markdown("**Support Level**")
-        st.caption(platform_info.support_level.title())
-    with python_col:
-        st.markdown("**Python**")
-        st.caption(runtime_status.current_version)
-
-    st.caption(f"Python status: {runtime_status.status_label}.")
-    st.caption(
-        "For runtime details, storage paths, cloud backup status, logs, and "
-        "support reports, open **Support -> Diagnostics**."
-    )
-
-    st.divider()
-    st.markdown(_format_project_info_markup(), unsafe_allow_html=True)
-
-
-def _format_project_info_markup() -> str:
-    """Return the official project attribution block for Settings/About."""
-
-    return f"""
-<div style="line-height: 1.7; color: #FFFFFF;">
-  <div>Developed by:</div>
-  <br>
-  <div>
-    <span style="color: {INLINE_CODE_TEXT_GREEN}; font-weight: 700;">LatticeFoundry</span><br>
-    <span>A Sierra Cognitive Group company</span>
-  </div>
-  <br>
-  <div>
-    <span>latticefoundry.dev</span><br>
-    <span>github.com/Lattice-Foundry/RoleThread-Lite</span>
-  </div>
-  <br>
-  <div>
-    <span>Scott Jackson | </span><span style="color: {INLINE_CODE_TEXT_GREEN}; font-weight: 700;">d1g1talshad0w</span>
-  </div>
-</div>
-"""
 
 
 def _normalize_folder_path(raw_path: str, *, label: str) -> str:

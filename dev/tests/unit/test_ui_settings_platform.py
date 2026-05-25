@@ -76,12 +76,14 @@ def test_obsolete_edge_debug_diagnostics_are_removed_from_settings_ui():
     assert "litlaunch report --profile rolethread-webapp --force" not in source
 
 
-def test_settings_about_is_concise_and_points_to_diagnostics():
+def test_settings_no_longer_duplicates_diagnostics_about_panel():
     source = Path(ui_settings.__file__).read_text(encoding="utf-8")
 
-    assert "About This Installation" in source
-    assert "Support -> Diagnostics" in source
-    assert "Python status:" in source
+    assert "About This Installation" not in source
+    assert "Support -> Diagnostics" not in source
+    assert "Python status:" not in source
+    assert "_render_platform_about" not in source
+    assert "_format_project_info_markup" not in source
     assert "Launch Behavior" not in source
     assert "Source app-window profile" not in source
     assert "Python Runtime Compatibility" not in source
@@ -99,17 +101,4 @@ def test_settings_no_longer_exposes_webapp_browser_state_reset():
     assert "Clear Session State" not in source
     assert "schedule_webapp_browser_state_reset" not in source
     assert "is_webapp_browser_state_reset_pending" not in source
-
-
-def test_project_info_markup_preserves_official_attribution_and_colors():
-    markup = ui_settings._format_project_info_markup()
-
-    assert "Developed by:" in markup
-    assert "LatticeFoundry" in markup
-    assert "A Sierra Cognitive Group company" in markup
-    assert "latticefoundry.dev" in markup
-    assert "github.com/Lattice-Foundry/RoleThread-Lite" in markup
-    assert "Scott Jackson | " in markup
-    assert "d1g1talshad0w" in markup
-    assert markup.count("color: #3D9F64") == 2
 

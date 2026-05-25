@@ -2,6 +2,7 @@ import inspect
 
 import pytest
 
+import core.product_diagnostics as product_diagnostics
 from core import runtime
 import core.version as version
 import ui.ui_settings as ui_settings
@@ -78,9 +79,15 @@ def test_runtime_module_has_no_streamlit_dependency():
     assert "st.session_state" not in source
 
 
-def test_settings_about_consumes_runtime_status_without_version_logic():
-    source = inspect.getsource(ui_settings)
+def test_product_diagnostics_consumes_runtime_status_without_version_logic():
+    source = inspect.getsource(product_diagnostics)
 
     assert "get_python_runtime_status" in source
     assert "MIN_SUPPORTED_PYTHON" not in source
     assert "MAX_TESTED_PYTHON" not in source
+
+
+def test_settings_no_longer_consumes_runtime_status():
+    source = inspect.getsource(ui_settings)
+
+    assert "get_python_runtime_status" not in source
