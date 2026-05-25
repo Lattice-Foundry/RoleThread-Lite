@@ -126,9 +126,9 @@ def render_litlaunch_diagnostics() -> None:
     _render_summary(st, data)
     _render_posture_cards(st, data)
     _render_operational_snapshot(st, data)
-    _render_runtime_sessions(st)
     _render_artifact_actions(st, report)
     _render_sections(st, data)
+    _render_runtime_sessions(st)
 
 
 def _collect_diagnostics() -> tuple[Any | None, str | None, str | None]:
@@ -432,6 +432,35 @@ def _inject_litlaunch_styles(st: Any) -> None:
     font-size: 0.92rem;
     font-weight: 650;
     margin-top: 0.08rem;
+}}
+.litlaunch-console {{
+    background: {theme["code_bg"]};
+    border: 1px solid {theme["row_border"]};
+    border-radius: 0.48rem;
+    color: {theme["code_text"]};
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    margin-top: 0.7rem;
+    overflow-x: auto;
+    padding: 0.72rem 0.82rem;
+    white-space: pre;
+}}
+.litlaunch-console-ok {{
+    color: {theme["ok"]};
+}}
+.litlaunch-console-warn {{
+    color: {theme["warning"]};
+}}
+.litlaunch-console-error {{
+    color: {theme["error"]};
+}}
+.litlaunch-console-phase {{
+    color: {theme["blue"]};
+    font-weight: 800;
+}}
+.litlaunch-console-text {{
+    color: {theme["code_text"]};
 }}
 </style>
         """,
@@ -838,7 +867,7 @@ def _render_runtime_sessions(st: Any) -> None:
         return
 
     _render_section_spacer(st)
-    st.subheader("Runtime Sessions")
+    st.subheader("Runtime Event Trail")
     event_path = _runtime_event_log_path()
     if event_path is None:
         _render_notice(
@@ -876,7 +905,7 @@ def _render_runtime_sessions(st: Any) -> None:
                 expanded=index == 0,
             ):
                 _render_runtime_session_summary(st, summary)
-                _render_runtime_session_timeline(st, session)
+                _render_runtime_session_console(st, session)
     _render_raw_event_trail(st, event_path, lines)
 
 
@@ -1024,7 +1053,7 @@ def _summarize_runtime_session(session: list[dict[str, Any]]) -> dict[str, Any]:
 
     return {
         "title": title,
-        "subtitle": " · ".join(subtitle_parts) or "Runtime lifecycle events recorded.",
+        "subtitle": " - ".join(subtitle_parts) or "Runtime lifecycle events recorded.",
         "status": status,
         "status_level": status_level,
         "fields": fields,
@@ -1061,17 +1090,134 @@ def _render_runtime_session_timeline(
     st: Any,
     session: list[dict[str, Any]],
 ) -> None:
-    st.markdown("**Session Timeline**")
-    for record in session[-24:]:
-        timestamp = _event_timestamp(record)
-        detail = _format_timestamp(timestamp) if timestamp else None
-        _render_diagnostic_row(
-            st,
-            _normalize_event_level(str(record.get("level", "info"))),
-            _friendly_event_name(str(record.get("name", ""))),
-            str(record.get("category", "runtime")),
-            detail,
-        )
+    _render_runtime_session_console(st, session)
+
+
+def _render_runtime_session_console(
+    st: Any,
+    session: list[dict[str, Any]],
+) -> None:
+    lines = [_console_event_line(record) for record in session[-32:]]
+    if not lines:
+        lines = ["<span class='litlaunch-console-text'>No events recorded.</span>"]
+    st.markdown(
+        f"<div class='litlaunch-console'>{''.join(lines)}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _console_event_line(record: dict[str, Any]) -> str:
+    level = _normalize_event_level(str(record.get("level", "info")))
+    category = str(record.get("category", "runtime"))
+    phase = _console_phase_label(category)
+    message = _console_event_message(record)
+    status = _console_status_label(level)
+    status_class = "litlaunch-console-warn" if level == "warning" else (
+        "litlaunch-console-error" if level == "error" else "litlaunch-console-ok"
+    )
+    return (
+        f"<span class='{status_class}'>{_html(status)}</span> "
+        f"<span class='litlaunch-console-phase'>{_html(phase)}:</span> "
+        f"<span class='litlaunch-console-text'>{_html(message)}</span>\n"
+    )
+
+
+def _console_status_label(level: str) -> str:
+    normalized = _normalize_event_level(level)
+    if normalized == "error":
+        return "[ error  ]"
+    if normalized == "warning":
+        return "[  warn  ]"
+    return "[   ok   ]"
+
+
+def _console_phase_label(category: str) -> str:
+    labels = {
+        "launch": "Launch",
+        "backend": "Backend",
+        "health": "Health",
+        "browser": "Browser",
+        "monitor": "Monitor",
+        "hook": "Hook",
+        "shutdown": "Shutdown",
+        "port": "Port",
+    }
+    normalized = str(category or "runtime").strip().lower()
+    return labels.get(normalized, "Runtime")
+
+
+def _console_event_message(record: dict[str, Any]) -> str:
+    name = str(record.get("name", ""))
+    details = record.get("details")
+    if not isinstance(details, dict):
+        details = {}
+    if name == "launch_planned":
+        mode = _safe_detail(details, "mode")
+        browser = _safe_detail(details, "browser")
+        target = f" in {browser}" if browser else ""
+        return f"Planned {mode or 'runtime'} launch{target}."
+    if name == "backend_starting":
+        return _with_host_port("Starting Streamlit", details) + "."
+    if name == "backend_started":
+        pid = _safe_detail(details, "pid")
+        suffix = f" with PID {pid}" if pid else ""
+        return _with_host_port(f"Started Streamlit{suffix}", details) + "."
+    if name == "backend_start_failed":
+        return "Streamlit backend failed before becoming healthy."
+    if name == "health_ready":
+        return _with_host_port("Ready", details) + "."
+    if name == "browser_launched":
+        browser = _safe_detail(details, "browser")
+        mode = _safe_detail(details, "mode")
+        if browser and mode:
+            return f"Launched {browser} for {mode} mode."
+        if browser:
+            return f"Launched {browser}."
+        return "Browser launched."
+    if name == "monitor_started":
+        mode = _safe_detail(details, "mode")
+        target = _safe_detail(details, "target")
+        if target:
+            return f"Monitoring {target}."
+        return f"Monitoring {mode or 'runtime'} window."
+    if name == "shutdown_requested":
+        return "Shutdown requested."
+    if name == "hook_succeeded":
+        label = _safe_detail(details, "label")
+        return f"{label or 'Shutdown hook'} completed."
+    if name == "hook_failed":
+        label = _safe_detail(details, "label")
+        return f"{label or 'Shutdown hook'} failed."
+    if name == "backend_stopped":
+        returncode = _safe_detail(details, "returncode")
+        if returncode is not None:
+            return f"Backend stopped with return code {returncode}."
+        return "Backend stopped."
+    if name == "port_released":
+        port = _safe_detail(details, "port")
+        return f"Port {port} released." if port else "Backend port released."
+    message = str(record.get("message", "")).strip()
+    return message or _friendly_event_name(name)
+
+
+def _with_host_port(message: str, details: dict[str, Any]) -> str:
+    host = _safe_detail(details, "host")
+    port = _safe_detail(details, "port")
+    if host and port:
+        return f"{message} on {host}:{port}"
+    if port:
+        return f"{message} on port {port}"
+    return message
+
+
+def _safe_detail(details: dict[str, Any], key: str) -> str | None:
+    value = details.get(key)
+    if isinstance(value, str):
+        value = value.strip()
+        return value or None
+    if isinstance(value, int | float | bool):
+        return str(value)
+    return None
 
 
 def _friendly_event_name(name: str) -> str:

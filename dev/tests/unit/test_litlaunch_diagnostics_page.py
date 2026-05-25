@@ -22,6 +22,10 @@ def test_generated_litlaunch_diagnostics_page_imports_and_parses():
     assert "litlaunch-support-bundle.txt" in source
     assert "use_container_width" not in source
     assert 'width="stretch"' in source
+    assert 'st.subheader("Runtime Event Trail")' in source
+    assert "Runtime Sessions" not in source
+    assert "Raw Runtime Event Trail" in source
+    assert "litlaunch-console" in source
 
 
 def test_generated_litlaunch_diagnostics_page_resolves_event_log(monkeypatch):
@@ -141,3 +145,21 @@ def test_generated_litlaunch_diagnostics_page_groups_sessions_newest_first():
     assert summary["fields"]["Host"] == "127.0.0.1"
     assert summary["fields"]["Port"] == "8501"
     assert summary["fields"]["Hooks"] == "1 completed, 0 failed"
+
+
+def test_generated_litlaunch_diagnostics_page_formats_console_replay_line():
+    record = {
+        "name": "backend_started",
+        "category": "backend",
+        "level": "info",
+        "timestamp": "2026-05-24T22:00:01+00:00",
+        "message": "Started Streamlit backend.",
+        "details": {"pid": 1234},
+    }
+
+    line = diagnostics_page._console_event_line(record)
+
+    assert "[   ok   ]" in line
+    assert "Backend:" in line
+    assert "Started Streamlit with PID 1234." in line
+    assert "{'pid': 1234}" not in line
