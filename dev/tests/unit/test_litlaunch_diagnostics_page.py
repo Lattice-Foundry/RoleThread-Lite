@@ -26,6 +26,22 @@ def test_generated_litlaunch_diagnostics_page_imports_and_parses():
     assert "Runtime Sessions" not in source
     assert "Raw Runtime Event Trail" in source
     assert "litlaunch-console" in source
+    assert "from ui.diagnostics_product import render_product_diagnostics" in source
+    assert "render_product_diagnostics()" in source
+
+
+def test_generated_litlaunch_diagnostics_page_places_product_panels_before_artifacts():
+    source = Path(diagnostics_page.__file__).read_text(encoding="utf-8")
+
+    assert source.index("_render_operational_snapshot(st, data)") < source.index(
+        "render_product_diagnostics()"
+    )
+    assert source.index("render_product_diagnostics()") < source.index(
+        "_render_artifact_actions(st, report)"
+    )
+    assert source.index("_render_artifact_actions(st, report)") < source.index(
+        "_render_runtime_sessions(st)"
+    )
 
 
 def test_generated_litlaunch_diagnostics_page_resolves_event_log(monkeypatch):

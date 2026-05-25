@@ -126,6 +126,10 @@ def render_litlaunch_diagnostics() -> None:
     _render_summary(st, data)
     _render_posture_cards(st, data)
     _render_operational_snapshot(st, data)
+    # RoleThread-owned product context layered on top of LitLaunch runtime diagnostics.
+    from ui.diagnostics_product import render_product_diagnostics
+
+    render_product_diagnostics()
     _render_artifact_actions(st, report)
     _render_sections(st, data)
     _render_runtime_sessions(st)
