@@ -13,6 +13,9 @@ Windows Edge app window.
 
 Use the manual source workflow if you want full visibility into the Python
 environment, dependency installation, launch command, and repository files.
+On Linux and macOS, that source workflow can still use LitLaunch for managed
+local runtime behavior, diagnostics, runtime event logging, and support
+artifacts.
 
 RoleThread Lite V1 is tested on Python 3.14.5 with the Streamlit 1.57.x
 runtime line. The source requirements keep Streamlit on that line during the
@@ -75,7 +78,8 @@ window.
 
 ## Linux Manual Install
 
-Linux uses the source/manual workflow for V1.
+Linux uses the source/manual workflow for V1 and is a primary supported
+platform for that workflow.
 
 ```bash
 python3.14 -m venv .venv
@@ -84,13 +88,22 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The Windows Edge app-window profile is not available on Linux. Use normal
-browser mode, or create a browser app shortcut manually if your browser
-supports it.
+For LitLaunch-managed browser-mode runtime, diagnostics, and support artifacts:
+
+```bash
+python -m litlaunch.cli run --profile rolethread-browser
+python -m litlaunch report --profile rolethread-webapp --force
+```
+
+The Windows Edge app-window profile is not the Linux V1 packaged path. Use
+normal browser mode, the LitLaunch browser profile, or a browser app shortcut
+if your browser supports it.
 
 ## macOS Manual Install
 
-macOS is beta/manual for V1.
+macOS is beta/manual for V1 because direct maintainer testing is limited. The
+source architecture and LitLaunch workflows are intended to work where the
+Python dependencies are available.
 
 ```bash
 python3.14 -m venv .venv
@@ -99,9 +112,16 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The Windows Edge app-window profile is not available on macOS. Use normal
-browser mode, or create a browser app shortcut manually if your browser
-supports it.
+For LitLaunch-managed browser-mode runtime, diagnostics, and support artifacts:
+
+```bash
+python -m litlaunch.cli run --profile rolethread-browser
+python -m litlaunch report --profile rolethread-webapp --force
+```
+
+The Windows Edge app-window profile is not the macOS V1 packaged path. Use
+normal browser mode, the LitLaunch browser profile, or a browser app shortcut
+if your browser supports it.
 
 ## Uninstalling On Windows
 

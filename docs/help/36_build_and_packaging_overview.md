@@ -35,7 +35,10 @@ The bundle is intentionally one-folder rather than one-file. That keeps
 dependency extraction simpler, makes missing-data issues easier to diagnose,
 and matches the current Inno packaging model.
 
-Manual source workflows remain available for power users, contributors, and Linux/macOS users.
+Manual source workflows remain available for power users, contributors, and
+Linux/macOS users. Those workflows can still use LitLaunch profiles for managed
+local runtime behavior, diagnostics, event logging, and support artifacts even
+when there is no packaged installer.
 
 ## Development Environment
 
@@ -165,5 +168,5 @@ Packaging is still evolving before V1. The architecture is fixed around a
 bundled Windows app plus a source-based contributor workflow. Installer UX may
 continue to improve across Windows and Edge machine differences, but the
 runtime boundary is stable: installer builds package release snapshots, while
-source users run either plain Streamlit or the LitLaunch app-window profile.
+source users run either plain Streamlit or an appropriate LitLaunch profile.
 

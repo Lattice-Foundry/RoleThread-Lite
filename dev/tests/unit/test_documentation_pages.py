@@ -370,7 +370,10 @@ def test_planned_for_version_2_documents_roadmap_direction_without_promises():
     )
     assert "broader packaged runtime polish" in document.content
     assert "clearer LitLaunch diagnostics guidance" in document.content
-    assert "improved Linux compatibility" in document.content
+    assert "additional Linux packaging or desktop integration polish" in (
+        document.content
+    )
+    assert "Linux is already a primary source/manual platform" in document.content
     assert "macOS beta refinement" in document.content
     assert "additional generation templates" in document.content
     assert "model-tailored generation guidance" in document.content

@@ -119,6 +119,14 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+Linux and macOS source users can also use LitLaunch profiles for managed local
+runtime behavior, diagnostics, runtime event logging, and support artifacts:
+
+```bash
+python -m litlaunch.cli run --profile rolethread-browser
+python -m litlaunch report --profile rolethread-webapp --force
+```
+
 Windows/dev setup:
 
 ```bat
@@ -216,9 +224,10 @@ workflow details.
 ## OS Compatibility and Storage
 
 RoleThread Lite V1 supports Windows and Linux as primary platforms. macOS is
-beta-supported because direct maintainer testing is limited for V1. Unknown
-platforms are unsupported and should expect graceful degradation rather than
-platform-specific integrations.
+beta-supported because direct maintainer testing is limited for V1, not because
+the LitLaunch runtime model is Windows-only. Unknown platforms are unsupported
+and should expect graceful degradation rather than platform-specific
+integrations.
 
 Fresh installs use platform-native storage defaults:
 
@@ -239,8 +248,10 @@ timestamps. If OneDrive keeps syncing RoleThread files, review OneDrive backup
 and sync settings for folders such as Documents or Desktop.
 
 Launch policy is platform-aware. The Windows installer opens a local Edge app
-window when available, while Linux and macOS use default-browser or manual
-local-URL workflows.
+window when available. Linux and macOS do not have a V1 packaged installer, but
+source checkouts can still benefit from LitLaunch profile loading, local
+browser-mode runtime ownership, diagnostics, support artifacts, and runtime
+event logging.
 
 The V1 stability gate is:
 

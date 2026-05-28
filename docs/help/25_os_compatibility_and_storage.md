@@ -18,16 +18,21 @@ remain supported.
 
 **Linux is a primary V1 support platform.**
 
-Linux uses the manual/source workflow for V1. Launching through the default
-browser or manually opening the local Streamlit URL is the expected model.
-OneDrive-specific integration is not supported on Linux.
+Linux uses the manual/source workflow for V1. It remains a full supported
+runtime path: source users can run plain Streamlit or use LitLaunch's
+browser-mode profile for managed local runtime behavior, diagnostics, runtime
+event logging, and support artifacts. OneDrive-specific integration is not
+supported on Linux.
 
 **macOS is beta-supported for V1.**
 
 macOS support is intended, but is community-tested because the maintainer
 cannot fully validate it directly yet. There is no V1 macOS installer planned.
-Default-browser use is the expected workflow. Safari-style web-app usage may
-work as a user-managed beta workflow, but RoleThread does not automate it in V1.
+Default-browser use is the expected workflow, and LitLaunch source workflows
+are intended to provide the same profile, diagnostics, event-log, and support
+artifact benefits where dependencies are available. Safari-style web-app usage
+may work as a user-managed beta workflow, but RoleThread does not automate it
+in V1.
 
 **Unknown platforms are unsupported.**
 
@@ -141,6 +146,13 @@ Source Windows users can launch the same app-window profile with:
 python -m litlaunch.cli run --profile rolethread-webapp
 ```
 
+Linux and macOS source users can use the browser-mode LitLaunch profile for
+managed local runtime behavior without the Windows packaged app-window:
+
+```bat
+python -m litlaunch.cli run --profile rolethread-browser
+```
+
 Normal browser mode remains available through:
 
 ```bat
@@ -152,8 +164,7 @@ runtime/support view. It shows LitLaunch posture, operational snapshot,
 RoleThread product context, support artifact actions, and runtime event
 history.
 
-Source users can also generate a LitLaunch diagnostics report for the
-app-window profile:
+Source users can also generate a LitLaunch diagnostics report:
 
 ```bat
 python -m litlaunch report --profile rolethread-webapp --force
@@ -163,9 +174,10 @@ Reports and bundles are written under `.litlaunch/reports/` and are support
 artifacts, not telemetry. Review generated artifacts before sharing because
 local paths and runtime metadata may appear.
 
-Linux and macOS use normal browser mode. If you want an app-style window on
-those platforms, use your browser's built-in install or shortcut option
-manually.
+Linux and macOS use source/manual workflows in V1, but LitLaunch is still useful
+there for profile loading, browser-mode runtime ownership, diagnostics, support
+artifacts, and runtime event logging. If you want an app-style window on those
+platforms, use your browser's built-in install or shortcut option manually.
 
 Windows:
 
@@ -175,13 +187,13 @@ Windows:
 
 Linux:
 
-- preferred workflow: default browser
+- preferred workflow: source launch with `streamlit run app.py` or `python -m litlaunch.cli run --profile rolethread-browser`
 - fallback: manually open the local Streamlit URL
 - manual/git-clone setup is expected for V1
 
 macOS:
 
-- preferred workflow: default browser
+- preferred workflow: source launch with `streamlit run app.py` or `python -m litlaunch.cli run --profile rolethread-browser`
 - fallback: manually open the local Streamlit URL
 - Safari-style web-app use is user-managed and beta
 - no V1 installer is planned

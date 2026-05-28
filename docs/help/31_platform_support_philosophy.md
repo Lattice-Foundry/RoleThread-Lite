@@ -28,16 +28,23 @@ The expected V1 path is:
 - clone the project
 - create a Python 3.14 virtual environment
 - install dependencies
-- run Streamlit manually
+- run Streamlit manually or use the LitLaunch browser profile
 
-Linux uses standard browser workflows. OneDrive integration and Windows Edge
-app-window launch are not part of Linux V1 support.
+Linux uses source-first browser workflows, but that does not mean plain
+Streamlit is the only option. LitLaunch can still provide profile loading,
+managed local runtime behavior, diagnostics, runtime event logging, support
+artifacts, and cleaner shutdown behavior. OneDrive-specific integration and the
+Windows packaged Edge app-window are not part of Linux V1 support.
 
 ## macOS
 
 macOS is beta/manual support for V1.
 
-RoleThread Lite should degrade gracefully on macOS, but direct maintainer testing is limited. The expected workflow is similar to Linux: manual setup, local files, and default browser usage.
+RoleThread Lite should degrade gracefully on macOS, but direct maintainer
+testing is limited. The expected workflow is similar to Linux: manual setup,
+local files, and browser-based use. LitLaunch's source/runtime diagnostics are
+still relevant on macOS where dependencies are available; the beta label is
+about validation coverage, not an intentional downgrade in runtime capability.
 
 macOS installer behavior is not planned for V1.
 
@@ -50,8 +57,10 @@ LitLaunch owns the runtime behavior around that app window: profile-based
 startup, browser/app-window launch, local health checks, and shutdown
 coordination. RoleThread supplies the product configuration and cleanup hooks.
 
-On unsupported platforms, source users should use plain Streamlit browser mode:
-`streamlit run app.py`.
+On non-Windows source platforms, users can use plain Streamlit browser mode or
+the LitLaunch browser profile. Plain Streamlit is useful for simple UI
+development; LitLaunch is useful when runtime diagnostics, event logging,
+profile behavior, and support artifacts matter.
 
 ## Storage Policy
 

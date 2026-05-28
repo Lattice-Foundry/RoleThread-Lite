@@ -42,15 +42,17 @@ platform behavior.
 
 V2 may improve non-Windows workflows through:
 
-- improved Linux compatibility
-- macOS beta refinement
+- additional Linux packaging or desktop integration polish
+- macOS beta refinement once direct or community validation improves
 - Chrome and Chromium app-mode testing
 - community-driven macOS validation
 - clearer platform-specific setup and diagnostics
 
-The current Windows installed-app work creates a stronger model for future
-platform support, but it does not imply all platforms will receive identical
-integration at once.
+Linux is already a primary source/manual platform, and LitLaunch can provide
+runtime diagnostics, event logging, support artifacts, and managed browser-mode
+launch there today. The current Windows installed-app work creates a stronger
+model for future packaged platform support, but it does not imply all platforms
+will receive identical installer or desktop integration at once.
 
 ## Data Generation Improvements
 

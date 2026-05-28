@@ -959,7 +959,7 @@
   },
   {
     "question": "Getting started: Does RoleThread Lite run on Linux and macOS?",
-    "answer": "Yes. Linux is the primary non-Windows platform. macOS support is in beta.\n\nBoth use the manual install path. The installer is Windows-only.",
+    "answer": "Yes. Linux is a primary V1 platform for source/manual workflows. It can use plain Streamlit or LitLaunch's browser profile for managed local runtime behavior, diagnostics, runtime event logging, and support artifacts.\n\nmacOS support is beta because direct maintainer testing is limited, not because the runtime model is intentionally weaker. The installer is Windows-only for V1.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
