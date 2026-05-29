@@ -12,6 +12,7 @@ from typing import Any
 
 DOCS_ROOT = Path(__file__).resolve().parents[1] / "docs"
 HELP_DIR = DOCS_ROOT / "help"
+HELP_MANIFEST_PRODUCT = "RoleThread Lite"
 
 
 @dataclass(frozen=True)
@@ -24,10 +25,10 @@ class HelpArticle:
     category: str
     order: int
     summary: str
+    source_path: str
+    public: bool
+    audience: str
     related_ids: tuple[str, ...] = ()
-    source_path: str = ""
-    public: bool = True
-    audience: str = "user"
 
 
 @dataclass(frozen=True)
@@ -100,6 +101,8 @@ _REQUIRED_ARTICLE_FIELDS = (
     "order",
     "summary",
     "related_ids",
+    "public",
+    "audience",
 )
 
 
@@ -134,6 +137,10 @@ def load_help_manifest(
         )
 
     product = _require_text(manifest["product"], "Help manifest product")
+    if product != HELP_MANIFEST_PRODUCT:
+        raise HelpManifestError(
+            f"Help manifest product must be {HELP_MANIFEST_PRODUCT!r}."
+        )
     default_article_id = _require_text(
         manifest["default_article_id"],
         "Help manifest default_article_id",
@@ -245,10 +252,10 @@ def _parse_manifest_articles(
                 category=category_titles[category_id],
                 order=order,
                 summary=summary,
-                related_ids=related_ids,
                 source_path=source_path,
                 public=public,
                 audience=audience,
+                related_ids=related_ids,
             )
         )
     return tuple(sorted(articles, key=lambda article: article.order))
@@ -308,15 +315,19 @@ def _parse_related_ids(value: object, label: str) -> tuple[str, ...]:
 
 
 def _parse_public_flag(record: dict[str, Any], label: str) -> bool:
-    value = record.get("public", True)
+    value = record["public"]
     if not isinstance(value, bool):
         raise HelpManifestError(f"{label} public must be a boolean.")
     return value
 
 
 def _parse_audience(record: dict[str, Any], label: str) -> str:
-    value = record.get("audience", "user")
-    return _require_text(value, f"{label} audience")
+    audience = _require_text(record["audience"], f"{label} audience")
+    if re.fullmatch(r"[a-z][a-z0-9_-]*", audience) is None:
+        raise HelpManifestError(
+            f"{label} audience must be a lowercase identifier."
+        )
+    return audience
 
 
 def _require_fields(

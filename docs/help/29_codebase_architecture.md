@@ -74,7 +74,8 @@ Help Markdown files own article content. `docs/help_manifest.json` owns the Help
 taxonomy: stable article IDs, source paths, categories, ordering, summaries,
 related articles, and public metadata. The in-app Help browser consumes that
 manifest, and external documentation sync jobs can consume the same repo-owned
-taxonomy without becoming the source of truth.
+taxonomy directly from JSON without importing RoleThread Python code or
+becoming the source of truth.
 
 ## Boundary Model
 

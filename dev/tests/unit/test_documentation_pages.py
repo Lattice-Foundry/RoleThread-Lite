@@ -321,12 +321,24 @@ def test_load_help_manifest_sorts_manifest_records_and_preserves_display_categor
     [
         (lambda manifest: manifest.pop("product"), "missing required"),
         (
+            lambda manifest: manifest.__setitem__("product", "Other App"),
+            "product must be 'RoleThread Lite'",
+        ),
+        (
             lambda manifest: manifest["categories"][1].__setitem__("id", "start"),
             "Duplicate Help category id",
         ),
         (
+            lambda manifest: manifest["categories"][1].__setitem__("order", 20),
+            "Duplicate Help category order",
+        ),
+        (
             lambda manifest: manifest["articles"][1].__setitem__("id", "second"),
             "Duplicate Help article id",
+        ),
+        (
+            lambda manifest: manifest["articles"][1].__setitem__("order", 20),
+            "Duplicate Help article order",
         ),
         (
             lambda manifest: manifest["articles"][0].__setitem__(
@@ -341,6 +353,13 @@ def test_load_help_manifest_sorts_manifest_records_and_preserves_display_categor
                 "docs/help/missing.md",
             ),
             "does not exist",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].__setitem__(
+                "source_path",
+                "C:/docs/help/02_second.md",
+            ),
+            "stay inside docs/help",
         ),
         (
             lambda manifest: manifest["articles"][0].__setitem__(
@@ -367,6 +386,21 @@ def test_load_help_manifest_sorts_manifest_records_and_preserves_display_categor
         (
             lambda manifest: manifest["articles"][0].__setitem__("public", "true"),
             "public must be a boolean",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].pop("public"),
+            "missing required",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].pop("audience"),
+            "missing required",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].__setitem__(
+                "audience",
+                "Power User",
+            ),
+            "audience must be a lowercase identifier",
         ),
     ],
 )
