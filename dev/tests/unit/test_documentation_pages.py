@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
 import ui.ui_help as ui_help
@@ -18,6 +19,8 @@ from ui.ui_faq import (
 from ui.ui_help import HelpTopic, clean_help_topic_title, filter_help_topics, load_help_topics
 from ui.help_docs import (
     HELP_DIR,
+    HELP_MANIFEST_PATH,
+    HelpManifestError,
     build_help_search_results,
     extract_markdown_sections,
     format_section_outline,
@@ -26,10 +29,13 @@ from ui.help_docs import (
     get_help_article,
     get_help_article_order,
     get_help_breadcrumb,
+    get_help_categories,
+    get_help_manifest,
     get_help_article_registry,
     get_help_articles_by_category,
     get_help_category_order,
     get_related_help_articles,
+    load_help_manifest,
     load_help_document,
     resolve_help_article_id,
     search_help_documents,
@@ -62,6 +68,52 @@ class FakeFAQStreamlit:
 
     def rerun(self):
         self.rerun_count += 1
+
+
+def _minimal_help_manifest(tmp_path):
+    help_dir = tmp_path / "docs" / "help"
+    help_dir.mkdir(parents=True)
+    (help_dir / "01_first.md").write_text("# First", encoding="utf-8")
+    (help_dir / "02_second.md").write_text("# Second", encoding="utf-8")
+    return {
+        "schema_version": 1,
+        "product": "RoleThread Lite",
+        "default_article_id": "first",
+        "categories": [
+            {"id": "start", "title": "Start", "order": 20},
+            {"id": "reference", "title": "Reference", "order": 30},
+        ],
+        "articles": [
+            {
+                "id": "second",
+                "title": "Second",
+                "source_path": "docs/help/02_second.md",
+                "category": "reference",
+                "order": 20,
+                "summary": "Second article.",
+                "related_ids": ["first"],
+                "public": True,
+                "audience": "user",
+            },
+            {
+                "id": "first",
+                "title": "First",
+                "source_path": "docs/help/01_first.md",
+                "category": "start",
+                "order": 10,
+                "summary": "First article.",
+                "related_ids": [],
+                "public": True,
+                "audience": "user",
+            },
+        ],
+    }
+
+
+def _write_help_manifest(tmp_path, manifest):
+    manifest_path = tmp_path / "docs" / "help_manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    return manifest_path
 
 
 def test_clean_help_topic_title_formats_filename():
@@ -221,6 +273,114 @@ def test_help_article_registry_has_expected_articles():
     )
     assert registry["lite-vs-studio-boundaries"].category == "For Developers"
     assert len(registry) == len(set(registry))
+
+
+def test_help_manifest_loads_current_taxonomy_source():
+    manifest = get_help_manifest()
+
+    assert HELP_MANIFEST_PATH.name == "help_manifest.json"
+    assert manifest.schema_version == 1
+    assert manifest.product == "RoleThread Lite"
+    assert manifest.default_article_id == get_default_help_article_id()
+    assert tuple(category.title for category in get_help_categories()) == (
+        get_help_category_order()
+    )
+    assert [article.article_id for article in manifest.articles] == [
+        article.article_id for article in get_help_article_order()
+    ]
+    assert all(
+        article.source_path == f"docs/help/{article.file_name}"
+        for article in manifest.articles
+    )
+    assert all(article.public is True for article in manifest.articles)
+    assert all(article.audience == "user" for article in manifest.articles)
+
+
+def test_load_help_manifest_sorts_manifest_records_and_preserves_display_category(
+    tmp_path,
+):
+    manifest_path = _write_help_manifest(tmp_path, _minimal_help_manifest(tmp_path))
+
+    manifest = load_help_manifest(manifest_path, project_root=tmp_path)
+
+    assert [category.title for category in manifest.categories] == [
+        "Start",
+        "Reference",
+    ]
+    assert [article.article_id for article in manifest.articles] == [
+        "first",
+        "second",
+    ]
+    assert manifest.articles[0].category == "Start"
+    assert manifest.articles[0].file_name == "01_first.md"
+    assert manifest.articles[0].source_path == "docs/help/01_first.md"
+
+
+@pytest.mark.parametrize(
+    ("mutate_manifest", "error_match"),
+    [
+        (lambda manifest: manifest.pop("product"), "missing required"),
+        (
+            lambda manifest: manifest["categories"][1].__setitem__("id", "start"),
+            "Duplicate Help category id",
+        ),
+        (
+            lambda manifest: manifest["articles"][1].__setitem__("id", "second"),
+            "Duplicate Help article id",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].__setitem__(
+                "category",
+                "missing",
+            ),
+            "unknown Help category id",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].__setitem__(
+                "source_path",
+                "docs/help/missing.md",
+            ),
+            "does not exist",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].__setitem__(
+                "source_path",
+                "docs/help/../escape.md",
+            ),
+            "stay inside docs/help",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].__setitem__(
+                "related_ids",
+                ["missing"],
+            ),
+            "unknown related article",
+        ),
+        (
+            lambda manifest: manifest.__setitem__("default_article_id", "missing"),
+            "default_article_id references an unknown article",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].__setitem__("order", "20"),
+            "order must be numeric",
+        ),
+        (
+            lambda manifest: manifest["articles"][0].__setitem__("public", "true"),
+            "public must be a boolean",
+        ),
+    ],
+)
+def test_help_manifest_validation_rejects_invalid_manifest_data(
+    tmp_path,
+    mutate_manifest,
+    error_match,
+):
+    manifest = _minimal_help_manifest(tmp_path)
+    mutate_manifest(manifest)
+    manifest_path = _write_help_manifest(tmp_path, manifest)
+
+    with pytest.raises(HelpManifestError, match=error_match):
+        load_help_manifest(manifest_path, project_root=tmp_path)
 
 
 def test_help_article_registry_files_exist():

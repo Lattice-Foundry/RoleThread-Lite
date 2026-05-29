@@ -70,7 +70,11 @@ runtime event logging, and shutdown protocol belong to LitLaunch.
 
 The `docs/` folder contains user Help articles, FAQ content, setup notes, and developer-facing documentation.
 
-Help content is registered explicitly so the in-app documentation browser can provide category navigation, search, related links, and stable article IDs.
+Help Markdown files own article content. `docs/help_manifest.json` owns the Help
+taxonomy: stable article IDs, source paths, categories, ordering, summaries,
+related articles, and public metadata. The in-app Help browser consumes that
+manifest, and external documentation sync jobs can consume the same repo-owned
+taxonomy without becoming the source of truth.
 
 ## Boundary Model
 

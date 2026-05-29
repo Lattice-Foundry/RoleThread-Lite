@@ -1,0 +1,975 @@
+{
+  "schema_version": 1,
+  "product": "RoleThread Lite",
+  "default_article_id": "installing-rolethread-lite",
+  "categories": [
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "order": 10
+    },
+    {
+      "id": "ai-training-fundamentals",
+      "title": "AI Training Fundamentals",
+      "order": 20
+    },
+    {
+      "id": "core-workflows",
+      "title": "Core Workflows",
+      "order": 30
+    },
+    {
+      "id": "data-generation",
+      "title": "Data Generation",
+      "order": 40
+    },
+    {
+      "id": "metadata-and-organization",
+      "title": "Metadata and Organization",
+      "order": 50
+    },
+    {
+      "id": "quality-and-review",
+      "title": "Quality and Review",
+      "order": 60
+    },
+    {
+      "id": "output-and-recovery",
+      "title": "Output and Recovery",
+      "order": 70
+    },
+    {
+      "id": "reference",
+      "title": "Reference",
+      "order": 80
+    },
+    {
+      "id": "for-developers",
+      "title": "For Developers",
+      "order": 90
+    }
+  ],
+  "articles": [
+    {
+      "id": "installing-rolethread-lite",
+      "title": "Installing RoleThread Lite",
+      "source_path": "docs/help/00_installing_rolethread_lite.md",
+      "category": "getting-started",
+      "order": 5,
+      "summary": "Windows installer, manual setup, local app-window launch, and uninstall behavior.",
+      "related_ids": [
+        "getting-started",
+        "why-rolethread-uses-litlaunch",
+        "what-rolethread-lite-does",
+        "dataset-formats",
+        "os-compatibility-and-storage-policy"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "why-rolethread-uses-litlaunch",
+      "title": "Why RoleThread Uses LitLaunch",
+      "source_path": "docs/help/59_why_rolethread_uses_litlaunch.md",
+      "category": "getting-started",
+      "order": 6,
+      "summary": "Why RoleThread uses LitLaunch for local startup, app windows, shutdown, and diagnostics.",
+      "related_ids": [
+        "installing-rolethread-lite",
+        "os-compatibility-and-storage-policy",
+        "privacy-and-local-first-creative-workflows"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "source_path": "docs/help/01_getting_started.md",
+      "category": "getting-started",
+      "order": 10,
+      "summary": "First-session workflow and the basic RoleThread rhythm.",
+      "related_ids": [
+        "what-rolethread-lite-does",
+        "dataset-formats",
+        "loading-datasets-and-working-copies",
+        "understanding-the-main-workspaces"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "what-rolethread-lite-does",
+      "title": "What RoleThread Lite Does",
+      "source_path": "docs/help/02_what_rolethread_lite_does.md",
+      "category": "getting-started",
+      "order": 20,
+      "summary": "The app's purpose, file-owned workflow, and practical boundaries.",
+      "related_ids": [
+        "getting-started",
+        "what-rolethread-is-actually-for",
+        "rolethread-studio-vision"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "dataset-formats",
+      "title": "Dataset Formats",
+      "source_path": "docs/help/03_dataset_formats.md",
+      "category": "getting-started",
+      "order": 30,
+      "summary": "JSONL, ChatML, ShareGPT, native metadata, and clean export basics.",
+      "related_ids": [
+        "loading-datasets-and-working-copies",
+        "exporting-datasets",
+        "sidecars-and-portable-metadata"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "loading-datasets-and-working-copies",
+      "title": "Loading Datasets and Working Copies",
+      "source_path": "docs/help/04_loading_datasets_and_working_copies.md",
+      "category": "getting-started",
+      "order": 40,
+      "summary": "How loading, trust checks, protected copies, and sidecars work.",
+      "related_ids": [
+        "creating-a-new-dataset",
+        "sidecars-and-portable-metadata",
+        "dataset-formats",
+        "validation-and-repair"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "creating-a-new-dataset",
+      "title": "Creating a New Dataset",
+      "source_path": "docs/help/05_creating_a_new_dataset.md",
+      "category": "getting-started",
+      "order": 50,
+      "summary": "Starting a fresh dataset file and understanding first-save behavior.",
+      "related_ids": [
+        "loading-datasets-and-working-copies",
+        "creating-entries",
+        "understanding-the-main-workspaces"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "what-rolethread-is-actually-for",
+      "title": "What RoleThread Is Actually For",
+      "source_path": "docs/help/41_what_rolethread_is_actually_for.md",
+      "category": "ai-training-fundamentals",
+      "order": 52,
+      "summary": "The real workflow RoleThread supports between AI drafting and external training.",
+      "related_ids": [
+        "ai-assisted-dataset-creation-workflow",
+        "why-dataset-quality-matters",
+        "privacy-and-local-first-creative-workflows"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "what-fine-tuning-actually-is",
+      "title": "What Fine-Tuning Actually Is",
+      "source_path": "docs/help/42_what_fine_tuning_actually_is.md",
+      "category": "ai-training-fundamentals",
+      "order": 54,
+      "summary": "A practical explanation of model adaptation and behavioral pattern learning.",
+      "related_ids": [
+        "lora-vs-prompting-vs-fine-tuning",
+        "realistic-expectations-for-fine-tuning",
+        "why-dataset-quality-matters"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "lora-vs-prompting-vs-fine-tuning",
+      "title": "LoRA vs Prompting vs Fine-Tuning",
+      "source_path": "docs/help/43_lora_vs_prompting_vs_fine_tuning.md",
+      "category": "ai-training-fundamentals",
+      "order": 56,
+      "summary": "How prompting, character cards, RAG, LoRAs, and fine-tuning differ.",
+      "related_ids": [
+        "what-fine-tuning-actually-is",
+        "preparing-datasets-for-lora-and-fine-tuning",
+        "realistic-expectations-for-fine-tuning"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "why-dataset-quality-matters",
+      "title": "Why Dataset Quality Matters",
+      "source_path": "docs/help/44_why_dataset_quality_matters.md",
+      "category": "ai-training-fundamentals",
+      "order": 58,
+      "summary": "Why structure, validation, balance, and consistency affect training usefulness.",
+      "related_ids": [
+        "what-makes-a-good-roleplay-dataset",
+        "common-dataset-mistakes",
+        "preparing-datasets-for-lora-and-fine-tuning"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "privacy-and-local-first-creative-workflows",
+      "title": "Privacy and Local-First Creative Workflows",
+      "source_path": "docs/help/45_privacy_and_local_first_creative_workflows.md",
+      "category": "ai-training-fundamentals",
+      "order": 59,
+      "summary": "Why private creative datasets need ownership, offline capability, and local control.",
+      "related_ids": [
+        "creator-ownership-and-long-term-workflow-philosophy",
+        "what-rolethread-is-actually-for",
+        "sidecars-and-portable-metadata"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "what-makes-a-good-roleplay-dataset",
+      "title": "What Makes a Good Roleplay Dataset",
+      "source_path": "docs/help/46_what_makes_a_good_roleplay_dataset.md",
+      "category": "ai-training-fundamentals",
+      "order": 60,
+      "summary": "Practical roleplay dataset quality: consistency, pacing, realism, and coherent behavior.",
+      "related_ids": [
+        "common-dataset-mistakes",
+        "dialogue-vs-narration-balance",
+        "character-consistency-and-drift",
+        "roleplay-archetypes-and-behavioral-bias"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "common-dataset-mistakes",
+      "title": "Common Dataset Mistakes",
+      "source_path": "docs/help/47_common_dataset_mistakes.md",
+      "category": "ai-training-fundamentals",
+      "order": 61,
+      "summary": "Common quality problems that synthetic and hand-edited datasets can accidentally teach.",
+      "related_ids": [
+        "why-dataset-quality-matters",
+        "what-makes-a-good-roleplay-dataset",
+        "dataset-scaling-and-maintenance"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "dialogue-vs-narration-balance",
+      "title": "Dialogue vs Narration Balance",
+      "source_path": "docs/help/48_dialogue_vs_narration_balance.md",
+      "category": "ai-training-fundamentals",
+      "order": 62,
+      "summary": "How dialogue, prose, action, thoughts, and pacing shape roleplay outputs.",
+      "related_ids": [
+        "what-makes-a-good-roleplay-dataset",
+        "character-consistency-and-drift",
+        "roleplay-archetypes-and-behavioral-bias"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "character-consistency-and-drift",
+      "title": "Character Consistency and Drift",
+      "source_path": "docs/help/49_character_consistency_and_drift.md",
+      "category": "ai-training-fundamentals",
+      "order": 63,
+      "summary": "How repeated examples shape character behavior, tone stability, and drift.",
+      "related_ids": [
+        "what-makes-a-good-roleplay-dataset",
+        "dialogue-vs-narration-balance",
+        "character-registry-and-character-mappings",
+        "roleplay-archetypes-and-behavioral-bias"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "ai-assisted-dataset-creation-workflow",
+      "title": "AI-Assisted Dataset Creation Workflow",
+      "source_path": "docs/help/50_ai_assisted_dataset_creation_workflow.md",
+      "category": "ai-training-fundamentals",
+      "order": 64,
+      "summary": "A practical 80/20 workflow for AI-scaffolded datasets and RoleThread refinement.",
+      "related_ids": [
+        "data-generation-beta",
+        "what-rolethread-is-actually-for",
+        "synthetic-data-vs-human-written-data",
+        "why-dataset-quality-matters"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "why-validation-matters",
+      "title": "Why Validation Matters",
+      "source_path": "docs/help/51_why_validation_matters.md",
+      "category": "ai-training-fundamentals",
+      "order": 65,
+      "summary": "Why validation protects conversational structure and behavioral consistency.",
+      "related_ids": [
+        "validation-and-repair",
+        "preparing-datasets-for-lora-and-fine-tuning",
+        "common-dataset-mistakes"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "preparing-datasets-for-lora-and-fine-tuning",
+      "title": "Preparing Datasets for LoRA and Fine-Tuning",
+      "source_path": "docs/help/52_preparing_datasets_for_lora_and_fine_tuning.md",
+      "category": "ai-training-fundamentals",
+      "order": 66,
+      "summary": "Practical cleanup, balancing, export preparation, and iterative refinement guidance.",
+      "related_ids": [
+        "what-fine-tuning-actually-is",
+        "lora-vs-prompting-vs-fine-tuning",
+        "realistic-expectations-for-fine-tuning",
+        "why-dataset-quality-matters"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "synthetic-data-vs-human-written-data",
+      "title": "Synthetic Data vs Human-Written Data",
+      "source_path": "docs/help/53_synthetic_data_vs_human_written_data.md",
+      "category": "ai-training-fundamentals",
+      "order": 67,
+      "summary": "How to use synthetic generation as a force multiplier without replacing curation.",
+      "related_ids": [
+        "ai-assisted-dataset-creation-workflow",
+        "common-dataset-mistakes",
+        "why-dataset-quality-matters"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "dataset-scaling-and-maintenance",
+      "title": "Dataset Scaling and Maintenance",
+      "source_path": "docs/help/54_dataset_scaling_and_maintenance.md",
+      "category": "ai-training-fundamentals",
+      "order": 68,
+      "summary": "Long-term dataset growth, consistency, merge review, and maintenance strategy.",
+      "related_ids": [
+        "why-dataset-quality-matters",
+        "common-dataset-mistakes",
+        "creator-ownership-and-long-term-workflow-philosophy",
+        "merging-datasets"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "roleplay-archetypes-and-behavioral-bias",
+      "title": "Roleplay Archetypes and Behavioral Bias",
+      "source_path": "docs/help/55_roleplay_archetypes_and_behavioral_bias.md",
+      "category": "ai-training-fundamentals",
+      "order": 69,
+      "summary": "How datasets reinforce personality, pacing, initiative, intensity, and blind spots.",
+      "related_ids": [
+        "what-makes-a-good-roleplay-dataset",
+        "character-consistency-and-drift",
+        "dialogue-vs-narration-balance"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "realistic-expectations-for-fine-tuning",
+      "title": "Realistic Expectations for Fine-Tuning",
+      "source_path": "docs/help/56_realistic_expectations_for_fine_tuning.md",
+      "category": "ai-training-fundamentals",
+      "order": 71,
+      "summary": "What fine-tuning and LoRAs can shape, what they cannot fix, and why cycles are normal.",
+      "related_ids": [
+        "what-fine-tuning-actually-is",
+        "preparing-datasets-for-lora-and-fine-tuning",
+        "why-dataset-quality-matters"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "creator-ownership-and-long-term-workflow-philosophy",
+      "title": "Creator Ownership and Long-Term Workflow Philosophy",
+      "source_path": "docs/help/57_creator_ownership_and_long_term_workflow_philosophy.md",
+      "category": "ai-training-fundamentals",
+      "order": 72,
+      "summary": "The local-first ownership philosophy behind portable, creator-controlled datasets.",
+      "related_ids": [
+        "privacy-and-local-first-creative-workflows",
+        "sidecars-and-portable-metadata",
+        "dataset-scaling-and-maintenance",
+        "backups-cloud-sync-and-recovery"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "understanding-the-main-workspaces",
+      "title": "Understanding the Main Workspaces",
+      "source_path": "docs/help/06_understanding_the_main_workspaces.md",
+      "category": "core-workflows",
+      "order": 73,
+      "summary": "How the main RoleThread pages fit together during normal work.",
+      "related_ids": [
+        "creating-entries",
+        "validation-and-repair",
+        "insights-and-dataset-quality",
+        "searching-and-filtering-entries"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "creating-entries",
+      "title": "Creating Entries",
+      "source_path": "docs/help/07_creating_entries.md",
+      "category": "core-workflows",
+      "order": 74,
+      "summary": "Writing training examples, prompts, exchanges, tags, and quality cues.",
+      "related_ids": [
+        "editing-entries",
+        "default-mode-vs-group-chat",
+        "splitting-and-joining-entries",
+        "what-makes-a-good-roleplay-dataset"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "default-mode-vs-group-chat",
+      "title": "Default Mode vs Group Chat",
+      "source_path": "docs/help/08_default_mode_vs_group_chat.md",
+      "category": "core-workflows",
+      "order": 76,
+      "summary": "Choosing entry mode and preserving character identity safely.",
+      "related_ids": [
+        "creating-entries",
+        "character-registry-and-character-mappings",
+        "system-prompt-library"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "editing-entries",
+      "title": "Deep Edit",
+      "source_path": "docs/help/09_editing_entries.md",
+      "category": "core-workflows",
+      "order": 78,
+      "summary": "Deep editing, Full Edit, duplicate workflows, and save behavior.",
+      "related_ids": [
+        "creating-entries",
+        "splitting-and-joining-entries",
+        "validation-and-repair"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "searching-and-filtering-entries",
+      "title": "Searching and Filtering Entries",
+      "source_path": "docs/help/10_searching_and_filtering_entries.md",
+      "category": "core-workflows",
+      "order": 80,
+      "summary": "Finding focused subsets of a loaded dataset.",
+      "related_ids": [
+        "tags-categories-and-tag-lifecycle",
+        "insights-and-dataset-quality",
+        "validation-and-repair"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "splitting-and-joining-entries",
+      "title": "Splitting and Joining Entries",
+      "source_path": "docs/help/11_splitting_and_joining_entries.md",
+      "category": "core-workflows",
+      "order": 82,
+      "summary": "Reshaping entries while preserving useful context.",
+      "related_ids": [
+        "creating-entries",
+        "editing-entries",
+        "validation-and-repair"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "data-generation-beta",
+      "title": "Data Generation (Beta)",
+      "source_path": "docs/help/40_data_generation_beta.md",
+      "category": "data-generation",
+      "order": 115,
+      "summary": "Provider-agnostic prompt compilation for external ChatML JSONL generation workflows.",
+      "related_ids": [
+        "what-rolethread-is-actually-for",
+        "ai-assisted-dataset-creation-workflow",
+        "synthetic-data-vs-human-written-data",
+        "validation-and-repair"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "tags-categories-and-tag-lifecycle",
+      "title": "Tags, Categories, and Tag Lifecycle",
+      "source_path": "docs/help/12_tags_categories_and_tag_lifecycle.md",
+      "category": "metadata-and-organization",
+      "order": 120,
+      "summary": "Using tags and categories as durable organizational metadata.",
+      "related_ids": [
+        "archived-and-imported-tags",
+        "understanding-default-tags",
+        "searching-and-filtering-entries"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "understanding-default-tags",
+      "title": "Understanding Default Tags",
+      "source_path": "docs/help/27_understanding_default_tags.md",
+      "category": "metadata-and-organization",
+      "order": 125,
+      "summary": "The V1 built-in tag taxonomy and how to use defaults versus custom tags.",
+      "related_ids": [
+        "tags-categories-and-tag-lifecycle",
+        "archived-and-imported-tags",
+        "insights-and-dataset-quality"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "archived-and-imported-tags",
+      "title": "Archived and Imported Tags",
+      "source_path": "docs/help/13_archived_and_imported_tags.md",
+      "category": "metadata-and-organization",
+      "order": 130,
+      "summary": "Handling unknown, inactive, and imported tag vocabulary safely.",
+      "related_ids": [
+        "tags-categories-and-tag-lifecycle",
+        "understanding-default-tags",
+        "loading-datasets-and-working-copies"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "character-registry-and-character-mappings",
+      "title": "Character Registry and Character Mappings",
+      "source_path": "docs/help/14_character_registry_and_character_mappings.md",
+      "category": "metadata-and-organization",
+      "order": 140,
+      "summary": "Preserving speaker identity without changing training roles.",
+      "related_ids": [
+        "default-mode-vs-group-chat",
+        "system-prompt-library",
+        "sidecars-and-portable-metadata"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "system-prompt-library",
+      "title": "System Prompt Library",
+      "source_path": "docs/help/15_system_prompt_library.md",
+      "category": "metadata-and-organization",
+      "order": 150,
+      "summary": "Creating, loading, editing, and reusing system prompt templates.",
+      "related_ids": [
+        "creating-entries",
+        "character-registry-and-character-mappings",
+        "default-mode-vs-group-chat"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "sidecars-and-portable-metadata",
+      "title": "Sidecars and Portable Metadata",
+      "source_path": "docs/help/16_sidecars_and_portable_metadata.md",
+      "category": "metadata-and-organization",
+      "order": 160,
+      "summary": "Keeping RoleThread metadata portable beside clean training files.",
+      "related_ids": [
+        "loading-datasets-and-working-copies",
+        "exporting-datasets",
+        "backups-cloud-sync-and-recovery"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "validation-and-repair",
+      "title": "Validation and Repair",
+      "source_path": "docs/help/17_validation_and_repair.md",
+      "category": "quality-and-review",
+      "order": 170,
+      "summary": "Finding structural and quality issues before export.",
+      "related_ids": [
+        "insights-and-dataset-quality",
+        "exporting-datasets",
+        "why-validation-matters",
+        "merging-datasets"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "insights-and-dataset-quality",
+      "title": "Insights and Dataset Quality",
+      "source_path": "docs/help/18_insights_and_dataset_quality.md",
+      "category": "quality-and-review",
+      "order": 180,
+      "summary": "Understanding dataset shape, health, and review priorities.",
+      "related_ids": [
+        "validation-and-repair",
+        "searching-and-filtering-entries",
+        "what-makes-a-good-roleplay-dataset"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "merging-datasets",
+      "title": "Merging Datasets",
+      "source_path": "docs/help/19_merging_datasets.md",
+      "category": "output-and-recovery",
+      "order": 190,
+      "summary": "Combining datasets while preserving identity and metadata.",
+      "related_ids": [
+        "loading-datasets-and-working-copies",
+        "exporting-datasets",
+        "validation-and-repair",
+        "dataset-scaling-and-maintenance"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "exporting-datasets",
+      "title": "Exporting Datasets",
+      "source_path": "docs/help/20_exporting_datasets.md",
+      "category": "output-and-recovery",
+      "order": 200,
+      "summary": "Producing training, archive, and selected export files.",
+      "related_ids": [
+        "validation-and-repair",
+        "sidecars-and-portable-metadata",
+        "preparing-datasets-for-lora-and-fine-tuning"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "backups-cloud-sync-and-recovery",
+      "title": "Backups, Cloud Sync, and Recovery",
+      "source_path": "docs/help/21_backups_cloud_sync_and_recovery.md",
+      "category": "output-and-recovery",
+      "order": 210,
+      "summary": "Local backups, cloud sync expectations, and restore behavior.",
+      "related_ids": [
+        "sidecars-and-portable-metadata",
+        "settings-and-preferences",
+        "os-compatibility-and-storage-policy"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "settings-and-preferences",
+      "title": "Settings and Preferences",
+      "source_path": "docs/help/22_settings_and_preferences.md",
+      "category": "output-and-recovery",
+      "order": 220,
+      "summary": "Configuration, backup settings, safety controls, and portability.",
+      "related_ids": [
+        "backups-cloud-sync-and-recovery",
+        "os-compatibility-and-storage-policy",
+        "installing-rolethread-lite"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "glossary",
+      "title": "Glossary",
+      "source_path": "docs/help/23_glossary.md",
+      "category": "reference",
+      "order": 230,
+      "summary": "Key RoleThread terms and workflow vocabulary.",
+      "related_ids": [
+        "getting-started",
+        "dataset-formats",
+        "what-rolethread-lite-does"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "os-compatibility-and-storage-policy",
+      "title": "OS Compatibility and Storage Policy",
+      "source_path": "docs/help/25_os_compatibility_and_storage.md",
+      "category": "reference",
+      "order": 235,
+      "summary": "Official V1 platform support, runtime, storage, and launch policy.",
+      "related_ids": [
+        "installing-rolethread-lite",
+        "settings-and-preferences",
+        "backups-cloud-sync-and-recovery"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "v1-limitations-and-future-boundaries",
+      "title": "V1 Limitations and Future Boundaries",
+      "source_path": "docs/help/24_v1_limitations_and_future_boundaries.md",
+      "category": "reference",
+      "order": 240,
+      "summary": "What Lite intentionally does and does not try to be.",
+      "related_ids": [
+        "rolethread-studio-vision",
+        "planned-for-version-2",
+        "lite-vs-studio-boundaries",
+        "what-rolethread-lite-does"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "planned-for-version-2",
+      "title": "Planned for Version 2",
+      "source_path": "docs/help/58_planned_for_version_2.md",
+      "category": "reference",
+      "order": 245,
+      "summary": "High-level Lite V2 roadmap direction without release promises.",
+      "related_ids": [
+        "v1-limitations-and-future-boundaries",
+        "os-compatibility-and-storage-policy",
+        "data-generation-beta",
+        "validation-and-repair"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "rolethread-studio-vision",
+      "title": "RoleThread Studio Vision",
+      "source_path": "docs/help/28_rolethread_studio_vision.md",
+      "category": "for-developers",
+      "order": 360,
+      "summary": "How Lite and future Studio workflows are philosophically separated.",
+      "related_ids": [
+        "what-rolethread-lite-does",
+        "v1-limitations-and-future-boundaries",
+        "lite-vs-studio-boundaries",
+        "developer-launch-flags"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "developer-launch-flags",
+      "title": "Developer Launch and Diagnostics",
+      "source_path": "docs/help/26_developer_launch_flags.md",
+      "category": "for-developers",
+      "order": 250,
+      "summary": "Source launch paths, LitLaunch profiles, diagnostics, and installed runtime boundaries.",
+      "related_ids": [
+        "codebase-architecture",
+        "platform-support-philosophy",
+        "testing-philosophy",
+        "os-compatibility-and-storage-policy"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "codebase-architecture",
+      "title": "Codebase Architecture",
+      "source_path": "docs/help/29_codebase_architecture.md",
+      "category": "for-developers",
+      "order": 260,
+      "summary": "The major codebase layers and why RoleThread keeps Streamlit as a UI shell.",
+      "related_ids": [
+        "layer-boundaries-and-responsibilities",
+        "data-safety-philosophy",
+        "developer-launch-flags",
+        "rolethread-studio-vision"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "layer-boundaries-and-responsibilities",
+      "title": "Layer Boundaries and Responsibilities",
+      "source_path": "docs/help/30_layer_boundaries_and_responsibilities.md",
+      "category": "for-developers",
+      "order": 270,
+      "summary": "What belongs in UI, services, and core modules.",
+      "related_ids": [
+        "codebase-architecture",
+        "platform-support-philosophy",
+        "data-safety-philosophy",
+        "rolethread-studio-vision"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "platform-support-philosophy",
+      "title": "Platform Support Philosophy",
+      "source_path": "docs/help/31_platform_support_philosophy.md",
+      "category": "for-developers",
+      "order": 280,
+      "summary": "How Windows, Linux, macOS, local app-window, and storage support are scoped.",
+      "related_ids": [
+        "developer-launch-flags",
+        "os-compatibility-and-storage-policy",
+        "codebase-architecture"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "data-safety-philosophy",
+      "title": "Data Safety Philosophy",
+      "source_path": "docs/help/32_data_safety_philosophy.md",
+      "category": "for-developers",
+      "order": 290,
+      "summary": "How RoleThread protects local datasets, metadata, backups, and repair workflows.",
+      "related_ids": [
+        "testing-philosophy",
+        "layer-boundaries-and-responsibilities",
+        "backups-cloud-sync-and-recovery"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "testing-philosophy",
+      "title": "Testing Philosophy",
+      "source_path": "docs/help/33_testing_philosophy.md",
+      "category": "for-developers",
+      "order": 300,
+      "summary": "Why RoleThread emphasizes deterministic core and service tests.",
+      "related_ids": [
+        "data-safety-philosophy",
+        "codebase-architecture",
+        "developer-launch-flags"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "naming-and-terminology-guide",
+      "title": "Naming and Terminology Guide",
+      "source_path": "docs/help/34_naming_and_terminology_guide.md",
+      "category": "for-developers",
+      "order": 310,
+      "summary": "Shared vocabulary for datasets, tags, sidecars, and product names.",
+      "related_ids": [
+        "understanding-default-tags",
+        "glossary",
+        "rolethread-studio-vision"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "ui-and-theme-style-guide",
+      "title": "UI and Theme Style Guide",
+      "source_path": "docs/help/35_ui_and_theme_style_guide.md",
+      "category": "for-developers",
+      "order": 320,
+      "summary": "Design guidance for RoleThread's calm dark-theme interface.",
+      "related_ids": [
+        "settings-and-preferences",
+        "codebase-architecture",
+        "naming-and-terminology-guide"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "build-and-packaging-overview",
+      "title": "Build and Packaging Overview",
+      "source_path": "docs/help/36_build_and_packaging_overview.md",
+      "category": "for-developers",
+      "order": 330,
+      "summary": "How RoleThread approaches bundles, installers, dev environments, and releases.",
+      "related_ids": [
+        "windows-installer-and-launcher-architecture",
+        "developer-launch-flags",
+        "platform-support-philosophy"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "windows-installer-and-launcher-architecture",
+      "title": "Windows Installer and Launcher Architecture",
+      "source_path": "docs/help/37_windows_installer_and_launcher_architecture.md",
+      "category": "for-developers",
+      "order": 340,
+      "summary": "How the Windows packaged launcher delegates runtime behavior to LitLaunch.",
+      "related_ids": [
+        "build-and-packaging-overview",
+        "developer-launch-flags",
+        "platform-support-philosophy"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "contribution-guidelines",
+      "title": "Contribution Guidelines",
+      "source_path": "docs/help/38_contribution_guidelines.md",
+      "category": "for-developers",
+      "order": 350,
+      "summary": "How contributors should preserve maintainability, tests, and architecture boundaries.",
+      "related_ids": [
+        "layer-boundaries-and-responsibilities",
+        "testing-philosophy",
+        "naming-and-terminology-guide"
+      ],
+      "public": true,
+      "audience": "user"
+    },
+    {
+      "id": "lite-vs-studio-boundaries",
+      "title": "Lite vs Studio Boundaries",
+      "source_path": "docs/help/39_lite_vs_studio_boundaries.md",
+      "category": "for-developers",
+      "order": 370,
+      "summary": "Which ideas belong in Lite and which are better suited to future Studio work.",
+      "related_ids": [
+        "rolethread-studio-vision",
+        "codebase-architecture",
+        "contribution-guidelines"
+      ],
+      "public": true,
+      "audience": "user"
+    }
+  ]
+}

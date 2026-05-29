@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+import json
 from dataclasses import dataclass
 from pathlib import Path
 import re
+from typing import Any
 
 
 DOCS_ROOT = Path(__file__).resolve().parents[1] / "docs"
 HELP_DIR = DOCS_ROOT / "help"
-DEFAULT_HELP_ARTICLE_ID = "installing-rolethread-lite"
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,9 @@ class HelpArticle:
     order: int
     summary: str
     related_ids: tuple[str, ...] = ()
+    source_path: str = ""
+    public: bool = True
+    audience: str = "user"
 
 
 @dataclass(frozen=True)
@@ -52,822 +56,310 @@ class DocSection:
     anchor: str
 
 
-HELP_CATEGORY_ORDER = (
-    "Getting Started",
-    "AI Training Fundamentals",
-    "Core Workflows",
-    "Data Generation",
-    "Metadata and Organization",
-    "Quality and Review",
-    "Output and Recovery",
-    "Reference",
-    "For Developers",
+HELP_MANIFEST_PATH = DOCS_ROOT / "help_manifest.json"
+HELP_MANIFEST_SCHEMA_VERSION = 1
+
+
+class HelpManifestError(ValueError):
+    """Raised when the Help taxonomy manifest is invalid."""
+
+
+@dataclass(frozen=True)
+class HelpCategory:
+    """One display category from the Help taxonomy manifest."""
+
+    category_id: str
+    title: str
+    order: int
+
+
+@dataclass(frozen=True)
+class HelpManifest:
+    """Loaded Help documentation taxonomy manifest."""
+
+    schema_version: int
+    product: str
+    default_article_id: str
+    categories: tuple[HelpCategory, ...]
+    articles: tuple[HelpArticle, ...]
+
+
+_REQUIRED_MANIFEST_FIELDS = (
+    "schema_version",
+    "product",
+    "default_article_id",
+    "categories",
+    "articles",
+)
+_REQUIRED_CATEGORY_FIELDS = ("id", "title", "order")
+_REQUIRED_ARTICLE_FIELDS = (
+    "id",
+    "title",
+    "source_path",
+    "category",
+    "order",
+    "summary",
+    "related_ids",
 )
 
 
-HELP_ARTICLES: tuple[HelpArticle, ...] = (
-    HelpArticle(
-        "installing-rolethread-lite",
-        "00_installing_rolethread_lite.md",
-        "Installing RoleThread Lite",
-        "Getting Started",
-        5,
-        "Windows installer, manual setup, local app-window launch, and uninstall behavior.",
-        (
-            "getting-started",
-            "why-rolethread-uses-litlaunch",
-            "what-rolethread-lite-does",
-            "dataset-formats",
-            "os-compatibility-and-storage-policy",
-        ),
-    ),
-    HelpArticle(
-        "why-rolethread-uses-litlaunch",
-        "59_why_rolethread_uses_litlaunch.md",
-        "Why RoleThread Uses LitLaunch",
-        "Getting Started",
-        6,
-        "Why RoleThread uses LitLaunch for local startup, app windows, shutdown, and diagnostics.",
-        (
-            "installing-rolethread-lite",
-            "os-compatibility-and-storage-policy",
-            "privacy-and-local-first-creative-workflows",
-        ),
-    ),
-    HelpArticle(
-        "getting-started",
-        "01_getting_started.md",
-        "Getting Started",
-        "Getting Started",
-        10,
-        "First-session workflow and the basic RoleThread rhythm.",
-        (
-            "what-rolethread-lite-does",
-            "dataset-formats",
-            "loading-datasets-and-working-copies",
-            "understanding-the-main-workspaces",
-        ),
-    ),
-    HelpArticle(
-        "what-rolethread-lite-does",
-        "02_what_rolethread_lite_does.md",
-        "What RoleThread Lite Does",
-        "Getting Started",
-        20,
-        "The app's purpose, file-owned workflow, and practical boundaries.",
-        (
-            "getting-started",
-            "what-rolethread-is-actually-for",
-            "rolethread-studio-vision",
-        ),
-    ),
-    HelpArticle(
-        "dataset-formats",
-        "03_dataset_formats.md",
-        "Dataset Formats",
-        "Getting Started",
-        30,
-        "JSONL, ChatML, ShareGPT, native metadata, and clean export basics.",
-        (
-            "loading-datasets-and-working-copies",
-            "exporting-datasets",
-            "sidecars-and-portable-metadata",
-        ),
-    ),
-    HelpArticle(
-        "loading-datasets-and-working-copies",
-        "04_loading_datasets_and_working_copies.md",
-        "Loading Datasets and Working Copies",
-        "Getting Started",
-        40,
-        "How loading, trust checks, protected copies, and sidecars work.",
-        (
-            "creating-a-new-dataset",
-            "sidecars-and-portable-metadata",
-            "dataset-formats",
-            "validation-and-repair",
-        ),
-    ),
-    HelpArticle(
-        "creating-a-new-dataset",
-        "05_creating_a_new_dataset.md",
-        "Creating a New Dataset",
-        "Getting Started",
-        50,
-        "Starting a fresh dataset file and understanding first-save behavior.",
-        (
-            "loading-datasets-and-working-copies",
-            "creating-entries",
-            "understanding-the-main-workspaces",
-        ),
-    ),
-    HelpArticle(
-        "what-rolethread-is-actually-for",
-        "41_what_rolethread_is_actually_for.md",
-        "What RoleThread Is Actually For",
-        "AI Training Fundamentals",
-        52,
-        "The real workflow RoleThread supports between AI drafting and external training.",
-        (
-            "ai-assisted-dataset-creation-workflow",
-            "why-dataset-quality-matters",
-            "privacy-and-local-first-creative-workflows",
-        ),
-    ),
-    HelpArticle(
-        "what-fine-tuning-actually-is",
-        "42_what_fine_tuning_actually_is.md",
-        "What Fine-Tuning Actually Is",
-        "AI Training Fundamentals",
-        54,
-        "A practical explanation of model adaptation and behavioral pattern learning.",
-        (
-            "lora-vs-prompting-vs-fine-tuning",
-            "realistic-expectations-for-fine-tuning",
-            "why-dataset-quality-matters",
-        ),
-    ),
-    HelpArticle(
-        "lora-vs-prompting-vs-fine-tuning",
-        "43_lora_vs_prompting_vs_fine_tuning.md",
-        "LoRA vs Prompting vs Fine-Tuning",
-        "AI Training Fundamentals",
-        56,
-        "How prompting, character cards, RAG, LoRAs, and fine-tuning differ.",
-        (
-            "what-fine-tuning-actually-is",
-            "preparing-datasets-for-lora-and-fine-tuning",
-            "realistic-expectations-for-fine-tuning",
-        ),
-    ),
-    HelpArticle(
-        "why-dataset-quality-matters",
-        "44_why_dataset_quality_matters.md",
-        "Why Dataset Quality Matters",
-        "AI Training Fundamentals",
-        58,
-        "Why structure, validation, balance, and consistency affect training usefulness.",
-        (
-            "what-makes-a-good-roleplay-dataset",
-            "common-dataset-mistakes",
-            "preparing-datasets-for-lora-and-fine-tuning",
-        ),
-    ),
-    HelpArticle(
-        "privacy-and-local-first-creative-workflows",
-        "45_privacy_and_local_first_creative_workflows.md",
-        "Privacy and Local-First Creative Workflows",
-        "AI Training Fundamentals",
-        59,
-        "Why private creative datasets need ownership, offline capability, and local control.",
-        (
-            "creator-ownership-and-long-term-workflow-philosophy",
-            "what-rolethread-is-actually-for",
-            "sidecars-and-portable-metadata",
-        ),
-    ),
-    HelpArticle(
-        "what-makes-a-good-roleplay-dataset",
-        "46_what_makes_a_good_roleplay_dataset.md",
-        "What Makes a Good Roleplay Dataset",
-        "AI Training Fundamentals",
-        60,
-        "Practical roleplay dataset quality: consistency, pacing, realism, and coherent behavior.",
-        (
-            "common-dataset-mistakes",
-            "dialogue-vs-narration-balance",
-            "character-consistency-and-drift",
-            "roleplay-archetypes-and-behavioral-bias",
-        ),
-    ),
-    HelpArticle(
-        "common-dataset-mistakes",
-        "47_common_dataset_mistakes.md",
-        "Common Dataset Mistakes",
-        "AI Training Fundamentals",
-        61,
-        "Common quality problems that synthetic and hand-edited datasets can accidentally teach.",
-        (
-            "why-dataset-quality-matters",
-            "what-makes-a-good-roleplay-dataset",
-            "dataset-scaling-and-maintenance",
-        ),
-    ),
-    HelpArticle(
-        "dialogue-vs-narration-balance",
-        "48_dialogue_vs_narration_balance.md",
-        "Dialogue vs Narration Balance",
-        "AI Training Fundamentals",
-        62,
-        "How dialogue, prose, action, thoughts, and pacing shape roleplay outputs.",
-        (
-            "what-makes-a-good-roleplay-dataset",
-            "character-consistency-and-drift",
-            "roleplay-archetypes-and-behavioral-bias",
-        ),
-    ),
-    HelpArticle(
-        "character-consistency-and-drift",
-        "49_character_consistency_and_drift.md",
-        "Character Consistency and Drift",
-        "AI Training Fundamentals",
-        63,
-        "How repeated examples shape character behavior, tone stability, and drift.",
-        (
-            "what-makes-a-good-roleplay-dataset",
-            "dialogue-vs-narration-balance",
-            "character-registry-and-character-mappings",
-            "roleplay-archetypes-and-behavioral-bias",
-        ),
-    ),
-    HelpArticle(
-        "ai-assisted-dataset-creation-workflow",
-        "50_ai_assisted_dataset_creation_workflow.md",
-        "AI-Assisted Dataset Creation Workflow",
-        "AI Training Fundamentals",
-        64,
-        "A practical 80/20 workflow for AI-scaffolded datasets and RoleThread refinement.",
-        (
-            "data-generation-beta",
-            "what-rolethread-is-actually-for",
-            "synthetic-data-vs-human-written-data",
-            "why-dataset-quality-matters",
-        ),
-    ),
-    HelpArticle(
-        "why-validation-matters",
-        "51_why_validation_matters.md",
-        "Why Validation Matters",
-        "AI Training Fundamentals",
-        65,
-        "Why validation protects conversational structure and behavioral consistency.",
-        (
-            "validation-and-repair",
-            "preparing-datasets-for-lora-and-fine-tuning",
-            "common-dataset-mistakes",
-        ),
-    ),
-    HelpArticle(
-        "preparing-datasets-for-lora-and-fine-tuning",
-        "52_preparing_datasets_for_lora_and_fine_tuning.md",
-        "Preparing Datasets for LoRA and Fine-Tuning",
-        "AI Training Fundamentals",
-        66,
-        "Practical cleanup, balancing, export preparation, and iterative refinement guidance.",
-        (
-            "what-fine-tuning-actually-is",
-            "lora-vs-prompting-vs-fine-tuning",
-            "realistic-expectations-for-fine-tuning",
-            "why-dataset-quality-matters",
-        ),
-    ),
-    HelpArticle(
-        "synthetic-data-vs-human-written-data",
-        "53_synthetic_data_vs_human_written_data.md",
-        "Synthetic Data vs Human-Written Data",
-        "AI Training Fundamentals",
-        67,
-        "How to use synthetic generation as a force multiplier without replacing curation.",
-        (
-            "ai-assisted-dataset-creation-workflow",
-            "common-dataset-mistakes",
-            "why-dataset-quality-matters",
-        ),
-    ),
-    HelpArticle(
-        "dataset-scaling-and-maintenance",
-        "54_dataset_scaling_and_maintenance.md",
-        "Dataset Scaling and Maintenance",
-        "AI Training Fundamentals",
-        68,
-        "Long-term dataset growth, consistency, merge review, and maintenance strategy.",
-        (
-            "why-dataset-quality-matters",
-            "common-dataset-mistakes",
-            "creator-ownership-and-long-term-workflow-philosophy",
-            "merging-datasets",
-        ),
-    ),
-    HelpArticle(
-        "roleplay-archetypes-and-behavioral-bias",
-        "55_roleplay_archetypes_and_behavioral_bias.md",
-        "Roleplay Archetypes and Behavioral Bias",
-        "AI Training Fundamentals",
-        69,
-        "How datasets reinforce personality, pacing, initiative, intensity, and blind spots.",
-        (
-            "what-makes-a-good-roleplay-dataset",
-            "character-consistency-and-drift",
-            "dialogue-vs-narration-balance",
-        ),
-    ),
-    HelpArticle(
-        "realistic-expectations-for-fine-tuning",
-        "56_realistic_expectations_for_fine_tuning.md",
-        "Realistic Expectations for Fine-Tuning",
-        "AI Training Fundamentals",
-        71,
-        "What fine-tuning and LoRAs can shape, what they cannot fix, and why cycles are normal.",
-        (
-            "what-fine-tuning-actually-is",
-            "preparing-datasets-for-lora-and-fine-tuning",
-            "why-dataset-quality-matters",
-        ),
-    ),
-    HelpArticle(
-        "creator-ownership-and-long-term-workflow-philosophy",
-        "57_creator_ownership_and_long_term_workflow_philosophy.md",
-        "Creator Ownership and Long-Term Workflow Philosophy",
-        "AI Training Fundamentals",
-        72,
-        "The local-first ownership philosophy behind portable, creator-controlled datasets.",
-        (
-            "privacy-and-local-first-creative-workflows",
-            "sidecars-and-portable-metadata",
-            "dataset-scaling-and-maintenance",
-            "backups-cloud-sync-and-recovery",
-        ),
-    ),
-    HelpArticle(
-        "understanding-the-main-workspaces",
-        "06_understanding_the_main_workspaces.md",
-        "Understanding the Main Workspaces",
-        "Core Workflows",
-        73,
-        "How the main RoleThread pages fit together during normal work.",
-        (
-            "creating-entries",
-            "validation-and-repair",
-            "insights-and-dataset-quality",
-            "searching-and-filtering-entries",
-        ),
-    ),
-    HelpArticle(
-        "creating-entries",
-        "07_creating_entries.md",
-        "Creating Entries",
-        "Core Workflows",
-        74,
-        "Writing training examples, prompts, exchanges, tags, and quality cues.",
-        (
-            "editing-entries",
-            "default-mode-vs-group-chat",
-            "splitting-and-joining-entries",
-            "what-makes-a-good-roleplay-dataset",
-        ),
-    ),
-    HelpArticle(
-        "default-mode-vs-group-chat",
-        "08_default_mode_vs_group_chat.md",
-        "Default Mode vs Group Chat",
-        "Core Workflows",
-        76,
-        "Choosing entry mode and preserving character identity safely.",
-        (
-            "creating-entries",
-            "character-registry-and-character-mappings",
-            "system-prompt-library",
-        ),
-    ),
-    HelpArticle(
-        "editing-entries",
-        "09_editing_entries.md",
-        "Deep Edit",
-        "Core Workflows",
-        78,
-        "Deep editing, Full Edit, duplicate workflows, and save behavior.",
-        (
-            "creating-entries",
-            "splitting-and-joining-entries",
-            "validation-and-repair",
-        ),
-    ),
-    HelpArticle(
-        "searching-and-filtering-entries",
-        "10_searching_and_filtering_entries.md",
-        "Searching and Filtering Entries",
-        "Core Workflows",
-        80,
-        "Finding focused subsets of a loaded dataset.",
-        (
-            "tags-categories-and-tag-lifecycle",
-            "insights-and-dataset-quality",
-            "validation-and-repair",
-        ),
-    ),
-    HelpArticle(
-        "splitting-and-joining-entries",
-        "11_splitting_and_joining_entries.md",
-        "Splitting and Joining Entries",
-        "Core Workflows",
-        82,
-        "Reshaping entries while preserving useful context.",
-        (
-            "creating-entries",
-            "editing-entries",
-            "validation-and-repair",
-        ),
-    ),
-    HelpArticle(
-        "data-generation-beta",
-        "40_data_generation_beta.md",
-        "Data Generation (Beta)",
-        "Data Generation",
-        115,
-        "Provider-agnostic prompt compilation for external ChatML JSONL generation workflows.",
-        (
-            "what-rolethread-is-actually-for",
-            "ai-assisted-dataset-creation-workflow",
-            "synthetic-data-vs-human-written-data",
-            "validation-and-repair",
-        ),
-    ),
-    HelpArticle(
-        "tags-categories-and-tag-lifecycle",
-        "12_tags_categories_and_tag_lifecycle.md",
-        "Tags, Categories, and Tag Lifecycle",
-        "Metadata and Organization",
-        120,
-        "Using tags and categories as durable organizational metadata.",
-        (
-            "archived-and-imported-tags",
-            "understanding-default-tags",
-            "searching-and-filtering-entries",
-        ),
-    ),
-    HelpArticle(
-        "understanding-default-tags",
-        "27_understanding_default_tags.md",
-        "Understanding Default Tags",
-        "Metadata and Organization",
-        125,
-        "The V1 built-in tag taxonomy and how to use defaults versus custom tags.",
-        (
-            "tags-categories-and-tag-lifecycle",
-            "archived-and-imported-tags",
-            "insights-and-dataset-quality",
-        ),
-    ),
-    HelpArticle(
-        "archived-and-imported-tags",
-        "13_archived_and_imported_tags.md",
-        "Archived and Imported Tags",
-        "Metadata and Organization",
-        130,
-        "Handling unknown, inactive, and imported tag vocabulary safely.",
-        (
-            "tags-categories-and-tag-lifecycle",
-            "understanding-default-tags",
-            "loading-datasets-and-working-copies",
-        ),
-    ),
-    HelpArticle(
-        "character-registry-and-character-mappings",
-        "14_character_registry_and_character_mappings.md",
-        "Character Registry and Character Mappings",
-        "Metadata and Organization",
-        140,
-        "Preserving speaker identity without changing training roles.",
-        (
-            "default-mode-vs-group-chat",
-            "system-prompt-library",
-            "sidecars-and-portable-metadata",
-        ),
-    ),
-    HelpArticle(
-        "system-prompt-library",
-        "15_system_prompt_library.md",
-        "System Prompt Library",
-        "Metadata and Organization",
-        150,
-        "Creating, loading, editing, and reusing system prompt templates.",
-        (
-            "creating-entries",
-            "character-registry-and-character-mappings",
-            "default-mode-vs-group-chat",
-        ),
-    ),
-    HelpArticle(
-        "sidecars-and-portable-metadata",
-        "16_sidecars_and_portable_metadata.md",
-        "Sidecars and Portable Metadata",
-        "Metadata and Organization",
-        160,
-        "Keeping RoleThread metadata portable beside clean training files.",
-        (
-            "loading-datasets-and-working-copies",
-            "exporting-datasets",
-            "backups-cloud-sync-and-recovery",
-        ),
-    ),
-    HelpArticle(
-        "validation-and-repair",
-        "17_validation_and_repair.md",
-        "Validation and Repair",
-        "Quality and Review",
-        170,
-        "Finding structural and quality issues before export.",
-        (
-            "insights-and-dataset-quality",
-            "exporting-datasets",
-            "why-validation-matters",
-            "merging-datasets",
-        ),
-    ),
-    HelpArticle(
-        "insights-and-dataset-quality",
-        "18_insights_and_dataset_quality.md",
-        "Insights and Dataset Quality",
-        "Quality and Review",
-        180,
-        "Understanding dataset shape, health, and review priorities.",
-        (
-            "validation-and-repair",
-            "searching-and-filtering-entries",
-            "what-makes-a-good-roleplay-dataset",
-        ),
-    ),
-    HelpArticle(
-        "merging-datasets",
-        "19_merging_datasets.md",
-        "Merging Datasets",
-        "Output and Recovery",
-        190,
-        "Combining datasets while preserving identity and metadata.",
-        (
-            "loading-datasets-and-working-copies",
-            "exporting-datasets",
-            "validation-and-repair",
-            "dataset-scaling-and-maintenance",
-        ),
-    ),
-    HelpArticle(
-        "exporting-datasets",
-        "20_exporting_datasets.md",
-        "Exporting Datasets",
-        "Output and Recovery",
-        200,
-        "Producing training, archive, and selected export files.",
-        (
-            "validation-and-repair",
-            "sidecars-and-portable-metadata",
-            "preparing-datasets-for-lora-and-fine-tuning",
-        ),
-    ),
-    HelpArticle(
-        "backups-cloud-sync-and-recovery",
-        "21_backups_cloud_sync_and_recovery.md",
-        "Backups, Cloud Sync, and Recovery",
-        "Output and Recovery",
-        210,
-        "Local backups, cloud sync expectations, and restore behavior.",
-        (
-            "sidecars-and-portable-metadata",
-            "settings-and-preferences",
-            "os-compatibility-and-storage-policy",
-        ),
-    ),
-    HelpArticle(
-        "settings-and-preferences",
-        "22_settings_and_preferences.md",
-        "Settings and Preferences",
-        "Output and Recovery",
-        220,
-        "Configuration, backup settings, safety controls, and portability.",
-        (
-            "backups-cloud-sync-and-recovery",
-            "os-compatibility-and-storage-policy",
-            "installing-rolethread-lite",
-        ),
-    ),
-    HelpArticle(
-        "glossary",
-        "23_glossary.md",
-        "Glossary",
-        "Reference",
-        230,
-        "Key RoleThread terms and workflow vocabulary.",
-        (
-            "getting-started",
-            "dataset-formats",
-            "what-rolethread-lite-does",
-        ),
-    ),
-    HelpArticle(
-        "os-compatibility-and-storage-policy",
-        "25_os_compatibility_and_storage.md",
-        "OS Compatibility and Storage Policy",
-        "Reference",
-        235,
-        "Official V1 platform support, runtime, storage, and launch policy.",
-        (
-            "installing-rolethread-lite",
-            "settings-and-preferences",
-            "backups-cloud-sync-and-recovery",
-        ),
-    ),
-    HelpArticle(
-        "v1-limitations-and-future-boundaries",
-        "24_v1_limitations_and_future_boundaries.md",
-        "V1 Limitations and Future Boundaries",
-        "Reference",
-        240,
-        "What Lite intentionally does and does not try to be.",
-        (
-            "rolethread-studio-vision",
-            "planned-for-version-2",
-            "lite-vs-studio-boundaries",
-            "what-rolethread-lite-does",
-        ),
-    ),
-    HelpArticle(
-        "planned-for-version-2",
-        "58_planned_for_version_2.md",
-        "Planned for Version 2",
-        "Reference",
-        245,
-        "High-level Lite V2 roadmap direction without release promises.",
-        (
-            "v1-limitations-and-future-boundaries",
-            "os-compatibility-and-storage-policy",
-            "data-generation-beta",
-            "validation-and-repair",
-        ),
-    ),
-    HelpArticle(
-        "rolethread-studio-vision",
-        "28_rolethread_studio_vision.md",
-        "RoleThread Studio Vision",
-        "For Developers",
-        360,
-        "How Lite and future Studio workflows are philosophically separated.",
-        (
-            "what-rolethread-lite-does",
-            "v1-limitations-and-future-boundaries",
-            "lite-vs-studio-boundaries",
-            "developer-launch-flags",
-        ),
-    ),
-    HelpArticle(
-        "developer-launch-flags",
-        "26_developer_launch_flags.md",
-        "Developer Launch and Diagnostics",
-        "For Developers",
-        250,
-        "Source launch paths, LitLaunch profiles, diagnostics, and installed runtime boundaries.",
-        (
-            "codebase-architecture",
-            "platform-support-philosophy",
-            "testing-philosophy",
-            "os-compatibility-and-storage-policy",
-        ),
-    ),
-    HelpArticle(
-        "codebase-architecture",
-        "29_codebase_architecture.md",
-        "Codebase Architecture",
-        "For Developers",
-        260,
-        "The major codebase layers and why RoleThread keeps Streamlit as a UI shell.",
-        (
-            "layer-boundaries-and-responsibilities",
-            "data-safety-philosophy",
-            "developer-launch-flags",
-            "rolethread-studio-vision",
-        ),
-    ),
-    HelpArticle(
-        "layer-boundaries-and-responsibilities",
-        "30_layer_boundaries_and_responsibilities.md",
-        "Layer Boundaries and Responsibilities",
-        "For Developers",
-        270,
-        "What belongs in UI, services, and core modules.",
-        (
-            "codebase-architecture",
-            "platform-support-philosophy",
-            "data-safety-philosophy",
-            "rolethread-studio-vision",
-        ),
-    ),
-    HelpArticle(
-        "platform-support-philosophy",
-        "31_platform_support_philosophy.md",
-        "Platform Support Philosophy",
-        "For Developers",
-        280,
-        "How Windows, Linux, macOS, local app-window, and storage support are scoped.",
-        (
-            "developer-launch-flags",
-            "os-compatibility-and-storage-policy",
-            "codebase-architecture",
-        ),
-    ),
-    HelpArticle(
-        "data-safety-philosophy",
-        "32_data_safety_philosophy.md",
-        "Data Safety Philosophy",
-        "For Developers",
-        290,
-        "How RoleThread protects local datasets, metadata, backups, and repair workflows.",
-        (
-            "testing-philosophy",
-            "layer-boundaries-and-responsibilities",
-            "backups-cloud-sync-and-recovery",
-        ),
-    ),
-    HelpArticle(
-        "testing-philosophy",
-        "33_testing_philosophy.md",
-        "Testing Philosophy",
-        "For Developers",
-        300,
-        "Why RoleThread emphasizes deterministic core and service tests.",
-        (
-            "data-safety-philosophy",
-            "codebase-architecture",
-            "developer-launch-flags",
-        ),
-    ),
-    HelpArticle(
-        "naming-and-terminology-guide",
-        "34_naming_and_terminology_guide.md",
-        "Naming and Terminology Guide",
-        "For Developers",
-        310,
-        "Shared vocabulary for datasets, tags, sidecars, and product names.",
-        (
-            "understanding-default-tags",
-            "glossary",
-            "rolethread-studio-vision",
-        ),
-    ),
-    HelpArticle(
-        "ui-and-theme-style-guide",
-        "35_ui_and_theme_style_guide.md",
-        "UI and Theme Style Guide",
-        "For Developers",
-        320,
-        "Design guidance for RoleThread's calm dark-theme interface.",
-        (
-            "settings-and-preferences",
-            "codebase-architecture",
-            "naming-and-terminology-guide",
-        ),
-    ),
-    HelpArticle(
-        "build-and-packaging-overview",
-        "36_build_and_packaging_overview.md",
-        "Build and Packaging Overview",
-        "For Developers",
-        330,
-        "How RoleThread approaches bundles, installers, dev environments, and releases.",
-        (
-            "windows-installer-and-launcher-architecture",
-            "developer-launch-flags",
-            "platform-support-philosophy",
-        ),
-    ),
-    HelpArticle(
-        "windows-installer-and-launcher-architecture",
-        "37_windows_installer_and_launcher_architecture.md",
-        "Windows Installer and Launcher Architecture",
-        "For Developers",
-        340,
-        "How the Windows packaged launcher delegates runtime behavior to LitLaunch.",
-        (
-            "build-and-packaging-overview",
-            "developer-launch-flags",
-            "platform-support-philosophy",
-        ),
-    ),
-    HelpArticle(
-        "contribution-guidelines",
-        "38_contribution_guidelines.md",
-        "Contribution Guidelines",
-        "For Developers",
-        350,
-        "How contributors should preserve maintainability, tests, and architecture boundaries.",
-        (
-            "layer-boundaries-and-responsibilities",
-            "testing-philosophy",
-            "naming-and-terminology-guide",
-        ),
-    ),
-    HelpArticle(
-        "lite-vs-studio-boundaries",
-        "39_lite_vs_studio_boundaries.md",
-        "Lite vs Studio Boundaries",
-        "For Developers",
-        370,
-        "Which ideas belong in Lite and which are better suited to future Studio work.",
-        (
-            "rolethread-studio-vision",
-            "codebase-architecture",
-            "contribution-guidelines",
-        ),
-    ),
-)
+def load_help_manifest(
+    manifest_path: Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> HelpManifest:
+    """Load and validate the repo-owned Help taxonomy manifest."""
+
+    path = Path(manifest_path) if manifest_path is not None else HELP_MANIFEST_PATH
+    root = Path(project_root or DOCS_ROOT.parent).resolve()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise HelpManifestError(f"Could not read Help manifest: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise HelpManifestError(f"Help manifest is not valid JSON: {path}") from exc
+
+    manifest = _require_mapping(data, "Help manifest")
+    _require_fields(manifest, _REQUIRED_MANIFEST_FIELDS, "Help manifest")
+
+    schema_version = manifest["schema_version"]
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version != HELP_MANIFEST_SCHEMA_VERSION
+    ):
+        raise HelpManifestError(
+            "Help manifest schema_version must be "
+            f"{HELP_MANIFEST_SCHEMA_VERSION}."
+        )
+
+    product = _require_text(manifest["product"], "Help manifest product")
+    default_article_id = _require_text(
+        manifest["default_article_id"],
+        "Help manifest default_article_id",
+    )
+    categories = _parse_manifest_categories(manifest["categories"])
+    articles = _parse_manifest_articles(
+        manifest["articles"],
+        categories=categories,
+        project_root=root,
+    )
+
+    article_ids = {article.article_id for article in articles}
+    if default_article_id not in article_ids:
+        raise HelpManifestError(
+            "Help manifest default_article_id references an unknown article: "
+            f"{default_article_id}."
+        )
+
+    _validate_related_articles(articles, article_ids)
+    return HelpManifest(
+        schema_version=HELP_MANIFEST_SCHEMA_VERSION,
+        product=product,
+        default_article_id=default_article_id,
+        categories=categories,
+        articles=articles,
+    )
+
+
+def get_help_manifest() -> HelpManifest:
+    """Return the loaded Help taxonomy manifest."""
+
+    return HELP_MANIFEST
+
+
+def get_help_categories() -> tuple[HelpCategory, ...]:
+    """Return manifest Help categories in display order."""
+
+    return HELP_MANIFEST.categories
+
+
+def _parse_manifest_categories(value: object) -> tuple[HelpCategory, ...]:
+    records = _require_list(value, "Help manifest categories")
+    categories: list[HelpCategory] = []
+    category_ids: set[str] = set()
+    category_orders: set[int] = set()
+    for index, raw_record in enumerate(records, start=1):
+        label = f"Help manifest category #{index}"
+        record = _require_mapping(raw_record, label)
+        _require_fields(record, _REQUIRED_CATEGORY_FIELDS, label)
+        category_id = _require_text(record["id"], f"{label} id")
+        title = _require_text(record["title"], f"{label} title")
+        order = _require_order(record["order"], f"{label} order")
+        if category_id in category_ids:
+            raise HelpManifestError(f"Duplicate Help category id: {category_id}.")
+        if order in category_orders:
+            raise HelpManifestError(f"Duplicate Help category order: {order}.")
+        category_ids.add(category_id)
+        category_orders.add(order)
+        categories.append(HelpCategory(category_id, title, order))
+    return tuple(sorted(categories, key=lambda category: category.order))
+
+
+def _parse_manifest_articles(
+    value: object,
+    *,
+    categories: tuple[HelpCategory, ...],
+    project_root: Path,
+) -> tuple[HelpArticle, ...]:
+    records = _require_list(value, "Help manifest articles")
+    category_titles = {category.category_id: category.title for category in categories}
+    article_ids: set[str] = set()
+    article_orders: set[int] = set()
+    source_paths: set[str] = set()
+    articles: list[HelpArticle] = []
+    for index, raw_record in enumerate(records, start=1):
+        label = f"Help manifest article #{index}"
+        record = _require_mapping(raw_record, label)
+        _require_fields(record, _REQUIRED_ARTICLE_FIELDS, label)
+        article_id = _require_text(record["id"], f"{label} id")
+        title = _require_text(record["title"], f"{label} title")
+        source_path = _require_text(record["source_path"], f"{label} source_path")
+        category_id = _require_text(record["category"], f"{label} category")
+        order = _require_order(record["order"], f"{label} order")
+        summary = _require_text(record["summary"], f"{label} summary")
+        related_ids = _parse_related_ids(record["related_ids"], label)
+        public = _parse_public_flag(record, label)
+        audience = _parse_audience(record, label)
+
+        if article_id in article_ids:
+            raise HelpManifestError(f"Duplicate Help article id: {article_id}.")
+        if source_path in source_paths:
+            raise HelpManifestError(f"Duplicate Help article source_path: {source_path}.")
+        if order in article_orders:
+            raise HelpManifestError(f"Duplicate Help article order: {order}.")
+        if category_id not in category_titles:
+            raise HelpManifestError(
+                f"{article_id} uses unknown Help category id: {category_id}."
+            )
+
+        source_file = _resolve_help_source_path(source_path, project_root)
+        article_ids.add(article_id)
+        article_orders.add(order)
+        source_paths.add(source_path)
+        articles.append(
+            HelpArticle(
+                article_id=article_id,
+                file_name=source_file.name,
+                title=title,
+                category=category_titles[category_id],
+                order=order,
+                summary=summary,
+                related_ids=related_ids,
+                source_path=source_path,
+                public=public,
+                audience=audience,
+            )
+        )
+    return tuple(sorted(articles, key=lambda article: article.order))
+
+
+def _validate_related_articles(
+    articles: tuple[HelpArticle, ...],
+    article_ids: set[str],
+) -> None:
+    for article in articles:
+        if article.article_id in article.related_ids:
+            raise HelpManifestError(f"{article.article_id} relates to itself.")
+        if len(article.related_ids) != len(set(article.related_ids)):
+            raise HelpManifestError(
+                f"{article.article_id} has duplicate related articles."
+            )
+        for related_id in article.related_ids:
+            if related_id not in article_ids:
+                raise HelpManifestError(
+                    f"{article.article_id} references unknown related article "
+                    f"{related_id}."
+                )
+
+
+def _resolve_help_source_path(source_path: str, project_root: Path) -> Path:
+    path = Path(source_path)
+    if path.is_absolute() or ".." in path.parts:
+        raise HelpManifestError(
+            f"Help article source_path must stay inside docs/help: {source_path}."
+        )
+    if len(path.parts) < 3 or path.parts[0] != "docs" or path.parts[1] != "help":
+        raise HelpManifestError(
+            f"Help article source_path must start with docs/help: {source_path}."
+        )
+
+    help_dir = (project_root / "docs" / "help").resolve()
+    resolved_path = (project_root / path).resolve()
+    try:
+        resolved_path.relative_to(help_dir)
+    except ValueError as exc:
+        raise HelpManifestError(
+            f"Help article source_path escapes docs/help: {source_path}."
+        ) from exc
+    if not resolved_path.is_file():
+        raise HelpManifestError(
+            f"Help article source_path does not exist: {source_path}."
+        )
+    return resolved_path
+
+
+def _parse_related_ids(value: object, label: str) -> tuple[str, ...]:
+    related_records = _require_list(value, f"{label} related_ids")
+    return tuple(
+        _require_text(related_id, f"{label} related_id")
+        for related_id in related_records
+    )
+
+
+def _parse_public_flag(record: dict[str, Any], label: str) -> bool:
+    value = record.get("public", True)
+    if not isinstance(value, bool):
+        raise HelpManifestError(f"{label} public must be a boolean.")
+    return value
+
+
+def _parse_audience(record: dict[str, Any], label: str) -> str:
+    value = record.get("audience", "user")
+    return _require_text(value, f"{label} audience")
+
+
+def _require_fields(
+    record: dict[str, Any],
+    fields: tuple[str, ...],
+    label: str,
+) -> None:
+    missing = [field for field in fields if field not in record]
+    if missing:
+        raise HelpManifestError(
+            f"{label} is missing required field(s): {', '.join(missing)}."
+        )
+
+
+def _require_mapping(value: object, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise HelpManifestError(f"{label} must be an object.")
+    return value
+
+
+def _require_list(value: object, label: str) -> list[object]:
+    if not isinstance(value, list):
+        raise HelpManifestError(f"{label} must be a list.")
+    return value
+
+
+def _require_text(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise HelpManifestError(f"{label} must be a non-empty string.")
+    return value.strip()
+
+
+def _require_order(value: object, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise HelpManifestError(f"{label} must be numeric.")
+    return value
+
+
+HELP_MANIFEST = load_help_manifest()
+DEFAULT_HELP_ARTICLE_ID = HELP_MANIFEST.default_article_id
+HELP_CATEGORIES = HELP_MANIFEST.categories
+HELP_CATEGORY_ORDER = tuple(category.title for category in HELP_CATEGORIES)
+HELP_ARTICLES = HELP_MANIFEST.articles
 
 
 def get_default_help_article_id() -> str:
