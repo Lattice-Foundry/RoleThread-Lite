@@ -1,4 +1,4 @@
-# Data Generation (Beta)
+# Data Generation
 
 The chapters from here through **Creator Ownership and Long-Term Workflow Philosophy** form the AI Training Fundamentals arc. They cover the concepts and practices behind building quality training data — including why dataset quality matters, how fine-tuning and LoRA workflows operate, and how to maintain a dataset over time. These articles complement RoleThread's tool documentation with the context behind the workflow decisions.
 
@@ -38,18 +38,16 @@ Data Generation is not:
 
 RoleThread compiles the prompt. The external AI system generates the dataset content. You remain responsible for checking structure, style, safety, and training usefulness before using the result.
 
-## Beta Positioning
+## Provider Output Expectations
 
-The Data Generation system is considered beta because prompt behavior is still being refined across real provider outputs.
+Data Generation produces deterministic prompt text. External AI systems may
+still interpret that prompt differently because model families vary in
+instruction following, JSON discipline, long-output behavior, safety policy,
+and formatting habits.
 
-The beta label reflects:
-
-- prompt/content refinement
-- provider-specific behavior tuning
-- generation-quality iteration
-- continued testing against different external model behaviors
-
-It does not mean the application architecture is unstable. The compiler, chunk registry, and template flow are intentionally deterministic; the variable part is how external models interpret and satisfy the prompt.
+Treat the compiled prompt as a structured starting point. Review generated
+results before importing or training on them, especially when changing models,
+providers, style settings, or output-delivery options.
 
 ## Architecture Notes
 
@@ -67,9 +65,9 @@ The current V1 workflow targets ChatML JSONL because that format fits RoleThread
 
 ## Provider-Agnostic Workflow
 
-Different providers and local models may respond differently to the same compiled prompt.
-
-That is expected. Model families vary in instruction following, JSON discipline, long-output behavior, safety policy, and formatting habits. RoleThread can make the prompt deterministic; it cannot make every external model behave identically.
+Different providers and local models may respond differently to the same
+compiled prompt. RoleThread can make the prompt deterministic; it cannot make
+every external model behave identically.
 
 Practical workflow:
 

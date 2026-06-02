@@ -41,7 +41,7 @@ FAQ_CATEGORY_DESCRIPTIONS = {
     "Datasets and Editing": "Daily editing, search, split/join, prompts, and dataset craft.",
     "Tags and Validation": "Tags, characters, metadata, validation, and quality review.",
     "Import, Export, and Training Files": "Working copies, sidecars, merge, export, and training files.",
-    "Data Generation": "Prompt compilation, provider-agnostic generation, and beta behavior.",
+    "Data Generation": "Prompt compilation, provider-agnostic generation, and review workflows.",
     "AI Training Fundamentals": "Fine-tuning concepts and conversational dataset craftsmanship.",
     "Privacy and Local Workflows": "Local storage, backups, ownership, and workflow boundaries.",
     "Troubleshooting": "Diagnostics, edge cases, and recovery-oriented questions.",
@@ -111,7 +111,7 @@ _FAQ_PREFIX_HELP_RELATED = {
         "installing-rolethread-lite",
         "os-compatibility-and-storage-policy",
     ),
-    "data generation": ("data-generation-beta",),
+    "data generation": ("data-generation",),
     "ai training fundamentals": (
         "what-rolethread-is-actually-for",
         "what-fine-tuning-actually-is",

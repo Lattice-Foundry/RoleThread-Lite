@@ -27,9 +27,9 @@ Lite owns the practical dataset engineering surface:
 
 Lite should remain complete without becoming an orchestration platform.
 
-## What Studio Is Intended To Become
+## What Studio Represents
 
-RoleThread Studio is the planned surface for larger RoleThread workflows.
+RoleThread Studio is the reserved surface for larger RoleThread workflows.
 
 Studio is where more ambitious systems may belong, including:
 

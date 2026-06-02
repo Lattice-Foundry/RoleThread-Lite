@@ -63,7 +63,7 @@
     "category": "Getting Started",
     "related_help_ids": [
       "what-rolethread-is-actually-for",
-      "data-generation-beta",
+      "data-generation",
       "why-dataset-quality-matters"
     ]
   },
@@ -498,7 +498,7 @@
     "answer": "No. Data Generation compiles structured prompts for external AI systems.\n\nYou paste the compiled prompt into ChatGPT, Claude, Gemini, a local model, or another tool, then review the generated result before using it in your dataset.",
     "category": "Data Generation",
     "related_help_ids": [
-      "data-generation-beta",
+      "data-generation",
       "dataset-formats",
       "validation-and-repair"
     ]
@@ -508,7 +508,7 @@
     "answer": "No API key is required by RoleThread Lite because the app does not call AI providers directly.\n\nIf the external system you choose requires an account, subscription, or API key, that requirement belongs to that external tool, not RoleThread.",
     "category": "Data Generation",
     "related_help_ids": [
-      "data-generation-beta",
+      "data-generation",
       "v1-limitations-and-future-boundaries"
     ]
   },
@@ -517,16 +517,16 @@
     "answer": "Data Generation is provider-agnostic. The compiled prompts are designed for structured ChatML JSONL generation workflows and can be used with systems such as ChatGPT, Claude, Gemini, local models, or other tools that can follow detailed instructions.\n\nRoleThread does not claim official provider integrations in Lite.",
     "category": "Data Generation",
     "related_help_ids": [
-      "data-generation-beta",
+      "data-generation",
       "dataset-formats"
     ]
   },
   {
-    "question": "Data generation: Why is Data Generation marked beta?",
-    "answer": "Beta reflects ongoing prompt refinement, provider-specific behavior tuning, and generation-quality iteration.\n\nThe compiler and template flow are deterministic. The active refinement area is how well external models follow the generated prompt and produce useful dataset drafts.",
+    "question": "Data generation: How should I review generated output?",
+    "answer": "Treat generated output as draft material. RoleThread compiles deterministic prompts, but external models still vary in instruction following, JSON discipline, safety policy, and formatting habits.\n\nReview generated JSONL before importing or training on it, then use Validation, editing, tags, and export prep to decide what is actually useful.",
     "category": "Data Generation",
     "related_help_ids": [
-      "data-generation-beta",
+      "data-generation",
       "lite-vs-studio-boundaries"
     ]
   },
@@ -535,7 +535,7 @@
     "answer": "Different models interpret instructions, JSON formatting, safety policy, and long-output requests differently.\n\nRoleThread compiles the same prompt deterministically, but external model behavior is not identical across providers. Review generated output before importing or training with it.",
     "category": "Data Generation",
     "related_help_ids": [
-      "data-generation-beta",
+      "data-generation",
       "validation-and-repair"
     ]
   },

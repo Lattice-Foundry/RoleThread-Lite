@@ -10,7 +10,7 @@ Use `RoleThread Lite` for this application.
 
 Use `RoleThread` when referring to the broader ecosystem or shared product philosophy.
 
-Use `RoleThread Studio` for the planned advanced environment. Lite documentation should not imply that Studio features already exist.
+Use `RoleThread Studio` for the reserved advanced environment. Lite documentation should not imply that Studio features already exist.
 
 ## Interaction, Not Scene
 

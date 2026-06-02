@@ -30,9 +30,9 @@ training_data/
   project_alpha/
     project_alpha.jsonl
     project_alpha.registry.json
-  project_beta/
-    project_beta.jsonl
-    project_beta.registry.json
+  project_sample/
+    project_sample.jsonl
+    project_sample.registry.json
 ```
 
 Changing the default folder affects future browsing, new dataset creation, and the default managed workspace. It does not automatically move existing datasets.

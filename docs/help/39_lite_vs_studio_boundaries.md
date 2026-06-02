@@ -26,7 +26,7 @@ Lite features should remain testable inside the existing UI/service/core archite
 
 ## What Belongs in Studio
 
-Studio is the planned surface for heavier RoleThread workflows.
+Studio is the reserved surface for heavier RoleThread workflows.
 
 Better fits for Studio may include:
 
@@ -68,4 +68,4 @@ Lite should remain complete on its own. Studio boundaries should not turn Lite i
 
 - **RoleThread Studio Vision**
 - **V1 Scope and Intentional Boundaries**
-- **Data Generation (Beta)**
+- **Data Generation**

@@ -304,7 +304,7 @@
       "order": 64,
       "summary": "A practical 80/20 workflow for AI-scaffolded datasets and RoleThread refinement.",
       "related_ids": [
-        "data-generation-beta",
+        "data-generation",
         "what-rolethread-is-actually-for",
         "synthetic-data-vs-human-written-data",
         "why-dataset-quality-matters"
@@ -513,9 +513,9 @@
       "audience": "user"
     },
     {
-      "id": "data-generation-beta",
-      "title": "Data Generation (Beta)",
-      "source_path": "docs/help/40_data_generation_beta.md",
+      "id": "data-generation",
+      "title": "Data Generation",
+      "source_path": "docs/help/40_data_generation.md",
       "category": "data-generation",
       "order": 115,
       "summary": "Provider-agnostic prompt compilation for external ChatML JSONL generation workflows.",
@@ -749,7 +749,7 @@
       "summary": "What Lite intentionally does and does not try to be.",
       "related_ids": [
         "rolethread-studio-vision",
-        "planned-for-version-2",
+        "version-2-direction",
         "lite-vs-studio-boundaries",
         "what-rolethread-lite-does"
       ],
@@ -757,16 +757,16 @@
       "audience": "user"
     },
     {
-      "id": "planned-for-version-2",
-      "title": "Planned for Version 2",
-      "source_path": "docs/help/58_planned_for_version_2.md",
+      "id": "version-2-direction",
+      "title": "Version 2 Direction",
+      "source_path": "docs/help/58_version_2_direction.md",
       "category": "reference",
       "order": 245,
-      "summary": "High-level Lite V2 roadmap direction without release promises.",
+      "summary": "High-level Lite V2 direction without release promises.",
       "related_ids": [
         "v1-limitations-and-future-boundaries",
         "os-compatibility-and-storage-policy",
-        "data-generation-beta",
+        "data-generation",
         "validation-and-repair"
       ],
       "public": true,

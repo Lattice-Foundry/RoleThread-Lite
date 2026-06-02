@@ -223,12 +223,12 @@ def test_help_article_registry_has_expected_articles():
         registry["creator-ownership-and-long-term-workflow-philosophy"].file_name
         == "57_creator_ownership_and_long_term_workflow_philosophy.md"
     )
-    assert registry["planned-for-version-2"].file_name == (
-        "58_planned_for_version_2.md"
+    assert registry["version-2-direction"].file_name == (
+        "58_version_2_direction.md"
     )
-    assert registry["planned-for-version-2"].category == "Reference"
-    assert registry["data-generation-beta"].file_name == "40_data_generation_beta.md"
-    assert registry["data-generation-beta"].category == "Data Generation"
+    assert registry["version-2-direction"].category == "Reference"
+    assert registry["data-generation"].file_name == "40_data_generation.md"
+    assert registry["data-generation"].category == "Data Generation"
     assert registry["rolethread-studio-vision"].file_name == "28_rolethread_studio_vision.md"
     assert registry["rolethread-studio-vision"].category == "For Developers"
     assert registry["codebase-architecture"].file_name == "29_codebase_architecture.md"
@@ -555,8 +555,8 @@ def test_rolethread_studio_vision_documents_lite_and_studio_split():
     assert "dataset crafting, validation, repair, organization, and export" in document.content
 
 
-def test_planned_for_version_2_documents_roadmap_direction_without_promises():
-    document = load_help_document("planned-for-version-2")
+def test_version_2_direction_documents_roadmap_direction_without_promises():
+    document = load_help_document("version-2-direction")
 
     assert document.article.category == "Reference"
     assert "not a release commitment, feature\nguarantee, or date promise" in (
@@ -568,7 +568,7 @@ def test_planned_for_version_2_documents_roadmap_direction_without_promises():
         document.content
     )
     assert "Linux is already a primary source/manual platform" in document.content
-    assert "macOS beta refinement" in document.content
+    assert "macOS validation refinement" in document.content
     assert "additional generation templates" in document.content
     assert "model-tailored generation guidance" in document.content
     assert "pacing and repetition heuristics" in document.content
@@ -587,10 +587,10 @@ def test_planned_for_version_2_documents_roadmap_direction_without_promises():
     assert "cloud-dependent AI operating system" in document.content
 
 
-def test_data_generation_beta_help_article_documents_public_positioning():
-    document = load_help_document("data-generation-beta")
+def test_data_generation_help_article_documents_public_positioning():
+    document = load_help_document("data-generation")
 
-    assert document.article.title == "Data Generation (Beta)"
+    assert document.article.title == "Data Generation"
     assert document.article.category == "Data Generation"
     assert "RoleThread Lite does not call an AI provider" in document.content
     assert "deterministic prompt compiler" in document.content
@@ -600,8 +600,10 @@ def test_data_generation_beta_help_article_documents_public_positioning():
     )
     assert "ChatML JSONL" in document.content
     assert "provider-agnostic" in document.content
-    assert "The beta label reflects" in document.content
-    assert "not mean the application architecture is unstable" in document.content
+    assert "Treat the compiled prompt as a structured starting point" in document.content
+    assert "External AI systems may\nstill interpret that prompt differently" in (
+        document.content
+    )
     assert "Future RoleThread Studio work" in document.content
 
 
@@ -928,7 +930,7 @@ def test_developer_docs_do_not_reference_removed_launcher_flows():
 
     assert boundaries.article.category == "For Developers"
     assert "Lite is the stable dataset tooling surface" in boundaries.content
-    assert "Studio is the planned surface" in boundaries.content
+    assert "Studio is the reserved surface" in boundaries.content
     assert "boundary statement, not a feature promise or release schedule" in (
         boundaries.content
     )
@@ -966,9 +968,9 @@ def test_help_article_order_is_global_reader_order():
     )
     assert ordered_ids.index("creating-entries") < ordered_ids.index("editing-entries")
     assert ordered_ids.index("splitting-and-joining-entries") < ordered_ids.index(
-        "data-generation-beta"
+        "data-generation"
     )
-    assert ordered_ids.index("data-generation-beta") < ordered_ids.index(
+    assert ordered_ids.index("data-generation") < ordered_ids.index(
         "tags-categories-and-tag-lifecycle"
     )
     assert ordered_ids.index("developer-launch-flags") < ordered_ids.index(
@@ -1018,7 +1020,7 @@ def test_help_article_category_order_and_grouping():
         "creator-ownership-and-long-term-workflow-philosophy",
     ]
     assert [article.article_id for article in grouped["Data Generation"]] == [
-        "data-generation-beta",
+        "data-generation",
     ]
     assert [article.article_id for article in grouped["Metadata and Organization"]] == [
         "tags-categories-and-tag-lifecycle",
@@ -1032,7 +1034,7 @@ def test_help_article_category_order_and_grouping():
         "glossary",
         "os-compatibility-and-storage-policy",
         "v1-limitations-and-future-boundaries",
-        "planned-for-version-2",
+        "version-2-direction",
     ]
     assert [article.article_id for article in grouped["For Developers"]] == [
         "developer-launch-flags",
@@ -1215,14 +1217,14 @@ def test_adjacent_help_articles_follow_global_order():
         "v1-limitations-and-future-boundaries"
     )
     assert previous_article.article_id == "os-compatibility-and-storage-policy"
-    assert next_article.article_id == "planned-for-version-2"
+    assert next_article.article_id == "version-2-direction"
     previous_article, next_article = get_adjacent_help_articles(
-        "planned-for-version-2"
+        "version-2-direction"
     )
     assert previous_article.article_id == "v1-limitations-and-future-boundaries"
     assert next_article.article_id == "developer-launch-flags"
     previous_article, next_article = get_adjacent_help_articles("developer-launch-flags")
-    assert previous_article.article_id == "planned-for-version-2"
+    assert previous_article.article_id == "version-2-direction"
     assert next_article.article_id == "codebase-architecture"
     previous_article, next_article = get_adjacent_help_articles(
         "platform-support-philosophy"
@@ -1685,12 +1687,12 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     )
     assert any(
         entry.display_question == "Does RoleThread generate AI responses directly?"
-        and "data-generation-beta" in entry.related_help_ids
+        and "data-generation" in entry.related_help_ids
         for entry in entries
     )
     assert any(
-        entry.display_question == "Why is Data Generation marked beta?"
-        and "prompt refinement" in entry.answer
+        entry.display_question == "How should I review generated output?"
+        and "Treat generated output as draft material" in entry.answer
         for entry in entries
     )
     assert any(

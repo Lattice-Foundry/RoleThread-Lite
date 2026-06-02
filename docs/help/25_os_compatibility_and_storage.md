@@ -27,12 +27,11 @@ supported on Linux.
 **macOS is beta-supported for V1.**
 
 macOS support is intended, but is community-tested because the maintainer
-cannot fully validate it directly yet. There is no V1 macOS installer planned.
+cannot fully validate it directly yet. There is no V1 macOS installer.
 Default-browser use is the expected workflow, and LitLaunch source workflows
 are intended to provide the same profile, diagnostics, event-log, and support
 artifact benefits where dependencies are available. Safari-style web-app usage
-may work as a user-managed beta workflow, but RoleThread does not automate it
-in V1.
+is user-managed, and RoleThread does not automate it in V1.
 
 **Unknown platforms are unsupported.**
 
@@ -195,8 +194,8 @@ macOS:
 
 - preferred workflow: source launch with `streamlit run app.py` or `python -m litlaunch.cli run --profile rolethread-browser`
 - fallback: manually open the local Streamlit URL
-- Safari-style web-app use is user-managed and beta
-- no V1 installer is planned
+- Safari-style web-app use is user-managed
+- no V1 installer
 
 Unknown platforms:
 

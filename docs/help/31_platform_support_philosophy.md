@@ -46,7 +46,7 @@ local files, and browser-based use. LitLaunch's source/runtime diagnostics are
 still relevant on macOS where dependencies are available; the beta label is
 about validation coverage, not an intentional downgrade in runtime capability.
 
-macOS installer behavior is not planned for V1.
+There is no V1 macOS installer.
 
 ## Local App-Window Runtime
 

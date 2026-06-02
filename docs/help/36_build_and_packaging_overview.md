@@ -119,7 +119,7 @@ source tree.
 
 ## Release Workflow
 
-The expected early release flow is manual:
+The release flow is manual:
 
 1. bump and tag the release
 2. build the Inno Setup installer prototype, which rebuilds the PyInstaller bundle by default
@@ -164,9 +164,9 @@ CI/CD may automate pieces later; the source tree should stay free of generated a
 
 ## Current Status
 
-Packaging is still evolving before V1. The architecture is fixed around a
-bundled Windows app plus a source-based contributor workflow. Installer UX may
-continue to improve across Windows and Edge machine differences, but the
-runtime boundary is stable: installer builds package release snapshots, while
-source users run either plain Streamlit or an appropriate LitLaunch profile.
+Packaging is fixed around a bundled Windows app plus a source-based contributor
+workflow. Installer UX can continue to improve across Windows and Edge machine
+differences, but the runtime boundary is stable: installer builds package
+release snapshots, while source users run either plain Streamlit or an
+appropriate LitLaunch profile.
 

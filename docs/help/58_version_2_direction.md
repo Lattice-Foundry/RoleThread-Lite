@@ -1,7 +1,7 @@
-# Planned for Version 2
+# Version 2 Direction
 
-RoleThread Lite V2 is planned as an evolution of the current local dataset
-workflow, not a change in product identity.
+RoleThread Lite V2 is the direction for evolving the current local dataset
+workflow without changing product identity.
 
 This page describes intended direction. It is not a release commitment, feature
 guarantee, or date promise.
@@ -40,10 +40,10 @@ platform behavior.
 
 ## macOS and Linux Expansion
 
-V2 may improve non-Windows workflows through:
+V2 direction for non-Windows workflows includes:
 
 - additional Linux packaging or desktop integration polish
-- macOS beta refinement once direct or community validation improves
+- macOS validation refinement once direct or community testing improves
 - Chrome and Chromium app-mode testing
 - community-driven macOS validation
 - clearer platform-specific setup and diagnostics
@@ -51,15 +51,15 @@ V2 may improve non-Windows workflows through:
 Linux is already a primary source/manual platform, and LitLaunch can provide
 runtime diagnostics, event logging, support artifacts, and managed browser-mode
 launch there today. The current Windows installed-app work creates a stronger
-model for future packaged platform support, but it does not imply all platforms
-will receive identical installer or desktop integration at once.
+model for broader packaged platform support, but it does not imply all
+platforms receive identical installer or desktop integration.
 
 ## Data Generation Improvements
 
-Data Generation is expected to keep moving from plumbing toward deeper workflow
-usefulness.
+Data Generation keeps moving from prompt compilation plumbing toward deeper
+workflow usefulness.
 
-Planned areas include:
+Direction includes:
 
 - additional generation templates
 - improved template modifiers
@@ -103,10 +103,9 @@ conversation data.
 
 ## Backup and Recovery
 
-Backup and recovery workflows are expected to become more visible and easier to
-trust.
+Backup and recovery workflows should become more visible and easier to trust.
 
-Planned areas include:
+Direction includes:
 
 - in-app backup browsing
 - dataset restore workflows
