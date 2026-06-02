@@ -271,3 +271,12 @@ RoleThread Lite focuses on the local, inspectable, repairable dataset workflow
 needed to build that data with confidence.
 
 Creator-controlled. File-owned. Built for narrative AI datasets.
+
+## License
+
+RoleThread Lite is licensed under the Apache License, Version 2.0.
+
+Copyright (c) 2026 Sierra Cognitive Group, LLC
+
+RoleThread Lite is developed and maintained by LatticeFoundry,
+a software division of Sierra Cognitive Group, LLC.
