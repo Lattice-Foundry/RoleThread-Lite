@@ -1,9 +1,9 @@
 # Installing RoleThread Lite
 
 RoleThread Lite can run from a normal source checkout or from the Windows setup
-installer. The setup installer is the easier Windows beta path. The manual path
-is still the most transparent workflow for developers, technical users, Linux,
-and macOS.
+installer. The setup installer is the packaged Windows path. The manual path is
+still the most transparent workflow for developers, technical users, Linux, and
+macOS.
 
 ## Choose An Install Method
 
@@ -23,9 +23,8 @@ V1 stabilization window.
 
 ## Windows Setup Installer
 
-The Windows setup executable is a beta convenience path. It packages a tested
-release snapshot and does not clone from Git or require a local Python install.
-It is expected to keep improving as installer testing continues.
+The Windows setup executable packages a tested release snapshot and does not
+clone from Git or require a local Python install.
 
 1. Download the latest RoleThread Lite setup executable from GitHub Releases.
 2. Run the setup executable and accept the Windows UAC prompt.

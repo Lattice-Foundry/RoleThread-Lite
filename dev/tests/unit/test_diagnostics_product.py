@@ -50,7 +50,7 @@ class _FakeStreamlit:
 def _sample_diagnostics(secret_value="do-not-render") -> ProductDiagnostics:
     return ProductDiagnostics(
         overview=ProductOverviewDiagnostics(
-            rolethread_version="1.4.45",
+            rolethread_version="1.0.0",
             python_version="3.14.5",
             python_status="Supported",
             python_message="Runtime is supported.",
@@ -58,7 +58,7 @@ def _sample_diagnostics(secret_value="do-not-render") -> ProductDiagnostics:
             platform_support="primary",
             runtime_context="source",
             streamlit_version="1.57.0",
-            litlaunch_version="1.0.0rc6",
+            litlaunch_version="1.0.0",
         ),
         paths=(
             ProductPathDiagnostics(
@@ -130,8 +130,8 @@ def test_render_product_diagnostics_outputs_expected_sections(monkeypatch):
     assert "Storage &amp; Data" in text
     assert "Cloud Backup" in text
     assert "Support &amp; Data Health" in text
-    assert "v1.4.45" in text
-    assert "1.0.0rc6" in text
+    assert "v1.0.0" in text
+    assert "1.0.0" in text
     assert "Local-only" not in text
     assert "OneDrive" in text
     assert "Additional paths" in text

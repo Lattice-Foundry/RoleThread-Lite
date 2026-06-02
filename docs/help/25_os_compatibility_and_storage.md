@@ -12,9 +12,9 @@ Lite**.
 **Windows is a primary V1 support platform.**
 
 Windows is the main maintainer-tested desktop target. RoleThread Lite has a
-beta setup installer for Windows and a local Microsoft Edge app-window
-workflow through LitLaunch when Edge is available. Manual source installs
-remain supported.
+setup installer for Windows and a local Microsoft Edge app-window workflow
+through LitLaunch when Edge is available. Manual source installs remain
+supported.
 
 **Linux is a primary V1 support platform.**
 

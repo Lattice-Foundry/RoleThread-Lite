@@ -1,6 +1,6 @@
 # RoleThread Lite V1 Stable Release Gate
 
-This checklist defines the stable-release gate for RoleThread Lite 1.0.
+This checklist defines the stable-release gate for RoleThread Lite 1.0.0.
 
 ## Required Verification
 
@@ -9,6 +9,7 @@ This checklist defines the stable-release gate for RoleThread Lite 1.0.
 - Confirm `core/version.py` reports the intended release version
 - Confirm the runtime is Python `3.14.5`, the official supported V1 runtime
 - Confirm `requirements.txt` keeps Streamlit on the tested `1.57.x` line
+- Confirm `requirements.txt` includes `litlaunch>=1.0.0,<2.0.0`
 - Confirm direct Pandas, Plotly, and SQLAlchemy requirements match the tested
   V1 dependency lines
 - Confirm OS compatibility docs describe Windows/Linux primary support and

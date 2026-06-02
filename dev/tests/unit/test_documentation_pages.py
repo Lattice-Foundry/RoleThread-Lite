@@ -477,7 +477,7 @@ def test_installing_rolethread_lite_help_article_documents_install_and_uninstall
     document = load_help_document("installing-rolethread-lite")
 
     assert document.article.title == "Installing RoleThread Lite"
-    assert "Windows setup executable is a beta convenience path" in document.content
+    assert "Windows setup executable packages a tested release snapshot" in document.content
     assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
     assert "Users do\nnot choose a runtime mode during setup" in document.content
     assert "Use Windows Edge webapp mode" not in document.content

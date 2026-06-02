@@ -86,12 +86,16 @@ def test_source_webapp_launch_plan_is_headless_loopback():
     assert "webapp" not in command
 
 
-def test_requirements_do_not_pin_litlaunch_before_pypi_release():
+def test_requirements_include_litlaunch_stable_runtime_line():
     requirements = resolve_rolethread_root().joinpath("requirements.txt").read_text(
         encoding="utf-8"
     )
+    litlaunch_requirement = _requirement_for(requirements, "litlaunch")
 
-    assert "litlaunch==" not in requirements
+    specifier = litlaunch_requirement.specifier
+    assert Version("1.0.0") in specifier
+    assert Version("0.9.9") not in specifier
+    assert Version("2.0.0") not in specifier
 
 
 def test_requirements_keep_streamlit_on_tested_v1_line():

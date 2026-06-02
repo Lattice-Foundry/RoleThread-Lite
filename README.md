@@ -85,7 +85,7 @@ available for a clear restore if the machine or process fails mid-operation.
 
 ## Version 1 Stable Status
 
-RoleThread Lite 1.0 is the stable release surface for dataset craftsmanship.
+RoleThread Lite 1.0.0 is the stable release surface for dataset craftsmanship.
 
 ## Install Options
 
@@ -100,9 +100,9 @@ V1 stabilization window.
 
 Windows users have two practical paths:
 
-* **Windows setup executable**: a beta convenience installer published through
-  GitHub Releases. It bundles the runtime and starts RoleThread Lite like a
-  desktop app.
+* **Windows setup executable**: the packaged Windows installer published
+  through GitHub Releases. It bundles the runtime and starts RoleThread Lite
+  like a desktop app.
 * **Manual source install**: the most transparent technical workflow for
   contributors, power users, and anyone who wants direct control over the
   Python environment.
@@ -139,8 +139,8 @@ streamlit run app.py
 Windows setup installer:
 
 Download the latest `RoleThreadLiteSetup-v<version>.exe` from GitHub Releases.
-The installer is a beta convenience path, not the only supported way to run
-RoleThread Lite. It is expected to improve as installer testing continues.
+The installer is the packaged Windows path, not the only supported way to run
+RoleThread Lite.
 
 Installed Windows builds open like a local desktop-style app. The packaged
 launcher starts RoleThread on your machine and opens a Microsoft Edge app
@@ -187,7 +187,7 @@ clearer.
 
 ## Windows Installer Status
 
-RoleThread Lite has a beta Windows setup installer for normal users. The
+RoleThread Lite has a Windows setup installer for normal users. The
 installer packages a tested release snapshot; it does not clone or pull from Git
 on the user's machine.
 
