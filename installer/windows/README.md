@@ -315,5 +315,5 @@ CI/CD is added later.
 
 The source-controlled scripts can build a PyInstaller one-folder launcher
 bundle and package that bundle into an Inno Setup installer executable. The
-prototype does not yet implement firewall rules, code signing, auto-update, or
+installer flow does not implement firewall rules, code signing, auto-update, or
 release publishing automation.

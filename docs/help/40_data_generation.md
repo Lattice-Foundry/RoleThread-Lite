@@ -1,16 +1,20 @@
-# Data Generation
+# Prompt Generation (Beta)
 
 The chapters from here through **Creator Ownership and Long-Term Workflow Philosophy** form the AI Training Fundamentals arc. They cover the concepts and practices behind building quality training data — including why dataset quality matters, how fine-tuning and LoRA workflows operate, and how to maintain a dataset over time. These articles complement RoleThread's tool documentation with the context behind the workflow decisions.
 
-Data Generation compiles structured settings into prompts you can paste into an external AI system.
+Prompt Generation (Beta) compiles structured settings into prompts you can paste into an external AI system.
+
+Prompt Generation is a beta feature in RoleThread Lite 1.0.0. It is safe to use
+as a deterministic prompt compiler, but the workflow and prompt templates may
+evolve as users test it across providers and local models.
 
 RoleThread Lite does not call an AI provider, generate responses internally, or require a cloud API key. It builds deterministic prompts for ChatML JSONL conversational dataset workflows while leaving model choice, execution, and review under your control.
 
 The feature is provider-agnostic. You can use the compiled prompt with systems such as ChatGPT, Claude, Gemini, local models, or other tools that can follow structured dataset-generation instructions. RoleThread does not claim official integration with those providers.
 
-## What Data Generation Is
+## What Prompt Generation Is
 
-Data Generation is a structured prompt orchestration workflow for conversational dataset engineering.
+Prompt Generation is a structured prompt orchestration workflow for conversational dataset engineering.
 
 It provides:
 
@@ -25,9 +29,9 @@ The goal is workflow acceleration, not hidden automation. RoleThread gives the e
 
 This fits the broader RoleThread pattern: external AI can help scaffold the first 80%, while RoleThread helps you curate and control the final 20%.
 
-## What Data Generation Is Not
+## What Prompt Generation Is Not
 
-Data Generation is not:
+Prompt Generation is not:
 
 - a hosted inference platform
 - a chatbot runtime
@@ -40,7 +44,7 @@ RoleThread compiles the prompt. The external AI system generates the dataset con
 
 ## Provider Output Expectations
 
-Data Generation produces deterministic prompt text. External AI systems may
+Prompt Generation produces deterministic prompt text. External AI systems may
 still interpret that prompt differently because model families vary in
 instruction following, JSON discipline, long-output behavior, safety policy,
 and formatting habits.
@@ -51,7 +55,7 @@ providers, style settings, or output-delivery options.
 
 ## Architecture Notes
 
-Data Generation is built around a small set of responsibilities:
+Prompt Generation is built around a small set of responsibilities:
 
 - templates define the workflow type
 - DB-backed prompt chunks own prompt text
@@ -71,7 +75,7 @@ every external model behave identically.
 
 Practical workflow:
 
-1. Configure Data Generation.
+1. Configure Prompt Generation.
 2. Compile the prompt.
 3. Paste the prompt into an external AI system.
 4. Review the generated JSONL.
@@ -79,7 +83,7 @@ Practical workflow:
 
 ## Lite and Studio Boundaries
 
-In RoleThread Lite, Data Generation stays focused on deterministic prompt compilation and local dataset engineering.
+In RoleThread Lite, Prompt Generation stays focused on deterministic prompt compilation and local dataset engineering.
 
 Lite owns:
 
@@ -96,4 +100,4 @@ That split does not make Lite incomplete. Lite provides the deterministic toolin
 
 Treat generated results as a draft source, not finished training data.
 
-Run Validation, inspect the content, check formatting, and edit anything that does not match your dataset goals. Data Generation can speed up structured drafting, but dataset quality still comes from review and intentional curation.
+Run Validation, inspect the content, check formatting, and edit anything that does not match your dataset goals. Prompt Generation can speed up structured drafting, but dataset quality still comes from review and intentional curation.

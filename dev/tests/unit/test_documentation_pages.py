@@ -228,7 +228,7 @@ def test_help_article_registry_has_expected_articles():
     )
     assert registry["version-2-direction"].category == "Reference"
     assert registry["data-generation"].file_name == "40_data_generation.md"
-    assert registry["data-generation"].category == "Data Generation"
+    assert registry["data-generation"].category == "Prompt Generation (Beta)"
     assert registry["rolethread-studio-vision"].file_name == "28_rolethread_studio_vision.md"
     assert registry["rolethread-studio-vision"].category == "For Developers"
     assert registry["codebase-architecture"].file_name == "29_codebase_architecture.md"
@@ -590,9 +590,12 @@ def test_version_2_direction_documents_roadmap_direction_without_promises():
 def test_data_generation_help_article_documents_public_positioning():
     document = load_help_document("data-generation")
 
-    assert document.article.title == "Data Generation"
-    assert document.article.category == "Data Generation"
+    assert document.article.title == "Prompt Generation (Beta)"
+    assert document.article.category == "Prompt Generation (Beta)"
     assert "RoleThread Lite does not call an AI provider" in document.content
+    assert "Prompt Generation is a beta feature in RoleThread Lite 1.0.0" in (
+        document.content
+    )
     assert "deterministic prompt compiler" in document.content
     assert "DB-backed prompt chunks" in document.content
     assert "conditional style, tone, system prompt, and output-delivery instructions" in (
@@ -1019,9 +1022,9 @@ def test_help_article_category_order_and_grouping():
         "realistic-expectations-for-fine-tuning",
         "creator-ownership-and-long-term-workflow-philosophy",
     ]
-    assert [article.article_id for article in grouped["Data Generation"]] == [
-        "data-generation",
-    ]
+    assert [
+        article.article_id for article in grouped["Prompt Generation (Beta)"]
+    ] == ["data-generation"]
     assert [article.article_id for article in grouped["Metadata and Organization"]] == [
         "tags-categories-and-tag-lifecycle",
         "understanding-default-tags",
@@ -1617,6 +1620,9 @@ def test_faq_category_derivation_maps_legacy_prefixes_to_browser_categories():
     assert derive_faq_category("Installation and launching: How do I launch?") == (
         "Installation and Launching"
     )
+    assert derive_faq_category("Prompt generation beta: Do I need an API key?") == (
+        "Prompt Generation (Beta)"
+    )
 
 
 def test_faq_entries_group_into_clean_sidebar_categories():
@@ -1681,12 +1687,15 @@ def test_faq_entries_group_into_clean_sidebar_categories():
         for entry in entries
     )
     assert any(
-        "desktop-style local app" in entry.question
-        and "LitLaunch now carries the runtime machinery" in entry.answer
+        "native-style webapp launcher with a compiled installer" in entry.question
+        and "science reasons" in entry.answer
+        and "LitLaunch carries the runtime machinery" in entry.answer
         for entry in entries
     )
     assert any(
         entry.display_question == "Does RoleThread generate AI responses directly?"
+        and entry.category == "Prompt Generation (Beta)"
+        and "Prompt Generation (Beta)" in entry.answer
         and "data-generation" in entry.related_help_ids
         for entry in entries
     )

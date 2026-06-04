@@ -80,7 +80,7 @@ _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
     ),
     PageDefinition(
         PAGE_DATA_GENERATION,
-        "Data Generation",
+        "Prompt Generation (Beta)",
         "Output",
         ":material/manufacturing:",
         "data-generation",

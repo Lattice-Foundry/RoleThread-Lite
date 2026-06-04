@@ -29,7 +29,7 @@ Highlights:
 - Protected working copies for untrusted or imported files.
 - Local database, dataset backups, optional cloud backup mirrors, and
   documented recovery guidance.
-- Data Generation workflow for provider-agnostic prompt compilation.
+- Prompt Generation (Beta) workflow for provider-agnostic prompt compilation.
 - Local-first privacy posture with no hidden hosted runtime requirement.
 - Support -> Diagnostics page with RoleThread product context, LitLaunch
   runtime posture, support artifacts, and runtime event trail.
@@ -48,7 +48,7 @@ Condensed summary of the pre-1.0 stabilization work:
   trusted metadata, working copies, merge behavior, backups, and sidecars.
 - Built out validation, repair, dataset quality, tag lifecycle, character
   mapping, system prompt, search/filter, and export tooling.
-- Added the Data Generation surface and educational AI training
+- Added the Prompt Generation beta surface and educational AI training
   fundamentals for roleplay dataset preparation.
 - Expanded user Help, FAQ, developer docs, architecture notes, platform docs,
   testing guidance, and release checklists.

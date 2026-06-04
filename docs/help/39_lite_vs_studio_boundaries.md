@@ -16,7 +16,7 @@ Good fits for Lite include:
 - validation and repair
 - tag and metadata organization
 - character mapping review
-- deterministic Data Generation prompt compilation
+- deterministic Prompt Generation (Beta) prompt compilation
 - splitting, joining, duplicating, deleting, and merging entries
 - exporting training data
 - backups, sidecars, and recovery workflows
@@ -68,4 +68,4 @@ Lite should remain complete on its own. Studio boundaries should not turn Lite i
 
 - **RoleThread Studio Vision**
 - **V1 Scope and Intentional Boundaries**
-- **Data Generation**
+- **Prompt Generation (Beta)**

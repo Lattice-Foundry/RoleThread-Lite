@@ -20,7 +20,7 @@
     },
     {
       "id": "data-generation",
-      "title": "Data Generation",
+      "title": "Prompt Generation (Beta)",
       "order": 40
     },
     {
@@ -514,11 +514,11 @@
     },
     {
       "id": "data-generation",
-      "title": "Data Generation",
+      "title": "Prompt Generation (Beta)",
       "source_path": "docs/help/40_data_generation.md",
       "category": "data-generation",
       "order": 115,
-      "summary": "Provider-agnostic prompt compilation for external ChatML JSONL generation workflows.",
+      "summary": "Beta provider-agnostic prompt compilation for external ChatML JSONL generation workflows.",
       "related_ids": [
         "what-rolethread-is-actually-for",
         "ai-assisted-dataset-creation-workflow",

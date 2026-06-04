@@ -59,7 +59,7 @@ RoleThread Lite does not host models or run inference as part of the V1 workflow
 
 It helps you prepare datasets. It does not train, serve, or evaluate a hosted model for you.
 
-Data Generation follows the same boundary. It compiles structured prompts for external AI systems; it does not call providers or generate responses inside RoleThread.
+Prompt Generation (Beta) follows the same boundary. It compiles structured prompts for external AI systems; it does not call providers or generate responses inside RoleThread.
 
 ## No Multi-User Orchestration
 

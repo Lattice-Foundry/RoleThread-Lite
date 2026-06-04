@@ -494,9 +494,9 @@
     ]
   },
   {
-    "question": "Data generation: Does RoleThread generate AI responses directly?",
-    "answer": "No. Data Generation compiles structured prompts for external AI systems.\n\nYou paste the compiled prompt into ChatGPT, Claude, Gemini, a local model, or another tool, then review the generated result before using it in your dataset.",
-    "category": "Data Generation",
+    "question": "Prompt generation beta: Does RoleThread generate AI responses directly?",
+    "answer": "No. Prompt Generation (Beta) compiles structured prompts for external AI systems.\n\nYou paste the compiled prompt into ChatGPT, Claude, Gemini, a local model, or another tool, then review the generated result before using it in your dataset.",
+    "category": "Prompt Generation (Beta)",
     "related_help_ids": [
       "data-generation",
       "dataset-formats",
@@ -504,36 +504,36 @@
     ]
   },
   {
-    "question": "Data generation: Do I need an API key?",
+    "question": "Prompt generation beta: Do I need an API key?",
     "answer": "No API key is required by RoleThread Lite because the app does not call AI providers directly.\n\nIf the external system you choose requires an account, subscription, or API key, that requirement belongs to that external tool, not RoleThread.",
-    "category": "Data Generation",
+    "category": "Prompt Generation (Beta)",
     "related_help_ids": [
       "data-generation",
       "v1-limitations-and-future-boundaries"
     ]
   },
   {
-    "question": "Data generation: Which AI providers work with Data Generation?",
-    "answer": "Data Generation is provider-agnostic. The compiled prompts are designed for structured ChatML JSONL generation workflows and can be used with systems such as ChatGPT, Claude, Gemini, local models, or other tools that can follow detailed instructions.\n\nRoleThread does not claim official provider integrations in Lite.",
-    "category": "Data Generation",
+    "question": "Prompt generation beta: Which AI providers work with Prompt Generation?",
+    "answer": "Prompt Generation (Beta) is provider-agnostic. The compiled prompts are designed for structured ChatML JSONL generation workflows and can be used with systems such as ChatGPT, Claude, Gemini, local models, or other tools that can follow detailed instructions.\n\nRoleThread does not claim official provider integrations in Lite.",
+    "category": "Prompt Generation (Beta)",
     "related_help_ids": [
       "data-generation",
       "dataset-formats"
     ]
   },
   {
-    "question": "Data generation: How should I review generated output?",
+    "question": "Prompt generation beta: How should I review generated output?",
     "answer": "Treat generated output as draft material. RoleThread compiles deterministic prompts, but external models still vary in instruction following, JSON discipline, safety policy, and formatting habits.\n\nReview generated JSONL before importing or training on it, then use Validation, editing, tags, and export prep to decide what is actually useful.",
-    "category": "Data Generation",
+    "category": "Prompt Generation (Beta)",
     "related_help_ids": [
       "data-generation",
       "lite-vs-studio-boundaries"
     ]
   },
   {
-    "question": "Data generation: Why are generated results different across providers?",
+    "question": "Prompt generation beta: Why are generated results different across providers?",
     "answer": "Different models interpret instructions, JSON formatting, safety policy, and long-output requests differently.\n\nRoleThread compiles the same prompt deterministically, but external model behavior is not identical across providers. Review generated output before importing or training with it.",
-    "category": "Data Generation",
+    "category": "Prompt Generation (Beta)",
     "related_help_ids": [
       "data-generation",
       "validation-and-repair"
@@ -736,8 +736,8 @@
     "related_help_ids": []
   },
   {
-    "question": "Meta: Is it absurd that RoleThread Lite runs Streamlit like a desktop-style local app?",
-    "answer": "A little. But it makes the installed Windows experience cleaner, and LitLaunch now carries the runtime machinery so RoleThread can stay focused on dataset work.",
+    "question": "Meta: Is it absurd that RoleThread Lite runs Streamlit through a native-style webapp launcher with a compiled installer?",
+    "answer": "Absolutely. We did it for science reasons. We regret nothing...mostly.\n\nThe practical reason is that the Windows installer gives non-technical users a cleaner local app experience while LitLaunch carries the runtime machinery and RoleThread stays focused on dataset work.",
     "category": "Troubleshooting",
     "related_help_ids": [
       "why-rolethread-uses-litlaunch"

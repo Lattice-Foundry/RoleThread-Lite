@@ -1,4 +1,4 @@
-"""Streamlit page for external data generation prompt compilation."""
+"""Streamlit page for external prompt generation beta compilation."""
 
 from __future__ import annotations
 
@@ -139,15 +139,15 @@ def _render_prompt_preview() -> None:
 
 
 def render_generation_page() -> None:
-    """Render the Output > Data Generation page."""
+    """Render the Output > Prompt Generation (Beta) page."""
 
     _ensure_generation_defaults()
 
-    st.subheader("Data Generation")
+    st.subheader("Prompt Generation (Beta)")
     st.write(
-        "Data Generation compiles structured settings into a prompt you can paste "
-        "into an external AI. RoleThread does not call an AI provider or generate "
-        "dataset content directly."
+        "Prompt Generation (Beta) compiles structured settings into a prompt you "
+        "can paste into an external AI. RoleThread does not call an AI provider "
+        "or generate dataset content directly."
     )
 
     _render_template_selector()

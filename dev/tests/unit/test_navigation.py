@@ -56,6 +56,9 @@ def test_page_registry_exposes_legacy_pages():
     assert navigation.PAGE_DIAGNOSTICS in registry
     assert navigation.PAGE_EDIT_ENTRIES in registry
     assert navigation.PAGE_EDIT_ENTRIES == "Edit Entries"
+    assert navigation.get_page_title(navigation.PAGE_DATA_GENERATION) == (
+        "Prompt Generation (Beta)"
+    )
     assert navigation.get_page_title(navigation.PAGE_EDIT_ENTRIES) == "Deep Edit"
     assert navigation.get_page_title("Deep Edit") == "Deep Edit"
     assert navigation.get_page_title("Statistics") == "Insights"

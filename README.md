@@ -12,6 +12,16 @@ dataset engineering.
 
 ---
 
+## Project Links
+
+* Website and documentation: [LatticeFoundry](https://latticefoundry.dev)
+* Windows downloads: [GitHub Releases](https://github.com/Lattice-Foundry/RoleThread-Lite/releases)
+* Support development: open **Support -> Support RoleThread** in the app or visit
+  the [LatticeFoundry donation page](https://latticefoundry.dev/donate?source=rolethread-lite&interest=rolethread)
+* Sierra Cognitive Group: [sierracognitive.com](https://www.sierracognitive.com)
+
+---
+
 ## Current Features
 
 * ChatML dataset creation and management
@@ -25,6 +35,7 @@ dataset engineering.
 * Protected working copies for untrusted files so originals stay untouched
 * Dataset merge tools with dataset UUID, entry UUID, sidecar, and tag hardening
 * Bulk tag edits, system prompt tools, dataset insights, and diagnostics
+* Prompt Generation (Beta) for provider-agnostic external AI prompt compilation
 * Local preferences, dataset backups, and database backups
 
 ---
@@ -101,8 +112,8 @@ V1 stabilization window.
 Windows users have two practical paths:
 
 * **Windows setup executable**: the packaged Windows installer published
-  through GitHub Releases. It bundles the runtime and starts RoleThread Lite
-  like a desktop app.
+  through [GitHub Releases](https://github.com/Lattice-Foundry/RoleThread-Lite/releases).
+  It bundles the runtime and starts RoleThread Lite like a desktop app.
 * **Manual source install**: the most transparent technical workflow for
   contributors, power users, and anyone who wants direct control over the
   Python environment.
@@ -138,7 +149,8 @@ streamlit run app.py
 
 Windows setup installer:
 
-Download the latest `RoleThreadLiteSetup-v<version>.exe` from GitHub Releases.
+Download the latest `RoleThreadLiteSetup-v<version>.exe` from
+[GitHub Releases](https://github.com/Lattice-Foundry/RoleThread-Lite/releases).
 The installer is the packaged Windows path, not the only supported way to run
 RoleThread Lite.
 
@@ -179,11 +191,11 @@ runtime: clean startup, loopback-only local access, browser/app-window launch,
 shutdown coordination, runtime event logging, and diagnostics when something
 goes wrong.
 
-LitLaunch provides that runtime layer so RoleThread can stay focused on dataset
-work instead of maintaining custom browser, process, and shutdown machinery.
-It also gives source users and packaged users the same runtime profile model,
-plus an integrated diagnostics/support surface that makes troubleshooting
-clearer.
+[LitLaunch 1.0.0](https://pypi.org/project/litlaunch/1.0.0/) provides that
+runtime layer so RoleThread can stay focused on dataset work instead of
+maintaining custom browser, process, and shutdown machinery. It also gives
+source users and packaged users the same runtime profile model, plus an
+integrated diagnostics/support surface that makes troubleshooting clearer.
 
 ## Windows Installer Status
 
@@ -261,6 +273,18 @@ The V1 stability gate is:
 * Local backups, sidecars, validation, merge, tag lifecycle, character mapping,
   export, and settings flows remain covered by regression tests
 * Known limitations are documented rather than implied as missing V1 work
+
+---
+
+## Support Development
+
+RoleThread Lite is developed by LatticeFoundry, a software division of Sierra
+Cognitive Group, LLC.
+
+If RoleThread Lite is useful to your workflow, open **Support -> Support
+RoleThread** in the app to contribute through the LatticeFoundry donation
+platform. Donations are processed by LatticeFoundry infrastructure through
+Stripe; RoleThread Lite does not process, store, or retain payment information.
 
 ---
 

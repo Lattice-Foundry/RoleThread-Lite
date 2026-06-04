@@ -13,7 +13,7 @@ dataset work:
 
 - structured dataset editing
 - validation and repair
-- Data Generation prompt compilation
+- Prompt Generation (Beta) prompt compilation
 - metadata organization
 - import, merge, backup, and export workflows
 - reliable local runtime behavior
@@ -54,9 +54,9 @@ launch there today. The current Windows installed-app work creates a stronger
 model for broader packaged platform support, but it does not imply all
 platforms receive identical installer or desktop integration.
 
-## Data Generation Improvements
+## Prompt Generation Improvements
 
-Data Generation keeps moving from prompt compilation plumbing toward deeper
+Prompt Generation keeps moving from prompt compilation plumbing toward deeper
 workflow usefulness.
 
 Direction includes:

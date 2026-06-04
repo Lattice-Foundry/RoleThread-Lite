@@ -101,7 +101,7 @@ These are guidance tools. They help you notice patterns, but they do not replace
 
 ### Compile Generation Prompts
 
-Data Generation compiles structured settings into prompts for external AI systems.
+Prompt Generation (Beta) compiles structured settings into prompts for external AI systems.
 
 RoleThread does not generate the dataset internally. It helps shape the request for ChatML JSONL generation, then you review the external result through normal validation, editing, and export workflows.
 
