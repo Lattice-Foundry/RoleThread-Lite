@@ -13,7 +13,10 @@ Use Insights to ask:
 - Are entries too short or too long?
 - Is the style more narrative-heavy or dialogue-heavy?
 
-The included example datasets are useful for learning Insights. They let you see how different organization styles, prompt patterns, tags, and character mappings change the report.
+Insights becomes useful once a dataset has enough entries to show patterns. If
+you are learning the page, start with a small scratch dataset or an imported
+copy, then add tags, prompt patterns, and character mappings so you can see how
+the report changes.
 
 ## The Dataset Health Score
 

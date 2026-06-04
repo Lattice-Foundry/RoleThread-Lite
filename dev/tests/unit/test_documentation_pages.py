@@ -478,6 +478,12 @@ def test_installing_rolethread_lite_help_article_documents_install_and_uninstall
 
     assert document.article.title == "Installing RoleThread Lite"
     assert "Windows setup executable packages a tested release snapshot" in document.content
+    assert "**Source installs require Python 3.14.**" in document.content
+    assert "Python 3.14.5 is the validated launch\nruntime" in document.content
+    assert "Windows SmartScreen may\nshow an unknown publisher warning" in (
+        document.content
+    )
+    assert "More info -> Run anyway" in document.content
     assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
     assert "Users do\nnot choose a runtime mode during setup" in document.content
     assert "Use Windows Edge webapp mode" not in document.content
@@ -1288,6 +1294,22 @@ def test_load_help_document_reads_registered_markdown():
     assert document.content.startswith("# Getting Started")
 
 
+def test_getting_started_docs_match_empty_first_run_behavior():
+    getting_started = load_help_document("getting-started")
+    loading = load_help_document("loading-datasets-and-working-copies")
+    workspaces = load_help_document("understanding-the-main-workspaces")
+
+    for document in (getting_started, loading, workspaces):
+        assert "Fresh installs start" in document.content
+        assert "curated " + "example" not in document.content.lower()
+        assert "auto" + "-load" not in document.content.lower()
+
+    assert "RoleThread Lite does not bundle or seed starter content" in (
+        loading.content
+    )
+    assert "Prompt Generation (Beta)" in getting_started.content
+
+
 def test_search_help_documents_matches_title_summary_and_content(tmp_path):
     help_dir = tmp_path / "help"
     help_dir.mkdir()
@@ -1504,7 +1526,7 @@ def test_slugify_heading_normalizes_punctuation_and_spacing():
 
 def test_slugify_heading_matches_expected_streamlit_style_examples():
     assert slugify_heading("The Short Version") == "the-short-version"
-    assert slugify_heading("Included Example Datasets") == "included-example-datasets"
+    assert slugify_heading("Included Workflow Notes") == "included-workflow-notes"
     assert (
         slugify_heading("Writing Effective Narrative Training Data")
         == "writing-effective-narrative-training-data"
@@ -1644,6 +1666,18 @@ def test_faq_entries_group_into_clean_sidebar_categories():
         entry.display_question == "What is LitLaunch?"
         and "local runtime and diagnostics layer" in entry.answer
         and "support artifacts" in entry.answer
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "Why is my workspace empty on first launch?"
+        and "empty workspace" in entry.answer
+        and "starter content" in entry.answer
+        and "Prompt Generation (Beta)" in entry.answer
+        for entry in entries
+    )
+    assert any(
+        entry.display_question == "How can I learn safely from an empty workspace?"
+        and "protected working copy" in entry.answer
         for entry in entries
     )
     assert any(

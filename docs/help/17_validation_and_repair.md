@@ -124,7 +124,10 @@ They may have:
 
 This is normal. Validation gives you a map for cleanup.
 
-One included example dataset is intended to demonstrate imported cleanup and validation review. It can be a useful place to see warnings, diagnostics, and repair workflows without risking your own work.
+If you want to learn Validation safely, create a small scratch dataset or load
+a copy of outside JSONL data. RoleThread may create a protected working copy for
+untrusted imports, which lets you review warnings, diagnostics, and repair
+workflows without changing the original source file.
 
 ## Normal RoleThread Workflows
 

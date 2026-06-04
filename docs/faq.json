@@ -10,8 +10,8 @@
     ]
   },
   {
-    "question": "Getting started: Why is an example dataset already loaded?",
-    "answer": "RoleThread Lite ships with curated example datasets so you can explore real workflows safely. One example dataset may load automatically on first launch.\n\nThe examples are learning material. You can inspect tags, prompts, sidecars, character mappings, Validation results, and Insights behavior before working on your own dataset.",
+    "question": "Getting started: Why is my workspace empty on first launch?",
+    "answer": "Fresh installs start with an empty workspace. RoleThread Lite does not bundle or seed starter content at launch.\n\nStart by creating a new dataset in Manage Dataset, loading an existing JSONL/ChatML file, or using Prompt Generation (Beta) to compile source-material prompts for an external AI system and then reviewing the result before importing it.",
     "category": "Getting Started",
     "related_help_ids": [
       "getting-started",
@@ -780,8 +780,8 @@
     ]
   },
   {
-    "question": "Getting started: Are the included datasets safe to edit?",
-    "answer": "Yes. They are included so you can explore workflows safely.\n\nIf you want to keep an original example untouched, duplicate or export a copy before experimenting heavily.",
+    "question": "Getting started: How can I learn safely from an empty workspace?",
+    "answer": "Create a small scratch dataset, load a copy of existing JSONL/ChatML data, or use Prompt Generation (Beta) to draft source material externally.\n\nFor outside files, RoleThread may create a protected working copy so you can explore editing, Validation, Insights, tags, and export without changing the original source file.",
     "category": "Getting Started",
     "related_help_ids": [
       "getting-started",
@@ -789,8 +789,8 @@
     ]
   },
   {
-    "question": "Getting started: Can I delete the included datasets?",
-    "answer": "Yes, but consider keeping or backing them up if you still want reference material.\n\nThey are practical examples for learning tags, sidecars, Validation, Insights, and Group Chat workflows.",
+    "question": "Getting started: Can I delete a scratch dataset after learning?",
+    "answer": "Yes. Scratch datasets are normal local files, so you can delete them when you no longer need them.\n\nIf the dataset contains anything you may want later, export it or keep a backup first.",
     "category": "Getting Started",
     "related_help_ids": [
       "getting-started",
@@ -798,8 +798,8 @@
     ]
   },
   {
-    "question": "Getting started: Why ship with example datasets at all?",
-    "answer": "Example datasets let you learn by inspecting real workflows instead of starting from an empty app.\n\nThey show how organization, sidecars, tags, character mappings, Validation, and Insights look in practice.",
+    "question": "Getting started: Will tutorial datasets be added later?",
+    "answer": "Tutorial assets may be added later if they improve onboarding, but RoleThread Lite 1.0.0 starts from an empty workspace.\n\nThe launch workflow is intentionally explicit: create a dataset, load your own JSONL/ChatML data, or draft source material externally and review it before import.",
     "category": "Getting Started",
     "related_help_ids": [
       "getting-started",
@@ -807,8 +807,8 @@
     ]
   },
   {
-    "question": "Getting started: Which example dataset should I explore first?",
-    "answer": "Start with the clean native workflow example if you are new. Then inspect the imported cleanup example to understand Validation, and the Group Chat example to understand character mappings.\n\nYou do not need to study them all before using the app.",
+    "question": "Getting started: What should I create first?",
+    "answer": "Start with a tiny dataset that teaches one focused behavior. A few entries are enough to learn Manage Dataset, Create Entry, Validation, Insights, tags, and export.\n\nAfter that, load or import larger material when you are ready for cleanup and organization.",
     "category": "Getting Started",
     "related_help_ids": [
       "getting-started",

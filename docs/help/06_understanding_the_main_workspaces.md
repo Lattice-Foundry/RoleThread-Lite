@@ -6,7 +6,10 @@ The pages are not isolated tools you are expected to use equally. Each page has 
 
 You do not need to master every page at once. Start with the main workflow, then add structure as the dataset asks for it.
 
-The three included example datasets are a good way to learn this flow. They let you inspect real tags, prompts, sidecars, character mappings, Validation results, and Insights patterns without needing to build a dataset from scratch first.
+Fresh installs start empty. Create a small dataset manually or load an existing
+JSONL/ChatML file first, then use the workspaces below as the dataset grows.
+Prompt Generation (Beta) can also help compile source-material prompts for an
+external AI system, but RoleThread does not generate dataset content for you.
 
 ## The Basic Mental Model
 
@@ -52,7 +55,9 @@ Use Manage Dataset for:
 
 If you are working through a batch of entries, Manage Dataset is usually the right starting point.
 
-This is also the best place to explore included example datasets. You can filter, search, quick edit, duplicate, join, tag, and prepare exports while learning how the rest of the app connects.
+This is also the best place to learn on a small starter dataset. You can
+filter, search, quick edit, duplicate, join, tag, and prepare exports while
+learning how the rest of the app connects.
 
 Example workflow:
 
@@ -247,7 +252,7 @@ Start with:
 - Create Entry
 - Quick Edit
 - Validation before export
-- included example datasets for safe exploration
+- a small dataset you create manually or import
 
 Then add:
 

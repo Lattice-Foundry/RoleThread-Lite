@@ -8,19 +8,23 @@ The most important idea is simple:
 
 That is intentional.
 
-## Included Example Datasets
+## Starting From An Empty Workspace
 
-RoleThread Lite includes three curated example datasets intended for safe exploration.
+Fresh installs start with an empty workspace.
 
-One example dataset may load automatically on first launch. The examples are practical reference material, not hidden defaults or disposable samples.
+RoleThread Lite does not bundle or seed starter content at launch. That keeps
+first-run behavior clear: the dataset you create or load is the dataset being
+edited.
 
-They are meant to show different parts of the workflow, such as:
+Normal starting points are:
 
-- clean native dataset organization
-- imported cleanup and validation review
-- advanced Group Chat and character mapping workflows
+- create a new empty dataset in **Manage Dataset**
+- load an existing JSONL or ChatML dataset
+- import compatible outside data and let RoleThread create a protected working copy when needed
+- use Prompt Generation (Beta) to compile a prompt for external source material, then review and import useful results
 
-You can inspect, edit, duplicate, validate, merge, export, and search these datasets like normal loaded datasets. If you want to keep an original example untouched, duplicate or export a copy before experimenting heavily.
+Future tutorial assets may be added later if they help onboarding, but V1 does
+not rely on hidden starter content.
 
 ## Trusted and Untrusted Datasets
 

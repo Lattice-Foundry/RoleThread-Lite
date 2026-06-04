@@ -25,7 +25,11 @@ When you open the app, start in **Manage Dataset**. This is not just a file brow
 
 If no dataset is loaded, other pages will point you back to Manage Dataset.
 
-RoleThread Lite ships with three curated example datasets so you can explore the app safely before working on your own material. One example dataset may load automatically on first launch. The examples are there for learning: inspect their tags, sidecars, prompts, character mappings, Validation results, and Insights behavior. You can edit, duplicate, validate, merge, or export them like normal datasets.
+Fresh installs start with an empty workspace. RoleThread does not seed starter
+content at launch. Start by creating a new dataset, loading an existing
+JSONL/ChatML file, or using Prompt Generation (Beta) to compile a prompt for an
+external AI system and then reviewing the generated material before importing
+it.
 
 ### 2. Create or Load a Dataset
 
@@ -120,7 +124,7 @@ Optional cloud backup can mirror the latest backup material to a configured sync
 ## Practical Tips
 
 - Start small. Create or load one dataset, then use Manage Dataset as your home base.
-- Explore the included example datasets if you want to see complete workflows before creating your own.
+- If you do not have data yet, create a small dataset manually or use Prompt Generation (Beta) to draft source material externally.
 - Run Validation early for imported or manually edited data, and again before export.
 - Keep your source files somewhere safe. RoleThread working copies protect untrusted files, but good file organization still helps.
 - Use tags early. Even a simple tag system makes search, filtering, export, and Insights more useful.

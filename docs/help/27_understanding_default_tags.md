@@ -93,9 +93,9 @@ Use Status tags to manage review passes without losing track of what still needs
 Start light. Add the tags that help you answer real workflow questions:
 
 - Which entries need review?
-- Which examples show the behavior I want?
+- Which entries show the behavior I want?
 - Which entries came from outside the app?
-- Which examples are ready for export?
+- Which entries are ready for export?
 - Which style or interaction patterns are overrepresented?
 
 If a tag will not help you find, review, export, or understand entries later, it may not need to exist.

@@ -100,7 +100,8 @@ RoleThread Lite 1.0.0 is the stable release surface for dataset craftsmanship.
 
 ## Install Options
 
-RoleThread Lite V1 officially supports Python `3.14.5`.
+**Source installs require Python 3.14.** RoleThread Lite V1 is validated on
+Python `3.14.5`.
 
 Python `3.14.4` remains the minimum supported V1 runtime. Newer Python versions
 may run, but they are not guaranteed for V1 unless they are tested later.
@@ -153,6 +154,10 @@ Download the latest `RoleThreadLiteSetup-v<version>.exe` from
 [GitHub Releases](https://github.com/Lattice-Foundry/RoleThread-Lite/releases).
 The installer is the packaged Windows path, not the only supported way to run
 RoleThread Lite.
+
+Because the Windows installer is not yet code-signed, Windows SmartScreen may
+show an unknown publisher warning. If you downloaded it from the official
+GitHub Releases page, choose **More info -> Run anyway**.
 
 Installed Windows builds open like a local desktop-style app. The packaged
 launcher starts RoleThread on your machine and opens a Microsoft Edge app

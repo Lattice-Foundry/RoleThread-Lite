@@ -154,7 +154,7 @@ Other settings affect future actions, such as:
 - backup folder for future backup writes
 - normalization behavior on future loads
 
-If a change does not seem to affect something already loaded, it may apply the next time you load, save, or create a dataset.
+If a change does not seem to affect the current dataset, it may apply the next time you load, save, or create one.
 
 ## Practical Recommendations
 

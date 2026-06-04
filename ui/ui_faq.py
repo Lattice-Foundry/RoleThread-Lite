@@ -36,7 +36,7 @@ FAQ_CATEGORY_ORDER = (
 )
 
 FAQ_CATEGORY_DESCRIPTIONS = {
-    "Getting Started": "First-run questions, examples, and the basic app rhythm.",
+    "Getting Started": "First-run questions, empty workspaces, and the basic app rhythm.",
     "Installation and Launching": "Install, source launch, local app windows, and diagnostics.",
     "Datasets and Editing": "Daily editing, search, split/join, prompts, and dataset craft.",
     "Tags and Validation": "Tags, characters, metadata, validation, and quality review.",
@@ -49,7 +49,6 @@ FAQ_CATEGORY_DESCRIPTIONS = {
 
 _FAQ_PREFIX_CATEGORY_MAP = {
     "getting started": "Getting Started",
-    "included examples": "Getting Started",
     "installation and launching": "Installation and Launching",
     "workflow philosophy": "Datasets and Editing",
     "dataset craftsmanship": "AI Training Fundamentals",

@@ -18,7 +18,9 @@ local runtime behavior, diagnostics, runtime event logging, and support
 artifacts.
 
 RoleThread Lite V1 is tested on Python 3.14.5 with the Streamlit 1.57.x
-runtime line. The source requirements keep Streamlit on that line during the
+runtime line. **Source installs require Python 3.14.** Python 3.14.4 remains
+the minimum supported V1 runtime, and Python 3.14.5 is the validated launch
+runtime. The source requirements keep Streamlit on the 1.57.x line during the
 V1 stabilization window.
 
 ## Windows Setup Installer
@@ -31,6 +33,10 @@ clone from Git or require a local Python install.
 3. Choose whether to create a Desktop shortcut.
 4. Finish setup and launch RoleThread Lite from the installer, Start Menu, or
    Desktop shortcut.
+
+Because the Windows installer is not yet code-signed, Windows SmartScreen may
+show an unknown publisher warning. If you downloaded it from the official
+GitHub Releases page, choose **More info -> Run anyway**.
 
 Installed RoleThread Lite starts like a normal local app. The packaged launcher
 uses LitLaunch behind the scenes, keeps the app bound to your own computer at
