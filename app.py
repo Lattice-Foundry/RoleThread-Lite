@@ -55,6 +55,7 @@ from ui.navigation import (
     PAGE_MERGE_DATASETS,
     PAGE_SETTINGS,
     PAGE_SYSTEM_PROMPTS,
+    PAGE_SUPPORT_ROLETHREAD,
     PAGE_TAG_MANAGEMENT,
     PAGE_VALIDATION,
     get_default_page,
@@ -72,6 +73,7 @@ from ui.ui_faq import render_faq_page
 from ui.ui_generation import render_generation_page
 from ui.ui_help import render_help_page
 from ui.litlaunch_diagnostics import render_litlaunch_diagnostics
+from ui.ui_donate import render_support_rolethread_page
 from ui.ui_tag_management import render_tag_management_page
 from ui.manage import render_manage_page
 from ui.ui_merge import render_merge_page
@@ -439,6 +441,7 @@ _PAGE_RENDERERS = {
     PAGE_SETTINGS: render_settings_page,
     PAGE_HELP: render_help_page,
     PAGE_FAQ: render_faq_page,
+    PAGE_SUPPORT_ROLETHREAD: render_support_rolethread_page,
     PAGE_DIAGNOSTICS: render_litlaunch_diagnostics,
 }
 render_navigation(_PAGE_RENDERERS)

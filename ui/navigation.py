@@ -27,6 +27,7 @@ PAGE_INSIGHTS = "Insights"
 PAGE_SETTINGS = "Settings"
 PAGE_HELP = "Help"
 PAGE_FAQ = "FAQ"
+PAGE_SUPPORT_ROLETHREAD = "Support RoleThread"
 PAGE_DIAGNOSTICS = "Diagnostics"
 
 
@@ -141,6 +142,13 @@ _PAGE_DEFINITIONS: tuple[PageDefinition, ...] = (
         "faq",
     ),
     PageDefinition(
+        PAGE_SUPPORT_ROLETHREAD,
+        "Support RoleThread",
+        "Support",
+        ":material/volunteer_activism:",
+        "support-rolethread",
+    ),
+    PageDefinition(
         PAGE_DIAGNOSTICS,
         "Diagnostics",
         "Support",
@@ -166,7 +174,13 @@ _TOP_NAVIGATION_ORDER = {
     ),
     "Quality": (PAGE_VALIDATION, PAGE_INSIGHTS),
     "Output": (PAGE_DATA_GENERATION, PAGE_MERGE_DATASETS, PAGE_EXPORT),
-    "Support": (PAGE_HELP, PAGE_FAQ, PAGE_DIAGNOSTICS, PAGE_SETTINGS),
+    "Support": (
+        PAGE_HELP,
+        PAGE_FAQ,
+        PAGE_SUPPORT_ROLETHREAD,
+        PAGE_DIAGNOSTICS,
+        PAGE_SETTINGS,
+    ),
 }
 
 _QUICK_NAVIGATION_PRIMARY = (
@@ -181,6 +195,7 @@ _QUICK_NAVIGATION_PRIMARY = (
 _QUICK_NAVIGATION_SECONDARY = (
     PAGE_SETTINGS,
     PAGE_HELP,
+    PAGE_SUPPORT_ROLETHREAD,
 )
 
 _PAGES_WITH_OWN_SIDEBAR = frozenset({PAGE_HELP, PAGE_FAQ})

@@ -110,6 +110,7 @@ def test_top_navigation_sections_follow_workflow_categories():
         "Support": [
             navigation.PAGE_HELP,
             navigation.PAGE_FAQ,
+            navigation.PAGE_SUPPORT_ROLETHREAD,
             navigation.PAGE_DIAGNOSTICS,
             navigation.PAGE_SETTINGS,
         ],
@@ -129,6 +130,7 @@ def test_quick_navigation_pages_use_curated_rail_groups():
         "Secondary": [
             navigation.PAGE_SETTINGS,
             navigation.PAGE_HELP,
+            navigation.PAGE_SUPPORT_ROLETHREAD,
         ],
     }
 
