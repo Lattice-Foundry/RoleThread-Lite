@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 
 DONATION_EMBED_URL = (
@@ -41,9 +40,7 @@ RoleThread Lite does not process, store, or retain payment information.
         DONATION_FALLBACK_URL,
         icon=":material/open_in_new:",
     )
-    components.iframe(
-        src=DONATION_EMBED_URL,
+    st.iframe(
+        DONATION_EMBED_URL,
         height=DONATION_IFRAME_HEIGHT,
-        scrolling=True,
     )
-

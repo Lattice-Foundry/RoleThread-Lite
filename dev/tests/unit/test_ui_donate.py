@@ -3,20 +3,13 @@ from pathlib import Path
 import ui.ui_donate as ui_donate
 
 
-class FakeComponents:
-    def __init__(self):
-        self.iframe_calls = []
-
-    def iframe(self, **kwargs):
-        self.iframe_calls.append(kwargs)
-
-
 class FakeStreamlit:
     def __init__(self):
         self.subheaders = []
         self.markdown_calls = []
         self.info_calls = []
         self.link_button_calls = []
+        self.iframe_calls = []
 
     def subheader(self, text):
         self.subheaders.append(text)
@@ -36,12 +29,18 @@ class FakeStreamlit:
             }
         )
 
+    def iframe(self, src, **kwargs):
+        self.iframe_calls.append(
+            {
+                "src": src,
+                **kwargs,
+            }
+        )
+
 
 def test_support_rolethread_page_embeds_latticefoundry_donation_route(monkeypatch):
     fake_st = FakeStreamlit()
-    fake_components = FakeComponents()
     monkeypatch.setattr(ui_donate, "st", fake_st)
-    monkeypatch.setattr(ui_donate, "components", fake_components)
 
     ui_donate.render_support_rolethread_page()
 
@@ -58,11 +57,10 @@ def test_support_rolethread_page_embeds_latticefoundry_donation_route(monkeypatc
             "icon": ":material/open_in_new:",
         }
     ]
-    assert fake_components.iframe_calls == [
+    assert fake_st.iframe_calls == [
         {
             "src": ui_donate.DONATION_EMBED_URL,
             "height": ui_donate.DONATION_IFRAME_HEIGHT,
-            "scrolling": True,
         }
     ]
 
