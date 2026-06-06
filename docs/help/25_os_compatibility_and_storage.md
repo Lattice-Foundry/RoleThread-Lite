@@ -142,14 +142,14 @@ available.
 Source Windows users can launch the same app-window profile with:
 
 ```bat
-python -m litlaunch.cli run --profile rolethread-webapp
+litlaunch --profile rolethread-webapp
 ```
 
 Linux and macOS source users can use the browser-mode LitLaunch profile for
 managed local runtime behavior without the Windows packaged app-window:
 
 ```bat
-python -m litlaunch.cli run --profile rolethread-browser
+litlaunch --profile rolethread-browser
 ```
 
 Normal browser mode remains available through:
@@ -166,7 +166,7 @@ history.
 Source users can also generate a LitLaunch diagnostics report:
 
 ```bat
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch report --profile rolethread-webapp --force
 ```
 
 Reports and bundles are written under `.litlaunch/reports/` and are support
@@ -181,18 +181,18 @@ platforms, use your browser's built-in install or shortcut option manually.
 Windows:
 
 - installed workflow: local Microsoft Edge app window
-- source app-window workflow: `python -m litlaunch.cli run --profile rolethread-webapp`
+- source app-window workflow: `litlaunch --profile rolethread-webapp`
 - source browser workflow: `streamlit run app.py`
 
 Linux:
 
-- preferred workflow: source launch with `streamlit run app.py` or `python -m litlaunch.cli run --profile rolethread-browser`
+- preferred workflow: source launch with `streamlit run app.py` or `litlaunch --profile rolethread-browser`
 - fallback: manually open the local Streamlit URL
 - manual/git-clone setup is expected for V1
 
 macOS:
 
-- preferred workflow: source launch with `streamlit run app.py` or `python -m litlaunch.cli run --profile rolethread-browser`
+- preferred workflow: source launch with `streamlit run app.py` or `litlaunch --profile rolethread-browser`
 - fallback: manually open the local Streamlit URL
 - Safari-style web-app use is user-managed
 - no V1 installer

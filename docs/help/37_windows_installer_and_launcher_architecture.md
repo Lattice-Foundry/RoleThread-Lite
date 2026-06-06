@@ -23,7 +23,7 @@ The source/dev app-window path uses the `rolethread-webapp` profile in
 `litlaunch.toml`:
 
 ```bat
-python -m litlaunch.cli run --profile rolethread-webapp
+litlaunch --profile rolethread-webapp
 ```
 
 Both paths should express the same product choices: app title, host, port,
@@ -90,7 +90,7 @@ and runtime event trail.
 Source/runtime diagnostics can also use LitLaunch reports:
 
 ```bat
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch report --profile rolethread-webapp --force
 ```
 
 Reports and bundles are written under `.litlaunch/reports/` and are useful for
@@ -103,8 +103,8 @@ application security.
 Advanced support workflows can still use:
 
 ```bat
-python -m litlaunch inspect --profile rolethread-webapp --json
-python -m litlaunch inspect --profile rolethread-webapp --bundle
+litlaunch inspect --profile rolethread-webapp --json
+litlaunch inspect --profile rolethread-webapp --bundle
 ```
 
 Use those when structured output is more useful than a report.

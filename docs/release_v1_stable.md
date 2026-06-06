@@ -67,14 +67,14 @@ The V1 runtime boundary is:
 
 Before release, verify:
 
-- `python -m litlaunch.cli run --profile rolethread-webapp`
+- `litlaunch --profile rolethread-webapp`
 - Support -> Diagnostics opens in the app and shows runtime summary,
   operational snapshot, product diagnostics, support artifacts, and runtime
   event trail
-- `python -m litlaunch report --profile rolethread-webapp --force`
+- `litlaunch report --profile rolethread-webapp --force`
 - `.litlaunch/reports/` contains generated support reports/bundles and remains untracked
-- advanced support output still works through `python -m litlaunch inspect --profile rolethread-webapp --json`
-- advanced support bundles still work through `python -m litlaunch inspect --profile rolethread-webapp --bundle`
+- advanced support output still works through `litlaunch inspect --profile rolethread-webapp --json`
+- advanced support bundles still work through `litlaunch inspect --profile rolethread-webapp --bundle`
 - packaged launcher smoke from the PyInstaller bundle
 - installed-user launch/shutdown smoke from the setup executable
 - cloud-sync closeout runs once on normal app-window close

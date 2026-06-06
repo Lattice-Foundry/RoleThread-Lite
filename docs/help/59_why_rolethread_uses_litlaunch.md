@@ -36,7 +36,7 @@ local app-style window.
 Source users can run the same profile from a checkout:
 
 ```bat
-python -m litlaunch.cli run --profile rolethread-webapp
+litlaunch --profile rolethread-webapp
 ```
 
 Normal Streamlit browser mode is still useful for development:
@@ -70,7 +70,7 @@ Source users and support workflows can also generate a LitLaunch diagnostics
 report without opening the app:
 
 ```bat
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch report --profile rolethread-webapp --force
 ```
 
 ## Why This Matters

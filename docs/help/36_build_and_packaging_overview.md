@@ -53,9 +53,9 @@ Runtime dependencies live in `requirements.txt`. Developer/build dependencies be
 Development launch workflows may use:
 
 - `streamlit run app.py`
-- `python -m litlaunch.cli run --profile rolethread-webapp`
-- `python -m litlaunch.cli run --profile rolethread-browser` for secondary browser-mode smoke testing
-- `python -m litlaunch report --profile rolethread-webapp --force`
+- `litlaunch --profile rolethread-webapp`
+- `litlaunch --profile rolethread-browser` for secondary browser-mode smoke testing
+- `litlaunch report --profile rolethread-webapp --force`
 - `.venv\Scripts\python.exe installer\windows\launcher\rolethread_launcher.py`
 - scripts under `installer/windows/scripts/`
 

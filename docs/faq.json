@@ -856,7 +856,7 @@
   },
   {
     "question": "Installation and launching: How do I launch RoleThread Lite from source?",
-    "answer": "For normal source browser use, activate the virtual environment and run `streamlit run app.py`.\n\nFor the Windows app-window profile, use `python -m litlaunch.cli run --profile rolethread-webapp`.",
+    "answer": "For normal source browser use, activate the virtual environment and run `streamlit run app.py`.\n\nFor the Windows app-window profile, use `litlaunch --profile rolethread-webapp`.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
@@ -876,7 +876,7 @@
   },
   {
     "question": "Installation and launching: How do I launch the LitLaunch app-window profile from source?",
-    "answer": "Run `python -m litlaunch.cli run --profile rolethread-webapp` from the source checkout.\n\nWhen the app is running, open **Support -> Diagnostics** for runtime posture, product support context, support artifacts, and the runtime event trail. For a report without opening the app, use `python -m litlaunch report --profile rolethread-webapp --force`. Reports are written under `.litlaunch/reports/`.",
+    "answer": "Run `litlaunch --profile rolethread-webapp` from the source checkout.\n\nWhen the app is running, open **Support -> Diagnostics** for runtime posture, product support context, support artifacts, and the runtime event trail. For a report without opening the app, use `litlaunch report --profile rolethread-webapp --force`. Reports are written under `.litlaunch/reports/`.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
@@ -913,7 +913,7 @@
   },
   {
     "question": "Installation and launching: Can I still use normal Streamlit browser mode from source?",
-    "answer": "Yes. `streamlit run app.py` remains valid for source and developer browser mode.\n\nThe official Windows app-window launch is handled through the `rolethread-webapp` LitLaunch profile. Developers can also smoke LitLaunch's regular-browser path with `python -m litlaunch.cli run --profile rolethread-browser`.",
+    "answer": "Yes. `streamlit run app.py` remains valid for source and developer browser mode.\n\nThe official Windows app-window launch is handled through the `rolethread-webapp` LitLaunch profile. Developers can also smoke LitLaunch's regular-browser path with `litlaunch --profile rolethread-browser`.",
     "category": "Installation and Launching",
     "related_help_ids": [
       "installing-rolethread-lite",
@@ -922,7 +922,7 @@
   },
   {
     "question": "Troubleshooting: How do I run LitLaunch diagnostics?",
-    "answer": "Open **Support -> Diagnostics** in the app first. It shows runtime summary, operational snapshot, governance/exposure/transport posture, RoleThread product support context, support artifact actions, and the Runtime Event Trail.\n\nFrom a source checkout, you can also run `python -m litlaunch report --profile rolethread-webapp --force`.\n\nReports and bundles are written under `.litlaunch/reports/`. They are support artifacts, not telemetry. LitLaunch may show a generic redaction/privacy warning so you remember to review local paths and runtime metadata before sharing.\n\nFor advanced support workflows, `python -m litlaunch inspect --profile rolethread-webapp --json` and `python -m litlaunch inspect --profile rolethread-webapp --bundle` remain available.",
+    "answer": "Open **Support -> Diagnostics** in the app first. It shows runtime summary, operational snapshot, governance/exposure/transport posture, RoleThread product support context, support artifact actions, and the Runtime Event Trail.\n\nFrom a source checkout, you can also run `litlaunch report --profile rolethread-webapp --force`.\n\nReports and bundles are written under `.litlaunch/reports/`. They are support artifacts, not telemetry. LitLaunch may show a generic redaction/privacy warning so you remember to review local paths and runtime metadata before sharing.\n\nFor advanced support workflows, `litlaunch inspect --profile rolethread-webapp --json` and `litlaunch inspect --profile rolethread-webapp --bundle` remain available.",
     "category": "Troubleshooting",
     "related_help_ids": [
       "why-rolethread-uses-litlaunch",

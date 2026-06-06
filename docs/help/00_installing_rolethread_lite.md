@@ -74,7 +74,7 @@ streamlit run app.py
 For the Windows app-window launch path:
 
 ```bat
-python -m litlaunch.cli run --profile rolethread-webapp
+litlaunch --profile rolethread-webapp
 ```
 
 This uses the same LitLaunch profile model as the installed app. LitLaunch
@@ -96,8 +96,8 @@ streamlit run app.py
 For LitLaunch-managed browser-mode runtime, diagnostics, and support artifacts:
 
 ```bash
-python -m litlaunch.cli run --profile rolethread-browser
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch --profile rolethread-browser
+litlaunch report --profile rolethread-webapp --force
 ```
 
 The Windows Edge app-window profile is not the Linux V1 packaged path. Use
@@ -120,8 +120,8 @@ streamlit run app.py
 For LitLaunch-managed browser-mode runtime, diagnostics, and support artifacts:
 
 ```bash
-python -m litlaunch.cli run --profile rolethread-browser
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch --profile rolethread-browser
+litlaunch report --profile rolethread-webapp --force
 ```
 
 The Windows Edge app-window profile is not the macOS V1 packaged path. Use

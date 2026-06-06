@@ -135,8 +135,8 @@ Linux and macOS source users can also use LitLaunch profiles for managed local
 runtime behavior, diagnostics, runtime event logging, and support artifacts:
 
 ```bash
-python -m litlaunch.cli run --profile rolethread-browser
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch --profile rolethread-browser
+litlaunch report --profile rolethread-webapp --force
 ```
 
 Windows/dev setup:
@@ -166,7 +166,7 @@ window backed by LitLaunch.
 Source users can launch the same Windows app-window profile with:
 
 ```bat
-python -m litlaunch.cli run --profile rolethread-webapp
+litlaunch --profile rolethread-webapp
 ```
 
 The installed app includes **Support -> Diagnostics**, a LitLaunch-powered
@@ -178,7 +178,7 @@ Source users and support workflows can also generate a report without opening
 the app:
 
 ```bat
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch report --profile rolethread-webapp --force
 ```
 
 Diagnostics are support artifacts, not telemetry. LitLaunch uses pattern-based

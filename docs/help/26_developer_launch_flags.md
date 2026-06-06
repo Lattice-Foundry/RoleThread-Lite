@@ -2,8 +2,8 @@
 
 RoleThread has three source launch paths:
 
-- `python -m litlaunch.cli run --profile rolethread-webapp` for the LitLaunch app-window profile
-- `python -m litlaunch.cli run --profile rolethread-browser` for a secondary LitLaunch browser smoke profile
+- `litlaunch --profile rolethread-webapp` for the LitLaunch app-window profile
+- `litlaunch --profile rolethread-browser` for a secondary LitLaunch browser smoke profile
 - `streamlit run app.py` for plain Streamlit browser development
 
 Use `rolethread-webapp` when testing the same runtime shape used by the
@@ -14,7 +14,7 @@ UI behavior and you do not need LitLaunch runtime ownership.
 ## Official LitLaunch App-Window Profile
 
 ```bat
-python -m litlaunch.cli run --profile rolethread-webapp
+litlaunch --profile rolethread-webapp
 ```
 
 This command loads `litlaunch.toml` and lets LitLaunch own runtime behavior:
@@ -30,7 +30,7 @@ argument through `streamlit run`.
 ## Secondary Browser Smoke Profile
 
 ```bat
-python -m litlaunch.cli run --profile rolethread-browser
+litlaunch --profile rolethread-browser
 ```
 
 This profile is developer-oriented. It opens RoleThread through LitLaunch in a
@@ -48,7 +48,7 @@ Use LitLaunch report when you need a support artifact without launching the
 app:
 
 ```bat
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch report --profile rolethread-webapp --force
 ```
 
 Reports and bundles are written under `.litlaunch/reports/`. They are support
@@ -60,8 +60,8 @@ and configuration; it does not secure a Streamlit app by itself.
 Advanced support workflows can still inspect structured profile data:
 
 ```bat
-python -m litlaunch inspect --profile rolethread-webapp --json
-python -m litlaunch inspect --profile rolethread-webapp --bundle
+litlaunch inspect --profile rolethread-webapp --json
+litlaunch inspect --profile rolethread-webapp --bundle
 ```
 
 Diagnostics are useful for profile loading, command planning, browser policy,

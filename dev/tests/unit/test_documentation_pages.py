@@ -43,6 +43,8 @@ from ui.help_docs import (
     validate_help_article_registry,
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 class FakeHelpStreamlit:
     def __init__(self):
@@ -434,14 +436,14 @@ def test_developer_launch_flags_help_article_documents_supported_flags():
 
     assert document.article.title == "Developer Launch and Diagnostics"
     assert document.article.category == "For Developers"
-    assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
-    assert "python -m litlaunch.cli run --profile rolethread-browser" in document.content
+    assert "litlaunch --profile rolethread-webapp" in document.content
+    assert "litlaunch --profile rolethread-browser" in document.content
     assert "secondary LitLaunch browser smoke profile" in document.content
     assert "not the normal installed-user path" in document.content
-    assert "python -m litlaunch report --profile rolethread-webapp --force" in document.content
+    assert "litlaunch report --profile rolethread-webapp --force" in document.content
     assert ".litlaunch/reports/" in document.content
-    assert "python -m litlaunch inspect --profile rolethread-webapp --json" in document.content
-    assert "python -m litlaunch inspect --profile rolethread-webapp --bundle" in document.content
+    assert "litlaunch inspect --profile rolethread-webapp --json" in document.content
+    assert "litlaunch inspect --profile rolethread-webapp --bundle" in document.content
     assert "runtime event trail" in document.content
     assert "Generated Diagnostics Page" in document.content
     assert "not telemetry" in document.content
@@ -473,6 +475,36 @@ def test_public_help_docs_do_not_reference_removed_webapp_flows():
             assert term not in document.content, article.article_id
 
 
+def test_public_docs_use_current_litlaunch_cli_style():
+    stale_patterns = (
+        "python -m litlaunch.cli",
+        "litlaunch.cli",
+        "python -m litlaunch report",
+        "python -m litlaunch inspect",
+    )
+    public_doc_paths = [
+        REPO_ROOT / "README.md",
+        REPO_ROOT / "docs" / "faq.json",
+        REPO_ROOT / "docs" / "release_v1_stable.md",
+        REPO_ROOT / "installer" / "windows" / "README.md",
+        *sorted((REPO_ROOT / "docs" / "help").glob("*.md")),
+    ]
+
+    for path in public_doc_paths:
+        content = path.read_text(encoding="utf-8")
+        for pattern in stale_patterns:
+            assert pattern not in content, path
+
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    developer_launch = load_help_document("developer-launch-flags").content
+    installing = load_help_document("installing-rolethread-lite").content
+
+    assert "litlaunch --profile rolethread-webapp" in readme
+    assert "litlaunch --profile rolethread-webapp" in developer_launch
+    assert "litlaunch --profile rolethread-browser" in developer_launch
+    assert "litlaunch report --profile rolethread-webapp --force" in installing
+
+
 def test_installing_rolethread_lite_help_article_documents_install_and_uninstall():
     document = load_help_document("installing-rolethread-lite")
 
@@ -484,7 +516,7 @@ def test_installing_rolethread_lite_help_article_documents_install_and_uninstall
         document.content
     )
     assert "More info -> Run anyway" in document.content
-    assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
+    assert "litlaunch --profile rolethread-webapp" in document.content
     assert "Users do\nnot choose a runtime mode during setup" in document.content
     assert "Use Windows Edge webapp mode" not in document.content
     assert "Linux uses the source/manual workflow" in document.content
@@ -506,8 +538,8 @@ def test_why_rolethread_uses_litlaunch_help_article_is_user_facing():
     assert document.article.category == "Getting Started"
     assert "local-first app" in document.content
     assert "LitLaunch provides that runtime layer" in document.content
-    assert "python -m litlaunch.cli run --profile rolethread-webapp" in document.content
-    assert "python -m litlaunch report --profile rolethread-webapp --force" in document.content
+    assert "litlaunch --profile rolethread-webapp" in document.content
+    assert "litlaunch report --profile rolethread-webapp --force" in document.content
     assert ".litlaunch/reports/" in document.content
     assert "Support -> Diagnostics" in document.content
     assert "downloadable support artifacts" in document.content
@@ -530,7 +562,7 @@ def test_os_compatibility_help_article_documents_v1_policy():
     assert "~/.local/share/rolethread" in document.content
     assert "~/Library/Application Support/RoleThread" in document.content
     assert "local Microsoft Edge app-window" in document.content
-    assert "python -m litlaunch report --profile rolethread-webapp --force" in document.content
+    assert "litlaunch report --profile rolethread-webapp --force" in document.content
     assert ".litlaunch/reports/" in document.content
     assert "runtime event\nhistory" in document.content
     assert "streamlit run app.py -- webapp" not in document.content
@@ -1658,7 +1690,7 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert max(len(group) for group in grouped.values()) < len(entries) * 0.25
     assert any(
         entry.display_question == "How do I launch RoleThread Lite from source?"
-        and "python -m litlaunch.cli run --profile rolethread-webapp" in entry.answer
+        and "litlaunch --profile rolethread-webapp" in entry.answer
         and "installing-rolethread-lite" in entry.related_help_ids
         for entry in entries
     )
@@ -1683,7 +1715,7 @@ def test_faq_entries_group_into_clean_sidebar_categories():
     assert any(
         entry.display_question
         == "Can I still use normal Streamlit browser mode from source?"
-        and "python -m litlaunch.cli run --profile rolethread-browser"
+        and "litlaunch --profile rolethread-browser"
         in entry.answer
         and "official Windows app-window launch" in entry.answer
         for entry in entries
@@ -1698,7 +1730,7 @@ def test_faq_entries_group_into_clean_sidebar_categories():
         entry.display_question == "How do I run LitLaunch diagnostics?"
         and "Support -> Diagnostics" in entry.answer
         and "Runtime Event Trail" in entry.answer
-        and "python -m litlaunch report --profile rolethread-webapp --force"
+        and "litlaunch report --profile rolethread-webapp --force"
         in entry.answer
         and ".litlaunch/reports/" in entry.answer
         and "not telemetry" in entry.answer

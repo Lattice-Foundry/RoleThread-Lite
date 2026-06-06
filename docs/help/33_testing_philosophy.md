@@ -93,7 +93,7 @@ Packaging verification is partly manual by design:
 - confirm the LitLaunch profile loads
 - confirm the backend starts on `127.0.0.1:8501`
 - confirm the app window opens
-- optionally smoke `python -m litlaunch.cli run --profile rolethread-browser` when testing regular-browser LitLaunch behavior
+- optionally smoke `litlaunch --profile rolethread-browser` when testing regular-browser LitLaunch behavior
 - close the app window and confirm shutdown/cloud-sync closeout
 - build the Inno installer
 - install, launch, uninstall, and verify user data behavior
@@ -101,7 +101,7 @@ Packaging verification is partly manual by design:
 For command-line diagnostics, use:
 
 ```bat
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch report --profile rolethread-webapp --force
 ```
 
 The running app also exposes **Support -> Diagnostics**. That page should be

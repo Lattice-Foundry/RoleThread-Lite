@@ -234,7 +234,7 @@ Expected behavior:
 To test source profile launch without the packaged wrapper, use:
 
 ```powershell
-python -m litlaunch.cli run --profile rolethread-webapp
+litlaunch --profile rolethread-webapp
 ```
 
 For diagnostics:
@@ -246,7 +246,7 @@ support context, support artifact actions, and the runtime event trail.
 Source/operator workflows can also generate a report directly:
 
 ```powershell
-python -m litlaunch report --profile rolethread-webapp --force
+litlaunch report --profile rolethread-webapp --force
 ```
 
 Generated diagnostics reports and bundles are written under
@@ -257,8 +257,8 @@ LitLaunch reports runtime posture and configuration, but it does not secure
 Streamlit apps by itself. For advanced support output, use:
 
 ```powershell
-python -m litlaunch inspect --profile rolethread-webapp --json
-python -m litlaunch inspect --profile rolethread-webapp --bundle
+litlaunch inspect --profile rolethread-webapp --json
+litlaunch inspect --profile rolethread-webapp --bundle
 ```
 
 ## Uninstall Behavior
