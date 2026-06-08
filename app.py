@@ -109,10 +109,18 @@ section[data-testid="stSidebar"] > div {{
 .rolethread-sidebar-brand {{
     align-items: center;
     display: flex;
-    gap: 0.72rem;
+    flex-direction: column;
+    gap: 0.52rem;
     justify-content: center;
     margin: 0.35rem 0 1.35rem 0;
     padding-bottom: 0.3rem;
+}}
+.rolethread-sidebar-brand-main {{
+    align-items: center;
+    display: flex;
+    gap: 0.72rem;
+    justify-content: center;
+    width: 100%;
 }}
 .rolethread-sidebar-logo {{
     flex: 0 0 auto;
@@ -138,6 +146,33 @@ section[data-testid="stSidebar"] > div {{
     letter-spacing: 0;
     line-height: 1.25;
     margin-top: 0.24rem;
+}}
+.rolethread-powered-by {{
+    align-items: center;
+    background: rgba(10, 12, 14, 0.28);
+    border: 1px solid rgba(232, 232, 232, 0.16);
+    border-radius: 6px;
+    display: flex;
+    gap: 0.36rem;
+    justify-content: center;
+    max-width: 12.5rem;
+    padding: 0.28rem 0.45rem;
+    width: min(12.5rem, 100%);
+}}
+.rolethread-powered-label {{
+    color: rgba(232, 232, 232, 0.72);
+    font-size: 0.64rem;
+    font-weight: 650;
+    letter-spacing: 0;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+}}
+.rolethread-powered-logo {{
+    display: block;
+    height: 1.1rem;
+    max-width: 7.4rem;
+    object-fit: contain;
 }}
 /* Native top navigation: align hover/current indicators with RoleThread mint. */
 div[data-testid="stTopNavLinkContainer"]:hover,

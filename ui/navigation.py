@@ -207,6 +207,11 @@ APP_BRAND_SUBTITLE = "Narrative Intelligence"
 APP_BRAND_LOGO_PATH = (
     Path(__file__).resolve().parent / "assets" / "rolethread_logo_crop.png"
 )
+APP_POWERED_BY_LABEL = "Powered by"
+APP_POWERED_BY_NAME = "LitLaunch"
+APP_POWERED_BY_LOGO_PATH = (
+    Path(__file__).resolve().parent / "assets" / "litlaunch_logo.svg"
+)
 
 
 def get_page_registry() -> dict[str, PageDefinition]:
@@ -243,21 +248,35 @@ def render_sidebar_branding() -> None:
     """Render the shared RoleThread shell identity at the top of the sidebar."""
 
     logo_data_uri = get_sidebar_brand_logo_data_uri()
+    powered_logo_data_uri = get_litlaunch_logo_data_uri()
     logo_markup = ""
     if logo_data_uri:
         logo_markup = (
             f'<img class="rolethread-sidebar-logo" src="{logo_data_uri}" '
             f'alt="{APP_BRAND_TITLE} logo" />'
         )
+    powered_markup = ""
+    if powered_logo_data_uri:
+        powered_markup = (
+            f'<div class="rolethread-powered-by" '
+            f'aria-label="{APP_POWERED_BY_LABEL} {APP_POWERED_BY_NAME}">'
+            f'<span class="rolethread-powered-label">{APP_POWERED_BY_LABEL}</span>'
+            f'<img class="rolethread-powered-logo" src="{powered_logo_data_uri}" '
+            f'alt="{APP_POWERED_BY_NAME} logo" />'
+            f"</div>"
+        )
 
     st.sidebar.markdown(
         f"""
         <div class="rolethread-sidebar-brand">
-            {logo_markup}
-            <div class="rolethread-sidebar-copy">
-                <div class="rolethread-sidebar-title">{APP_BRAND_TITLE}</div>
-                <div class="rolethread-sidebar-subtitle">{APP_BRAND_SUBTITLE}</div>
+            <div class="rolethread-sidebar-brand-main">
+                {logo_markup}
+                <div class="rolethread-sidebar-copy">
+                    <div class="rolethread-sidebar-title">{APP_BRAND_TITLE}</div>
+                    <div class="rolethread-sidebar-subtitle">{APP_BRAND_SUBTITLE}</div>
+                </div>
             </div>
+            {powered_markup}
         </div>
         """,
         unsafe_allow_html=True,
@@ -272,6 +291,18 @@ def get_sidebar_brand_logo_data_uri() -> str:
         return ""
     encoded_logo = base64.b64encode(APP_BRAND_LOGO_PATH.read_bytes()).decode("ascii")
     return f"data:image/png;base64,{encoded_logo}"
+
+
+@lru_cache(maxsize=1)
+def get_litlaunch_logo_data_uri() -> str:
+    """Return the LitLaunch logo as an SVG data URI when available."""
+
+    if not APP_POWERED_BY_LOGO_PATH.exists():
+        return ""
+    encoded_logo = base64.b64encode(APP_POWERED_BY_LOGO_PATH.read_bytes()).decode(
+        "ascii"
+    )
+    return f"data:image/svg+xml;base64,{encoded_logo}"
 
 
 def resolve_page(page_id: str | None) -> str | None:
