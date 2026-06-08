@@ -50,16 +50,15 @@ class FakeHelpStreamlit:
     def __init__(self):
         self.session_state = {}
         self.rerun_count = 0
-        self.iframe_calls = []
+        self.html_calls = []
 
     def rerun(self):
         self.rerun_count += 1
 
-    def iframe(self, body, *, height=None, width=None):
-        self.iframe_calls.append({
+    def html(self, body, *, height=None):
+        self.html_calls.append({
             "body": body,
             "height": height,
-            "width": width,
         })
 
 
@@ -1181,33 +1180,34 @@ def test_select_help_article_falls_back_for_unknown_article(monkeypatch):
 def test_scroll_to_top_does_not_run_on_initial_article_render(monkeypatch):
     fake_st = FakeHelpStreamlit()
     monkeypatch.setattr(ui_help, "st", fake_st)
+    monkeypatch.setattr(ui_help, "components", fake_st)
 
     ui_help._scroll_to_top_on_article_change("getting-started")
 
     assert fake_st.session_state[ui_help.HELP_LAST_RENDERED_ARTICLE_KEY] == "getting-started"
-    assert fake_st.iframe_calls == []
+    assert fake_st.html_calls == []
 
 
 def test_scroll_to_top_runs_only_when_article_changes(monkeypatch):
     fake_st = FakeHelpStreamlit()
     fake_st.session_state[ui_help.HELP_LAST_RENDERED_ARTICLE_KEY] = "getting-started"
     monkeypatch.setattr(ui_help, "st", fake_st)
+    monkeypatch.setattr(ui_help, "components", fake_st)
 
     ui_help._scroll_to_top_on_article_change("getting-started")
     ui_help._scroll_to_top_on_article_change("exporting-datasets")
 
-    assert len(fake_st.iframe_calls) == 1
-    assert "scrollTo" in fake_st.iframe_calls[0]["body"]
-    assert "requestAnimationFrame(scrollTopNow)" in fake_st.iframe_calls[0]["body"]
-    assert "__rolethreadHelpScrollToken" in fake_st.iframe_calls[0]["body"]
-    assert "exporting-datasets:1" in fake_st.iframe_calls[0]["body"]
-    assert "stAppViewContainer" in fake_st.iframe_calls[0]["body"]
-    assert "stMain" in fake_st.iframe_calls[0]["body"]
-    assert "stMainBlockContainer" in fake_st.iframe_calls[0]["body"]
-    assert "setTimeout(scrollTopNow, 400)" in fake_st.iframe_calls[0]["body"]
-    assert 'behavior: "auto"' in fake_st.iframe_calls[0]["body"]
-    assert fake_st.iframe_calls[0]["height"] == 1
-    assert fake_st.iframe_calls[0]["width"] == 1
+    assert len(fake_st.html_calls) == 1
+    assert "scrollTo" in fake_st.html_calls[0]["body"]
+    assert "requestAnimationFrame(scrollTopNow)" in fake_st.html_calls[0]["body"]
+    assert "__rolethreadHelpScrollToken" in fake_st.html_calls[0]["body"]
+    assert "exporting-datasets:1" in fake_st.html_calls[0]["body"]
+    assert "stAppViewContainer" in fake_st.html_calls[0]["body"]
+    assert "stMain" in fake_st.html_calls[0]["body"]
+    assert "stMainBlockContainer" in fake_st.html_calls[0]["body"]
+    assert "setTimeout(scrollTopNow, 400)" in fake_st.html_calls[0]["body"]
+    assert 'behavior: "auto"' in fake_st.html_calls[0]["body"]
+    assert fake_st.html_calls[0]["height"] == 1
     assert fake_st.session_state[ui_help.HELP_SCROLL_COUNTER_KEY] == 1
     assert fake_st.session_state[ui_help.HELP_LAST_RENDERED_ARTICLE_KEY] == (
         "exporting-datasets"
@@ -1218,14 +1218,15 @@ def test_scroll_to_top_token_changes_per_article_change(monkeypatch):
     fake_st = FakeHelpStreamlit()
     fake_st.session_state[ui_help.HELP_LAST_RENDERED_ARTICLE_KEY] = "getting-started"
     monkeypatch.setattr(ui_help, "st", fake_st)
+    monkeypatch.setattr(ui_help, "components", fake_st)
 
     ui_help._scroll_to_top_on_article_change("exporting-datasets")
     ui_help._scroll_to_top_on_article_change("editing-entries")
 
-    assert len(fake_st.iframe_calls) == 2
-    assert "exporting-datasets:1" in fake_st.iframe_calls[0]["body"]
-    assert "editing-entries:2" in fake_st.iframe_calls[1]["body"]
-    assert fake_st.iframe_calls[0]["body"] != fake_st.iframe_calls[1]["body"]
+    assert len(fake_st.html_calls) == 2
+    assert "exporting-datasets:1" in fake_st.html_calls[0]["body"]
+    assert "editing-entries:2" in fake_st.html_calls[1]["body"]
+    assert fake_st.html_calls[0]["body"] != fake_st.html_calls[1]["body"]
 
 
 def test_clickable_article_outline_remains_disabled_by_default():

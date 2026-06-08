@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from ui.help_docs import (
     HELP_DIR,
@@ -173,7 +174,7 @@ def _scroll_to_top_on_article_change(article_id: str) -> None:
 
     # Streamlit does not expose a reliable native imperative scroll-to-top API.
     # Keep this helper isolated to Help article transitions only.
-    st.iframe(
+    components.html(
         f"""
         <script>
         (() => {{
@@ -219,7 +220,6 @@ def _scroll_to_top_on_article_change(article_id: str) -> None:
         </script>
         """,
         height=1,
-        width=1,
     )
 
 
