@@ -72,8 +72,7 @@ def test_page_registry_exposes_legacy_pages():
 def test_sidebar_branding_metadata_is_compact_shell_identity():
     assert navigation.APP_BRAND_TITLE == "RoleThread Lite"
     assert navigation.APP_BRAND_SUBTITLE == "Narrative Intelligence"
-    assert navigation.APP_POWERED_BY_LABEL == "Powered by"
-    assert navigation.APP_POWERED_BY_NAME == "LitLaunch"
+    assert navigation.APP_POWERED_BY_LABEL == "Powered by LitLaunch"
 
 
 def test_sidebar_brand_logo_is_available_as_png_data_uri():
@@ -82,13 +81,13 @@ def test_sidebar_brand_logo_is_available_as_png_data_uri():
     assert logo_data_uri.startswith("data:image/png;base64,")
 
 
-def test_litlaunch_logo_is_available_as_svg_data_uri():
-    logo_data_uri = navigation.get_litlaunch_logo_data_uri()
+def test_powered_by_litlaunch_logo_is_available_as_svg_data_uri():
+    logo_data_uri = navigation.get_powered_by_litlaunch_logo_data_uri()
 
     assert logo_data_uri.startswith("data:image/svg+xml;base64,")
     decoded_logo = base64.b64decode(logo_data_uri.split(",", 1)[1]).decode("utf-8")
     assert "<svg" in decoded_logo
-    assert "LitLaunch" in decoded_logo
+    assert "Powered by LitLaunch" in decoded_logo
 
 
 def test_page_registry_has_unique_titles_and_paths():

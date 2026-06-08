@@ -207,10 +207,9 @@ APP_BRAND_SUBTITLE = "Narrative Intelligence"
 APP_BRAND_LOGO_PATH = (
     Path(__file__).resolve().parent / "assets" / "rolethread_logo_crop.png"
 )
-APP_POWERED_BY_LABEL = "Powered by"
-APP_POWERED_BY_NAME = "LitLaunch"
+APP_POWERED_BY_LABEL = "Powered by LitLaunch"
 APP_POWERED_BY_LOGO_PATH = (
-    Path(__file__).resolve().parent / "assets" / "litlaunch_logo.svg"
+    Path(__file__).resolve().parent / "assets" / "powered_litlaunch_dark.svg"
 )
 
 
@@ -248,7 +247,7 @@ def render_sidebar_branding() -> None:
     """Render the shared RoleThread shell identity at the top of the sidebar."""
 
     logo_data_uri = get_sidebar_brand_logo_data_uri()
-    powered_logo_data_uri = get_litlaunch_logo_data_uri()
+    powered_logo_data_uri = get_powered_by_litlaunch_logo_data_uri()
     logo_markup = ""
     if logo_data_uri:
         logo_markup = (
@@ -259,10 +258,9 @@ def render_sidebar_branding() -> None:
     if powered_logo_data_uri:
         powered_markup = (
             f'<div class="rolethread-powered-by" '
-            f'aria-label="{APP_POWERED_BY_LABEL} {APP_POWERED_BY_NAME}">'
-            f'<span class="rolethread-powered-label">{APP_POWERED_BY_LABEL}</span>'
+            f'aria-label="{APP_POWERED_BY_LABEL}">'
             f'<img class="rolethread-powered-logo" src="{powered_logo_data_uri}" '
-            f'alt="{APP_POWERED_BY_NAME} logo" />'
+            f'alt="{APP_POWERED_BY_LABEL}" />'
             f"</div>"
         )
 
@@ -294,8 +292,8 @@ def get_sidebar_brand_logo_data_uri() -> str:
 
 
 @lru_cache(maxsize=1)
-def get_litlaunch_logo_data_uri() -> str:
-    """Return the LitLaunch logo as an SVG data URI when available."""
+def get_powered_by_litlaunch_logo_data_uri() -> str:
+    """Return the Powered by LitLaunch mark as an SVG data URI when available."""
 
     if not APP_POWERED_BY_LOGO_PATH.exists():
         return ""

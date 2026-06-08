@@ -110,7 +110,7 @@ section[data-testid="stSidebar"] > div {{
     align-items: center;
     display: flex;
     flex-direction: column;
-    gap: 0.52rem;
+    gap: 0.36rem;
     justify-content: center;
     margin: 0.35rem 0 1.35rem 0;
     padding-bottom: 0.3rem;
@@ -149,30 +149,16 @@ section[data-testid="stSidebar"] > div {{
 }}
 .rolethread-powered-by {{
     align-items: center;
-    background: rgba(10, 12, 14, 0.28);
-    border: 1px solid rgba(232, 232, 232, 0.16);
-    border-radius: 6px;
     display: flex;
-    gap: 0.36rem;
     justify-content: center;
-    max-width: 12.5rem;
-    padding: 0.28rem 0.45rem;
-    width: min(12.5rem, 100%);
-}}
-.rolethread-powered-label {{
-    color: rgba(232, 232, 232, 0.72);
-    font-size: 0.64rem;
-    font-weight: 650;
-    letter-spacing: 0;
-    line-height: 1;
-    text-transform: uppercase;
-    white-space: nowrap;
+    width: 100%;
 }}
 .rolethread-powered-logo {{
     display: block;
-    height: 1.1rem;
-    max-width: 7.4rem;
+    height: auto;
+    max-width: 10.1rem;
     object-fit: contain;
+    width: 10.1rem;
 }}
 /* Native top navigation: align hover/current indicators with RoleThread mint. */
 div[data-testid="stTopNavLinkContainer"]:hover,
