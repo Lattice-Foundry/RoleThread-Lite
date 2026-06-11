@@ -96,7 +96,7 @@ available for a clear restore if the machine or process fails mid-operation.
 
 ## Version 1 Stable Status
 
-RoleThread Lite 1.0.0 is the stable release surface for dataset craftsmanship.
+RoleThread Lite 1.0.1 is the stable release surface for dataset craftsmanship.
 
 ## Install Options
 

@@ -14,7 +14,6 @@ from core.db_backups import create_db_backup
 from core.tag_migrations import (
     _deactivate_empty_unsorted_category,
     _migrate_legacy_source_status_category,
-    _migrate_tag_history_table,
     _migrate_tag_lifecycle_schema,
     _migrate_tags_slug_column,
 )
@@ -27,27 +26,19 @@ from core.tag_constants import (
     ARCHIVE_REASON_USER_SOFT_DELETE,
     MAX_ACTIVE_CATEGORIES,
     TAG_LIFECYCLE_METADATA_IMPORT_ARCHIVED,
-    TAG_LIFECYCLE_METADATA_IMPORT_UNCATEGORIZED,
     TAG_RESOLUTION_ARCHIVED,
     TAG_RESOLUTION_UNKNOWN,
     TAG_STATUS_ACTIVE,
     TAG_STATUS_ARCHIVED,
     TAG_STATUS_HIDDEN,
-    TAG_STATUS_UNCATEGORIZED,
     TagResolutionResult,
 )
 from core.models import Tag, TagCategory
 from core.tag_metadata import (
     archive_metadata_for_tag,
     archive_metadata_for_tag_dict,
-    build_active_assigned_metadata,
-    build_deleted_archive_metadata,
     build_imported_archive_metadata,
-    build_rename_alias_metadata,
-    clear_current_tag_lifecycle_metadata,
-    clear_or_replace_tag_lifecycle_metadata,
     current_metadata_by_slug,
-    get_current_tag_lifecycle_metadata,
     upsert_tag_lifecycle_metadata,
 )
 from core.tag_normalization import normalize_tag

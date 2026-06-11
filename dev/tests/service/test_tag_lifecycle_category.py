@@ -62,8 +62,8 @@ def test_rename_custom_category_updates_slug_and_preserves_tags(
 def test_rename_custom_category_validation_and_noop_paths(tag_lifecycle_db):
     session = tag_lifecycle_db()
     try:
-        builtin = _add_category(session, slug="behavior", name="Behavior")
-        custom = _add_category(session, slug="story_shape", name="Story Shape")
+        _add_category(session, slug="behavior", name="Behavior")
+        _add_category(session, slug="story_shape", name="Story Shape")
         _add_category(session, slug="duplicate", name="Duplicate")
         _add_category(session, slug="inactive", name="Inactive", active=False)
         session.commit()

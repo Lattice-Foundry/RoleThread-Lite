@@ -4,7 +4,7 @@ The chapters from here through **Creator Ownership and Long-Term Workflow Philos
 
 Prompt Generation (Beta) compiles structured settings into prompts you can paste into an external AI system.
 
-Prompt Generation is a beta feature in RoleThread Lite 1.0.0. It is safe to use
+Prompt Generation is a beta feature in RoleThread Lite 1.0.1. It is safe to use
 as a deterministic prompt compiler, but the workflow and prompt templates may
 evolve as users test it across providers and local models.
 

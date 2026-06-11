@@ -16,7 +16,6 @@ from ui.ui_faq import (
     get_faq_entries_by_category,
     load_faq_entries,
 )
-from ui.ui_help import HelpTopic, clean_help_topic_title, filter_help_topics, load_help_topics
 from ui.help_docs import (
     HELP_DIR,
     HELP_MANIFEST_PATH,
@@ -115,34 +114,6 @@ def _write_help_manifest(tmp_path, manifest):
     manifest_path = tmp_path / "docs" / "help_manifest.json"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     return manifest_path
-
-
-def test_clean_help_topic_title_formats_filename():
-    assert clean_help_topic_title(Path("getting_started.md")) == "Getting Started"
-
-
-def test_load_help_topics_reads_markdown_files(tmp_path):
-    help_dir = tmp_path / "help"
-    help_dir.mkdir()
-    (help_dir / "getting_started.md").write_text("# Welcome", encoding="utf-8")
-    (help_dir / "ignore.txt").write_text("Nope", encoding="utf-8")
-
-    topics = load_help_topics(help_dir)
-
-    assert len(topics) == 1
-    assert topics[0].title == "Getting Started"
-    assert topics[0].content == "# Welcome"
-
-
-def test_filter_help_topics_matches_title_and_content():
-    topics = (
-        HelpTopic(title="Getting Started", content="Welcome guide", path=Path("a.md")),
-        HelpTopic(title="Export", content="Create JSONL files", path=Path("b.md")),
-    )
-
-    assert filter_help_topics(topics, "export") == (topics[1],)
-    assert filter_help_topics(topics, "welcome") == (topics[0],)
-    assert filter_help_topics(topics, "   ") == topics
 
 
 def test_help_article_registry_has_expected_articles():
@@ -630,7 +601,7 @@ def test_data_generation_help_article_documents_public_positioning():
     assert document.article.title == "Prompt Generation (Beta)"
     assert document.article.category == "Prompt Generation (Beta)"
     assert "RoleThread Lite does not call an AI provider" in document.content
-    assert "Prompt Generation is a beta feature in RoleThread Lite 1.0.0" in (
+    assert "Prompt Generation is a beta feature in RoleThread Lite 1.0.1" in (
         document.content
     )
     assert "deterministic prompt compiler" in document.content
@@ -865,8 +836,6 @@ def test_developer_philosophy_help_articles_document_engineering_conventions():
 def test_developer_packaging_help_articles_document_release_and_contribution_flows():
     packaging = load_help_document("build-and-packaging-overview")
     launcher = load_help_document("windows-installer-and-launcher-architecture")
-    contribution = load_help_document("contribution-guidelines")
-    boundaries = load_help_document("lite-vs-studio-boundaries")
 
     assert packaging.article.category == "For Developers"
     assert "PyInstaller one-folder bundle" in packaging.content

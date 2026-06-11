@@ -1,13 +1,9 @@
 """Help documentation browser for RoleThread Lite."""
 
-from dataclasses import dataclass
-from pathlib import Path
-
 import streamlit as st
 import streamlit.components.v1 as components
 
 from ui.help_docs import (
-    HELP_DIR,
     HelpSearchResult,
     build_help_search_results,
     extract_markdown_sections,
@@ -33,59 +29,6 @@ HELP_SCROLL_COUNTER_KEY = "_help_scroll_counter"
 HELP_SEARCH_QUERY_KEY = "help_search_query"
 HELP_SEARCH_RESULTS_VISIBLE_KEY = "help_search_results_visible"
 CLICKABLE_ARTICLE_OUTLINE = False
-
-
-@dataclass(frozen=True)
-class HelpTopic:
-    """Legacy loaded help topic shape kept for helper compatibility."""
-
-    title: str
-    content: str
-    path: Path
-
-
-def clean_help_topic_title(path: Path) -> str:
-    """Convert a Markdown filename into a readable help topic title."""
-
-    return path.stem.replace("_", " ").replace("-", " ").title()
-
-
-def load_help_topics(help_dir: Path | None = None) -> tuple[HelpTopic, ...]:
-    """Load help topics from Markdown files in legacy filename order."""
-
-    source_dir = help_dir or HELP_DIR
-    if not source_dir.exists():
-        return ()
-
-    topics: list[HelpTopic] = []
-    for path in sorted(source_dir.glob("*.md")):
-        if not path.is_file():
-            continue
-        topics.append(
-            HelpTopic(
-                title=clean_help_topic_title(path),
-                content=path.read_text(encoding="utf-8"),
-                path=path,
-            )
-        )
-    return tuple(topics)
-
-
-def filter_help_topics(
-    topics: tuple[HelpTopic, ...],
-    query: str,
-) -> tuple[HelpTopic, ...]:
-    """Filter legacy help topics by title or content keyword match."""
-
-    normalized_query = (query or "").strip().lower()
-    if not normalized_query:
-        return topics
-    return tuple(
-        topic
-        for topic in topics
-        if normalized_query in topic.title.lower()
-        or normalized_query in topic.content.lower()
-    )
 
 
 def get_active_help_article_id() -> str:
